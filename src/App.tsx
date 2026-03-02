@@ -1,0 +1,3480 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Users, 
+  PlusCircle, 
+  Phone,
+  TrendingUp, 
+  CheckCircle2, 
+  Clock, 
+  DollarSign, 
+  LogOut,
+  ChevronRight,
+  Stethoscope,
+  LayoutDashboard,
+  ClipboardList,
+  Download,
+  QrCode,
+  Share2,
+  ExternalLink,
+  MessageCircle,
+  Search,
+  Settings,
+  Trash2,
+  Edit2,
+  Coins,
+  UserCircle,
+  Key,
+  Copy,
+  BookOpen,
+  HelpCircle,
+  ShieldCheck,
+  Zap,
+  ShieldAlert
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { QRCodeCanvas } from 'qrcode.react';
+
+interface Staff {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  promo_code: string;
+  staff_id_code?: string;
+  branch?: string;
+  department?: string;
+  position?: string;
+  employment_status?: string;
+  date_joined?: string;
+  pending_earnings: number;
+  approved_earnings: number;
+  paid_earnings: number;
+  lifetime_earnings: number;
+  last_payout_date?: string;
+  referrer_type: string;
+  phone?: string;
+  aracoins?: number;
+  is_approved?: number;
+  nickname?: string;
+  profile_picture?: string;
+  bank_name?: string;
+  bank_account_number?: string;
+}
+
+interface Service {
+  id: number;
+  name: string;
+  base_price: number;
+  commission_rate: number;
+  aracoins_perk: number;
+  allowances: { [tier: string]: number };
+}
+
+interface Referral {
+  id: number;
+  staff_id: number;
+  staff_name: string;
+  promo_code: string;
+  service_id: number;
+  service_name: string;
+  patient_name: string;
+  patient_phone: string;
+  patient_ic?: string;
+  patient_address?: string;
+  appointment_date: string;
+  booking_time: string;
+  visit_date?: string;
+  date: string;
+  status: 'entered' | 'completed' | 'paid_completed' | 'buffer' | 'approved' | 'payout_processed' | 'rejected';
+  payment_status: 'pending' | 'completed';
+  commission_amount: number;
+  fraud_flags?: string;
+  rejection_reason?: string;
+  branch?: string;
+}
+
+interface AppSettings {
+  blockedDates: string[];
+  blockedTimes: string[];
+  workingHours: { start: string; end: string };
+}
+
+interface ClinicProfile {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  currency: string;
+  logoUrl?: string;
+}
+
+interface RolePermissions {
+  canApprove: boolean;
+  canEditServices: boolean;
+  canEditStaff: boolean;
+  canViewAnalytics: boolean;
+  canManagePayouts: boolean;
+  canManageSettings: boolean;
+}
+
+interface RolesConfig {
+  [role: string]: RolePermissions;
+}
+
+export default function App() {
+  const [currentUser, setCurrentUser] = useState<Staff | null>(null);
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile'>('dashboard');
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  
+  // Setup Tab State
+  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles'>('services');
+  const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
+  const [editingStaff, setEditingStaff] = useState<Partial<Staff> | null>(null);
+  const [isSavingSetup, setIsSavingSetup] = useState(false);
+
+  // Clinic & Roles State
+  const [clinicProfile, setClinicProfile] = useState<ClinicProfile>({
+    name: 'Clinic Incentive Pro',
+    address: '',
+    phone: '',
+    email: '',
+    currency: 'RM'
+  });
+  const [rolesConfig, setRolesConfig] = useState<RolesConfig>({
+    admin: { canApprove: true, canEditServices: true, canEditStaff: true, canViewAnalytics: true, canManagePayouts: true, canManageSettings: true },
+    receptionist: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: false, canManageSettings: false },
+    staff: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: false, canManageSettings: false },
+    dispensary: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: true, canManageSettings: false }
+  });
+
+  // Staff Detail State
+  const [selectedStaffDetail, setSelectedStaffDetail] = useState<Staff | null>(null);
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [isPublicBooking, setIsPublicBooking] = useState(false);
+  const [referringStaff, setReferringStaff] = useState<Staff | null>(null);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+
+  // Receptionist state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [branchFilter, setBranchFilter] = useState<string>('all');
+  const [referralSearch, setReferralSearch] = useState('');
+  const [adminSearch, setAdminSearch] = useState('');
+  const [walkInPromoCode, setWalkInPromoCode] = useState('');
+  const [walkInStaff, setWalkInStaff] = useState<Staff | null>(null);
+  const [appSettings, setAppSettings] = useState<AppSettings>({
+    blockedDates: [],
+    blockedTimes: [],
+    workingHours: { start: '09:00', end: '18:00' }
+  });
+
+  // Commission Tiers Configuration
+  const TIERS = [
+    { name: 'Bronze', min: 0, bonus: 1, color: 'text-orange-700', bg: 'bg-orange-100' },
+    { name: 'Silver', min: 6, bonus: 1.2, color: 'text-zinc-500', bg: 'bg-zinc-100' },
+    { name: 'Gold', min: 11, bonus: 1.5, color: 'text-yellow-700', bg: 'bg-yellow-100' }
+  ];
+
+  // Form states
+  const [patientName, setPatientName] = useState('');
+  const [patientPhone, setPatientPhone] = useState('');
+  const [patientIC, setPatientIC] = useState('');
+  const [patientAddress, setPatientAddress] = useState('');
+  const [appointmentDate, setAppointmentDate] = useState('');
+  const [bookingTime, setBookingTime] = useState('');
+  const [selectedBranch, setSelectedBranch] = useState<string>('');
+  const [selectedService, setSelectedService] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Auth States
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authBranch, setAuthBranch] = useState('');
+  const [authPhone, setAuthPhone] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authSettings, setAuthSettings] = useState({ allowRegistration: true });
+  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    // Check for public booking link
+    const params = new URLSearchParams(window.location.search);
+    const refCode = params.get('ref');
+    if (refCode) {
+      handlePublicBooking(refCode);
+    }
+
+    fetchStaff();
+    fetchServices();
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    const res = await fetch('/api/settings');
+    const data = await res.json();
+    if (data.booking) {
+      setAppSettings(data.booking);
+    }
+    if (data.auth) {
+      setAuthSettings(data.auth);
+    }
+    if (data.clinic) {
+      setClinicProfile(data.clinic);
+    }
+    if (data.roles) {
+      setRolesConfig(data.roles);
+    }
+  };
+
+  const handlePublicBooking = async (code: string) => {
+    setIsPublicBooking(true);
+    const res = await fetch(`/api/staff?promoCode=${code}`);
+    const staff = await res.json();
+    if (staff) {
+      setReferringStaff(staff);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchReferrals();
+    }
+  }, [currentUser, branchFilter]);
+
+  const fetchStaff = async () => {
+    const res = await fetch('/api/staff');
+    const data = await res.json();
+    setStaffList(data);
+    if (currentUser) {
+      const updatedMe = data.find((s: Staff) => s.id === currentUser.id);
+      if (updatedMe) setCurrentUser(updatedMe);
+    }
+  };
+
+  const fetchServices = async () => {
+    const res = await fetch('/api/services');
+    const data = await res.json();
+    setServices(data);
+  };
+
+  const fetchReferrals = async () => {
+    let url = (currentUser?.role === 'admin' || currentUser?.role === 'receptionist') ? '/api/referrals' : `/api/referrals?staffId=${currentUser?.id}`;
+    
+    if (branchFilter !== 'all') {
+      const separator = url.includes('?') ? '&' : '?';
+      url += `${separator}branch=${branchFilter}`;
+    }
+
+    const res = await fetch(url);
+    const data = await res.json();
+    setReferrals(data);
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail, password: authPassword })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCurrentUser(data);
+        if (data.role === 'admin') setActiveTab('admin');
+        else if (data.role === 'receptionist') setActiveTab('receptionist');
+        else setActiveTab('dashboard');
+      } else {
+        setAuthError(data.error || 'Login failed');
+      }
+    } catch (error) {
+      setAuthError('Network error. Please try again.');
+    }
+  };
+
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: authName, 
+          email: authEmail, 
+          password: authPassword, 
+          branch: authBranch, 
+          phone: authPhone 
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCurrentUser(data);
+        setActiveTab('dashboard');
+      } else {
+        setAuthError(data.error || 'Registration failed');
+      }
+    } catch (error) {
+      setAuthError('Network error. Please try again.');
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setActiveTab('dashboard');
+    setAuthEmail('');
+    setAuthPassword('');
+    setAuthName('');
+    setAuthBranch('');
+    setAuthPhone('');
+    setAuthError('');
+  };
+
+  const checkPromoCode = async (code: string) => {
+    setWalkInPromoCode(code);
+    if (code.length >= 3) {
+      const res = await fetch(`/api/staff?promoCode=${code}`);
+      const staff = await res.json();
+      setWalkInStaff(staff);
+    } else {
+      setWalkInStaff(null);
+    }
+  };
+
+  const handleSubmitReferral = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const staffId = isPublicBooking ? referringStaff?.id : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id);
+    if (!staffId || !selectedService || !patientName) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/referrals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          staff_id: staffId,
+          service_id: parseInt(selectedService),
+          patient_name: patientName,
+          patient_phone: patientPhone,
+          patient_ic: patientIC,
+          patient_address: patientAddress,
+          appointment_date: appointmentDate,
+          booking_time: bookingTime,
+          date: new Date().toISOString().split('T')[0],
+          created_by: currentUser?.id,
+          branch: selectedBranch || (isPublicBooking ? referringStaff?.branch : currentUser?.branch)
+        })
+      });
+      
+      const data = await res.json();
+      if (data.fraudFlags && data.fraudFlags.length > 0) {
+        alert(`Referral submitted with flags: ${data.fraudFlags.join(', ')}`);
+      }
+
+      setPatientName('');
+      setPatientPhone('');
+      setPatientIC('');
+      setPatientAddress('');
+      setAppointmentDate('');
+      setBookingTime('');
+      setSelectedService('');
+      setWalkInPromoCode('');
+      setWalkInStaff(null);
+      if (isPublicBooking) {
+        setBookingSuccess(true);
+      } else {
+        fetchReferrals();
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateStatus = async (id: number, status: string, additionalData: any = {}) => {
+    const res = await fetch(`/api/referrals/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        status,
+        ...additionalData,
+        verified_by: (currentUser?.role === 'receptionist' || currentUser?.role === 'admin') ? currentUser.id : undefined
+      })
+    });
+    if (res.ok) {
+      fetchReferrals();
+      fetchStaff();
+    }
+  };
+
+  const handleUpdateProfile = async (profileData: Partial<Staff>) => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch(`/api/staff/${currentUser.id}/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileData)
+      });
+      if (res.ok) {
+        const updatedUser = await res.json();
+        setCurrentUser(updatedUser);
+        alert('Profile updated successfully');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Failed to update profile');
+    }
+  };
+
+  const handleSaveService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingService?.name) return;
+    setIsSavingSetup(true);
+    try {
+      const method = editingService.id ? 'PATCH' : 'POST';
+      const url = editingService.id ? `/api/services/${editingService.id}` : '/api/services';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingService)
+      });
+      if (res.ok) {
+        setEditingService(null);
+        fetchServices();
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsSavingSetup(false);
+    }
+  };
+
+  const handleDeleteService = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this service?')) return;
+    await fetch(`/api/services/${id}`, { method: 'DELETE' });
+    fetchServices();
+  };
+
+  const handleSaveStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStaff?.name || !editingStaff?.email) return;
+    setIsSavingSetup(true);
+    try {
+      const method = editingStaff.id ? 'PATCH' : 'POST';
+      const url = editingStaff.id ? `/api/staff/${editingStaff.id}` : '/api/staff';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingStaff)
+      });
+      if (res.ok) {
+        setEditingStaff(null);
+        fetchStaff();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to save staff');
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsSavingSetup(false);
+    }
+  };
+
+  const handleDeleteStaff = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this staff member?')) return;
+    await fetch(`/api/staff/${id}`, { method: 'DELETE' });
+    fetchStaff();
+  };
+
+  const handleResetPassword = async (id: number) => {
+    if (!confirm('Reset password to default "password123"?')) return;
+    await fetch(`/api/staff/${id}/reset-password`, { method: 'POST' });
+    alert('Password reset successfully');
+  };
+
+  const handleApproveStaff = async (id: number, isApproved: boolean) => {
+    await fetch(`/api/staff/${id}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_approved: isApproved })
+    });
+    fetchStaff();
+  };
+
+  const exportToCSV = () => {
+    const headers = currentUser?.role === 'admin' 
+      ? ['Date', 'Patient Name', 'Service', 'Staff Name', 'Incentive ($)', 'Status']
+      : ['Date', 'Patient Name', 'Service', 'Incentive ($)', 'Status'];
+
+    const csvRows = referrals.map(ref => {
+      const row = [
+        ref.date,
+        `"${ref.patient_name}"`,
+        `"${ref.service_name}"`,
+        ...(currentUser?.role === 'admin' ? [`"${ref.staff_name}"`] : []),
+        ref.commission_amount.toFixed(2),
+        ref.status
+      ];
+      return row.join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `referrals_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  if (isPublicBooking) {
+    return (
+      <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center p-4 font-sans">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white p-8 rounded-3xl shadow-sm max-w-md w-full border border-black/5"
+        >
+          {bookingSuccess ? (
+            <div className="text-center py-8">
+              <div className="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 className="text-emerald-600 w-8 h-8" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">Booking Confirmed!</h2>
+              <p className="text-zinc-500 mb-8">Thank you for your referral. We will contact you shortly to finalize your appointment.</p>
+              <button 
+                onClick={() => setBookingSuccess(false)}
+                className="w-full bg-zinc-900 text-white py-3 rounded-xl font-medium"
+              >
+                Book Another
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="bg-emerald-500 p-2 rounded-xl">
+                  <Stethoscope className="text-white w-6 h-6" />
+                </div>
+                <h1 className="text-2xl font-semibold text-zinc-900 tracking-tight">Clinic Booking</h1>
+              </div>
+              
+              {referringStaff ? (
+                <div className="bg-emerald-50 p-4 rounded-2xl mb-6 border border-emerald-100">
+                  <p className="text-xs text-emerald-700 font-bold uppercase tracking-wider mb-1">Referred By</p>
+                  <p className="font-semibold text-emerald-900">{referringStaff.name}</p>
+                </div>
+              ) : (
+                <div className="bg-orange-50 p-4 rounded-2xl mb-6 border border-orange-100">
+                  <p className="text-xs text-orange-700 font-bold uppercase tracking-wider mb-1">Notice</p>
+                  <p className="text-sm text-orange-900">Referral code not found, but you can still book below.</p>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmitReferral} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Your Full Name</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={patientName}
+                    onChange={(e) => setPatientName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                    placeholder="Enter your name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">WhatsApp Number</label>
+                  <input 
+                    type="tel" 
+                    required
+                    value={patientPhone}
+                    onChange={(e) => setPatientPhone(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                    placeholder="e.g. +60123456789"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Service Required</label>
+                  <select 
+                    required
+                    value={selectedService}
+                    onChange={(e) => setSelectedService(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all appearance-none"
+                  >
+                    <option value="">Select a service</option>
+                    {services.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Booking Date</label>
+                    <input 
+                      type="date" 
+                      required
+                      min={new Date().toISOString().split('T')[0]}
+                      value={appointmentDate}
+                      onChange={(e) => setAppointmentDate(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Booking Time</label>
+                    <select 
+                      required
+                      value={bookingTime}
+                      onChange={(e) => setBookingTime(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all appearance-none"
+                    >
+                      <option value="">Select time</option>
+                      {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(time => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <button 
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full bg-zinc-900 text-white py-4 rounded-xl font-bold hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Processing...' : 'Confirm Appointment'}
+                </button>
+              </form>
+            </>
+          )}
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening';
+
+    return (
+      <div className="min-h-screen bg-[#FBFBFD] flex items-center justify-center p-4 font-sans relative overflow-hidden">
+        {/* Background Decorative Elements */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-50 rounded-full blur-[120px] opacity-60" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-50 rounded-full blur-[120px] opacity-60" />
+        </div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="bg-white p-8 sm:p-12 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] max-w-lg w-full border border-black/[0.03] relative z-10"
+        >
+          <div className="flex flex-col items-center text-center mb-10">
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+              className="bg-emerald-500 p-4 rounded-[1.5rem] shadow-lg shadow-emerald-500/20 mb-6"
+            >
+              <Stethoscope className="text-white w-8 h-8" />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+            >
+              <h1 className="text-3xl font-black text-zinc-900 tracking-tight mb-2">{clinicProfile.name}</h1>
+              <p className="text-zinc-400 text-sm font-medium">{greeting}, please sign in to your account</p>
+            </motion.div>
+          </div>
+          
+          <div className="flex gap-8 mb-10 border-b border-zinc-100 relative">
+            <button 
+              onClick={() => { setAuthMode('login'); setAuthError(''); }}
+              className={`pb-4 text-xs font-black uppercase tracking-[0.2em] transition-all relative z-10 ${authMode === 'login' ? 'text-emerald-600' : 'text-zinc-400 hover:text-zinc-600'}`}
+            >
+              Login
+              {authMode === 'login' && (
+                <motion.div 
+                  layoutId="auth-tab"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600"
+                />
+              )}
+            </button>
+            {authSettings.allowRegistration && (
+              <button 
+                onClick={() => { setAuthMode('register'); setAuthError(''); }}
+                className={`pb-4 text-xs font-black uppercase tracking-[0.2em] transition-all relative z-10 ${authMode === 'register' ? 'text-emerald-600' : 'text-zinc-400 hover:text-zinc-600'}`}
+              >
+                Register
+                {authMode === 'register' && (
+                  <motion.div 
+                    layoutId="auth-tab"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600"
+                  />
+                )}
+              </button>
+            )}
+          </div>
+
+          <AnimatePresence mode="wait">
+            {authError && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-8 p-4 bg-red-50 text-red-600 text-[11px] font-bold rounded-2xl border border-red-100 flex items-center gap-3"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                {authError}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence mode="wait">
+            {authMode === 'login' ? (
+              <motion.form 
+                key="login-form"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                onSubmit={handleLoginSubmit} 
+                className="space-y-6"
+              >
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Email Address</label>
+                  <div className="relative group">
+                    <input 
+                      type="email"
+                      required
+                      value={authEmail}
+                      onChange={(e) => setAuthEmail(e.target.value)}
+                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium group-hover:bg-white"
+                      placeholder="admin@clinic.com"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Password</label>
+                  <div className="relative group">
+                    <input 
+                      type="password"
+                      required
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium group-hover:bg-white"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
+                <button 
+                  type="submit"
+                  className="w-full bg-zinc-900 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/20 active:scale-[0.98]"
+                >
+                  Sign In
+                </button>
+                <p className="text-center text-[10px] text-zinc-400 font-bold tracking-tight">
+                  Forgot password? Contact your administrator for a reset.
+                </p>
+              </motion.form>
+            ) : (
+              <motion.form 
+                key="register-form"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                onSubmit={handleRegisterSubmit} 
+                className="space-y-5"
+              >
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Full Name</label>
+                  <input 
+                    type="text"
+                    required
+                    value={authName}
+                    onChange={(e) => setAuthName(e.target.value)}
+                    className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Email Address</label>
+                  <input 
+                    type="email"
+                    required
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                    placeholder="john@clinic.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Password</label>
+                  <input 
+                    type="password"
+                    required
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Branch</label>
+                    <div className="relative">
+                      <select 
+                        required
+                        value={authBranch}
+                        onChange={(e) => setAuthBranch(e.target.value)}
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium appearance-none"
+                      >
+                        <option value="">Select</option>
+                        <option value="Bangi">Bangi</option>
+                        <option value="Kajang">Kajang</option>
+                        <option value="HQ">HQ</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Phone</label>
+                    <input 
+                      type="tel"
+                      required
+                      value={authPhone}
+                      onChange={(e) => setAuthPhone(e.target.value)}
+                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                      placeholder="6012..."
+                    />
+                  </div>
+                </div>
+                <button 
+                  type="submit"
+                  className="w-full bg-emerald-600 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 active:scale-[0.98]"
+                >
+                  Create Account
+                </button>
+              </motion.form>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (currentUser.is_approved === 0 && currentUser.role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-[#FBFBFD] flex items-center justify-center p-4 font-sans relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-orange-50 rounded-full blur-[120px] opacity-60" />
+        </div>
+
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white p-12 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] max-w-md w-full border border-black/[0.03] text-center"
+        >
+          <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-3xl flex items-center justify-center mx-auto mb-8">
+            <Clock size={40} />
+          </div>
+          <h1 className="text-2xl font-black text-zinc-900 tracking-tight mb-4">Account Pending Approval</h1>
+          <p className="text-zinc-500 text-sm leading-relaxed mb-8 font-medium">
+            Hi <span className="text-zinc-900 font-bold">{currentUser.name}</span>, your account has been created successfully. 
+            However, an administrator needs to approve your profile before you can access the portal features.
+          </p>
+          <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100 mb-8">
+            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Status</p>
+            <p className="text-xs font-bold text-orange-600 uppercase">Under Review</p>
+          </div>
+          <button 
+            onClick={handleLogout}
+            className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-900/10"
+          >
+            Sign Out
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  const totalEarned = currentUser?.lifetime_earnings || 0;
+  const pendingAmount = currentUser?.pending_earnings || 0;
+  const approvedAmount = currentUser?.approved_earnings || 0;
+  const paidAmount = currentUser?.paid_earnings || 0;
+
+  const adminStats = {
+    totalPayout: staffList.reduce((sum, s) => sum + (s.paid_earnings || 0), 0),
+    totalReferrals: referrals.length,
+    activeStaff: new Set(referrals.map(r => r.staff_id)).size,
+    pendingPayout: staffList.reduce((sum, s) => sum + (s.approved_earnings || 0), 0)
+  };
+
+  const receptionistStats = {
+    arrivedToday: referrals.filter(r => (r.status === 'completed' || r.status === 'paid_completed') && r.visit_date === new Date().toISOString().split('T')[0]).length,
+    pendingVerifications: referrals.filter(r => r.status === 'entered').length
+  };
+
+  // Helper to get tier for a given count
+  const getTier = (count: number) => {
+    return [...TIERS].reverse().find(t => count >= t.min) || TIERS[0];
+  };
+
+  // Analytics calculation
+  const staffPerformance = staffList.map(staff => {
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const staffRefs = referrals.filter(r => r.staff_id === staff.id);
+    const monthlySuccessfulRefs = staffRefs.filter(r => 
+      (r.status === 'completed' || r.status === 'paid_completed' || r.status === 'buffer' || r.status === 'approved' || r.status === 'payout_processed') && 
+      r.date.startsWith(currentMonth)
+    ).length;
+
+    const tier = getTier(monthlySuccessfulRefs);
+    
+    const totalRefs = staffRefs.length;
+    const baseEarned = staffRefs
+      .filter(r => r.status === 'completed' || r.status === 'paid_completed' || r.status === 'buffer' || r.status === 'approved' || r.status === 'payout_processed')
+      .reduce((sum, r) => sum + r.commission_amount, 0);
+    
+    const totalWithBonus = staffRefs
+      .filter(r => r.status === 'completed' || r.status === 'paid_completed' || r.status === 'buffer' || r.status === 'approved' || r.status === 'payout_processed')
+      .reduce((sum, r) => {
+        // Apply tier based on monthly success at the time of calculation
+        // In a real app, you might lock the tier at the end of the month
+        return sum + (r.commission_amount * tier.bonus);
+      }, 0);
+
+    return { ...staff, totalRefs, monthlySuccessfulRefs, earned: totalWithBonus, tier };
+  }).sort((a, b) => b.earned - a.earned);
+
+  const currentUserStats = staffPerformance.find(s => s.id === currentUser.id);
+  const nextTier = TIERS.find(t => (currentUserStats?.monthlySuccessfulRefs || 0) < t.min);
+  const progressToNext = nextTier 
+    ? ((currentUserStats?.monthlySuccessfulRefs || 0) / nextTier.min) * 100 
+    : 100;
+
+  const isMobile = windowWidth < 1024;
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'entered': return 'bg-orange-100 text-orange-700';
+      case 'completed': return 'bg-indigo-100 text-indigo-700';
+      case 'paid_completed': return 'bg-emerald-100 text-emerald-700';
+      case 'buffer': return 'bg-blue-100 text-blue-700';
+      case 'approved': return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+      case 'payout_processed': return 'bg-zinc-100 text-zinc-700';
+      case 'rejected': return 'bg-red-100 text-red-700';
+      default: return 'bg-zinc-100 text-zinc-700';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'entered': return 'Entered';
+      case 'completed': return 'Visit Completed';
+      case 'paid_completed': return 'Payment Completed';
+      case 'buffer': return '7-Day Buffer';
+      case 'approved': return 'Approved';
+      case 'payout_processed': return 'Payout Processed';
+      case 'rejected': return 'Rejected';
+      default: return status;
+    }
+  };
+
+  if (currentUser) {
+    // Device Guard
+    if ((currentUser.role === 'admin' || currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && isMobile) {
+      return (
+        <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-8 text-center">
+          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mb-6">
+            <LayoutDashboard size={40} />
+          </div>
+          <h1 className="text-2xl font-bold mb-2">Desktop View Required</h1>
+          <p className="text-zinc-500 max-w-xs mb-8">The {currentUser.role === 'admin' ? 'Admin Panel' : (currentUser.role === 'receptionist' ? 'Receptionist Portal' : 'Dispensary Portal')} is optimized for desktop use. Please switch to a larger screen to manage the clinic.</p>
+          <button 
+            onClick={handleLogout}
+            className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-medium"
+          >
+            Sign Out
+          </button>
+        </div>
+      );
+    }
+
+    if (currentUser.role === 'staff' && !isMobile) {
+      return (
+        <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-8 text-center">
+          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mb-6">
+            <MessageCircle size={40} />
+          </div>
+          <h1 className="text-2xl font-bold mb-2">Mobile View Required</h1>
+          <p className="text-zinc-500 max-w-xs mb-8">The Staff Portal is optimized for mobile use. Please access this page from your smartphone.</p>
+          <button 
+            onClick={handleLogout}
+            className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-medium"
+          >
+            Sign Out
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans">
+        {/* Mobile Navigation (Floating Glass Dock - iOS 26 style) */}
+        {isMobile && (
+          <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
+            <nav className="max-w-md mx-auto bg-white/70 backdrop-blur-2xl border border-white/40 px-6 py-3 flex justify-around items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] pointer-events-auto">
+              <button 
+                onClick={() => setActiveTab('dashboard')}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'dashboard' ? 'text-emerald-600 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+              >
+                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-emerald-50' : ''}`}>
+                  <LayoutDashboard size={22} />
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-widest">Home</span>
+              </button>
+              <button 
+                onClick={() => setActiveTab('referrals')}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'referrals' ? 'text-emerald-600 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+              >
+                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-emerald-50' : ''}`}>
+                  <ClipboardList size={22} />
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-widest">History</span>
+              </button>
+              <button 
+                onClick={() => setActiveTab('guide')}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'guide' ? 'text-emerald-600 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+              >
+                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'guide' ? 'bg-emerald-50' : ''}`}>
+                  <BookOpen size={22} />
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-widest">Guide</span>
+              </button>
+              <button 
+                onClick={() => setActiveTab('profile')}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'profile' ? 'text-emerald-600 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+              >
+                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'profile' ? 'bg-emerald-50' : ''}`}>
+                  <UserCircle size={22} />
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-widest">Profile</span>
+              </button>
+              {(currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && (
+                <button 
+                  onClick={() => setActiveTab('receptionist')}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'receptionist' ? 'text-emerald-600 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+                >
+                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'receptionist' ? 'bg-emerald-50' : ''}`}>
+                    {currentUser.role === 'receptionist' ? <CheckCircle2 size={22} /> : <DollarSign size={22} />}
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-widest">
+                    {currentUser.role === 'receptionist' ? 'Check-in' : 'Payout'}
+                  </span>
+                </button>
+              )}
+            </nav>
+          </div>
+        )}
+
+        {/* Desktop Sidebar (Admin Only) */}
+        {!isMobile && (
+          <nav className="fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-zinc-100 p-6 flex flex-col">
+            <div className="flex items-center gap-3 mb-10 px-2">
+              <div className="w-10 h-10 bg-zinc-900 rounded-2xl flex items-center justify-center text-white">
+                <Stethoscope size={24} />
+              </div>
+              <h1 className="font-bold text-xl tracking-tight">{clinicProfile.name}</h1>
+            </div>
+
+            <div className="flex-1 space-y-2">
+              <button 
+                onClick={() => setActiveTab('dashboard')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'dashboard' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+              >
+                <LayoutDashboard size={18} />
+                <span className="text-sm font-medium">Dashboard</span>
+              </button>
+              <button 
+                onClick={() => setActiveTab('referrals')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'referrals' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+              >
+                <ClipboardList size={18} />
+                <span className="text-sm font-medium">Referrals</span>
+              </button>
+              <button 
+                onClick={() => setActiveTab('guide')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'guide' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+              >
+                <BookOpen size={18} />
+                <span className="text-sm font-medium">User Guide</span>
+              </button>
+              <button 
+                onClick={() => setActiveTab('profile')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+              >
+                <UserCircle size={18} />
+                <span className="text-sm font-medium">My Profile</span>
+              </button>
+              {rolesConfig[currentUser.role]?.canViewAnalytics && (
+                <button 
+                  onClick={() => setActiveTab('admin')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'admin' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  <Users size={18} />
+                  <span className="text-sm font-medium">Admin Panel</span>
+                </button>
+              )}
+            </div>
+
+            <div className="pt-6 border-t border-zinc-100">
+              <div className="flex items-center gap-3 mb-4 px-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
+                  {currentUser.name.charAt(0)}
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-sm font-medium truncate">{currentUser.name}</p>
+                  <div className="flex items-center gap-1">
+                    <Coins size={10} className="text-yellow-500" />
+                    <span className="text-[10px] font-bold text-yellow-600">{currentUser.aracoins || 0} AraCoins</span>
+                  </div>
+                </div>
+              </div>
+              {rolesConfig[currentUser.role]?.canManageSettings && (
+                <button 
+                  onClick={() => setActiveTab('setup')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'setup' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  <Settings size={18} />
+                  <span className="text-sm font-medium">Setup</span>
+                </button>
+              )}
+            </div>
+          </nav>
+        )}
+
+        {/* Main Content */}
+        <main className={`${!isMobile ? 'ml-64' : 'pb-32 min-h-screen bg-[#FBFBFD]'} p-4 lg:p-8 relative overflow-hidden`}>
+          {isMobile && (
+            <>
+              <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-emerald-50/50 to-transparent -z-10" />
+              <div className="absolute top-[10%] -right-[20%] w-[80%] h-[40%] bg-blue-50/30 rounded-full blur-[100px] -z-10" />
+            </>
+          )}
+
+          {!currentUser.is_approved && activeTab !== 'profile' ? (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-8 relative z-10"
+            >
+              <div className="w-24 h-24 bg-orange-50 text-orange-500 rounded-[2.5rem] flex items-center justify-center shadow-xl shadow-orange-500/10 border border-orange-100">
+                <ShieldAlert size={48} />
+              </div>
+              <div className="space-y-3 max-w-md">
+                <h3 className="text-3xl font-black tracking-tighter text-zinc-900">Account Pending Approval</h3>
+                <p className="text-zinc-500 text-sm font-medium leading-relaxed">
+                  Welcome to {clinicProfile.name}! Your account has been successfully created and is currently being reviewed by our administration team.
+                </p>
+              </div>
+              <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm max-w-sm w-full">
+                <ul className="space-y-5 text-left">
+                  <li className="flex gap-4 items-center text-xs font-bold text-zinc-400">
+                    <div className="w-2.5 h-2.5 rounded-full bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.5)]" />
+                    <span>Reviewing your credentials</span>
+                  </li>
+                  <li className="flex gap-4 items-center text-xs font-bold text-zinc-200">
+                    <div className="w-2.5 h-2.5 rounded-full bg-zinc-100" />
+                    <span>Activating your referral code</span>
+                  </li>
+                  <li className="flex gap-4 items-center text-xs font-bold text-zinc-200">
+                    <div className="w-2.5 h-2.5 rounded-full bg-zinc-100" />
+                    <span>Granting access to dashboard</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="flex flex-col items-center gap-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                  Estimated time: 24-48 hours
+                </p>
+                <button 
+                  onClick={() => setActiveTab('profile')}
+                  className="px-6 py-3 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-100 transition-all active:scale-95"
+                >
+                  Complete your profile while you wait
+                </button>
+                <button 
+                  onClick={handleLogout}
+                  className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-all"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            <>
+              <header className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-black tracking-tighter capitalize text-zinc-900">
+                    {activeTab === 'guide' ? 'User Guide' : activeTab === 'profile' ? 'My Profile' : activeTab}
+                  </h2>
+                  <p className="text-zinc-500 text-sm font-medium">Welcome back, {currentUser.name}</p>
+                </div>
+                
+                {activeTab === 'dashboard' && currentUser.role !== 'admin' && (
+                  <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-black/5 shadow-sm">
+                    <Clock size={16} className="text-zinc-400" />
+                    <span className="text-xs font-bold text-zinc-500">
+                      {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                    </span>
+                  </div>
+                )}
+              </header>
+
+        <AnimatePresence mode="wait">
+          {activeTab === 'dashboard' && (
+            <motion.div 
+              key="dashboard"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+            >
+              {/* Left Column: Form & Toolkit */}
+              <div className="lg:col-span-1 space-y-6">
+                {/* Mobile Stats Grid - ios26v style */}
+                {isMobile && currentUser.role === 'staff' && (
+                  <div className="space-y-4">
+                    {/* Main Card: Earnings Breakdown */}
+                    <div className="relative overflow-hidden bg-white/80 backdrop-blur-xl p-8 rounded-[2.5rem] border border-black/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                      <div className="absolute -top-12 -right-12 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl" />
+                      <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl" />
+                      
+                      <div className="relative">
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-black mb-2">Lifetime Earnings</p>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-4xl font-black tracking-tighter text-zinc-900">{clinicProfile.currency}{totalEarned.toFixed(2)}</span>
+                          <span className="text-sm font-bold text-emerald-500">+{((currentUserStats?.tier.bonus || 1) - 1) * 100}% Bonus</span>
+                        </div>
+                        
+                        <div className="mt-6 grid grid-cols-3 gap-2">
+                          <div className="bg-zinc-50/50 p-3 rounded-2xl border border-zinc-100">
+                            <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Pending</p>
+                            <p className="text-sm font-black text-zinc-900">{clinicProfile.currency}{pendingAmount.toFixed(0)}</p>
+                          </div>
+                          <div className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100">
+                            <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Approved</p>
+                            <p className="text-sm font-black text-emerald-700">{clinicProfile.currency}{approvedAmount.toFixed(0)}</p>
+                          </div>
+                          <div className="bg-blue-50/50 p-3 rounded-2xl border border-blue-100">
+                            <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest mb-1">Paid</p>
+                            <p className="text-sm font-black text-blue-700">{clinicProfile.currency}{paidAmount.toFixed(0)}</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-6 flex items-center gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
+                              <span>{currentUserStats?.tier.name} Tier</span>
+                              <span>{currentUserStats?.monthlySuccessfulRefs} / {nextTier?.min || 'Max'}</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-emerald-500 rounded-full transition-all duration-1000"
+                                style={{ width: `${Math.min(100, (currentUserStats?.monthlySuccessfulRefs || 0) / (nextTier?.min || 1) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Secondary Grid */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] border border-black/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-black mb-2">AraCoins</p>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">
+                            <Coins size={16} className="text-yellow-600" />
+                          </div>
+                          <p className="text-2xl font-black text-zinc-900">{currentUser.aracoins || 0}</p>
+                        </div>
+                      </div>
+                      <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] border border-black/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-black mb-2">Success</p>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                            <CheckCircle2 size={16} className="text-blue-600" />
+                          </div>
+                          <p className="text-2xl font-black text-zinc-900">{currentUserStats?.monthlySuccessfulRefs || 0}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {isMobile && currentUser.role === 'receptionist' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white p-4 rounded-3xl border border-black/5 shadow-sm">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold mb-1">Arrived Today</p>
+                      <p className="text-xl font-bold text-emerald-600">{receptionistStats.arrivedToday}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-3xl border border-black/5 shadow-sm">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold mb-1">Pending</p>
+                      <p className="text-xl font-bold text-orange-500">{receptionistStats.pendingVerifications}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Desktop Admin/Receptionist/Dispensary Stats */}
+                {!isMobile && (currentUser.role === 'admin' || currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && (
+                  <div className="grid grid-cols-2 gap-4">
+                    {currentUser.role === 'admin' ? (
+                      <>
+                        <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+                          <p className="text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">Total Payout</p>
+                          <p className="text-2xl font-bold text-zinc-900">${adminStats.totalPayout.toFixed(2)}</p>
+                          <p className="text-[10px] text-zinc-400 mt-1">Pending: ${adminStats.pendingPayout.toFixed(2)}</p>
+                        </div>
+                        <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+                          <p className="text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">Active Staff</p>
+                          <p className="text-2xl font-bold text-zinc-900">{adminStats.activeStaff}</p>
+                          <p className="text-[10px] text-zinc-400 mt-1">Total Referrals: {adminStats.totalReferrals}</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+                          <p className="text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">
+                            {currentUser.role === 'receptionist' ? 'Arrived Today' : 'Paid Today'}
+                          </p>
+                          <p className="text-2xl font-bold text-emerald-600">
+                            {currentUser.role === 'receptionist' ? receptionistStats.arrivedToday : referrals.filter(r => r.status === 'paid' && r.date === new Date().toISOString().split('T')[0]).length}
+                          </p>
+                          <p className="text-[10px] text-zinc-400 mt-1">
+                            {currentUser.role === 'receptionist' ? 'Patients checked in' : 'Referrals completed'}
+                          </p>
+                        </div>
+                        <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+                          <p className="text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">
+                            {currentUser.role === 'receptionist' ? 'Pending Arrival' : 'Pending Payout'}
+                          </p>
+                          <p className="text-2xl font-bold text-orange-500">
+                            {currentUser.role === 'receptionist' ? receptionistStats.pendingVerifications : referrals.filter(r => r.status === 'approved').length}
+                          </p>
+                          <p className="text-[10px] text-zinc-400 mt-1">
+                            {currentUser.role === 'receptionist' ? 'Waiting for check-in' : 'Waiting for payment'}
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Tier Progress Card (Staff Only - Desktop) */}
+                {!isMobile && currentUser.role === 'staff' && (
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm overflow-hidden relative">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="text-emerald-500" size={20} />
+                        <h3 className="font-semibold">Monthly Tier</h3>
+                      </div>
+                      <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${currentUserStats?.tier.bg} ${currentUserStats?.tier.color}`}>
+                        {currentUserStats?.tier.name}
+                      </span>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <div className="flex justify-between text-xs mb-2">
+                        <span className="text-zinc-400 font-medium">Monthly Success</span>
+                        <span className="font-bold">{currentUserStats?.monthlySuccessfulRefs || 0} referrals</span>
+                      </div>
+                      <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden relative">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${progressToNext}%` }}
+                          transition={{ type: "spring", stiffness: 40, damping: 12, delay: 0.2 }}
+                          className="h-full bg-emerald-500 rounded-full relative"
+                        >
+                          {/* Shimmer effect */}
+                          <motion.div
+                            animate={{ x: ['-100%', '200%'] }}
+                            transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+                            className="absolute top-0 bottom-0 w-1/2 bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12"
+                          />
+                        </motion.div>
+                      </div>
+                    </div>
+
+                    {nextTier ? (
+                      <p className="text-[11px] text-zinc-500 leading-relaxed">
+                        Achieve <span className="font-bold text-zinc-900">{nextTier.min - (currentUserStats?.monthlySuccessfulRefs || 0)} more</span> successful referrals this month to reach <span className="font-bold text-zinc-900">{nextTier.name} Tier</span> and get a <span className="text-emerald-600 font-bold">{((nextTier.bonus - 1) * 100).toFixed(0)}% bonus</span> on all commissions!
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-emerald-600 font-bold leading-relaxed">
+                        Maximum Tier Reached! You are earning 50% bonus on all successful referrals this month.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Log New Referral (Staff Only) */}
+                {currentUser.role === 'staff' && (
+                  <div className={`${isMobile ? 'bg-white/80 backdrop-blur-xl p-8 rounded-[2.5rem]' : 'bg-white p-6 rounded-3xl'} border border-black/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
+                    <div className="flex items-center gap-2 mb-6">
+                      <div className={`w-10 h-10 rounded-2xl ${isMobile ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-500'} flex items-center justify-center shadow-lg shadow-emerald-500/20`}>
+                        <PlusCircle size={20} />
+                      </div>
+                      <h3 className="font-bold text-zinc-900">Log New Referral</h3>
+                    </div>
+                    <form onSubmit={handleSubmitReferral} className="space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient Name</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={patientName}
+                          onChange={(e) => setPatientName(e.target.value)}
+                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
+                          placeholder="Enter patient name"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">WhatsApp Number</label>
+                          <input 
+                            type="tel" 
+                            required
+                            value={patientPhone}
+                            onChange={(e) => setPatientPhone(e.target.value)}
+                            className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
+                            placeholder="e.g. +60123456789"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient IC</label>
+                          <input 
+                            type="text" 
+                            required
+                            value={patientIC}
+                            onChange={(e) => setPatientIC(e.target.value)}
+                            className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
+                            placeholder="IC Number"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient Address</label>
+                        <textarea 
+                          required
+                          value={patientAddress}
+                          onChange={(e) => setPatientAddress(e.target.value)}
+                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium h-20 resize-none"
+                          placeholder="Enter patient address"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Target Branch</label>
+                        <select 
+                          required
+                          value={selectedBranch}
+                          onChange={(e) => setSelectedBranch(e.target.value)}
+                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all appearance-none text-sm font-medium"
+                        >
+                          <option value="">Select Branch</option>
+                          <option value="Bangi">Bangi</option>
+                          <option value="Kajang">Kajang</option>
+                          <option value="HQ">HQ</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Service Promoted</label>
+                        <div className="relative">
+                          <select 
+                            required
+                            value={selectedService}
+                            onChange={(e) => setSelectedService(e.target.value)}
+                            className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all appearance-none text-sm font-medium pr-12"
+                          >
+                            <option value="">Select a service</option>
+                            {services.map(s => (
+                              <option key={s.id} value={s.id}>{s.name} ({clinicProfile.currency}{s.commission_rate} incentive)</option>
+                            ))}
+                          </select>
+                          <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                            <ChevronRight size={16} className="rotate-90" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Booking Date</label>
+                          <input 
+                            type="date" 
+                            required
+                            min={new Date().toISOString().split('T')[0]}
+                            value={appointmentDate}
+                            onChange={(e) => setAppointmentDate(e.target.value)}
+                            className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Booking Time</label>
+                          <select 
+                            required
+                            value={bookingTime}
+                            onChange={(e) => setBookingTime(e.target.value)}
+                            className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all appearance-none text-sm font-medium"
+                          >
+                            <option value="">Select time</option>
+                            {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(time => (
+                              <option key={time} value={time}>{time}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <button 
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-bold text-sm hover:bg-zinc-800 transition-all active:scale-[0.98] shadow-xl shadow-zinc-900/10 disabled:opacity-50 mt-2"
+                      >
+                        {isSubmitting ? 'Submitting...' : 'Submit Referral'}
+                      </button>
+                    </form>
+                  </div>
+                )}
+
+                {/* Referral Toolkit (Staff Only) */}
+                {currentUser.role === 'staff' && (
+                  <div className={`${isMobile ? 'bg-white/80 backdrop-blur-xl p-8 rounded-[2.5rem]' : 'bg-white p-6 rounded-3xl'} border border-black/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
+                    <div className="flex items-center gap-2 mb-6">
+                      <div className={`w-10 h-10 rounded-2xl ${isMobile ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-500'} flex items-center justify-center shadow-lg shadow-blue-500/20`}>
+                        <QrCode size={20} />
+                      </div>
+                      <h3 className="font-bold text-zinc-900">Referral Toolkit</h3>
+                    </div>
+                    
+                    <div className="space-y-6">
+                      <div className="flex flex-col items-center p-6 bg-zinc-50/50 rounded-[2rem] border border-zinc-100">
+                        <div className="p-4 bg-white rounded-3xl shadow-sm mb-4">
+                          <QRCodeCanvas 
+                            value={`${window.location.origin}?ref=${currentUser.promo_code}`}
+                            size={140}
+                            level="H"
+                            includeMargin={false}
+                            className="rounded-lg"
+                          />
+                        </div>
+                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Personal QR Code</p>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="p-5 bg-zinc-50/50 rounded-2xl border border-zinc-100 flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Referral Code</p>
+                            <p className="text-xl font-black text-zinc-900 tracking-tighter">{currentUser.promo_code}</p>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(currentUser.promo_code);
+                              alert('Code copied!');
+                            }}
+                            className="p-3 bg-white rounded-xl border border-zinc-100 text-zinc-400 hover:text-emerald-500 transition-all active:scale-90"
+                          >
+                            <Copy size={18} />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <button 
+                            onClick={() => {
+                              const url = `${window.location.origin}?ref=${currentUser.promo_code}`;
+                              const text = `Hi! Book your appointment at our clinic using my referral link: ${url}`;
+                              window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                            }}
+                            className="flex items-center justify-center gap-2 p-4 bg-emerald-500 text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-95 shadow-lg shadow-emerald-500/10"
+                          >
+                            <MessageCircle size={14} />
+                            WhatsApp
+                          </button>
+                          <button 
+                            onClick={() => {
+                              const url = `${window.location.origin}?ref=${currentUser.promo_code}`;
+                              navigator.clipboard.writeText(url);
+                              alert('Link copied!');
+                            }}
+                            className="flex items-center justify-center gap-2 p-4 bg-white text-zinc-900 border border-zinc-100 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-zinc-50 transition-all active:scale-95 shadow-sm"
+                          >
+                            <Share2 size={14} />
+                            Copy Link
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Activity & Admin Insights */}
+              <div className="lg:col-span-2 space-y-6">
+                {currentUser.role === 'admin' && (
+                  <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                    <div className="p-6 border-b border-zinc-100">
+                      <h3 className="font-semibold">Staff Performance</h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="space-y-4">
+                        {staffPerformance.slice(0, 5).map((staff, index) => (
+                          <div key={staff.id} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs font-bold text-zinc-300 w-4">{index + 1}</span>
+                              <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-600">
+                                {staff.name.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">{staff.name}</p>
+                                <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider">{staff.tier.name} Tier</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-bold text-zinc-900">{staff.monthlySuccessfulRefs} referrals</p>
+                              <p className="text-[10px] text-emerald-600 font-bold">${staff.earned.toFixed(2)} earned</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                  <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="text-emerald-500" size={20} />
+                      <h3 className="font-semibold">Recent Referrals</h3>
+                    </div>
+                    <button onClick={() => setActiveTab('referrals')} className="text-xs font-bold text-emerald-600 hover:underline">View All</button>
+                  </div>
+                  <div className="divide-y divide-zinc-50">
+                    {referrals.slice(0, 5).map((ref) => (
+                      <div key={ref.id} className="p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className={`p-2 rounded-xl ${getStatusColor(ref.status)}`}>
+                            {ref.status === 'payout_processed' || ref.status === 'approved' || ref.status === 'paid_completed' ? <CheckCircle2 size={18} /> : <Clock size={18} />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold">{ref.patient_name}</p>
+                            <p className="text-xs text-zinc-400">{ref.service_name} • {ref.branch || 'N/A'}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
+                          <p className={`text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status).split(' ')[1]}`}>{getStatusLabel(ref.status)}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {referrals.length === 0 && (
+                      <div className="p-12 text-center text-zinc-400">
+                        <ClipboardList className="mx-auto mb-2 opacity-20" size={40} />
+                        <p className="text-sm">No referrals logged yet.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'referrals' && (
+            <motion.div 
+              key="referrals"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden"
+            >
+              <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <h3 className="font-semibold">Referral History</h3>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
+                    <input 
+                      type="text"
+                      placeholder="Search patient, staff, or service..."
+                      value={referralSearch}
+                      onChange={(e) => setReferralSearch(e.target.value)}
+                      className="pl-9 pr-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-full sm:w-64"
+                    />
+                  </div>
+                </div>
+                <button 
+                  onClick={exportToCSV}
+                  className="flex items-center gap-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 px-3 py-2 rounded-xl transition-colors self-start sm:self-auto"
+                >
+                  <Download size={14} />
+                  Export CSV
+                </button>
+              </div>
+
+              {isMobile ? (
+                <div className="space-y-4">
+                  {referrals
+                    .filter(ref => 
+                      ref.patient_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
+                      ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
+                      ref.service_name.toLowerCase().includes(referralSearch.toLowerCase())
+                    )
+                    .map((ref) => (
+                    <div key={ref.id} className="bg-white p-5 rounded-3xl border border-black/5 shadow-sm space-y-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-xl ${getStatusColor(ref.status)}`}>
+                            {ref.status === 'payout_processed' || ref.status === 'approved' ? <CheckCircle2 size={18} /> : <Clock size={18} />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-zinc-900">{ref.patient_name}</p>
+                            <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">{ref.date} • {ref.branch}</p>
+                          </div>
+                        </div>
+                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
+                          {getStatusLabel(ref.status)}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 py-3 border-y border-zinc-50">
+                        <div>
+                          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Service</p>
+                          <p className="text-xs font-medium text-zinc-700">{ref.service_name}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Incentive</p>
+                          <p className="text-sm font-bold text-emerald-600">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-[10px] font-bold text-zinc-500">
+                            {ref.staff_name.charAt(0)}
+                          </div>
+                          <p className="text-xs font-medium text-zinc-600">{ref.staff_name}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          {ref.patient_phone && (
+                            <button 
+                              onClick={() => {
+                                const text = `Hi ${ref.patient_name}! This is ${ref.staff_name} from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`;
+                                window.open(`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+                              }}
+                              className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
+                            >
+                              <MessageCircle size={12} />
+                              Follow-up
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => {
+                              const url = `${window.location.origin}?ref=${ref.promo_code}`;
+                              navigator.clipboard.writeText(url);
+                              alert('Referral link copied!');
+                            }}
+                            className="flex items-center gap-1.5 text-[10px] font-bold text-zinc-600 bg-zinc-50 px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors"
+                          >
+                            <Share2 size={12} />
+                            Link
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-2">
+                        {ref.patient_phone && (
+                          <a 
+                            href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
+                          >
+                            <Phone size={14} />
+                            WhatsApp Follow-up
+                          </a>
+                        )}
+                      </div>
+
+                      {currentUser.role === 'admin' && (ref.status === 'paid_completed' || ref.status === 'buffer' || ref.status === 'approved') && (
+                        <div className="flex gap-2 pt-2">
+                          {ref.status === 'paid_completed' && (
+                            <button 
+                              onClick={() => handleUpdateStatus(ref.id, 'buffer')}
+                              className="flex-1 bg-blue-500 text-white py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-blue-600 transition-colors"
+                            >
+                              Start 7-Day Buffer
+                            </button>
+                          )}
+                          {ref.status === 'buffer' && (
+                            <button 
+                              onClick={() => handleUpdateStatus(ref.id, 'approved')}
+                              className="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-600 transition-colors"
+                            >
+                              Approve to Wallet
+                            </button>
+                          )}
+                          {ref.status === 'approved' && (
+                            <button 
+                              onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
+                              className="flex-1 bg-zinc-900 text-white py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-zinc-800 transition-colors"
+                            >
+                              Mark as Paid
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-zinc-50 border-b border-zinc-100">
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Booking</th>
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Patient</th>
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Service</th>
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Staff</th>
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Incentive</th>
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Status</th>
+                      {(currentUser.role === 'admin' || currentUser.role === 'receptionist') && <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-50">
+                    {referrals
+                      .filter(ref => 
+                        ref.patient_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
+                        ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
+                        ref.service_name.toLowerCase().includes(referralSearch.toLowerCase())
+                      )
+                      .map((ref) => (
+                      <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
+                        <td className="p-4">
+                          <p className="text-sm font-medium">{ref.appointment_date}</p>
+                          <p className="text-[10px] text-zinc-400">{ref.booking_time}</p>
+                        </td>
+                        <td className="p-4">
+                          <p className="text-sm font-medium">{ref.patient_name}</p>
+                          <p className="text-[10px] text-zinc-400">{ref.patient_phone} • <span className="font-bold text-indigo-600">{ref.branch}</span></p>
+                        </td>
+                        <td className="p-4 text-sm text-zinc-500">{ref.service_name}</td>
+                        <td className="p-4 text-sm font-medium text-emerald-600">{ref.staff_name}</td>
+                        <td className="p-4 text-sm font-bold">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
+                        <td className="p-4">
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
+                            {getStatusLabel(ref.status)}
+                          </span>
+                        </td>
+                        {(currentUser.role === 'admin' || currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && (
+                          <td className="p-4">
+                            <div className="flex gap-2">
+                              {ref.patient_phone && (
+                                <a 
+                                  href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                                  title="WhatsApp Follow-up"
+                                >
+                                  <Phone size={14} />
+                                </a>
+                              )}
+                              {currentUser.role === 'receptionist' && ref.status === 'entered' && (
+                                <>
+                                  <button 
+                                    onClick={() => handleUpdateStatus(ref.id, 'completed', { visit_date: new Date().toISOString().split('T')[0] })}
+                                    className="text-[10px] font-bold text-indigo-600 hover:underline"
+                                  >
+                                    Check-in
+                                  </button>
+                                  <button 
+                                    onClick={() => handleUpdateStatus(ref.id, 'rejected', { rejection_reason: 'Patient did not arrive' })}
+                                    className="text-[10px] font-bold text-red-600 hover:underline"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+                              {(currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && ref.status === 'completed' && (
+                                <button 
+                                  onClick={() => handleUpdateStatus(ref.id, 'paid_completed', { payment_status: 'completed' })}
+                                  className="text-[10px] font-bold text-emerald-600 hover:underline"
+                                >
+                                  Mark Paid
+                                </button>
+                              )}
+                              {currentUser.role === 'admin' && ref.status === 'paid_completed' && (
+                                <button 
+                                  onClick={() => handleUpdateStatus(ref.id, 'buffer')}
+                                  className="text-[10px] font-bold text-blue-600 hover:underline"
+                                >
+                                  Start Buffer
+                                </button>
+                              )}
+                              {currentUser.role === 'admin' && ref.status === 'approved' && (
+                                <button 
+                                  onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
+                                  className="text-[10px] font-bold text-emerald-600 hover:underline"
+                                >
+                                  Pay
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === 'admin' && currentUser.role === 'admin' && (
+            <motion.div 
+              key="admin"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-8"
+            >
+              {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total Referrals</p>
+                    <p className="text-3xl font-bold tracking-tight">{referrals.length}</p>
+                  </div>
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total Payouts</p>
+                    <p className="text-3xl font-bold tracking-tight text-emerald-600">
+                      {clinicProfile.currency}{staffList.reduce((s, staff) => s + (staff.paid_earnings || 0), 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Referral Approvals</p>
+                    <p className="text-3xl font-bold tracking-tight text-orange-500">
+                      {referrals.filter(r => r.status === 'paid_completed' || r.status === 'buffer').length}
+                    </p>
+                  </div>
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Staff Approvals</p>
+                    <p className="text-3xl font-bold tracking-tight text-blue-500">
+                      {staffList.filter(s => !s.is_approved).length}
+                    </p>
+                  </div>
+                </div>
+
+              {/* Staff Approvals Section */}
+              {staffList.filter(s => !s.is_approved).length > 0 && (
+                <div className="bg-blue-50/50 rounded-[2.5rem] border border-blue-100 p-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-xl font-black tracking-tighter text-blue-900">Pending Staff Approvals</h3>
+                      <p className="text-sm text-blue-700 font-medium">Review and approve new staff registrations</p>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                      <ShieldCheck size={24} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {staffList.filter(s => !s.is_approved).map(staff => (
+                      <div key={staff.id} className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm hover:shadow-md transition-all">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center text-lg font-black text-zinc-400">
+                            {staff.name.charAt(0)}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-zinc-900">{staff.name}</h4>
+                            <p className="text-xs text-zinc-400 font-medium">{staff.email}</p>
+                          </div>
+                        </div>
+                        <div className="space-y-3 mb-6">
+                          <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                            <span>Branch</span>
+                            <span className="text-zinc-900">{staff.branch}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                            <span>Phone</span>
+                            <span className="text-zinc-900">{staff.phone || 'N/A'}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                            <span>Joined</span>
+                            <span className="text-zinc-900">{new Date(staff.date_joined || '').toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => handleApproveStaff(staff.id, true)}
+                            className="flex-1 bg-emerald-500 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/10"
+                          >
+                            Approve
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteStaff(staff.id)}
+                            className="px-4 bg-red-50 text-red-500 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Staff Performance Analytics */}
+              <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <h3 className="font-semibold">Staff Performance Analytics</h3>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
+                    <input 
+                      type="text"
+                      placeholder="Search staff name..."
+                      value={adminSearch}
+                      onChange={(e) => setAdminSearch(e.target.value)}
+                      className="pl-9 pr-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-full sm:w-64"
+                    />
+                  </div>
+                </div>
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-zinc-50 border-b border-zinc-100">
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Staff Member</th>
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Current Tier</th>
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400 text-center">Monthly Success</th>
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400 text-right">Total Earned (Incl. Bonus)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-50">
+                    {staffPerformance
+                      .filter(staff => staff.name.toLowerCase().includes(adminSearch.toLowerCase()))
+                      .map((staff) => (
+                      <tr 
+                        key={staff.id} 
+                        className="hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setSelectedStaffDetail(staff);
+                          setShowStaffModal(true);
+                        }}
+                      >
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-600">
+                              {staff.name.charAt(0)}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">{staff.name}</span>
+                              <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{staff.branch}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${staff.tier.bg} ${staff.tier.color}`}>
+                            {staff.tier.name}
+                          </span>
+                        </td>
+                        <td className="p-4 text-sm font-semibold text-center">{staff.monthlySuccessfulRefs}</td>
+                        <td className="p-4 text-sm font-bold text-right text-emerald-600">
+                          {clinicProfile.currency}{staff.earned.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Approval Table */}
+              <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
+                  <h3 className="font-semibold">Manage Referrals</h3>
+                  <button 
+                    onClick={exportToCSV}
+                    className="flex items-center gap-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 px-3 py-2 rounded-xl transition-colors"
+                  >
+                    <Download size={14} />
+                    Export CSV
+                  </button>
+                </div>
+                <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-zinc-50 border-b border-zinc-100">
+                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Staff</th>
+                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Patient</th>
+                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Service</th>
+                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Incentive</th>
+                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Status</th>
+                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-50">
+                        {referrals.map((ref) => (
+                          <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
+                            <td className="p-4 text-sm font-medium">{ref.staff_name}</td>
+                            <td className="p-4 text-sm">
+                              <p className="font-medium">{ref.patient_name}</p>
+                              {ref.patient_phone && <p className="text-[10px] text-zinc-400">{ref.patient_phone} • <span className="font-bold text-indigo-600">{ref.branch}</span></p>}
+                            </td>
+                            <td className="p-4 text-sm text-zinc-500">{ref.service_name}</td>
+                            <td className="p-4 text-sm font-bold">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
+                            <td className="p-4">
+                              <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
+                                {getStatusLabel(ref.status)}
+                              </span>
+                              {ref.fraud_flags && (
+                                <div className="mt-1 flex gap-1">
+                                  {JSON.parse(ref.fraud_flags).map((flag: string) => (
+                                    <span key={flag} className="px-1 py-0.5 bg-red-50 text-red-600 rounded text-[8px] font-bold uppercase border border-red-100">
+                                      {flag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              <div className="flex gap-2">
+                                {ref.status === 'paid_completed' && (
+                                  <button 
+                                    onClick={() => handleUpdateStatus(ref.id, 'buffer')}
+                                    className="text-[10px] font-bold uppercase tracking-wider bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors"
+                                  >
+                                    Start Buffer
+                                  </button>
+                                )}
+                                {ref.status === 'buffer' && (
+                                  <button 
+                                    onClick={() => handleUpdateStatus(ref.id, 'approved')}
+                                    className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-600 transition-colors"
+                                  >
+                                    Approve
+                                  </button>
+                                )}
+                                {ref.status === 'approved' && (
+                                  <button 
+                                    onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
+                                    className="text-[10px] font-bold uppercase tracking-wider bg-zinc-900 text-white px-3 py-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
+                                  >
+                                    Pay
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                </table>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'receptionist' && (currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && (
+            <motion.div 
+              key="receptionist"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-8"
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Walk-in Form (Receptionist Only) */}
+                {currentUser.role === 'receptionist' && (
+                  <div className="lg:col-span-1">
+                    <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+                      <div className="flex items-center gap-2 mb-6">
+                        <PlusCircle className="text-emerald-500" size={20} />
+                        <h3 className="font-semibold">Log Walk-in Referral</h3>
+                      </div>
+                      <form onSubmit={handleSubmitReferral} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Referral Code</label>
+                          <input 
+                            type="text" 
+                            required
+                            value={walkInPromoCode}
+                            onChange={(e) => checkPromoCode(e.target.value.toUpperCase())}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
+                            placeholder="e.g. SMITH10"
+                          />
+                          {walkInStaff ? (
+                            <p className="mt-2 text-xs text-emerald-600 font-medium">✓ Referrer: {walkInStaff.name}</p>
+                          ) : walkInPromoCode.length >= 3 ? (
+                            <p className="mt-2 text-xs text-red-500 font-medium">✗ Invalid Referral Code</p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Patient Name</label>
+                          <input 
+                            type="text" 
+                            required
+                            value={patientName}
+                            onChange={(e) => setPatientName(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                            placeholder="Enter patient name"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Service</label>
+                          <select 
+                            required
+                            value={selectedService}
+                            onChange={(e) => setSelectedService(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all appearance-none"
+                          >
+                            <option value="">Select a service</option>
+                            {services.map(s => (
+                              <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <button 
+                          type="submit"
+                          disabled={isSubmitting || !walkInStaff}
+                          className="w-full bg-zinc-900 text-white py-3 rounded-xl font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                        >
+                          {isSubmitting ? 'Logging...' : 'Log Referral'}
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                )}
+
+                {/* Check-in / Payout List */}
+                <div className={currentUser.role === 'receptionist' ? 'lg:col-span-2' : 'lg:col-span-3'}>
+                  <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                    <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <h3 className="font-semibold">{currentUser.role === 'receptionist' ? 'Patient Check-in' : 'Pending Payouts'}</h3>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <select 
+                          value={branchFilter}
+                          onChange={(e) => setBranchFilter(e.target.value)}
+                          className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        >
+                          <option value="all">All Branches</option>
+                          <option value="Bangi">Bangi</option>
+                          <option value="Kajang">Kajang</option>
+                          <option value="HQ">HQ</option>
+                        </select>
+                        <select 
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                          className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        >
+                          <option value="all">All Statuses</option>
+                          <option value="entered">Entered</option>
+                          <option value="completed">Visit Completed</option>
+                          <option value="paid_completed">Payment Completed</option>
+                          <option value="buffer">7-Day Buffer</option>
+                          <option value="approved">Approved</option>
+                          <option value="payout_processed">Payout Processed</option>
+                        </select>
+                        <div className="relative">
+                          <input 
+                            type="text"
+                            placeholder="Search patient name..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-4 pr-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="divide-y divide-zinc-50">
+                      {referrals
+                        .filter(r => r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .filter(r => statusFilter === 'all' ? true : r.status === statusFilter)
+                        .filter(r => currentUser.role === 'dispensary' ? r.status === 'arrived' : true)
+                        .map((ref) => (
+                        <div key={ref.id} className="p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors">
+                          <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                            <div>
+                              <p className="text-sm font-semibold">{ref.patient_name}</p>
+                              <p className="text-[10px] text-zinc-400">{ref.patient_phone}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-zinc-500">{ref.service_name}</p>
+                              <p className="text-[10px] text-zinc-400">Service</p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-emerald-600">{ref.staff_name}</p>
+                              <p className="text-[10px] text-zinc-400">Staff</p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-zinc-500">{ref.appointment_date}</p>
+                              <p className="text-[10px] text-zinc-400">{ref.booking_time}</p>
+                            </div>
+                            <div>
+                              <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
+                                {getStatusLabel(ref.status)}
+                              </span>
+                              <p className="text-[10px] text-zinc-400 mt-1">Status</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 ml-4">
+                            <select 
+                              value={ref.status}
+                              onChange={(e) => handleUpdateStatus(ref.id, e.target.value as any)}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            >
+                              <option value="entered">Entered</option>
+                              <option value="completed">Visit Completed</option>
+                              <option value="paid_completed">Payment Completed</option>
+                              <option value="buffer">7-Day Buffer</option>
+                              <option value="approved">Approved</option>
+                              <option value="payout_processed">Payout Processed</option>
+                              <option value="rejected">Rejected</option>
+                            </select>
+                          </div>
+                        </div>
+                      ))}
+                      {referrals.length === 0 && (
+                        <div className="p-12 text-center text-zinc-400">
+                          <p className="text-sm">No referrals found.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+          {activeTab === 'guide' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-8"
+            >
+              <div className="bg-zinc-900 text-white p-8 rounded-[2.5rem] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/20 rounded-full blur-[80px] -mr-32 -mt-32" />
+                <div className="relative z-10">
+                  <h3 className="text-2xl font-black tracking-tighter mb-2">Platform User Guide</h3>
+                  <p className="text-zinc-400 text-sm font-medium max-w-md">Learn how to maximize your efficiency and earnings with the {clinicProfile.name} portal.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className={`p-6 rounded-3xl border ${currentUser.role === 'staff' ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-black/5'}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'staff' ? 'bg-emerald-500 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
+                    <Users size={24} />
+                  </div>
+                  <h4 className="font-bold mb-2">For Staff Members</h4>
+                  <ul className="space-y-3 text-xs text-zinc-500 font-medium">
+                    <li className="flex gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <span>Share your unique QR code or referral link with patients.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <span>Track your "Pending" earnings as soon as a patient books.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <span>Earnings move to "Approved" once the patient completes their visit.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <span>Reach higher tiers (Silver/Gold) to earn up to 1.5x bonus!</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className={`p-6 rounded-3xl border ${currentUser.role === 'receptionist' ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-black/5'}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'receptionist' ? 'bg-emerald-500 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
+                    <CheckCircle2 size={24} />
+                  </div>
+                  <h4 className="font-bold mb-2">For Receptionists</h4>
+                  <ul className="space-y-3 text-xs text-zinc-500 font-medium">
+                    <li className="flex gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <span>Use the "Check-in" tab to find patients arriving today.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <span>Mark visits as "Completed" after the consultation.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <span>Update "Payment Status" to trigger the 7-day buffer period.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <span>Verify walk-in referrals by entering the staff's promo code.</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className={`p-6 rounded-3xl border ${currentUser.role === 'admin' ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-black/5'}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'admin' ? 'bg-emerald-500 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
+                    <ShieldCheck size={24} />
+                  </div>
+                  <h4 className="font-bold mb-2">For Administrators</h4>
+                  <ul className="space-y-3 text-xs text-zinc-500 font-medium">
+                    <li className="flex gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <span>Approve new staff registrations in the "Setup &gt; Staff" tab.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <span>Monitor clinic-wide performance in the "Admin Panel".</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <span>Process payouts for "Approved" earnings at the end of the month.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <span>Manage services, branches, and system roles in "Setup".</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+                <h4 className="font-black text-xs uppercase tracking-widest text-zinc-400 mb-6 flex items-center gap-2">
+                  <Zap size={14} className="text-yellow-500" />
+                  Frequently Asked Questions
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <p className="text-sm font-bold text-zinc-900">When do I get paid?</p>
+                    <p className="text-xs text-zinc-500 leading-relaxed">Incentives are eligible for payout 7 days after the patient's payment is completed. Admins typically process these monthly.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-bold text-zinc-900">What are AraCoins?</p>
+                    <p className="text-xs text-zinc-500 leading-relaxed">AraCoins are internal points earned alongside cash incentives. They can be used for clinic perks or redeemed for rewards (if enabled by admin).</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-bold text-zinc-900">How do tiers work?</p>
+                    <p className="text-xs text-zinc-500 leading-relaxed">Tiers are calculated monthly based on your successful referrals. Bronze (0-5), Silver (6-10), and Gold (11+). Higher tiers give you a bonus multiplier on all earnings that month.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-bold text-zinc-900">Can I refer patients to any branch?</p>
+                    <p className="text-xs text-zinc-500 leading-relaxed">Yes! Patients can select their preferred branch during booking, and you will still receive the referral credit regardless of the location.</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'profile' && currentUser && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-2xl mx-auto space-y-8"
+            >
+              <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-16 -mt-16" />
+                
+                <div className="flex flex-col items-center text-center mb-10 relative z-10">
+                  <div className="relative group mb-6">
+                    <div className="w-32 h-32 rounded-[2.5rem] bg-zinc-100 border-4 border-white shadow-xl overflow-hidden flex items-center justify-center">
+                      {currentUser.profile_picture ? (
+                        <img src={currentUser.profile_picture} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <UserCircle size={64} className="text-zinc-300" />
+                      )}
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-black tracking-tighter text-zinc-900">{currentUser.nickname || currentUser.name}</h3>
+                  <p className="text-zinc-400 text-sm font-medium uppercase tracking-widest">{currentUser.role}</p>
+                </div>
+
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    handleUpdateProfile({
+                      nickname: formData.get('nickname') as string,
+                      profile_picture: formData.get('profile_picture') as string,
+                      bank_name: formData.get('bank_name') as string,
+                      bank_account_number: formData.get('bank_account_number') as string,
+                    });
+                  }}
+                  className="space-y-6"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Nickname</label>
+                      <input 
+                        name="nickname"
+                        type="text"
+                        defaultValue={currentUser.nickname || ''}
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        placeholder="Your preferred name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Profile Picture URL</label>
+                      <input 
+                        name="profile_picture"
+                        type="url"
+                        defaultValue={currentUser.profile_picture || ''}
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        placeholder="https://images.com/photo.jpg"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-zinc-100">
+                    <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                      <DollarSign size={14} className="text-emerald-500" />
+                      Bank Account Details
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Bank Name</label>
+                        <input 
+                          name="bank_name"
+                          type="text"
+                          defaultValue={currentUser.bank_name || ''}
+                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          placeholder="e.g. Maybank, CIMB"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Account Number</label>
+                        <input 
+                          name="bank_account_number"
+                          type="text"
+                          defaultValue={currentUser.bank_account_number || ''}
+                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          placeholder="1234567890"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4 pt-6">
+                    <button 
+                      type="submit"
+                      className="flex-1 bg-zinc-900 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/20 active:scale-[0.98]"
+                    >
+                      Save Changes
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={handleLogout}
+                      className="px-8 bg-red-50 text-red-600 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100 active:scale-[0.98] flex items-center gap-2"
+                    >
+                      <LogOut size={18} />
+                      Sign Out
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <div className="bg-emerald-50 p-8 rounded-[2.5rem] border border-emerald-100">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shrink-0">
+                    <Zap size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-emerald-900 mb-1">Security Tip</h4>
+                    <p className="text-xs text-emerald-700 leading-relaxed">Keep your bank details updated to ensure smooth incentive payouts. Your information is encrypted and only visible to the clinic administrator.</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'setup' && currentUser.role === 'admin' && (
+            <motion.div 
+              key="setup"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-8"
+            >
+              <div className="flex items-center gap-4 border-b border-zinc-100 pb-4">
+                <button 
+                  onClick={() => setSetupSubTab('services')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'services' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  Service Setup
+                </button>
+                <button 
+                  onClick={() => setSetupSubTab('staff')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'staff' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  Staff Setup
+                </button>
+                <button 
+                  onClick={() => setSetupSubTab('booking')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'booking' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  Booking Settings
+                </button>
+                <button 
+                  onClick={() => setSetupSubTab('auth')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'auth' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  Authentication
+                </button>
+                <button 
+                  onClick={() => setSetupSubTab('clinic')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'clinic' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  Clinic Profile
+                </button>
+                <button 
+                  onClick={() => setSetupSubTab('roles')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'roles' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  Roles & Permissions
+                </button>
+              </div>
+
+              {setupSubTab === 'services' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-1">
+                    <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm sticky top-8">
+                      <h3 className="font-semibold mb-6">{editingService?.id ? 'Edit Service' : 'Add New Service'}</h3>
+                      <form onSubmit={handleSaveService} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Service Name</label>
+                          <input 
+                            type="text" 
+                            required
+                            value={editingService?.name || ''}
+                            onChange={(e) => setEditingService({...editingService, name: e.target.value})}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            placeholder="e.g. Dental Cleaning"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Base Price ($)</label>
+                            <input 
+                              type="number" 
+                              required
+                              value={editingService?.base_price || ''}
+                              onChange={(e) => setEditingService({...editingService, base_price: parseFloat(e.target.value)})}
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Incentive ($)</label>
+                            <input 
+                              type="number" 
+                              required
+                              value={editingService?.commission_rate || ''}
+                              onChange={(e) => setEditingService({...editingService, commission_rate: parseFloat(e.target.value)})}
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">AraCoins Perk</label>
+                          <input 
+                            type="number" 
+                            value={editingService?.aracoins_perk || ''}
+                            onChange={(e) => setEditingService({...editingService, aracoins_perk: parseInt(e.target.value)})}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            placeholder="Coins per referral"
+                          />
+                        </div>
+                        <div className="space-y-3">
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Tier Allowances ($)</label>
+                          {TIERS.map(tier => (
+                            <div key={tier.name} className="flex items-center gap-3">
+                              <span className={`w-16 text-[10px] font-bold uppercase ${tier.color}`}>{tier.name}</span>
+                              <input 
+                                type="number" 
+                                value={editingService?.allowances?.[tier.name] || ''}
+                                onChange={(e) => setEditingService({
+                                  ...editingService, 
+                                  allowances: { ...editingService?.allowances, [tier.name]: parseFloat(e.target.value) }
+                                })}
+                                className="flex-1 px-3 py-2 rounded-lg bg-zinc-50 border border-zinc-100 text-xs"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-2 pt-4">
+                          <button 
+                            type="submit"
+                            disabled={isSavingSetup}
+                            className="flex-1 bg-zinc-900 text-white py-3 rounded-xl font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                          >
+                            {isSavingSetup ? 'Saving...' : 'Save Service'}
+                          </button>
+                          {editingService && (
+                            <button 
+                              type="button"
+                              onClick={() => setEditingService(null)}
+                              className="px-4 bg-zinc-100 text-zinc-600 py-3 rounded-xl font-medium hover:bg-zinc-200 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                  <div className="lg:col-span-2">
+                    <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-zinc-50 border-b border-zinc-100">
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Service</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Price/Inc</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Perks</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-50">
+                          {services.map(service => (
+                            <tr key={service.id} className="hover:bg-zinc-50/50 transition-colors">
+                              <td className="p-4">
+                                <p className="text-sm font-medium">{service.name}</p>
+                              </td>
+                              <td className="p-4">
+                                <p className="text-xs text-zinc-500">${service.base_price} / <span className="text-emerald-600 font-bold">${service.commission_rate}</span></p>
+                              </td>
+                              <td className="p-4">
+                                <div className="flex flex-wrap gap-1">
+                                  {service.aracoins_perk > 0 && (
+                                    <span className="px-1.5 py-0.5 bg-yellow-50 text-yellow-700 rounded text-[9px] font-bold uppercase flex items-center gap-1">
+                                      <Coins size={8} /> {service.aracoins_perk}
+                                    </span>
+                                  )}
+                                  {Object.entries(service.allowances || {}).map(([tier, amt]) => (
+                                    <span key={tier} className="px-1.5 py-0.5 bg-zinc-50 text-zinc-500 rounded text-[9px] font-bold uppercase">
+                                      {tier[0]}: ${amt}
+                                    </span>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="p-4 text-right">
+                                <div className="flex justify-end gap-2">
+                                  <button onClick={() => setEditingService(service)} className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors">
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button onClick={() => handleDeleteService(service.id)} className="p-2 text-zinc-400 hover:text-red-600 transition-colors">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ) : setupSubTab === 'staff' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-1">
+                    <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm sticky top-8">
+                      <h3 className="font-semibold mb-6">{editingStaff?.id ? 'Edit Staff' : 'Add New Staff'}</h3>
+                      <form onSubmit={handleSaveStaff} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Full Name</label>
+                          <input 
+                            type="text" 
+                            required
+                            value={editingStaff?.name || ''}
+                            onChange={(e) => setEditingStaff({...editingStaff, name: e.target.value})}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Email</label>
+                          <input 
+                            type="email" 
+                            required
+                            value={editingStaff?.email || ''}
+                            onChange={(e) => setEditingStaff({...editingStaff, email: e.target.value})}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Phone Number</label>
+                          <input 
+                            type="text" 
+                            value={editingStaff?.phone || ''}
+                            onChange={(e) => setEditingStaff({...editingStaff, phone: e.target.value})}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            placeholder="e.g. 60123456789"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Staff ID Code</label>
+                            <input 
+                              type="text" 
+                              required
+                              value={editingStaff?.staff_id_code || ''}
+                              onChange={(e) => setEditingStaff({...editingStaff, staff_id_code: e.target.value.toUpperCase()})}
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                              placeholder="e.g. HR001"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Branch</label>
+                            <select 
+                              required
+                              value={editingStaff?.branch || ''}
+                              onChange={(e) => setEditingStaff({...editingStaff, branch: e.target.value})}
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            >
+                              <option value="">Select Branch</option>
+                              <option value="Bangi">Bangi</option>
+                              <option value="Kajang">Kajang</option>
+                              <option value="HQ">HQ</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Department</label>
+                            <input 
+                              type="text" 
+                              value={editingStaff?.department || ''}
+                              onChange={(e) => setEditingStaff({...editingStaff, department: e.target.value})}
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Position</label>
+                            <input 
+                              type="text" 
+                              value={editingStaff?.position || ''}
+                              onChange={(e) => setEditingStaff({...editingStaff, position: e.target.value})}
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Employment</label>
+                            <select 
+                              value={editingStaff?.employment_status || 'permanent'}
+                              onChange={(e) => setEditingStaff({...editingStaff, employment_status: e.target.value})}
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            >
+                              <option value="permanent">Permanent</option>
+                              <option value="contract">Contract</option>
+                              <option value="locum">Locum</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Date Joined</label>
+                            <input 
+                              type="date" 
+                              value={editingStaff?.date_joined || ''}
+                              onChange={(e) => setEditingStaff({...editingStaff, date_joined: e.target.value})}
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Role</label>
+                          <select 
+                            required
+                            value={editingStaff?.role || 'staff'}
+                            onChange={(e) => setEditingStaff({...editingStaff, role: e.target.value})}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-none"
+                          >
+                            <option value="staff">Staff</option>
+                            <option value="receptionist">Receptionist</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Custom Referral Code</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="text" 
+                              required
+                              value={editingStaff?.promo_code || ''}
+                              onChange={(e) => setEditingStaff({...editingStaff, promo_code: e.target.value.toUpperCase()})}
+                              className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-mono"
+                              placeholder="e.g. SMITH10"
+                            />
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                const namePart = (editingStaff?.name || 'STAFF').split(' ')[0].toUpperCase();
+                                const randomPart = Math.floor(10 + Math.random() * 90);
+                                setEditingStaff({...editingStaff, promo_code: `${namePart}${randomPart}`});
+                              }}
+                              className="px-3 bg-zinc-100 text-zinc-600 rounded-xl hover:bg-zinc-200 transition-colors"
+                              title="Generate random code"
+                            >
+                              <QrCode size={18} />
+                            </button>
+                          </div>
+                          <p className="mt-1 text-[10px] text-zinc-400 ml-1 italic">Must be unique. Used for tracking referrals.</p>
+                        </div>
+                        <div className="flex gap-2 pt-4">
+                          <button 
+                            type="submit"
+                            disabled={isSavingSetup}
+                            className="flex-1 bg-zinc-900 text-white py-3 rounded-xl font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                          >
+                            {isSavingSetup ? 'Saving...' : 'Save Staff'}
+                          </button>
+                          {editingStaff && (
+                            <button 
+                              type="button"
+                              onClick={() => setEditingStaff(null)}
+                              className="px-4 bg-zinc-100 text-zinc-600 py-3 rounded-xl font-medium hover:bg-zinc-200 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                  <div className="lg:col-span-2">
+                    <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-zinc-50 border-b border-zinc-100">
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Staff Member</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">HR Info</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Status</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Wallet ({clinicProfile.currency})</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-50">
+                          {staffList.map(staff => (
+                            <tr key={staff.id} className="hover:bg-zinc-50/50 transition-colors">
+                              <td className="p-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-lg bg-zinc-100 overflow-hidden flex items-center justify-center shrink-0">
+                                    {staff.profile_picture ? (
+                                      <img src={staff.profile_picture} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                    ) : (
+                                      <UserCircle size={16} className="text-zinc-400" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium">{staff.nickname || staff.name}</p>
+                                    {staff.nickname && <p className="text-[10px] text-zinc-400">Real Name: {staff.name}</p>}
+                                    <p className="text-[10px] text-zinc-400">{staff.email} • <span className="font-bold text-emerald-600">{staff.promo_code}</span></p>
+                                  </div>
+                                </div>
+                                <span className="text-[9px] font-bold uppercase text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded mt-1 inline-block">
+                                  {staff.role}
+                                </span>
+                              </td>
+                              <td className="p-4">
+                                <p className="text-xs font-medium text-zinc-600">{staff.staff_id_code || 'N/A'}</p>
+                                <p className="text-[10px] text-zinc-400">{staff.branch} • {staff.department}</p>
+                                {staff.bank_name && (
+                                  <p className="text-[9px] font-bold text-emerald-600 mt-1 uppercase tracking-tighter">
+                                    {staff.bank_name}: {staff.bank_account_number}
+                                  </p>
+                                )}
+                              </td>
+                              <td className="p-4">
+                                <div className="flex flex-col gap-2">
+                                  <span className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider w-fit ${staff.is_approved ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
+                                    {staff.is_approved ? 'Approved' : 'Pending'}
+                                  </span>
+                                  <button 
+                                    onClick={() => handleApproveStaff(staff.id, !staff.is_approved)}
+                                    className={`text-[9px] font-bold uppercase tracking-tighter underline decoration-dotted underline-offset-2 ${staff.is_approved ? 'text-red-400 hover:text-red-600' : 'text-emerald-500 hover:text-emerald-700'}`}
+                                  >
+                                    {staff.is_approved ? 'Revoke Approval' : 'Approve Now'}
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="p-4">
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                  <div className="flex flex-col">
+                                    <span className="text-[8px] text-zinc-400 uppercase font-bold">Pending</span>
+                                    <span className="text-xs font-bold text-orange-600">{staff.pending_earnings.toFixed(0)}</span>
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-[8px] text-zinc-400 uppercase font-bold">Approved</span>
+                                    <span className="text-xs font-bold text-emerald-600">{staff.approved_earnings.toFixed(0)}</span>
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-[8px] text-zinc-400 uppercase font-bold">Paid</span>
+                                    <span className="text-xs font-bold text-blue-600">{staff.paid_earnings.toFixed(0)}</span>
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-[8px] text-zinc-400 uppercase font-bold">Lifetime</span>
+                                    <span className="text-xs font-bold text-zinc-900">{staff.lifetime_earnings.toFixed(0)}</span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-4 text-right">
+                                <div className="flex justify-end gap-2">
+                                  <button onClick={() => handleResetPassword(staff.id)} title="Reset Password" className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors">
+                                    <Key size={14} />
+                                  </button>
+                                  <button onClick={() => setEditingStaff(staff)} className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors">
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button onClick={() => handleDeleteStaff(staff.id)} className="p-2 text-zinc-400 hover:text-red-600 transition-colors">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ) : setupSubTab === 'clinic' ? (
+                <div className="max-w-2xl mx-auto bg-white p-8 rounded-3xl border border-black/5 shadow-sm">
+                  <h3 className="font-semibold mb-6">Clinic Profile</h3>
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Clinic Name</label>
+                        <input 
+                          type="text"
+                          value={clinicProfile.name}
+                          onChange={(e) => setClinicProfile({ ...clinicProfile, name: e.target.value })}
+                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Currency Code</label>
+                        <input 
+                          type="text"
+                          value={clinicProfile.currency}
+                          onChange={(e) => setClinicProfile({ ...clinicProfile, currency: e.target.value })}
+                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          placeholder="RM, $, etc."
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Address</label>
+                      <textarea 
+                        value={clinicProfile.address}
+                        onChange={(e) => setClinicProfile({ ...clinicProfile, address: e.target.value })}
+                        className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium h-24 resize-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Phone Number</label>
+                        <input 
+                          type="tel"
+                          value={clinicProfile.phone}
+                          onChange={(e) => setClinicProfile({ ...clinicProfile, phone: e.target.value })}
+                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Email Address</label>
+                        <input 
+                          type="email"
+                          value={clinicProfile.email}
+                          onChange={(e) => setClinicProfile({ ...clinicProfile, email: e.target.value })}
+                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        />
+                      </div>
+                    </div>
+                    <button 
+                      onClick={async () => {
+                        setIsSavingSetup(true);
+                        try {
+                          await fetch('/api/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ key: 'clinic', value: clinicProfile })
+                          });
+                          alert('Clinic profile saved!');
+                        } catch (e) {
+                          console.error(e);
+                        } finally {
+                          setIsSavingSetup(false);
+                        }
+                      }}
+                      disabled={isSavingSetup}
+                      className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-900/10 disabled:opacity-50"
+                    >
+                      {isSavingSetup ? 'Saving...' : 'Save Profile'}
+                    </button>
+                  </div>
+                </div>
+              ) : setupSubTab === 'roles' ? (
+                <div className="max-w-4xl mx-auto space-y-8">
+                  <div className="bg-white p-8 rounded-3xl border border-black/5 shadow-sm">
+                    <h3 className="font-semibold mb-6">Roles & Permissions</h3>
+                    <div className="space-y-8">
+                      {Object.entries(rolesConfig).map(([role, perms]) => (
+                        <div key={role} className="p-6 bg-zinc-50 rounded-3xl border border-zinc-100">
+                          <div className="flex items-center justify-between mb-6">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-zinc-900">{role}</h4>
+                            <span className="px-3 py-1 bg-white border border-zinc-200 rounded-full text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">System Role</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {Object.entries(perms as RolePermissions).map(([permKey, value]) => (
+                              <div key={permKey} className="flex items-center justify-between p-3 bg-white rounded-xl border border-zinc-100">
+                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-tight">
+                                  {permKey.replace(/([A-Z])/g, ' $1').trim()}
+                                </span>
+                                <button 
+                                  onClick={() => {
+                                    const newConfig = {
+                                      ...rolesConfig,
+                                      [role]: { ...(perms as RolePermissions), [permKey]: !value }
+                                    };
+                                    setRolesConfig(newConfig);
+                                  }}
+                                  className={`w-10 h-5 rounded-full transition-all relative ${value ? 'bg-emerald-500' : 'bg-zinc-200'}`}
+                                >
+                                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${value ? 'left-5.5' : 'left-0.5'}`} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-8 pt-8 border-t border-zinc-100">
+                      <button 
+                        onClick={async () => {
+                          setIsSavingSetup(true);
+                          try {
+                            await fetch('/api/settings', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ key: 'roles', value: rolesConfig })
+                            });
+                            alert('Roles configuration saved!');
+                          } catch (e) {
+                            console.error(e);
+                          } finally {
+                            setIsSavingSetup(false);
+                          }
+                        }}
+                        disabled={isSavingSetup}
+                        className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-900/10 disabled:opacity-50"
+                      >
+                        {isSavingSetup ? 'Saving...' : 'Save Permissions'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : setupSubTab === 'auth' ? (
+                <div className="max-w-2xl mx-auto space-y-8">
+                  <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-50/50 rounded-full blur-3xl -z-10 -mr-32 -mt-32" />
+                    
+                    <div className="flex items-center gap-4 mb-10">
+                      <div className="w-14 h-14 bg-zinc-900 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-zinc-900/20">
+                        <ShieldCheck size={28} />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-black tracking-tighter text-zinc-900">Authentication Settings</h3>
+                        <p className="text-zinc-500 text-sm font-medium">Manage how users access the AraClinic portal</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between p-8 bg-zinc-50 rounded-[2rem] border border-zinc-100 group hover:bg-white hover:shadow-md transition-all duration-300">
+                        <div className="space-y-1">
+                          <p className="text-base font-black tracking-tight text-zinc-900">Allow Self-Registration</p>
+                          <p className="text-xs text-zinc-500 font-medium max-w-xs leading-relaxed">
+                            When enabled, new staff members can create their own accounts from the login screen. 
+                            All new accounts will still require admin approval.
+                          </p>
+                        </div>
+                        <button 
+                          onClick={async () => {
+                            const newVal = !authSettings.allowRegistration;
+                            setAuthSettings({ ...authSettings, allowRegistration: newVal });
+                            try {
+                              const res = await fetch('/api/settings', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ key: 'auth', value: { allowRegistration: newVal } })
+                              });
+                              if (res.ok) {
+                                setSaveStatus({ type: 'success', message: `Self-registration ${newVal ? 'enabled' : 'disabled'} successfully` });
+                                setTimeout(() => setSaveStatus(null), 3000);
+                              }
+                            } catch (e) {
+                              setSaveStatus({ type: 'error', message: 'Failed to update settings' });
+                              setTimeout(() => setSaveStatus(null), 3000);
+                            }
+                          }}
+                          className={`w-16 h-8 rounded-full transition-all relative shadow-inner ${authSettings.allowRegistration ? 'bg-emerald-500' : 'bg-zinc-200'}`}
+                        >
+                          <div className={`absolute top-1.5 w-5 h-5 bg-white rounded-full transition-all shadow-md ${authSettings.allowRegistration ? 'left-9' : 'left-1.5'}`} />
+                        </button>
+                      </div>
+
+                      <AnimatePresence>
+                        {saveStatus && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-3 ${saveStatus.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}
+                          >
+                            <div className={`w-2 h-2 rounded-full ${saveStatus.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`} />
+                            {saveStatus.message}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      <div className="p-8 bg-blue-50/50 text-blue-800 rounded-[2rem] border border-blue-100 space-y-4">
+                        <div className="flex items-center gap-2">
+                          <ShieldAlert size={16} className="text-blue-600" />
+                          <p className="text-[10px] font-black uppercase tracking-widest">Security Protocol</p>
+                        </div>
+                        <div className="space-y-3">
+                          <p className="text-xs leading-relaxed font-medium">
+                            <span className="font-black">Restricted Mode:</span> If disabled, the "Register" tab will be hidden from the login screen. Only administrators can add new staff via the <span className="font-black">Staff Setup</span> tab.
+                          </p>
+                          <p className="text-xs leading-relaxed font-medium">
+                            <span className="font-black">Approval Required:</span> Regardless of this setting, all self-registered accounts are created with <span className="text-orange-600 font-black">Pending Approval</span> status and cannot access clinic data until an admin approves them.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white p-8 rounded-3xl border border-black/5 shadow-sm max-w-2xl">
+                  <h3 className="font-semibold mb-6">Booking Availability Settings</h3>
+                  <div className="space-y-8">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase mb-3 ml-1">Working Hours (Start)</label>
+                        <input 
+                          type="time" 
+                          value={appSettings.workingHours.start}
+                          onChange={(e) => setAppSettings({...appSettings, workingHours: {...appSettings.workingHours, start: e.target.value}})}
+                          className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase mb-3 ml-1">Working Hours (End)</label>
+                        <input 
+                          type="time" 
+                          value={appSettings.workingHours.end}
+                          onChange={(e) => setAppSettings({...appSettings, workingHours: {...appSettings.workingHours, end: e.target.value}})}
+                          className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-400 uppercase mb-3 ml-1">Block Specific Dates</label>
+                      <div className="flex gap-2 mb-4">
+                        <input 
+                          type="date" 
+                          id="new-blocked-date"
+                          className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        />
+                        <button 
+                          onClick={() => {
+                            const input = document.getElementById('new-blocked-date') as HTMLInputElement;
+                            if (input.value && !appSettings.blockedDates.includes(input.value)) {
+                              setAppSettings({...appSettings, blockedDates: [...appSettings.blockedDates, input.value]});
+                              input.value = '';
+                            }
+                          }}
+                          className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider"
+                        >
+                          Add Date
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {appSettings.blockedDates.map(date => (
+                          <span key={date} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 rounded-lg text-xs font-medium">
+                            {date}
+                            <button onClick={() => setAppSettings({...appSettings, blockedDates: appSettings.blockedDates.filter(d => d !== date)})} className="text-red-500 hover:text-red-700">
+                              <Trash2 size={12} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-400 uppercase mb-3 ml-1">Block Specific Times (Daily)</label>
+                      <div className="flex gap-2 mb-4">
+                        <input 
+                          type="time" 
+                          id="new-blocked-time"
+                          className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        />
+                        <button 
+                          onClick={() => {
+                            const input = document.getElementById('new-blocked-time') as HTMLInputElement;
+                            if (input.value && !appSettings.blockedTimes.includes(input.value)) {
+                              setAppSettings({...appSettings, blockedTimes: [...appSettings.blockedTimes, input.value]});
+                              input.value = '';
+                            }
+                          }}
+                          className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider"
+                        >
+                          Add Time
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {appSettings.blockedTimes.map(time => (
+                          <span key={time} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 rounded-lg text-xs font-medium">
+                            {time}
+                            <button onClick={() => setAppSettings({...appSettings, blockedTimes: appSettings.blockedTimes.filter(t => t !== time)})} className="text-red-500 hover:text-red-700">
+                              <Trash2 size={12} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-6 border-t border-zinc-100">
+                      <button 
+                        onClick={async () => {
+                          setIsSavingSetup(true);
+                          try {
+                            await fetch('/api/settings', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ key: 'booking', value: appSettings })
+                            });
+                            alert('Booking settings saved successfully!');
+                          } catch (e) {
+                            console.error(e);
+                          } finally {
+                            setIsSavingSetup(false);
+                          }
+                        }}
+                        disabled={isSavingSetup}
+                        className="w-full bg-emerald-500 text-white py-4 rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                      >
+                        {isSavingSetup ? 'Saving...' : 'Save Booking Settings'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Staff Detail Modal */}
+        <AnimatePresence>
+          {showStaffModal && selectedStaffDetail && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowStaffModal(false)}
+                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+              >
+                <div className="p-8">
+                  <div className="flex items-start justify-between mb-8">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-3xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl font-bold">
+                        {selectedStaffDetail.name.charAt(0)}
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold tracking-tight">{selectedStaffDetail.name}</h3>
+                        <p className="text-zinc-500">{selectedStaffDetail.email}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${selectedStaffDetail.tier.bg} ${selectedStaffDetail.tier.color}`}>
+                            {selectedStaffDetail.tier.name} Tier
+                          </span>
+                          <div className="flex items-center gap-1 text-yellow-600">
+                            <Coins size={12} />
+                            <span className="text-xs font-bold">{selectedStaffDetail.aracoins || 0} AraCoins</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setShowStaffModal(false)}
+                      className="p-2 hover:bg-zinc-100 rounded-xl transition-colors"
+                    >
+                      <PlusCircle className="rotate-45 text-zinc-400" size={24} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4 mb-8">
+                    <div className="bg-zinc-50 p-4 rounded-3xl border border-zinc-100">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Monthly Success</p>
+                      <p className="text-xl font-bold">{selectedStaffDetail.monthlySuccessfulRefs}</p>
+                    </div>
+                    <div className="bg-zinc-50 p-4 rounded-3xl border border-zinc-100">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total Earned</p>
+                      <p className="text-xl font-bold text-emerald-600">${selectedStaffDetail.earned.toFixed(2)}</p>
+                    </div>
+                    <div className="bg-zinc-50 p-4 rounded-3xl border border-zinc-100">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Promo Code</p>
+                      <p className="text-xl font-bold font-mono text-zinc-900">{selectedStaffDetail.promo_code}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-zinc-400 ml-1">Recent Referrals & Allowances</h4>
+                    <div className="max-height-[300px] overflow-y-auto pr-2 space-y-2">
+                      {referrals
+                        .filter(r => r.staff_id === selectedStaffDetail.id)
+                        .slice(0, 10)
+                        .map(ref => {
+                          const service = services.find(s => s.id === ref.service_id);
+                          const allowance = service?.allowances?.[selectedStaffDetail.tier.name] || 0;
+                          return (
+                            <div key={ref.id} className="flex items-center justify-between p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
+                              <div>
+                                <p className="text-sm font-bold text-zinc-900">{ref.patient_name}</p>
+                                <p className="text-[10px] text-zinc-500 uppercase font-medium">{ref.service_name} • {ref.date}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-emerald-600">+${(ref.commission_amount * selectedStaffDetail.tier.bonus).toFixed(2)}</p>
+                                {allowance > 0 && (
+                                  <p className="text-[9px] font-bold text-blue-600 uppercase">Allowance: +${allowance.toFixed(2)}</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      {referrals.filter(r => r.staff_id === selectedStaffDetail.id).length === 0 && (
+                        <p className="text-center py-8 text-zinc-400 text-sm italic">No referral history found.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+            </>
+          )}
+      </main>
+    </div>
+  );
+  }
+}
