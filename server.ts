@@ -120,7 +120,7 @@ app.post("/api/auth/register", async (req, res) => {
   res.json(newStaff);
 });
 
-// Tasks API (Flattened data to fix the React crash)
+// Tasks API
 app.get("/api/tasks", async (req, res) => {
   const { data, error } = await supabase.from('tasks').select(`*, staff:assigned_to(name)`).order('due_date', { ascending: true });
   const formattedTasks = (data || []).map((t: any) => ({
@@ -159,7 +159,7 @@ app.patch("/api/staff/:id", async (req, res) => {
   res.json({ success: !error });
 });
 
-// Referrals API (Flattened data to fix the React crash)
+// Referrals API
 app.get("/api/referrals", async (req, res) => {
   const { staffId, branch } = req.query;
   let query = supabase.from('referrals').select(`*, staff:staff_id(name, promo_code), services:service_id(name)`).order('date', { ascending: false });
@@ -194,22 +194,55 @@ app.post("/api/referrals", async (req, res) => {
 });
 
 app.patch("/api/referrals/:id", async (req, res) => {
-    // This endpoint was missing from your last snippet, 
-    // I am restoring the Supabase version of the referral status updates here!
     const { id } = req.params;
     const { status, payment_status, visit_date, verified_by, rejection_reason } = req.body;
     
-    const { error } = await supabase.from('referrals').update({
+    // Fetch the referral and current staff earnings first
+    const { data: referral } = await supabase.from('referrals').select('*').eq('id', id).single();
+    if (!referral) return res.status(404).json({ error: "Referral not found" });
+
+    const { data: staff } = await supabase.from('staff').select('*').eq('id', referral.staff_id).single();
+    if (!staff) return res.status(404).json({ error: "Staff not found" });
+
+    // Handle Earnings logic based on status changes
+    let earningsUpdate: any = {};
+    const commission = referral.commission_amount || 0;
+
+    if (status === 'approved' && referral.status !== 'approved') {
+        // Increment Approved & Lifetime, Decrement Pending
+        earningsUpdate = {
+            pending_earnings: Math.max(0, (staff.pending_earnings || 0) - commission),
+            approved_earnings: (staff.approved_earnings || 0) + commission,
+            lifetime_earnings: (staff.lifetime_earnings || 0) + commission
+        };
+    } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
+        // Move from Approved to Paid
+        earningsUpdate = {
+            approved_earnings: Math.max(0, (staff.approved_earnings || 0) - commission),
+            paid_earnings: (staff.paid_earnings || 0) + commission,
+            last_payout_date: new Date().toISOString()
+        };
+    } else if (status === 'rejected' && referral.status !== 'rejected') {
+        // Deduct from Pending
+        earningsUpdate = {
+            pending_earnings: Math.max(0, (staff.pending_earnings || 0) - commission)
+        };
+    }
+
+    // Apply updates to the referral
+    await supabase.from('referrals').update({
         status, payment_status, visit_date, verified_by, rejection_reason
     }).eq('id', id);
 
-    res.json({ success: !error });
+    // Apply updates to the staff member
+    if (Object.keys(earningsUpdate).length > 0) {
+        await supabase.from('staff').update(earningsUpdate).eq('id', referral.staff_id);
+    }
+
+    res.json({ success: true });
 });
 
-// ==========================================
-// MISSING SETTINGS & APPROVAL APIs
-// ==========================================
-
+// Settings & Approval APIs
 app.get("/api/settings", async (req, res) => {
   const { data, error } = await supabase.from('settings').select('*');
   const result: any = {};
@@ -254,7 +287,7 @@ app.delete("/api/staff/:id", async (req, res) => {
   res.json({ success: !error });
 });
 
-// Services API (Also restoring these just in case!)
+// Services API
 app.get("/api/services", async (req, res) => {
   const { data } = await supabase.from('services').select('*');
   res.json((data || []).map((s: any) => ({
@@ -285,43 +318,21 @@ app.delete("/api/services/:id", async (req, res) => {
   const { error } = await supabase.from('services').delete().eq('id', id);
   res.json({ success: !error });
 });
-// ==========================================
-// NEW GEMINI AI ENDPOINT
-// ==========================================
+
+// AI Assistant
 app.post("/api/ai/ask", async (req, res) => {
   try {
     const { question } = req.body;
-    
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: "Gemini API key is missing." });
-    }
-
-    // Using the flash model for fast, snappy responses
+    if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: "Gemini API key is missing." });
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
-    
-    // The System Prompt: This tells the AI how to act!
-    const prompt = `
-      You are the official AI Assistant for AraClinic. 
-      A staff member is asking you this question: "${question}"
-      
-      Rules:
-      - Be extremely helpful, professional, and concise.
-      - If they ask about medical advice, remind them you are an administrative AI, not a doctor.
-      - Format your response nicely.
-    `;
-    
+    const prompt = `You are the AI Assistant for AraClinic. Question: "${question}" - Be professional and helpful.`;
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    
-    res.json({ answer: text });
+    res.json({ answer: (await result.response).text() });
   } catch (error: any) {
-    console.error("AI Error:", error);
     res.status(500).json({ error: "Failed to generate AI response." });
   }
 });
 
-// Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Unhandled Error:', err);
   res.status(500).json({ error: "Internal Server Error" });
