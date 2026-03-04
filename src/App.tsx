@@ -318,6 +318,12 @@ export default function App() {
     }
   }, [currentUser, branchFilter]);
 
+  useEffect(() => {
+    if (activeTab === 'admin' && currentUser?.role === 'admin') {
+      fetchStaff();
+    }
+  }, [activeTab, currentUser]);
+
   const fetchStaff = async () => {
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff`);
     if (res.ok) {
@@ -1779,7 +1785,14 @@ export default function App() {
                     <div className="p-6">
                       <div className="space-y-4">
                         {staffPerformance.slice(0, 5).map((staff, index) => (
-                          <div key={staff.id} className="flex items-center justify-between">
+                          <div 
+                            key={staff.id} 
+                            className="flex items-center justify-between cursor-pointer hover:bg-zinc-50 p-2 -mx-2 rounded-xl transition-colors"
+                            onClick={() => {
+                              setSelectedStaffDetail(staff);
+                              setShowStaffModal(true);
+                            }}
+                          >
                             <div className="flex items-center gap-3">
                               <span className="text-xs font-bold text-zinc-300 w-4">{index + 1}</span>
                               <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-600">
