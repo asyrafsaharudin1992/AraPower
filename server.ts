@@ -197,49 +197,52 @@ app.patch("/api/referrals/:id", async (req, res) => {
     const { id } = req.params;
     const { status, payment_status, visit_date, verified_by, rejection_reason } = req.body;
     
-    // Fetch the referral and current staff earnings first
+    // 1. Fetch the referral and current staff data
     const { data: referral } = await supabase.from('referrals').select('*').eq('id', id).single();
     if (!referral) return res.status(404).json({ error: "Referral not found" });
 
     const { data: staff } = await supabase.from('staff').select('*').eq('id', referral.staff_id).single();
     if (!staff) return res.status(404).json({ error: "Staff not found" });
 
-    // Handle Earnings logic based on status changes
     let earningsUpdate: any = {};
     const commission = referral.commission_amount || 0;
 
+    // 2. Logic for Status Transitions
     if (status === 'approved' && referral.status !== 'approved') {
-        // Increment Approved & Lifetime, Decrement Pending
+        // Move from Pending to Approved + Increase Lifetime
         earningsUpdate = {
             pending_earnings: Math.max(0, (staff.pending_earnings || 0) - commission),
             approved_earnings: (staff.approved_earnings || 0) + commission,
             lifetime_earnings: (staff.lifetime_earnings || 0) + commission
         };
-    } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
-        // Move from Approved to Paid
+    } 
+    else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
+        // Move from Approved to Paid (Lifetime stays the same as it was already added)
         earningsUpdate = {
             approved_earnings: Math.max(0, (staff.approved_earnings || 0) - commission),
             paid_earnings: (staff.paid_earnings || 0) + commission,
             last_payout_date: new Date().toISOString()
         };
-    } else if (status === 'rejected' && referral.status !== 'rejected') {
-        // Deduct from Pending
-        earningsUpdate = {
-            pending_earnings: Math.max(0, (staff.pending_earnings || 0) - commission)
-        };
+    } 
+    else if (status === 'rejected' && referral.status !== 'rejected') {
+        // Deduct from Pending only if it was in a pending state
+        if (['entered', 'completed', 'buffer'].includes(referral.status)) {
+            earningsUpdate = {
+                pending_earnings: Math.max(0, (staff.pending_earnings || 0) - commission)
+            };
+        }
     }
 
-    // Apply updates to the referral
-    await supabase.from('referrals').update({
+    // 3. Execute Updates
+    const { error: refError } = await supabase.from('referrals').update({
         status, payment_status, visit_date, verified_by, rejection_reason
     }).eq('id', id);
 
-    // Apply updates to the staff member
     if (Object.keys(earningsUpdate).length > 0) {
         await supabase.from('staff').update(earningsUpdate).eq('id', referral.staff_id);
     }
 
-    res.json({ success: true });
+    res.json({ success: !refError });
 });
 
 // Settings & Approval APIs
