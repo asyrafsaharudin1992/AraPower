@@ -3934,3 +3934,4 @@ export default function App() {
   );
   }
 }
+<AIChatBubble />
