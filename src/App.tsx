@@ -210,6 +210,7 @@ export default function App() {
   const [authPhone, setAuthPhone] = useState('');
   const [authError, setAuthError] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState(import.meta.env.VITE_API_URL || '');
   const [authSettings, setAuthSettings] = useState({ allowRegistration: true });
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -248,12 +249,19 @@ export default function App() {
   }, []);
 
   const checkConnection = async () => {
+    setConnectionStatus('checking');
+    setConnectionError(null);
     try {
       const res = await fetch(`${apiBaseUrl}/api/health`);
-      if (res.ok) setConnectionStatus('online');
-      else setConnectionStatus('offline');
-    } catch (e) {
+      if (res.ok) {
+        setConnectionStatus('online');
+      } else {
+        setConnectionStatus('offline');
+        setConnectionError(`Server responded with status ${res.status}`);
+      }
+    } catch (e: any) {
       setConnectionStatus('offline');
+      setConnectionError(e.message || 'Connection failed');
     }
   };
 
@@ -823,7 +831,7 @@ export default function App() {
           </div>
 
           <AnimatePresence mode="wait">
-            {connectionStatus === 'offline' && (
+            {(connectionStatus === 'offline' || connectionStatus === 'checking') && (
               <motion.div 
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -832,9 +840,11 @@ export default function App() {
               >
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  API Connection Issue Detected
+                  API Connection Issue: {connectionError || 'Detected'}
                 </div>
-                <button onClick={checkConnection} className="underline hover:text-amber-900">Retry</button>
+                <button onClick={checkConnection} className="underline hover:text-amber-900">
+                  {connectionStatus === 'checking' ? 'Checking...' : 'Retry'}
+                </button>
               </motion.div>
             )}
             {authError && (

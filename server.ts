@@ -9,7 +9,10 @@ import cors from 'cors';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const db = new Database("clinic.db");
+// Use /tmp for SQLite on Vercel as it's the only writable directory
+const dbPath = process.env.VERCEL ? path.join("/tmp", "clinic.db") : "clinic.db";
+console.log(`Initializing database at: ${dbPath}`);
+const db = new Database(dbPath);
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 async function sendAdminNotification(newUser: any) {
@@ -170,349 +173,349 @@ if (staffCount.count === 0) {
   db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Vaccination Package", 120, 5);
 }
 
-async function startServer() {
-  const app = express();
-  app.use(cors());
-  app.use(express.json());
-  const PORT = 3000;
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-  // API Routes
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", time: new Date().toISOString() });
+const PORT = 3000;
+
+// API Routes
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    time: new Date().toISOString(),
+    vercel: !!process.env.VERCEL,
+    env: process.env.NODE_ENV
   });
+});
 
-  app.post("/api/auth/login", (req, res) => {
-    const { email, password } = req.body;
-    console.log(`Login attempt for: ${email}`);
-    const staff = db.prepare("SELECT * FROM staff WHERE email = ? AND password = ?").get(email, password) as any;
-    if (staff) {
-      console.log(`Login successful for: ${email}`);
-      res.json(staff);
-    } else {
-      console.log(`Login failed for: ${email}`);
-      res.status(401).json({ error: "Invalid email or password" });
-    }
-  });
-
-  app.post("/api/auth/register", (req, res) => {
-    const { name, email, password, branch, phone } = req.body;
-    
-    // Check if registration is allowed
-    const settings = db.prepare("SELECT value FROM settings WHERE key = 'auth'").get() as any;
-    const authSettings = settings ? JSON.parse(settings.value) : { allowRegistration: true };
-    
-    if (!authSettings.allowRegistration) {
-      return res.status(403).json({ error: "Self-registration is currently disabled. Please contact an administrator." });
-    }
-
-    // Generate a promo code
-    const namePart = name.split(' ')[0].toUpperCase();
-    const randomPart = Math.floor(100 + Math.random() * 899);
-    const promo_code = `${namePart}-${randomPart}`;
-
-    try {
-      const result = db.prepare(`
-        INSERT INTO staff (name, email, password, role, promo_code, branch, phone, date_joined, is_approved)
-        VALUES (?, ?, ?, 'staff', ?, ?, ?, ?, 0)
-      `).run(name, email, password || 'password123', promo_code, branch, phone || null, new Date().toISOString());
-      
-      const newStaff = db.prepare("SELECT * FROM staff WHERE id = ?").get(result.lastInsertRowid);
-      
-      // Send notification to admins
-      sendAdminNotification(newStaff);
-      
-      res.json(newStaff);
-    } catch (error: any) {
-      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-        res.status(400).json({ error: "Email already exists" });
-      } else {
-        res.status(500).json({ error: "Internal server error" });
-      }
-    }
-  });
-
-  app.get("/api/settings", (req, res) => {
-    const settings = db.prepare("SELECT * FROM settings").all();
-    const result: any = {};
-    settings.forEach((s: any) => {
-      result[s.key] = JSON.parse(s.value);
-    });
-    res.json(result);
-  });
-
-  app.post("/api/settings", (req, res) => {
-    const { key, value } = req.body;
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, JSON.stringify(value));
-    res.json({ success: true });
-  });
-
-  // Tasks API
-  app.get("/api/tasks", (req, res) => {
-    const tasks = db.prepare(`
-      SELECT t.*, s.name as assigned_to_name 
-      FROM tasks t 
-      LEFT JOIN staff s ON t.assigned_to = s.id
-      ORDER BY t.due_date ASC
-    `).all();
-    res.json(tasks);
-  });
-
-  app.post("/api/tasks", (req, res) => {
-    const { title, description, due_date, assigned_to } = req.body;
-    const result = db.prepare(`
-      INSERT INTO tasks (title, description, due_date, assigned_to, created_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(title, description, due_date, assigned_to || null, new Date().toISOString());
-    res.json({ id: result.lastInsertRowid });
-  });
-
-  app.patch("/api/tasks/:id", (req, res) => {
-    const { id } = req.params;
-    const { status, title, description, due_date, assigned_to } = req.body;
-    
-    if (status) {
-      db.prepare("UPDATE tasks SET status = ? WHERE id = ?").run(status, id);
-    } else {
-      db.prepare(`
-        UPDATE tasks 
-        SET title = ?, description = ?, due_date = ?, assigned_to = ? 
-        WHERE id = ?
-      `).run(title, description, due_date, assigned_to, id);
-    }
-    res.json({ success: true });
-  });
-
-  app.delete("/api/tasks/:id", (req, res) => {
-    const { id } = req.params;
-    db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
-    res.json({ success: true });
-  });
-
-  app.get("/api/staff", (req, res) => {
-    const { promoCode, id } = req.query;
-    if (id) {
-      const staff = db.prepare("SELECT * FROM staff WHERE id = ?").get(id);
-      return res.json(staff || null);
-    }
-    if (promoCode) {
-      const staff = db.prepare("SELECT * FROM staff WHERE promo_code = ?").get(promoCode);
-      return res.json(staff || null);
-    }
-    const staff = db.prepare("SELECT * FROM staff").all();
+app.post("/api/auth/login", (req, res) => {
+  const { email, password } = req.body;
+  console.log(`Login attempt for: ${email}`);
+  const staff = db.prepare("SELECT * FROM staff WHERE email = ? AND password = ?").get(email, password) as any;
+  if (staff) {
+    console.log(`Login successful for: ${email}`);
     res.json(staff);
-  });
+  } else {
+    console.log(`Login failed for: ${email}`);
+    res.status(401).json({ error: "Invalid email or password" });
+  }
+});
 
-  app.post("/api/staff", (req, res) => {
-    const { name, email, role, promo_code, staff_id_code, branch, department, position, date_joined, phone } = req.body;
-    try {
-      const result = db.prepare(`
-        INSERT INTO staff (name, email, role, promo_code, staff_id_code, branch, department, position, date_joined, phone)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(name, email, role, promo_code, staff_id_code, branch, department, position, date_joined || new Date().toISOString(), phone || null);
-      res.json({ id: result.lastInsertRowid });
-    } catch (error: any) {
-      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-        res.status(400).json({ error: "Email or Promo Code already exists" });
-      } else {
-        res.status(500).json({ error: "Internal server error" });
-      }
+app.post("/api/auth/register", (req, res) => {
+  const { name, email, password, branch, phone } = req.body;
+  
+  // Check if registration is allowed
+  const settings = db.prepare("SELECT value FROM settings WHERE key = 'auth'").get() as any;
+  const authSettings = settings ? JSON.parse(settings.value) : { allowRegistration: true };
+  
+  if (!authSettings.allowRegistration) {
+    return res.status(403).json({ error: "Self-registration is currently disabled. Please contact an administrator." });
+  }
+
+  // Generate a promo code
+  const namePart = name.split(' ')[0].toUpperCase();
+  const randomPart = Math.floor(100 + Math.random() * 899);
+  const promo_code = `${namePart}-${randomPart}`;
+
+  try {
+    const result = db.prepare(`
+      INSERT INTO staff (name, email, password, role, promo_code, branch, phone, date_joined, is_approved)
+      VALUES (?, ?, ?, 'staff', ?, ?, ?, ?, 0)
+    `).run(name, email, password || 'password123', promo_code, branch, phone || null, new Date().toISOString());
+    
+    const newStaff = db.prepare("SELECT * FROM staff WHERE id = ?").get(result.lastInsertRowid);
+    
+    // Send notification to admins
+    sendAdminNotification(newStaff);
+    
+    res.json(newStaff);
+  } catch (error: any) {
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      res.status(400).json({ error: "Email already exists" });
+    } else {
+      res.status(500).json({ error: "Internal server error" });
     }
-  });
+  }
+});
 
-  app.patch("/api/staff/:id", (req, res) => {
-    const { id } = req.params;
-    const { name, email, role, promo_code, staff_id_code, branch, department, position, employment_status, phone } = req.body;
-    try {
-      db.prepare(`
-        UPDATE staff 
-        SET name = ?, email = ?, role = ?, promo_code = ?, staff_id_code = ?, branch = ?, department = ?, position = ?, employment_status = ?, phone = ?
-        WHERE id = ?
-      `).run(name, email, role, promo_code, staff_id_code, branch, department, position, employment_status, phone, id);
-      res.json({ success: true });
-    } catch (error: any) {
-      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-        res.status(400).json({ error: "Email or Promo Code already exists" });
-      } else {
-        res.status(500).json({ error: "Internal server error" });
-      }
+app.get("/api/settings", (req, res) => {
+  const settings = db.prepare("SELECT * FROM settings").all();
+  const result: any = {};
+  settings.forEach((s: any) => {
+    result[s.key] = JSON.parse(s.value);
+  });
+  res.json(result);
+});
+
+app.post("/api/settings", (req, res) => {
+  const { key, value } = req.body;
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, JSON.stringify(value));
+  res.json({ success: true });
+});
+
+// Tasks API
+app.get("/api/tasks", (req, res) => {
+  const tasks = db.prepare(`
+    SELECT t.*, s.name as assigned_to_name 
+    FROM tasks t 
+    LEFT JOIN staff s ON t.assigned_to = s.id
+    ORDER BY t.due_date ASC
+  `).all();
+  res.json(tasks);
+});
+
+app.post("/api/tasks", (req, res) => {
+  const { title, description, due_date, assigned_to } = req.body;
+  const result = db.prepare(`
+    INSERT INTO tasks (title, description, due_date, assigned_to, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(title, description, due_date, assigned_to || null, new Date().toISOString());
+  res.json({ id: result.lastInsertRowid });
+});
+
+app.patch("/api/tasks/:id", (req, res) => {
+  const { id } = req.params;
+  const { status, title, description, due_date, assigned_to } = req.body;
+  
+  if (status) {
+    db.prepare("UPDATE tasks SET status = ? WHERE id = ?").run(status, id);
+  } else {
+    db.prepare(`
+      UPDATE tasks 
+      SET title = ?, description = ?, due_date = ?, assigned_to = ? 
+      WHERE id = ?
+    `).run(title, description, due_date, assigned_to, id);
+  }
+  res.json({ success: true });
+});
+
+app.delete("/api/tasks/:id", (req, res) => {
+  const { id } = req.params;
+  db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+  res.json({ success: true });
+});
+
+app.get("/api/staff", (req, res) => {
+  const { promoCode, id } = req.query;
+  if (id) {
+    const staff = db.prepare("SELECT * FROM staff WHERE id = ?").get(id);
+    return res.json(staff || null);
+  }
+  if (promoCode) {
+    const staff = db.prepare("SELECT * FROM staff WHERE promo_code = ?").get(promoCode);
+    return res.json(staff || null);
+  }
+  const staff = db.prepare("SELECT * FROM staff").all();
+  res.json(staff);
+});
+
+app.post("/api/staff", (req, res) => {
+  const { name, email, role, promo_code, staff_id_code, branch, department, position, date_joined, phone } = req.body;
+  try {
+    const result = db.prepare(`
+      INSERT INTO staff (name, email, role, promo_code, staff_id_code, branch, department, position, date_joined, phone)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(name, email, role, promo_code, staff_id_code, branch, department, position, date_joined || new Date().toISOString(), phone || null);
+    res.json({ id: result.lastInsertRowid });
+  } catch (error: any) {
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      res.status(400).json({ error: "Email or Promo Code already exists" });
+    } else {
+      res.status(500).json({ error: "Internal server error" });
     }
-  });
+  }
+});
 
-  app.post("/api/staff/:id/reset-password", (req, res) => {
-    const { id } = req.params;
-    db.prepare("UPDATE staff SET password = 'password123' WHERE id = ?").run(id);
-    res.json({ success: true });
-  });
-
-  app.post("/api/staff/:id/approve", (req, res) => {
-    const { id } = req.params;
-    const { is_approved } = req.body;
-    db.prepare("UPDATE staff SET is_approved = ? WHERE id = ?").run(is_approved ? 1 : 0, id);
-    res.json({ success: true });
-  });
-
-  app.patch("/api/staff/:id/profile", (req, res) => {
-    const { id } = req.params;
-    const { nickname, profile_picture, bank_name, bank_account_number } = req.body;
+app.patch("/api/staff/:id", (req, res) => {
+  const { id } = req.params;
+  const { name, email, role, promo_code, staff_id_code, branch, department, position, employment_status, phone } = req.body;
+  try {
     db.prepare(`
       UPDATE staff 
-      SET nickname = ?, profile_picture = ?, bank_name = ?, bank_account_number = ?
+      SET name = ?, email = ?, role = ?, promo_code = ?, staff_id_code = ?, branch = ?, department = ?, position = ?, employment_status = ?, phone = ?
       WHERE id = ?
-    `).run(nickname, profile_picture, bank_name, bank_account_number, id);
-    
-    const updatedStaff = db.prepare("SELECT * FROM staff WHERE id = ?").get(id);
-    res.json(updatedStaff);
-  });
-
-  app.delete("/api/staff/:id", (req, res) => {
-    const { id } = req.params;
-    db.prepare("DELETE FROM staff WHERE id = ?").run(id);
+    `).run(name, email, role, promo_code, staff_id_code, branch, department, position, employment_status, phone, id);
     res.json({ success: true });
-  });
-
-  app.post("/api/staff/:id/reset-password", (req, res) => {
-    const { id } = req.params;
-    db.prepare("UPDATE staff SET password = 'password123' WHERE id = ?").run(id);
-    res.json({ success: true, message: "Password reset to 'password123'" });
-  });
-
-  app.get("/api/services", (req, res) => {
-    const services = db.prepare("SELECT * FROM services").all();
-    res.json(services.map((s: any) => ({
-      ...s,
-      allowances: JSON.parse(s.allowances_json || '{}')
-    })));
-  });
-
-  app.post("/api/services", (req, res) => {
-    const { name, base_price, commission_rate, aracoins_perk, allowances } = req.body;
-    const result = db.prepare(`
-      INSERT INTO services (name, base_price, commission_rate, aracoins_perk, allowances_json)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(name, base_price, commission_rate, aracoins_perk || 0, JSON.stringify(allowances || {}));
-    res.json({ id: result.lastInsertRowid });
-  });
-
-  app.patch("/api/services/:id", (req, res) => {
-    const { id } = req.params;
-    const { name, base_price, commission_rate, aracoins_perk, allowances } = req.body;
-    db.prepare(`
-      UPDATE services 
-      SET name = ?, base_price = ?, commission_rate = ?, aracoins_perk = ?, allowances_json = ?
-      WHERE id = ?
-    `).run(name, base_price, commission_rate, aracoins_perk || 0, JSON.stringify(allowances || {}), id);
-    res.json({ success: true });
-  });
-
-  app.delete("/api/services/:id", (req, res) => {
-    const { id } = req.params;
-    db.prepare("DELETE FROM services WHERE id = ?").run(id);
-    res.json({ success: true });
-  });
-
-  app.get("/api/referrals", (req, res) => {
-    const { staffId, branch } = req.query;
-    let query = `
-      SELECT r.*, s.name as staff_name, s.promo_code, sv.name as service_name 
-      FROM referrals r
-      JOIN staff s ON r.staff_id = s.id
-      JOIN services sv ON r.service_id = sv.id
-    `;
-    const params = [];
-    const conditions = [];
-
-    if (staffId) {
-      conditions.push("r.staff_id = ?");
-      params.push(staffId);
+  } catch (error: any) {
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      res.status(400).json({ error: "Email or Promo Code already exists" });
+    } else {
+      res.status(500).json({ error: "Internal server error" });
     }
-    if (branch && branch !== 'all') {
-      conditions.push("r.branch = ?");
-      params.push(branch);
+  }
+});
+
+app.post("/api/staff/:id/reset-password", (req, res) => {
+  const { id } = req.params;
+  db.prepare("UPDATE staff SET password = 'password123' WHERE id = ?").run(id);
+  res.json({ success: true });
+});
+
+app.post("/api/staff/:id/approve", (req, res) => {
+  const { id } = req.params;
+  const { is_approved } = req.body;
+  db.prepare("UPDATE staff SET is_approved = ? WHERE id = ?").run(is_approved ? 1 : 0, id);
+  res.json({ success: true });
+});
+
+app.patch("/api/staff/:id/profile", (req, res) => {
+  const { id } = req.params;
+  const { nickname, profile_picture, bank_name, bank_account_number } = req.body;
+  db.prepare(`
+    UPDATE staff 
+    SET nickname = ?, profile_picture = ?, bank_name = ?, bank_account_number = ?
+    WHERE id = ?
+  `).run(nickname, profile_picture, bank_name, bank_account_number, id);
+  
+  const updatedStaff = db.prepare("SELECT * FROM staff WHERE id = ?").get(id);
+  res.json(updatedStaff);
+});
+
+app.delete("/api/staff/:id", (req, res) => {
+  const { id } = req.params;
+  db.prepare("DELETE FROM staff WHERE id = ?").run(id);
+  res.json({ success: true });
+});
+
+app.get("/api/services", (req, res) => {
+  const services = db.prepare("SELECT * FROM services").all();
+  res.json(services.map((s: any) => ({
+    ...s,
+    allowances: JSON.parse(s.allowances_json || '{}')
+  })));
+});
+
+app.post("/api/services", (req, res) => {
+  const { name, base_price, commission_rate, aracoins_perk, allowances } = req.body;
+  const result = db.prepare(`
+    INSERT INTO services (name, base_price, commission_rate, aracoins_perk, allowances_json)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(name, base_price, commission_rate, aracoins_perk || 0, JSON.stringify(allowances || {}));
+  res.json({ id: result.lastInsertRowid });
+});
+
+app.patch("/api/services/:id", (req, res) => {
+  const { id } = req.params;
+  const { name, base_price, commission_rate, aracoins_perk, allowances } = req.body;
+  db.prepare(`
+    UPDATE services 
+    SET name = ?, base_price = ?, commission_rate = ?, aracoins_perk = ?, allowances_json = ?
+    WHERE id = ?
+  `).run(name, base_price, commission_rate, aracoins_perk || 0, JSON.stringify(allowances || {}), id);
+  res.json({ success: true });
+});
+
+app.delete("/api/services/:id", (req, res) => {
+  const { id } = req.params;
+  db.prepare("DELETE FROM services WHERE id = ?").run(id);
+  res.json({ success: true });
+});
+
+app.get("/api/referrals", (req, res) => {
+  const { staffId, branch } = req.query;
+  let query = `
+    SELECT r.*, s.name as staff_name, s.promo_code, sv.name as service_name 
+    FROM referrals r
+    JOIN staff s ON r.staff_id = s.id
+    JOIN services sv ON r.service_id = sv.id
+  `;
+  const params = [];
+  const conditions = [];
+
+  if (staffId) {
+    conditions.push("r.staff_id = ?");
+    params.push(staffId);
+  }
+  if (branch && branch !== 'all') {
+    conditions.push("r.branch = ?");
+    params.push(branch);
+  }
+
+  if (conditions.length > 0) {
+    query += " WHERE " + conditions.join(" AND ");
+  }
+
+  query += " ORDER BY r.date DESC";
+  const referrals = db.prepare(query).all(...params);
+  res.json(referrals);
+});
+
+app.post("/api/referrals", (req, res) => {
+  const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch } = req.body;
+  
+  const staff = db.prepare("SELECT * FROM staff WHERE id = ?").get(staff_id) as any;
+  if (!staff) return res.status(400).json({ error: "Referrer not found" });
+
+  // Anti-fraud rules
+  const fraudFlags = [];
+  if (staff.staff_id_code === patient_ic) fraudFlags.push("Self-referral (IC match)");
+  if (staff.phone === patient_phone) fraudFlags.push("Self-referral (Phone match)");
+  
+  // Check for repeated surname (simplified)
+  const surname = patient_name.split(' ').pop();
+  const similarReferrals = db.prepare("SELECT COUNT(*) as count FROM referrals WHERE patient_name LIKE ? AND staff_id = ?").get(`%${surname}`, staff_id) as { count: number };
+  if (similarReferrals.count >= 3) fraudFlags.push("Repeated surname pattern");
+
+  // Check daily volume
+  const dailyCount = db.prepare("SELECT COUNT(*) as count FROM referrals WHERE staff_id = ? AND date = ?").get(staff_id, date) as { count: number };
+  if (dailyCount.count >= 5) fraudFlags.push("High daily volume (>5)");
+
+  const service = db.prepare("SELECT commission_rate FROM services WHERE id = ?").get(service_id) as { commission_rate: number };
+  if (!service) return res.status(400).json({ error: "Service not found" });
+
+  const result = db.prepare(`
+    INSERT INTO referrals (staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, status, commission_amount, fraud_flags, created_by, branch)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(staff_id, service_id, patient_name, patient_phone || null, patient_ic || null, patient_address || null, patient_type || 'new', appointment_date || null, booking_time || null, date, 'entered', service.commission_rate, JSON.stringify(fraudFlags), created_by || null, branch || staff.branch);
+
+  // Update staff pending earnings
+  db.prepare("UPDATE staff SET pending_earnings = pending_earnings + ? WHERE id = ?").run(service.commission_rate, staff_id);
+
+  res.json({ id: result.lastInsertRowid, fraudFlags });
+});
+
+app.patch("/api/referrals/:id", (req, res) => {
+  const { id } = req.params;
+  const { status, payment_status, visit_date, verified_by, rejection_reason } = req.body;
+  
+  db.transaction(() => {
+    const referral = db.prepare("SELECT * FROM referrals WHERE id = ?").get(id) as any;
+    if (!referral) return;
+
+    const updates: string[] = [];
+    const params: any[] = [];
+
+    if (status) { updates.push("status = ?"); params.push(status); }
+    if (payment_status) { updates.push("payment_status = ?"); params.push(payment_status); }
+    if (visit_date) { updates.push("visit_date = ?"); params.push(visit_date); }
+    if (verified_by) { updates.push("verified_by = ?"); params.push(verified_by); }
+    if (rejection_reason) { updates.push("rejection_reason = ?"); params.push(rejection_reason); }
+
+    if (updates.length > 0) {
+      params.push(id);
+      db.prepare(`UPDATE referrals SET ${updates.join(", ")} WHERE id = ?`).run(...params);
     }
 
-    if (conditions.length > 0) {
-      query += " WHERE " + conditions.join(" AND ");
-    }
-
-    query += " ORDER BY r.date DESC";
-    const referrals = db.prepare(query).all(...params);
-    res.json(referrals);
-  });
-
-  app.post("/api/referrals", (req, res) => {
-    const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch } = req.body;
-    
-    const staff = db.prepare("SELECT * FROM staff WHERE id = ?").get(staff_id) as any;
-    if (!staff) return res.status(400).json({ error: "Referrer not found" });
-
-    // Anti-fraud rules
-    const fraudFlags = [];
-    if (staff.staff_id_code === patient_ic) fraudFlags.push("Self-referral (IC match)");
-    if (staff.phone === patient_phone) fraudFlags.push("Self-referral (Phone match)");
-    
-    // Check for repeated surname (simplified)
-    const surname = patient_name.split(' ').pop();
-    const similarReferrals = db.prepare("SELECT COUNT(*) as count FROM referrals WHERE patient_name LIKE ? AND staff_id = ?").get(`%${surname}`, staff_id) as { count: number };
-    if (similarReferrals.count >= 3) fraudFlags.push("Repeated surname pattern");
-
-    // Check daily volume
-    const dailyCount = db.prepare("SELECT COUNT(*) as count FROM referrals WHERE staff_id = ? AND date = ?").get(staff_id, date) as { count: number };
-    if (dailyCount.count >= 5) fraudFlags.push("High daily volume (>5)");
-
-    const service = db.prepare("SELECT commission_rate FROM services WHERE id = ?").get(service_id) as { commission_rate: number };
-    if (!service) return res.status(400).json({ error: "Service not found" });
-
-    const result = db.prepare(`
-      INSERT INTO referrals (staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, status, commission_amount, fraud_flags, created_by, branch)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(staff_id, service_id, patient_name, patient_phone || null, patient_ic || null, patient_address || null, patient_type || 'new', appointment_date || null, booking_time || null, date, 'entered', service.commission_rate, JSON.stringify(fraudFlags), created_by || null, branch || staff.branch);
-
-    // Update staff pending earnings
-    db.prepare("UPDATE staff SET pending_earnings = pending_earnings + ? WHERE id = ?").run(service.commission_rate, staff_id);
-
-    res.json({ id: result.lastInsertRowid, fraudFlags });
-  });
-
-  app.patch("/api/referrals/:id", (req, res) => {
-    const { id } = req.params;
-    const { status, payment_status, visit_date, verified_by, rejection_reason } = req.body;
-    
-    db.transaction(() => {
-      const referral = db.prepare("SELECT * FROM referrals WHERE id = ?").get(id) as any;
-      if (!referral) return;
-
-      const updates: string[] = [];
-      const params: any[] = [];
-
-      if (status) { updates.push("status = ?"); params.push(status); }
-      if (payment_status) { updates.push("payment_status = ?"); params.push(payment_status); }
-      if (visit_date) { updates.push("visit_date = ?"); params.push(visit_date); }
-      if (verified_by) { updates.push("verified_by = ?"); params.push(verified_by); }
-      if (rejection_reason) { updates.push("rejection_reason = ?"); params.push(rejection_reason); }
-
-      if (updates.length > 0) {
-        params.push(id);
-        db.prepare(`UPDATE referrals SET ${updates.join(", ")} WHERE id = ?`).run(...params);
+    // Logic for status transitions
+    if (status === 'approved' && referral.status !== 'approved') {
+      // Move from pending to approved
+      db.prepare("UPDATE staff SET pending_earnings = pending_earnings - ?, approved_earnings = approved_earnings + ?, lifetime_earnings = lifetime_earnings + ? WHERE id = ?").run(referral.commission_amount, referral.commission_amount, referral.commission_amount, referral.staff_id);
+    } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
+      // Move from approved to paid
+      db.prepare("UPDATE staff SET approved_earnings = approved_earnings - ?, paid_earnings = paid_earnings + ?, last_payout_date = ? WHERE id = ?").run(referral.commission_amount, referral.commission_amount, new Date().toISOString(), referral.staff_id);
+    } else if (status === 'rejected' && referral.status !== 'rejected') {
+      // Deduct from pending if it was pending
+      if (referral.status === 'entered' || referral.status === 'completed' || referral.status === 'paid_completed' || referral.status === 'buffer') {
+        db.prepare("UPDATE staff SET pending_earnings = pending_earnings - ? WHERE id = ?").run(referral.commission_amount, referral.staff_id);
       }
+    }
+  })();
+  
+  res.json({ success: true });
+});
 
-      // Logic for status transitions
-      if (status === 'approved' && referral.status !== 'approved') {
-        // Move from pending to approved
-        db.prepare("UPDATE staff SET pending_earnings = pending_earnings - ?, approved_earnings = approved_earnings + ?, lifetime_earnings = lifetime_earnings + ? WHERE id = ?").run(referral.commission_amount, referral.commission_amount, referral.commission_amount, referral.staff_id);
-      } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
-        // Move from approved to paid
-        db.prepare("UPDATE staff SET approved_earnings = approved_earnings - ?, paid_earnings = paid_earnings + ?, last_payout_date = ? WHERE id = ?").run(referral.commission_amount, referral.commission_amount, new Date().toISOString(), referral.staff_id);
-      } else if (status === 'rejected' && referral.status !== 'rejected') {
-        // Deduct from pending if it was pending
-        if (referral.status === 'entered' || referral.status === 'completed' || referral.status === 'paid_completed' || referral.status === 'buffer') {
-          db.prepare("UPDATE staff SET pending_earnings = pending_earnings - ? WHERE id = ?").run(referral.commission_amount, referral.staff_id);
-        }
-      }
-    })();
-    
-    res.json({ success: true });
-  });
-
+async function startServer() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -527,12 +530,13 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-
-  return app;
+  if (process.env.NODE_ENV !== "production") {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
-const appPromise = startServer();
-export default appPromise;
+startServer();
+
+export default app;
