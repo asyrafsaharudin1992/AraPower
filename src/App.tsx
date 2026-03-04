@@ -128,6 +128,24 @@ interface RolesConfig {
   [role: string]: RolePermissions;
 }
 
+const safeFetch = async (url: string, options?: RequestInit) => {
+  try {
+    const res = await fetch(url, options);
+    const contentType = res.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const data = await res.json();
+      return { res, data };
+    } else {
+      const text = await res.text();
+      // Truncate long error messages
+      const errorText = text.length > 100 ? text.substring(0, 100) + '...' : text;
+      return { res, data: { error: errorText || res.statusText || "Unknown error" } };
+    }
+  } catch (e: any) {
+    return { res: { ok: false, status: 0 } as Response, data: { error: e.message || "Network error" } };
+  }
+};
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState<Staff | null>(() => {
     const saved = localStorage.getItem('currentUser');
@@ -252,12 +270,16 @@ export default function App() {
     setConnectionStatus('checking');
     setConnectionError(null);
     try {
-      const res = await fetch(`${apiBaseUrl}/api/health`);
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/health`);
       if (res.ok) {
         setConnectionStatus('online');
+        if (data.db && data.db.startsWith('error')) {
+          setConnectionError(`Database Error: ${data.db}`);
+          setConnectionStatus('offline');
+        }
       } else {
         setConnectionStatus('offline');
-        setConnectionError(`Server responded with status ${res.status}`);
+        setConnectionError(data.error || `Server responded with status ${res.status}`);
       }
     } catch (e: any) {
       setConnectionStatus('offline');
@@ -266,28 +288,18 @@ export default function App() {
   };
 
   const fetchTasks = async () => {
-    const res = await fetch(`${apiBaseUrl}/api/tasks`);
-    const data = await res.json();
-    setTasks(data);
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks`);
+    if (res.ok) setTasks(data);
   };
 
   const fetchSettings = async () => {
-    const res = await fetch(`${apiBaseUrl}/api/settings`);
-    const data = await res.json();
-    if (data.booking) {
-      setAppSettings(data.booking);
-    }
-    if (data.auth) {
-      setAuthSettings(data.auth);
-    }
-    if (data.clinic) {
-      setClinicProfile(data.clinic);
-    }
-    if (data.roles) {
-      setRolesConfig(data.roles);
-    }
-    if (data.referral) {
-      setReferralSettings(data.referral);
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/settings`);
+    if (res.ok) {
+      if (data.booking) setAppSettings(data.booking);
+      if (data.auth) setAuthSettings(data.auth);
+      if (data.clinic) setClinicProfile(data.clinic);
+      if (data.roles) setRolesConfig(data.roles);
+      if (data.referral) setReferralSettings(data.referral);
     }
   };
 
@@ -307,44 +319,42 @@ export default function App() {
   }, [currentUser, branchFilter]);
 
   const fetchStaff = async () => {
-    const res = await fetch(`${apiBaseUrl}/api/staff`);
-    const data = await res.json();
-    setStaffList(data);
-    if (currentUser) {
-      const updatedMe = data.find((s: Staff) => s.id === currentUser.id);
-      if (updatedMe) setCurrentUser(updatedMe);
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff`);
+    if (res.ok) {
+      setStaffList(data);
+      if (currentUser) {
+        const updatedMe = data.find((s: Staff) => s.id === currentUser.id);
+        if (updatedMe) setCurrentUser(updatedMe);
+      }
     }
   };
 
   const fetchServices = async () => {
-    const res = await fetch(`${apiBaseUrl}/api/services`);
-    const data = await res.json();
-    setServices(data);
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/services`);
+    if (res.ok) setServices(data);
   };
 
   const fetchReferrals = async () => {
-    let url = (currentUser?.role === 'admin' || currentUser?.role === 'receptionist') ? '/api/referrals' : `/api/referrals?staffId=${currentUser?.id}`;
+    let url = (currentUser?.role === 'admin' || currentUser?.role === 'receptionist') ? `${apiBaseUrl}/api/referrals` : `${apiBaseUrl}/api/referrals?staffId=${currentUser?.id}`;
     
     if (branchFilter !== 'all') {
       const separator = url.includes('?') ? '&' : '?';
       url += `${separator}branch=${branchFilter}`;
     }
 
-    const res = await fetch(url);
-    const data = await res.json();
-    setReferrals(data);
+    const { res, data } = await safeFetch(url);
+    if (res.ok) setReferrals(data);
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
     try {
-      const res = await fetch(`${apiBaseUrl}/api/auth/login`, {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: authEmail, password: authPassword })
       });
-      const data = await res.json();
       if (res.ok) {
         localStorage.setItem('currentUser', JSON.stringify(data));
         setCurrentUser(data);
@@ -364,7 +374,7 @@ export default function App() {
     e.preventDefault();
     setAuthError('');
     try {
-      const res = await fetch(`${apiBaseUrl}/api/auth/register`, {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -375,7 +385,6 @@ export default function App() {
           phone: authPhone 
         })
       });
-      const data = await res.json();
       if (res.ok) {
         setCurrentUser(data);
         setActiveTab('dashboard');
@@ -402,9 +411,8 @@ export default function App() {
   const checkPromoCode = async (code: string) => {
     setWalkInPromoCode(code);
     if (code.length >= 3) {
-      const res = await fetch(`${apiBaseUrl}/api/staff?promoCode=${code}`);
-      const staff = await res.json();
-      setWalkInStaff(staff);
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff?promoCode=${code}`);
+      if (res.ok) setWalkInStaff(data);
     } else {
       setWalkInStaff(null);
     }
@@ -417,7 +425,7 @@ export default function App() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${apiBaseUrl}/api/referrals`, {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -435,34 +443,38 @@ export default function App() {
         })
       });
       
-      const data = await res.json();
-      if (data.fraudFlags && data.fraudFlags.length > 0) {
-        alert(`Referral submitted with flags: ${data.fraudFlags.join(', ')}`);
-      }
+      if (res.ok) {
+        if (data.fraudFlags && data.fraudFlags.length > 0) {
+          alert(`Referral submitted with flags: ${data.fraudFlags.join(', ')}`);
+        }
 
-      setPatientName('');
-      setPatientPhone('');
-      setPatientIC('');
-      setPatientAddress('');
-      setAppointmentDate('');
-      setBookingTime('');
-      setSelectedService('');
-      setWalkInPromoCode('');
-      setWalkInStaff(null);
-      if (isPublicBooking) {
-        setBookingSuccess(true);
+        setPatientName('');
+        setPatientPhone('');
+        setPatientIC('');
+        setPatientAddress('');
+        setAppointmentDate('');
+        setBookingTime('');
+        setSelectedService('');
+        setWalkInPromoCode('');
+        setWalkInStaff(null);
+        if (isPublicBooking) {
+          setBookingSuccess(true);
+        } else {
+          fetchReferrals();
+        }
       } else {
-        fetchReferrals();
+        alert(data.error || 'Submission failed');
       }
     } catch (error) {
       console.error(error);
+      alert('Network error. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleUpdateStatus = async (id: number, status: string, additionalData: any = {}) => {
-    const res = await fetch(`/api/referrals/${id}`, {
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -474,21 +486,24 @@ export default function App() {
     if (res.ok) {
       fetchReferrals();
       fetchStaff();
+    } else {
+      alert(data.error || 'Update failed');
     }
   };
 
   const handleUpdateProfile = async (profileData: Partial<Staff>) => {
     if (!currentUser) return;
     try {
-      const res = await fetch(`/api/staff/${currentUser.id}/profile`, {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser.id}/profile`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profileData)
       });
       if (res.ok) {
-        const updatedUser = await res.json();
-        setCurrentUser(updatedUser);
+        setCurrentUser(data);
         alert('Profile updated successfully');
+      } else {
+        alert(data.error || 'Failed to update profile');
       }
     } catch (error) {
       console.error(error);
@@ -591,26 +606,29 @@ export default function App() {
 
   const handleDeleteTask = async (id: number) => {
     if (!confirm('Delete this task?')) return;
-    await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
-    fetchTasks();
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks/${id}`, { method: 'DELETE' });
+    if (res.ok) fetchTasks();
+    else alert(data.error || 'Delete failed');
   };
 
   const handleUpdateTaskStatus = async (id: number, status: string) => {
-    await fetch(`/api/tasks/${id}`, {
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
     });
-    fetchTasks();
+    if (res.ok) fetchTasks();
+    else alert(data.error || 'Update failed');
   };
 
   const handleApproveStaff = async (id: number, isApproved: boolean) => {
-    await fetch(`/api/staff/${id}/approve`, {
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_approved: isApproved })
     });
-    fetchStaff();
+    if (res.ok) fetchStaff();
+    else alert(data.error || 'Approval failed');
   };
 
   const exportToCSV = () => {

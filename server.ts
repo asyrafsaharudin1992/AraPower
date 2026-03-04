@@ -9,15 +9,22 @@ import cors from 'cors';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Use /tmp for SQLite on Vercel as it's the only writable directory
-const dbPath = process.env.VERCEL ? path.join("/tmp", "clinic.db") : "clinic.db";
-console.log(`Initializing database at: ${dbPath}`);
-const db = new Database(dbPath);
+// Initialize database
+let db: any;
+try {
+  const dbPath = process.env.VERCEL ? path.join("/tmp", "clinic.db") : "clinic.db";
+  console.log(`Initializing database at: ${dbPath}`);
+  db = new Database(dbPath);
+} catch (error) {
+  console.error('CRITICAL: Failed to initialize database:', error);
+  // Fallback or exit? For now, we'll let it fail but with a log
+}
+
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 async function sendAdminNotification(newUser: any) {
-  if (!resend) {
-    console.log('RESEND_API_KEY not found. Skipping email notification.');
+  if (!resend || !db) {
+    console.log('RESEND_API_KEY not found or DB not initialized. Skipping email notification.');
     return;
   }
 
@@ -55,134 +62,160 @@ async function sendAdminNotification(newUser: any) {
 }
 
 // Initialize database
-db.exec(`
-  CREATE TABLE IF NOT EXISTS staff (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT DEFAULT 'password123',
-    role TEXT DEFAULT 'staff', -- 'staff', 'receptionist', 'admin', 'dispensary'
-    promo_code TEXT UNIQUE NOT NULL,
-    staff_id_code TEXT, -- HR Staff ID
-    branch TEXT,
-    department TEXT,
-    position TEXT,
-    employment_status TEXT DEFAULT 'active', -- 'active', 'suspended', 'resigned', 'under_review'
-    date_joined TEXT,
-    pending_earnings REAL DEFAULT 0,
-    approved_earnings REAL DEFAULT 0,
-    paid_earnings REAL DEFAULT 0,
-    lifetime_earnings REAL DEFAULT 0,
-    last_payout_date TEXT,
-    referrer_type TEXT DEFAULT 'staff', -- 'staff', 'patient', 'public'
-    phone TEXT,
-    is_approved INTEGER DEFAULT 0 -- 0: pending, 1: approved
-  );
+if (db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS staff (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password TEXT DEFAULT 'password123',
+      role TEXT DEFAULT 'staff', -- 'staff', 'receptionist', 'admin', 'dispensary'
+      promo_code TEXT UNIQUE NOT NULL,
+      staff_id_code TEXT, -- HR Staff ID
+      branch TEXT,
+      department TEXT,
+      position TEXT,
+      employment_status TEXT DEFAULT 'active', -- 'active', 'suspended', 'resigned', 'under_review'
+      date_joined TEXT,
+      pending_earnings REAL DEFAULT 0,
+      approved_earnings REAL DEFAULT 0,
+      paid_earnings REAL DEFAULT 0,
+      lifetime_earnings REAL DEFAULT 0,
+      last_payout_date TEXT,
+      referrer_type TEXT DEFAULT 'staff', -- 'staff', 'patient', 'public'
+      phone TEXT,
+      is_approved INTEGER DEFAULT 0 -- 0: pending, 1: approved
+    );
 
-  CREATE TABLE IF NOT EXISTS services (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    base_price REAL NOT NULL,
-    commission_rate REAL NOT NULL, -- Fixed RM5 for screening in this phase
-    aracoins_perk INTEGER DEFAULT 0,
-    allowances_json TEXT DEFAULT '{}'
-  );
+    CREATE TABLE IF NOT EXISTS services (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      base_price REAL NOT NULL,
+      commission_rate REAL NOT NULL, -- Fixed RM5 for screening in this phase
+      aracoins_perk INTEGER DEFAULT 0,
+      allowances_json TEXT DEFAULT '{}'
+    );
 
-  CREATE TABLE IF NOT EXISTS referrals (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    staff_id INTEGER NOT NULL,
-    service_id INTEGER NOT NULL,
-    patient_name TEXT NOT NULL,
-    patient_phone TEXT,
-    patient_ic TEXT,
-    patient_address TEXT,
-    patient_type TEXT DEFAULT 'new',
-    appointment_date TEXT,
-    booking_time TEXT,
-    visit_date TEXT,
-    date TEXT NOT NULL, -- Referral entry date
-    status TEXT DEFAULT 'entered', -- 'entered', 'completed', 'paid_completed', 'buffer', 'approved', 'payout_processed'
-    payment_status TEXT DEFAULT 'pending', -- 'pending', 'completed'
-    commission_amount REAL DEFAULT 5.0,
-    fraud_flags TEXT DEFAULT '[]',
-    rejection_reason TEXT,
-    created_by INTEGER,
-    verified_by INTEGER,
-    branch TEXT,
-    FOREIGN KEY (staff_id) REFERENCES staff(id),
-    FOREIGN KEY (service_id) REFERENCES services(id)
-  );
+    CREATE TABLE IF NOT EXISTS referrals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      staff_id INTEGER NOT NULL,
+      service_id INTEGER NOT NULL,
+      patient_name TEXT NOT NULL,
+      patient_phone TEXT,
+      patient_ic TEXT,
+      patient_address TEXT,
+      patient_type TEXT DEFAULT 'new',
+      appointment_date TEXT,
+      booking_time TEXT,
+      visit_date TEXT,
+      date TEXT NOT NULL, -- Referral entry date
+      status TEXT DEFAULT 'entered', -- 'entered', 'completed', 'paid_completed', 'buffer', 'approved', 'payout_processed'
+      payment_status TEXT DEFAULT 'pending', -- 'pending', 'completed'
+      commission_amount REAL DEFAULT 5.0,
+      fraud_flags TEXT DEFAULT '[]',
+      rejection_reason TEXT,
+      created_by INTEGER,
+      verified_by INTEGER,
+      branch TEXT,
+      FOREIGN KEY (staff_id) REFERENCES staff(id),
+      FOREIGN KEY (service_id) REFERENCES services(id)
+    );
 
-  CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    description TEXT,
-    due_date TEXT,
-    status TEXT DEFAULT 'pending',
-    assigned_to INTEGER,
-    created_at TEXT,
-    FOREIGN KEY (assigned_to) REFERENCES staff(id)
-  );
+    CREATE TABLE IF NOT EXISTS tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT,
+      due_date TEXT,
+      status TEXT DEFAULT 'pending',
+      assigned_to INTEGER,
+      created_at TEXT,
+      FOREIGN KEY (assigned_to) REFERENCES staff(id)
+    );
 
-  CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-  );
-`);
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
 
-// Migration for existing databases
-try { db.exec("ALTER TABLE staff ADD COLUMN staff_id_code TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN branch TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN department TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN position TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN employment_status TEXT DEFAULT 'active'"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN date_joined TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN pending_earnings REAL DEFAULT 0"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN approved_earnings REAL DEFAULT 0"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN paid_earnings REAL DEFAULT 0"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN lifetime_earnings REAL DEFAULT 0"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN last_payout_date TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN referrer_type TEXT DEFAULT 'staff'"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN phone TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN is_approved INTEGER DEFAULT 0"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN nickname TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN profile_picture TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN bank_name TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE staff ADD COLUMN bank_account_number TEXT"); } catch(e) {}
-db.prepare("UPDATE staff SET is_approved = 1 WHERE role = 'admin'").run();
+  // Migration for existing databases
+  try { db.exec("ALTER TABLE staff ADD COLUMN staff_id_code TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN branch TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN department TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN position TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN employment_status TEXT DEFAULT 'active'"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN date_joined TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN pending_earnings REAL DEFAULT 0"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN approved_earnings REAL DEFAULT 0"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN paid_earnings REAL DEFAULT 0"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN lifetime_earnings REAL DEFAULT 0"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN last_payout_date TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN referrer_type TEXT DEFAULT 'staff'"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN phone TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN is_approved INTEGER DEFAULT 0"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN nickname TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN profile_picture TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN bank_name TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN bank_account_number TEXT"); } catch(e) {}
+  db.prepare("UPDATE staff SET is_approved = 1 WHERE role = 'admin'").run();
 
-try { db.exec("ALTER TABLE referrals ADD COLUMN patient_ic TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE referrals ADD COLUMN patient_address TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE referrals ADD COLUMN visit_date TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE referrals ADD COLUMN payment_status TEXT DEFAULT 'pending'"); } catch(e) {}
-try { db.exec("ALTER TABLE referrals ADD COLUMN fraud_flags TEXT DEFAULT '[]'"); } catch(e) {}
-try { db.exec("ALTER TABLE referrals ADD COLUMN rejection_reason TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE referrals ADD COLUMN branch TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE referrals ADD COLUMN patient_ic TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE referrals ADD COLUMN patient_address TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE referrals ADD COLUMN visit_date TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE referrals ADD COLUMN payment_status TEXT DEFAULT 'pending'"); } catch(e) {}
+  try { db.exec("ALTER TABLE referrals ADD COLUMN fraud_flags TEXT DEFAULT '[]'"); } catch(e) {}
+  try { db.exec("ALTER TABLE referrals ADD COLUMN rejection_reason TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE referrals ADD COLUMN branch TEXT"); } catch(e) {}
 
-// Seed initial data if empty
-const staffCount = db.prepare("SELECT COUNT(*) as count FROM staff").get() as { count: number };
-if (staffCount.count === 0) {
-  const now = new Date().toISOString();
-  db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Admin User", "admin@clinic.com", "password123", "admin", "ADMIN-HQ", "HQ", "STF-001", now);
-  db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Amir", "amir@clinic.com", "password123", "staff", "AMIR-BGI", "Bangi", "STF-002", now);
-  db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Sarah", "sarah@clinic.com", "password123", "staff", "SARAH-KJG", "Kajang", "STF-003", now);
-  db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Receptionist Sarah", "sarah_rec@clinic.com", "password123", "receptionist", "REC-001", "Bangi", "STF-004", now);
+  // Seed initial data if empty
+  const staffCount = db.prepare("SELECT COUNT(*) as count FROM staff").get() as { count: number };
+  if (staffCount.count === 0) {
+    const now = new Date().toISOString();
+    db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Admin User", "admin@clinic.com", "password123", "admin", "ADMIN-HQ", "HQ", "STF-001", now);
+    db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Amir", "amir@clinic.com", "password123", "staff", "AMIR-BGI", "Bangi", "STF-002", now);
+    db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Sarah", "sarah@clinic.com", "password123", "staff", "SARAH-KJG", "Kajang", "STF-003", now);
+    db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Receptionist Sarah", "sarah_rec@clinic.com", "password123", "receptionist", "REC-001", "Bangi", "STF-004", now);
 
-  db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Basic Health Screening", 80, 5);
-  db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Comprehensive Screening", 150, 5);
-  db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Vaccination Package", 120, 5);
+    db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Basic Health Screening", 80, 5);
+    db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Comprehensive Screening", 150, 5);
+    db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Vaccination Package", 120, 5);
+  }
 }
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Middleware to check database availability
+app.use((req, res, next) => {
+  if (!db && req.path.startsWith('/api') && req.path !== '/api/health') {
+    return res.status(503).json({ 
+      error: "Database unavailable", 
+      message: "The server is currently unable to handle the request due to a database initialization failure." 
+    });
+  }
+  next();
+});
+
 const PORT = 3000;
 
 // API Routes
 app.get("/api/health", (req, res) => {
+  let dbStatus = "unknown";
+  try {
+    if (db) {
+      db.prepare("SELECT 1").get();
+      dbStatus = "connected";
+    } else {
+      dbStatus = "not_initialized";
+    }
+  } catch (e: any) {
+    dbStatus = `error: ${e.message}`;
+  }
+
   res.json({ 
     status: "ok", 
+    db: dbStatus,
     time: new Date().toISOString(),
     vercel: !!process.env.VERCEL,
     env: process.env.NODE_ENV
@@ -513,6 +546,15 @@ app.patch("/api/referrals/:id", (req, res) => {
   })();
   
   res.json({ success: true });
+});
+
+// Global Error Handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Unhandled Error:', err);
+  res.status(500).json({ 
+    error: "Internal Server Error", 
+    message: err.message || "An unexpected error occurred on the server."
+  });
 });
 
 async function startServer() {
