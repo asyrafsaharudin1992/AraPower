@@ -120,10 +120,15 @@ app.post("/api/auth/register", async (req, res) => {
   res.json(newStaff);
 });
 
-// Tasks API
+// Tasks API (Flattened data to fix the React crash)
 app.get("/api/tasks", async (req, res) => {
   const { data, error } = await supabase.from('tasks').select(`*, staff:assigned_to(name)`).order('due_date', { ascending: true });
-  res.json(data || []);
+  const formattedTasks = (data || []).map((t: any) => ({
+    ...t,
+    assigned_to_name: t.staff?.name,
+    staff: undefined
+  }));
+  res.json(formattedTasks);
 });
 
 app.post("/api/tasks", async (req, res) => {
@@ -152,6 +157,53 @@ app.post("/api/staff", async (req, res) => {
 app.patch("/api/staff/:id", async (req, res) => {
   const { error } = await supabase.from('staff').update(req.body).eq('id', req.params.id);
   res.json({ success: !error });
+});
+
+// Referrals API (Flattened data to fix the React crash)
+app.get("/api/referrals", async (req, res) => {
+  const { staffId, branch } = req.query;
+  let query = supabase.from('referrals').select(`*, staff:staff_id(name, promo_code), services:service_id(name)`).order('date', { ascending: false });
+
+  if (staffId) query = query.eq('staff_id', staffId);
+  if (branch && branch !== 'all') query = query.eq('branch', branch);
+
+  const { data } = await query;
+  const formattedReferrals = (data || []).map((r: any) => ({
+    ...r,
+    staff_name: r.staff?.name,
+    promo_code: r.staff?.promo_code,
+    service_name: r.services?.name,
+    staff: undefined,
+    services: undefined
+  }));
+  res.json(formattedReferrals);
+});
+
+app.post("/api/referrals", async (req, res) => {
+  const { data: service } = await supabase.from('services').select('commission_rate').eq('id', req.body.service_id).single();
+  if (!service) return res.status(400).json({ error: "Service not found" });
+
+  const { data: result, error } = await supabase.from('referrals').insert([{
+    ...req.body,
+    commission_amount: service.commission_rate,
+    status: 'entered'
+  }]).select().single();
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ id: result.id });
+});
+
+app.patch("/api/referrals/:id", async (req, res) => {
+    // This endpoint was missing from your last snippet, 
+    // I am restoring the Supabase version of the referral status updates here!
+    const { id } = req.params;
+    const { status, payment_status, visit_date, verified_by, rejection_reason } = req.body;
+    
+    const { error } = await supabase.from('referrals').update({
+        status, payment_status, visit_date, verified_by, rejection_reason
+    }).eq('id', id);
+
+    res.json({ success: !error });
 });
 
 // ==========================================
