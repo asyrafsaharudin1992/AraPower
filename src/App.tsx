@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
@@ -209,6 +210,7 @@ export default function App() {
   const [authPhone, setAuthPhone] = useState('');
   const [authError, setAuthError] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
+  const [apiBaseUrl, setApiBaseUrl] = useState(import.meta.env.VITE_API_URL || '');
   const [authSettings, setAuthSettings] = useState({ allowRegistration: true });
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   
@@ -247,7 +249,7 @@ export default function App() {
 
   const checkConnection = async () => {
     try {
-      const res = await fetch('/api/health');
+      const res = await fetch(`${apiBaseUrl}/api/health`);
       if (res.ok) setConnectionStatus('online');
       else setConnectionStatus('offline');
     } catch (e) {
@@ -256,13 +258,13 @@ export default function App() {
   };
 
   const fetchTasks = async () => {
-    const res = await fetch('/api/tasks');
+    const res = await fetch(`${apiBaseUrl}/api/tasks`);
     const data = await res.json();
     setTasks(data);
   };
 
   const fetchSettings = async () => {
-    const res = await fetch('/api/settings');
+    const res = await fetch(`${apiBaseUrl}/api/settings`);
     const data = await res.json();
     if (data.booking) {
       setAppSettings(data.booking);
@@ -297,7 +299,7 @@ export default function App() {
   }, [currentUser, branchFilter]);
 
   const fetchStaff = async () => {
-    const res = await fetch('/api/staff');
+    const res = await fetch(`${apiBaseUrl}/api/staff`);
     const data = await res.json();
     setStaffList(data);
     if (currentUser) {
@@ -307,7 +309,7 @@ export default function App() {
   };
 
   const fetchServices = async () => {
-    const res = await fetch('/api/services');
+    const res = await fetch(`${apiBaseUrl}/api/services`);
     const data = await res.json();
     setServices(data);
   };
@@ -329,7 +331,7 @@ export default function App() {
     e.preventDefault();
     setAuthError('');
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(`${apiBaseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: authEmail, password: authPassword })
@@ -344,8 +346,9 @@ export default function App() {
       } else {
         setAuthError(`${data.error || 'Login failed'} (Status: ${res.status})`);
       }
-    } catch (error) {
-      setAuthError('Network error. Please try again.');
+    } catch (error: any) {
+      console.error('Login error:', error);
+      setAuthError(`Network error: ${error.message || 'Please check if the API server is running and CORS is enabled.'}`);
     }
   };
 
@@ -353,7 +356,7 @@ export default function App() {
     e.preventDefault();
     setAuthError('');
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch(`${apiBaseUrl}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -391,7 +394,7 @@ export default function App() {
   const checkPromoCode = async (code: string) => {
     setWalkInPromoCode(code);
     if (code.length >= 3) {
-      const res = await fetch(`/api/staff?promoCode=${code}`);
+      const res = await fetch(`${apiBaseUrl}/api/staff?promoCode=${code}`);
       const staff = await res.json();
       setWalkInStaff(staff);
     } else {
@@ -406,7 +409,7 @@ export default function App() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/referrals', {
+      const res = await fetch(`${apiBaseUrl}/api/referrals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3336,7 +3339,7 @@ export default function App() {
                       onClick={async () => {
                         setIsSavingSetup(true);
                         try {
-                          await fetch('/api/settings', {
+                          await fetch(`${apiBaseUrl}/api/settings`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ key: 'clinic', value: clinicProfile })
@@ -3429,7 +3432,7 @@ export default function App() {
 
                       <button 
                         onClick={() => {
-                          fetch('/api/settings', {
+                          fetch(`${apiBaseUrl}/api/settings`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ key: 'referral', value: referralSettings })
@@ -3483,7 +3486,7 @@ export default function App() {
                         onClick={async () => {
                           setIsSavingSetup(true);
                           try {
-                            await fetch('/api/settings', {
+                            await fetch(`${apiBaseUrl}/api/settings`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ key: 'roles', value: rolesConfig })
@@ -3532,7 +3535,7 @@ export default function App() {
                             const newVal = !authSettings.allowRegistration;
                             setAuthSettings({ ...authSettings, allowRegistration: newVal });
                             try {
-                              const res = await fetch('/api/settings', {
+                              const res = await fetch(`${apiBaseUrl}/api/settings`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ key: 'auth', value: { allowRegistration: newVal } })
@@ -3679,7 +3682,7 @@ export default function App() {
                         onClick={async () => {
                           setIsSavingSetup(true);
                           try {
-                            await fetch('/api/settings', {
+                            await fetch(`${apiBaseUrl}/api/settings`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ key: 'booking', value: appSettings })
