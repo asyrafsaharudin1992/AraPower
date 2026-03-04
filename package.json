@@ -24,6 +24,7 @@
     "react-datepicker": "^9.1.0",
     "react-dom": "^19.0.0",
     "resend": "^6.9.3",
+    "@supabase/supabase-js": "^2.39.0",
     "@google/generative-ai": "^0.21.0"
   },
   "devDependencies": {
