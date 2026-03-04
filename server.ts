@@ -154,32 +154,85 @@ app.patch("/api/staff/:id", async (req, res) => {
   res.json({ success: !error });
 });
 
-// Referrals API
-app.get("/api/referrals", async (req, res) => {
-  const { staffId, branch } = req.query;
-  let query = supabase.from('referrals').select(`*, staff:staff_id(name, promo_code), services:service_id(name)`).order('date', { ascending: false });
+// ==========================================
+// MISSING SETTINGS & APPROVAL APIs
+// ==========================================
 
-  if (staffId) query = query.eq('staff_id', staffId);
-  if (branch && branch !== 'all') query = query.eq('branch', branch);
-
-  const { data } = await query;
-  res.json(data || []);
+app.get("/api/settings", async (req, res) => {
+  const { data, error } = await supabase.from('settings').select('*');
+  const result: any = {};
+  if (data) {
+    data.forEach((s: any) => {
+      result[s.key] = JSON.parse(s.value);
+    });
+  }
+  res.json(result);
 });
 
-app.post("/api/referrals", async (req, res) => {
-  const { data: service } = await supabase.from('services').select('commission_rate').eq('id', req.body.service_id).single();
-  if (!service) return res.status(400).json({ error: "Service not found" });
+app.post("/api/settings", async (req, res) => {
+  const { key, value } = req.body;
+  const { error } = await supabase.from('settings').upsert({ key, value: JSON.stringify(value) }, { onConflict: 'key' });
+  res.json({ success: !error });
+});
 
-  const { data: result, error } = await supabase.from('referrals').insert([{
-    ...req.body,
-    commission_amount: service.commission_rate,
-    status: 'entered'
+app.post("/api/staff/:id/approve", async (req, res) => {
+  const { id } = req.params;
+  const { is_approved } = req.body;
+  const { error } = await supabase.from('staff').update({ is_approved: is_approved ? 1 : 0 }).eq('id', id);
+  res.json({ success: !error });
+});
+
+app.post("/api/staff/:id/reset-password", async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase.from('staff').update({ password: 'password123' }).eq('id', id);
+  res.json({ success: !error });
+});
+
+app.patch("/api/staff/:id/profile", async (req, res) => {
+  const { id } = req.params;
+  const { nickname, profile_picture, bank_name, bank_account_number } = req.body;
+  await supabase.from('staff').update({ nickname, profile_picture, bank_name, bank_account_number }).eq('id', id);
+  const { data } = await supabase.from('staff').select('*').eq('id', id).single();
+  res.json(data);
+});
+
+app.delete("/api/staff/:id", async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase.from('staff').delete().eq('id', id);
+  res.json({ success: !error });
+});
+
+// Services API (Also restoring these just in case!)
+app.get("/api/services", async (req, res) => {
+  const { data } = await supabase.from('services').select('*');
+  res.json((data || []).map((s: any) => ({
+    ...s,
+    allowances: JSON.parse(s.allowances_json || '{}')
+  })));
+});
+
+app.post("/api/services", async (req, res) => {
+  const { name, base_price, commission_rate, aracoins_perk, allowances } = req.body;
+  const { data, error } = await supabase.from('services').insert([{
+    name, base_price, commission_rate, aracoins_perk: aracoins_perk || 0, allowances_json: JSON.stringify(allowances || {})
   }]).select().single();
-
-  if (error) return res.status(400).json({ error: error.message });
-  res.json({ id: result.id });
+  res.json({ id: data?.id });
 });
 
+app.patch("/api/services/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, base_price, commission_rate, aracoins_perk, allowances } = req.body;
+  const { error } = await supabase.from('services').update({
+    name, base_price, commission_rate, aracoins_perk: aracoins_perk || 0, allowances_json: JSON.stringify(allowances || {})
+  }).eq('id', id);
+  res.json({ success: !error });
+});
+
+app.delete("/api/services/:id", async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase.from('services').delete().eq('id', id);
+  res.json({ success: !error });
+});
 // ==========================================
 // NEW GEMINI AI ENDPOINT
 // ==========================================
