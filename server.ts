@@ -105,6 +105,17 @@ db.exec(`
     FOREIGN KEY (service_id) REFERENCES services(id)
   );
 
+  CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    due_date TEXT,
+    status TEXT DEFAULT 'pending',
+    assigned_to INTEGER,
+    created_at TEXT,
+    FOREIGN KEY (assigned_to) REFERENCES staff(id)
+  );
+
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -144,10 +155,10 @@ try { db.exec("ALTER TABLE referrals ADD COLUMN branch TEXT"); } catch(e) {}
 const staffCount = db.prepare("SELECT COUNT(*) as count FROM staff").get() as { count: number };
 if (staffCount.count === 0) {
   const now = new Date().toISOString();
-  db.prepare("INSERT INTO staff (name, email, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, 1)").run("Admin User", "admin@clinic.com", "admin", "ADMIN-HQ", "HQ", "STF-001", now);
-  db.prepare("INSERT INTO staff (name, email, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, 1)").run("Amir", "amir@clinic.com", "staff", "AMIR-BGI", "Bangi", "STF-002", now);
-  db.prepare("INSERT INTO staff (name, email, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, 1)").run("Sarah", "sarah@clinic.com", "staff", "SARAH-KJG", "Kajang", "STF-003", now);
-  db.prepare("INSERT INTO staff (name, email, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, 1)").run("Receptionist Sarah", "sarah_rec@clinic.com", "receptionist", "REC-001", "Bangi", "STF-004", now);
+  db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Admin User", "admin@clinic.com", "password123", "admin", "ADMIN-HQ", "HQ", "STF-001", now);
+  db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Amir", "amir@clinic.com", "password123", "staff", "AMIR-BGI", "Bangi", "STF-002", now);
+  db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Sarah", "sarah@clinic.com", "password123", "staff", "SARAH-KJG", "Kajang", "STF-003", now);
+  db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Receptionist Sarah", "sarah_rec@clinic.com", "password123", "receptionist", "REC-001", "Bangi", "STF-004", now);
 
   db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Basic Health Screening", 80, 5);
   db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Comprehensive Screening", 150, 5);
@@ -160,12 +171,19 @@ async function startServer() {
   const PORT = 3000;
 
   // API Routes
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", time: new Date().toISOString() });
+  });
+
   app.post("/api/auth/login", (req, res) => {
     const { email, password } = req.body;
+    console.log(`Login attempt for: ${email}`);
     const staff = db.prepare("SELECT * FROM staff WHERE email = ? AND password = ?").get(email, password) as any;
     if (staff) {
+      console.log(`Login successful for: ${email}`);
       res.json(staff);
     } else {
+      console.log(`Login failed for: ${email}`);
       res.status(401).json({ error: "Invalid email or password" });
     }
   });
@@ -219,6 +237,48 @@ async function startServer() {
   app.post("/api/settings", (req, res) => {
     const { key, value } = req.body;
     db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, JSON.stringify(value));
+    res.json({ success: true });
+  });
+
+  // Tasks API
+  app.get("/api/tasks", (req, res) => {
+    const tasks = db.prepare(`
+      SELECT t.*, s.name as assigned_to_name 
+      FROM tasks t 
+      LEFT JOIN staff s ON t.assigned_to = s.id
+      ORDER BY t.due_date ASC
+    `).all();
+    res.json(tasks);
+  });
+
+  app.post("/api/tasks", (req, res) => {
+    const { title, description, due_date, assigned_to } = req.body;
+    const result = db.prepare(`
+      INSERT INTO tasks (title, description, due_date, assigned_to, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(title, description, due_date, assigned_to || null, new Date().toISOString());
+    res.json({ id: result.lastInsertRowid });
+  });
+
+  app.patch("/api/tasks/:id", (req, res) => {
+    const { id } = req.params;
+    const { status, title, description, due_date, assigned_to } = req.body;
+    
+    if (status) {
+      db.prepare("UPDATE tasks SET status = ? WHERE id = ?").run(status, id);
+    } else {
+      db.prepare(`
+        UPDATE tasks 
+        SET title = ?, description = ?, due_date = ?, assigned_to = ? 
+        WHERE id = ?
+      `).run(title, description, due_date, assigned_to, id);
+    }
+    res.json({ success: true });
+  });
+
+  app.delete("/api/tasks/:id", (req, res) => {
+    const { id } = req.params;
+    db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
     res.json({ success: true });
   });
 

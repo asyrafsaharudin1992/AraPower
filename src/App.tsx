@@ -29,10 +29,13 @@ import {
   HelpCircle,
   ShieldCheck,
   Zap,
-  ShieldAlert
+  ShieldAlert,
+  Calendar,
+  CheckSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
+import DatePicker from 'react-datepicker';
 
 interface Staff {
   id: number;
@@ -59,6 +62,9 @@ interface Staff {
   profile_picture?: string;
   bank_name?: string;
   bank_account_number?: string;
+  tier?: { name: string; bonus: number; color: string; bg: string };
+  monthlySuccessfulRefs?: number;
+  earned?: number;
 }
 
 interface Service {
@@ -122,15 +128,18 @@ interface RolesConfig {
 }
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<Staff | null>(null);
+  const [currentUser, setCurrentUser] = useState<Staff | null>(() => {
+    const saved = localStorage.getItem('currentUser');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks'>('dashboard');
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   
   // Setup Tab State
-  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles'>('services');
+  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral'>('services');
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
   const [editingStaff, setEditingStaff] = useState<Partial<Staff> | null>(null);
   const [isSavingSetup, setIsSavingSetup] = useState(false);
@@ -162,6 +171,8 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [referralSearch, setReferralSearch] = useState('');
+  const [referralStatusFilter, setReferralStatusFilter] = useState<string>('all');
+  const [referralBranchFilter, setReferralBranchFilter] = useState<string>('all');
   const [adminSearch, setAdminSearch] = useState('');
   const [walkInPromoCode, setWalkInPromoCode] = useState('');
   const [walkInStaff, setWalkInStaff] = useState<Staff | null>(null);
@@ -197,8 +208,21 @@ export default function App() {
   const [authBranch, setAuthBranch] = useState('');
   const [authPhone, setAuthPhone] = useState('');
   const [authError, setAuthError] = useState('');
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
   const [authSettings, setAuthSettings] = useState({ allowRegistration: true });
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  
+  // Task State
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
+  const [taskDueDate, setTaskDueDate] = useState<Date | null>(null);
+  const [referralSettings, setReferralSettings] = useState({
+    types: ['Staff', 'Patient', 'Public'],
+    defaultCommission: 5,
+    eligibilityCriteria: 'Must be an active staff member with an approved account.',
+    quotas: {} as Record<number, number>
+  });
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -217,7 +241,25 @@ export default function App() {
     fetchStaff();
     fetchServices();
     fetchSettings();
+    fetchTasks();
+    checkConnection();
   }, []);
+
+  const checkConnection = async () => {
+    try {
+      const res = await fetch('/api/health');
+      if (res.ok) setConnectionStatus('online');
+      else setConnectionStatus('offline');
+    } catch (e) {
+      setConnectionStatus('offline');
+    }
+  };
+
+  const fetchTasks = async () => {
+    const res = await fetch('/api/tasks');
+    const data = await res.json();
+    setTasks(data);
+  };
 
   const fetchSettings = async () => {
     const res = await fetch('/api/settings');
@@ -233,6 +275,9 @@ export default function App() {
     }
     if (data.roles) {
       setRolesConfig(data.roles);
+    }
+    if (data.referral) {
+      setReferralSettings(data.referral);
     }
   };
 
@@ -291,12 +336,13 @@ export default function App() {
       });
       const data = await res.json();
       if (res.ok) {
+        localStorage.setItem('currentUser', JSON.stringify(data));
         setCurrentUser(data);
         if (data.role === 'admin') setActiveTab('admin');
         else if (data.role === 'receptionist') setActiveTab('receptionist');
         else setActiveTab('dashboard');
       } else {
-        setAuthError(data.error || 'Login failed');
+        setAuthError(`${data.error || 'Login failed'} (Status: ${res.status})`);
       }
     } catch (error) {
       setAuthError('Network error. Please try again.');
@@ -331,6 +377,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('currentUser');
     setCurrentUser(null);
     setActiveTab('dashboard');
     setAuthEmail('');
@@ -503,6 +550,47 @@ export default function App() {
     if (!confirm('Reset password to default "password123"?')) return;
     await fetch(`/api/staff/${id}/reset-password`, { method: 'POST' });
     alert('Password reset successfully');
+  };
+
+  const handleSaveTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget as HTMLFormElement);
+    const taskData = {
+      title: formData.get('title'),
+      description: formData.get('description'),
+      due_date: taskDueDate ? taskDueDate.toISOString().split('T')[0] : null,
+      assigned_to: formData.get('assigned_to') || null,
+    };
+
+    const method = editingTask?.id ? 'PATCH' : 'POST';
+    const url = editingTask?.id ? `/api/tasks/${editingTask.id}` : '/api/tasks';
+
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(taskData)
+    });
+
+    if (res.ok) {
+      setShowTaskModal(false);
+      setEditingTask(null);
+      fetchTasks();
+    }
+  };
+
+  const handleDeleteTask = async (id: number) => {
+    if (!confirm('Delete this task?')) return;
+    await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+    fetchTasks();
+  };
+
+  const handleUpdateTaskStatus = async (id: number, status: string) => {
+    await fetch(`/api/tasks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    fetchTasks();
   };
 
   const handleApproveStaff = async (id: number, isApproved: boolean) => {
@@ -732,6 +820,20 @@ export default function App() {
           </div>
 
           <AnimatePresence mode="wait">
+            {connectionStatus === 'offline' && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-4 p-3 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-xl border border-amber-100 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  API Connection Issue Detected
+                </div>
+                <button onClick={checkConnection} className="underline hover:text-amber-900">Retry</button>
+              </motion.div>
+            )}
             {authError && (
               <motion.div 
                 initial={{ opacity: 0, height: 0 }}
@@ -1130,6 +1232,13 @@ export default function App() {
                 <UserCircle size={18} />
                 <span className="text-sm font-medium">My Profile</span>
               </button>
+              <button 
+                onClick={() => setActiveTab('tasks')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'tasks' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+              >
+                <CheckSquare size={18} />
+                <span className="text-sm font-medium">Tasks</span>
+              </button>
               {rolesConfig[currentUser.role]?.canViewAnalytics && (
                 <button 
                   onClick={() => setActiveTab('admin')}
@@ -1363,7 +1472,7 @@ export default function App() {
                             {currentUser.role === 'receptionist' ? 'Arrived Today' : 'Paid Today'}
                           </p>
                           <p className="text-2xl font-bold text-emerald-600">
-                            {currentUser.role === 'receptionist' ? receptionistStats.arrivedToday : referrals.filter(r => r.status === 'paid' && r.date === new Date().toISOString().split('T')[0]).length}
+                            {currentUser.role === 'receptionist' ? receptionistStats.arrivedToday : referrals.filter(r => r.status === 'paid_completed' && r.date === new Date().toISOString().split('T')[0]).length}
                           </p>
                           <p className="text-[10px] text-zinc-400 mt-1">
                             {currentUser.role === 'receptionist' ? 'Patients checked in' : 'Referrals completed'}
@@ -1709,15 +1818,41 @@ export default function App() {
               <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                   <h3 className="font-semibold">Referral History</h3>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-                    <input 
-                      type="text"
-                      placeholder="Search patient, staff, or service..."
-                      value={referralSearch}
-                      onChange={(e) => setReferralSearch(e.target.value)}
-                      className="pl-9 pr-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-full sm:w-64"
-                    />
+                  <div className="flex flex-wrap gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
+                      <input 
+                        type="text"
+                        placeholder="Search patient, staff, or service..."
+                        value={referralSearch}
+                        onChange={(e) => setReferralSearch(e.target.value)}
+                        className="pl-9 pr-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-full sm:w-64"
+                      />
+                    </div>
+                    <select 
+                      value={referralBranchFilter}
+                      onChange={(e) => setReferralBranchFilter(e.target.value)}
+                      className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    >
+                      <option value="all">All Branches</option>
+                      <option value="Bangi">Bangi</option>
+                      <option value="Kajang">Kajang</option>
+                      <option value="HQ">HQ</option>
+                    </select>
+                    <select 
+                      value={referralStatusFilter}
+                      onChange={(e) => setReferralStatusFilter(e.target.value)}
+                      className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="entered">Entered</option>
+                      <option value="completed">Visit Completed</option>
+                      <option value="paid_completed">Payment Completed</option>
+                      <option value="buffer">7-Day Buffer</option>
+                      <option value="approved">Approved</option>
+                      <option value="payout_processed">Payout Processed</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
                   </div>
                 </div>
                 <button 
@@ -1737,6 +1872,8 @@ export default function App() {
                       ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
                       ref.service_name.toLowerCase().includes(referralSearch.toLowerCase())
                     )
+                    .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
+                    .filter(ref => referralStatusFilter === 'all' ? true : ref.status === referralStatusFilter)
                     .map((ref) => (
                     <div key={ref.id} className="bg-white p-5 rounded-3xl border border-black/5 shadow-sm space-y-4">
                       <div className="flex justify-between items-start">
@@ -1762,6 +1899,19 @@ export default function App() {
                         <div className="text-right">
                           <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Incentive</p>
                           <p className="text-sm font-bold text-emerald-600">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
+                        </div>
+                      </div>
+
+                      <div className="py-3 border-b border-zinc-50">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Patient IC</p>
+                            <p className="text-xs font-medium text-zinc-700">{ref.patient_ic || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Patient Address</p>
+                            <p className="text-xs font-medium text-zinc-700 truncate" title={ref.patient_address}>{ref.patient_address || 'N/A'}</p>
+                          </div>
                         </div>
                       </div>
 
@@ -1864,6 +2014,8 @@ export default function App() {
                         ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
                         ref.service_name.toLowerCase().includes(referralSearch.toLowerCase())
                       )
+                      .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
+                      .filter(ref => referralStatusFilter === 'all' ? true : ref.status === referralStatusFilter)
                       .map((ref) => (
                       <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
                         <td className="p-4">
@@ -1873,6 +2025,10 @@ export default function App() {
                         <td className="p-4">
                           <p className="text-sm font-medium">{ref.patient_name}</p>
                           <p className="text-[10px] text-zinc-400">{ref.patient_phone} • <span className="font-bold text-indigo-600">{ref.branch}</span></p>
+                          <div className="mt-1 pt-1 border-t border-zinc-50">
+                            <p className="text-[9px] text-zinc-400 font-medium">IC: {ref.patient_ic || 'N/A'}</p>
+                            <p className="text-[9px] text-zinc-400 font-medium truncate max-w-[150px]" title={ref.patient_address}>Addr: {ref.patient_address || 'N/A'}</p>
+                          </div>
                         </td>
                         <td className="p-4 text-sm text-zinc-500">{ref.service_name}</td>
                         <td className="p-4 text-sm font-medium text-emerald-600">{ref.staff_name}</td>
@@ -2297,7 +2453,7 @@ export default function App() {
                       {referrals
                         .filter(r => r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()))
                         .filter(r => statusFilter === 'all' ? true : r.status === statusFilter)
-                        .filter(r => currentUser.role === 'dispensary' ? r.status === 'arrived' : true)
+                        .filter(r => currentUser.role === 'dispensary' ? r.status === 'completed' : true)
                         .map((ref) => (
                         <div key={ref.id} className="p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors">
                           <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
@@ -2471,6 +2627,83 @@ export default function App() {
             </motion.div>
           )}
 
+          {activeTab === 'tasks' && (
+            <motion.div 
+              key="tasks"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-8"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-black tracking-tighter text-zinc-900">Task Management</h2>
+                  <p className="text-zinc-500 font-medium">Schedule and track clinic operations</p>
+                </div>
+                <button 
+                  onClick={() => { 
+                    setEditingTask(null); 
+                    setTaskDueDate(null);
+                    setShowTaskModal(true); 
+                  }}
+                  className="bg-zinc-900 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all flex items-center gap-2 shadow-xl shadow-zinc-900/20"
+                >
+                  <PlusCircle size={18} />
+                  Create New Task
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {['pending', 'in_progress', 'completed'].map(status => (
+                  <div key={status} className="space-y-4">
+                    <div className="flex items-center justify-between px-2">
+                      <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{status.replace('_', ' ')}</h4>
+                      <span className="text-[10px] font-black bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full">
+                        {tasks.filter(t => t.status === status).length}
+                      </span>
+                    </div>
+                    <div className="space-y-4">
+                      {tasks.filter(t => t.status === status).map(task => (
+                        <motion.div 
+                          layoutId={`task-${task.id}`}
+                          key={task.id}
+                          className="bg-white p-5 rounded-3xl border border-black/5 shadow-sm hover:shadow-md transition-all group"
+                        >
+                          <div className="flex justify-between items-start mb-3">
+                            <h5 className="font-bold text-zinc-900 leading-tight">{task.title}</h5>
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => { 
+                                setEditingTask(task); 
+                                setTaskDueDate(task.due_date ? new Date(task.due_date) : null);
+                                setShowTaskModal(true); 
+                              }} className="p-1.5 text-zinc-400 hover:text-zinc-900"><Edit2 size={12} /></button>
+                              <button onClick={() => handleDeleteTask(task.id)} className="p-1.5 text-zinc-400 hover:text-red-600"><Trash2 size={12} /></button>
+                            </div>
+                          </div>
+                          <p className="text-xs text-zinc-500 mb-4 line-clamp-2">{task.description}</p>
+                          <div className="flex items-center justify-between pt-4 border-t border-zinc-50">
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400">
+                              <Calendar size={12} />
+                              {task.due_date}
+                            </div>
+                            <select 
+                              value={task.status}
+                              onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)}
+                              className="text-[9px] font-black uppercase tracking-widest bg-zinc-50 border-none focus:ring-0 rounded-lg py-1 px-2 cursor-pointer"
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="in_progress">Doing</option>
+                              <option value="completed">Done</option>
+                            </select>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
           {activeTab === 'profile' && currentUser && (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -2636,6 +2869,12 @@ export default function App() {
                   className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'roles' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
                 >
                   Roles & Permissions
+                </button>
+                <button 
+                  onClick={() => setSetupSubTab('referral')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'referral' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  Referral Settings
                 </button>
               </div>
 
@@ -3116,6 +3355,94 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+              ) : setupSubTab === 'referral' ? (
+                <div className="max-w-4xl mx-auto space-y-8">
+                  <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+                    <h3 className="text-xl font-black mb-6">Referral Configuration</h3>
+                    <div className="space-y-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                          <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Referral Types</label>
+                          <div className="flex flex-wrap gap-2">
+                            {referralSettings.types.map(type => (
+                              <span key={type} className="px-3 py-1.5 bg-zinc-100 text-zinc-700 rounded-lg text-xs font-bold">{type}</span>
+                            ))}
+                            <button className="px-3 py-1.5 border border-dashed border-zinc-300 text-zinc-400 rounded-lg text-xs font-bold hover:border-emerald-500 hover:text-emerald-500 transition-colors">+ Add Type</button>
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Default Commission ({clinicProfile.currency})</label>
+                          <input 
+                            type="number" 
+                            value={referralSettings.defaultCommission}
+                            onChange={(e) => setReferralSettings({...referralSettings, defaultCommission: Number(e.target.value)})}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Eligibility Criteria</label>
+                        <textarea 
+                          value={referralSettings.eligibilityCriteria}
+                          onChange={(e) => setReferralSettings({...referralSettings, eligibilityCriteria: e.target.value})}
+                          rows={3}
+                          className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                        />
+                      </div>
+
+                      <div className="pt-6 border-t border-zinc-100">
+                        <h4 className="font-bold mb-4">Staff Referral Quotas</h4>
+                        <div className="bg-zinc-50 rounded-2xl overflow-hidden">
+                          <table className="w-full text-left text-xs">
+                            <thead>
+                              <tr className="bg-zinc-100">
+                                <th className="p-3 font-black uppercase tracking-widest text-zinc-400">Staff Member</th>
+                                <th className="p-3 font-black uppercase tracking-widest text-zinc-400">Monthly Quota</th>
+                                <th className="p-3 font-black uppercase tracking-widest text-zinc-400">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-200">
+                              {staffList.map(staff => (
+                                <tr key={staff.id}>
+                                  <td className="p-3 font-bold">{staff.name}</td>
+                                  <td className="p-3">
+                                    <input 
+                                      type="number"
+                                      value={referralSettings.quotas[staff.id] || 0}
+                                      onChange={(e) => {
+                                        const newQuotas = { ...referralSettings.quotas, [staff.id]: Number(e.target.value) };
+                                        setReferralSettings({ ...referralSettings, quotas: newQuotas });
+                                      }}
+                                      className="w-20 px-2 py-1 rounded bg-white border border-zinc-200"
+                                    />
+                                  </td>
+                                  <td className="p-3">
+                                    <button className="text-emerald-600 font-bold hover:underline">Update</button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={() => {
+                          fetch('/api/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ key: 'referral', value: referralSettings })
+                          });
+                          alert('Referral settings saved!');
+                        }}
+                        className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all"
+                      >
+                        Save Referral Settings
+                      </button>
+                    </div>
+                  </div>
+                </div>
               ) : setupSubTab === 'roles' ? (
                 <div className="max-w-4xl mx-auto space-y-8">
                   <div className="bg-white p-8 rounded-3xl border border-black/5 shadow-sm">
@@ -3473,6 +3800,91 @@ export default function App() {
         </AnimatePresence>
             </>
           )}
+        {/* Task Modal */}
+        <AnimatePresence>
+          {showTaskModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowTaskModal(false)}
+                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+              >
+                <div className="p-8">
+                  <div className="flex items-center justify-between mb-8">
+                    <h3 className="text-2xl font-black tracking-tighter">{editingTask ? 'Edit Task' : 'Create New Task'}</h3>
+                    <button onClick={() => setShowTaskModal(false)} className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 hover:bg-zinc-200 transition-all">
+                      <PlusCircle size={20} className="rotate-45" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSaveTask} className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Task Title</label>
+                      <input 
+                        name="title"
+                        required
+                        defaultValue={editingTask?.title || ''}
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        placeholder="e.g. Monthly Inventory Check"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Description</label>
+                      <textarea 
+                        name="description"
+                        rows={3}
+                        defaultValue={editingTask?.description || ''}
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        placeholder="Details about the task..."
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Due Date</label>
+                        <DatePicker
+                          selected={taskDueDate}
+                          onChange={(date) => setTaskDueDate(date)}
+                          dateFormat="yyyy-MM-dd"
+                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          placeholderText="Select due date"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Assign To</label>
+                        <select 
+                          name="assigned_to"
+                          defaultValue={editingTask?.assigned_to || ''}
+                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium appearance-none"
+                        >
+                          <option value="">Unassigned</option>
+                          {staffList.map(staff => (
+                            <option key={staff.id} value={staff.id}>{staff.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <button 
+                      type="submit"
+                      className="w-full bg-zinc-900 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/20 active:scale-[0.98]"
+                    >
+                      {editingTask ? 'Update Task' : 'Create Task'}
+                    </button>
+                  </form>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );
