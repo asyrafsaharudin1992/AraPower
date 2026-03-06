@@ -395,12 +395,49 @@ export default function App() {
     e.preventDefault();
     setAuthError('');
     try {
+      // Check if Supabase is properly configured
+      const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
+                                  import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder-project.supabase.co';
+
+      if (!isSupabaseConfigured) {
+        console.log('Supabase not configured, using local backend login...');
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: authEmail, password: authPassword })
+        });
+
+        if (res.ok && data && !data.error) {
+          setCurrentUser(data);
+          localStorage.setItem('currentUser', JSON.stringify(data));
+          return;
+        } else {
+          throw new Error(data.error || 'Invalid credentials');
+        }
+      }
+
+      // If Supabase is configured, try it
       const { data, error } = await supabase.auth.signInWithPassword({
         email: authEmail,
         password: authPassword,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Fallback to local backend if Supabase fails (e.g. user not in Supabase but in local DB)
+        console.log('Supabase login failed, trying local backend...');
+        const { res, data: localData } = await safeFetch(`${apiBaseUrl}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: authEmail, password: authPassword })
+        });
+
+        if (res.ok && localData && !localData.error) {
+          setCurrentUser(localData);
+          localStorage.setItem('currentUser', JSON.stringify(localData));
+          return;
+        }
+        throw error;
+      }
 
       if (data.user?.email) {
         await fetchStaffByEmail(data.user.email);

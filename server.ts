@@ -174,6 +174,7 @@ if (db) {
     db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Amir", "amir@clinic.com", "password123", "staff", "AMIR-BGI", "Bangi", "STF-002", now);
     db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Sarah", "sarah@clinic.com", "password123", "staff", "SARAH-KJG", "Kajang", "STF-003", now);
     db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Receptionist Sarah", "sarah_rec@clinic.com", "password123", "receptionist", "REC-001", "Bangi", "STF-004", now);
+    db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Paige", "paige@clinic.com", "password123", "staff", "PAIGE-HQ", "HQ", "STF-005", now);
 
     db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Basic Health Screening", 80, 5);
     db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Comprehensive Screening", 150, 5);
