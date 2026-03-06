@@ -3870,19 +3870,36 @@ export default function App() {
                 <div className="p-8">
                   <div className="flex items-start justify-between mb-8">
                     <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-3xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl font-bold">
-                        {selectedStaffDetail.name.charAt(0)}
+                      <div className="w-16 h-16 rounded-3xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl font-bold overflow-hidden border border-emerald-100 shadow-sm">
+                        {selectedStaffDetail.profile_picture ? (
+                          <img 
+                            src={selectedStaffDetail.profile_picture} 
+                            alt={selectedStaffDetail.name} 
+                            className="w-full h-full object-cover" 
+                            referrerPolicy="no-referrer" 
+                          />
+                        ) : (
+                          selectedStaffDetail.name.charAt(0)
+                        )}
                       </div>
                       <div>
-                        <h3 className="text-2xl font-bold tracking-tight">{selectedStaffDetail.name}</h3>
-                        <p className="text-zinc-500">{selectedStaffDetail.email}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${selectedStaffDetail.tier.bg} ${selectedStaffDetail.tier.color}`}>
-                            {selectedStaffDetail.tier.name} Tier
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-2xl font-bold tracking-tight text-zinc-900">{selectedStaffDetail.name}</h3>
+                          {selectedStaffDetail.nickname && (
+                            <span className="text-zinc-400 font-medium text-lg">({selectedStaffDetail.nickname})</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">{selectedStaffDetail.role}</p>
+                          <p className="text-zinc-400 text-xs font-medium">{selectedStaffDetail.email}</p>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${selectedStaffDetail.tier?.bg || 'bg-zinc-50'} ${selectedStaffDetail.tier?.color || 'text-zinc-400'}`}>
+                            {selectedStaffDetail.tier?.name || 'Bronze'} Tier
                           </span>
-                          <div className="flex items-center gap-1 text-yellow-600">
+                          <div className="flex items-center gap-1 text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-lg border border-yellow-100">
                             <Coins size={12} />
-                            <span className="text-xs font-bold">{selectedStaffDetail.aracoins || 0} AraCoins</span>
+                            <span className="text-[10px] font-black uppercase tracking-tight">{selectedStaffDetail.aracoins || 0} AraCoins</span>
                           </div>
                         </div>
                       </div>
@@ -3918,7 +3935,7 @@ export default function App() {
                         .slice(0, 10)
                         .map(ref => {
                           const service = services.find(s => s.id === ref.service_id);
-                          const allowance = service?.allowances?.[selectedStaffDetail.tier.name] || 0;
+                          const allowance = service?.allowances?.[selectedStaffDetail.tier?.name || 'Bronze'] || 0;
                           return (
                             <div key={ref.id} className="flex items-center justify-between p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
                               <div>
@@ -3926,7 +3943,7 @@ export default function App() {
                                 <p className="text-[10px] text-zinc-500 uppercase font-medium">{ref.service_name} • {ref.date}</p>
                               </div>
                               <div className="text-right">
-                                <p className="text-sm font-bold text-emerald-600">+${(ref.commission_amount * selectedStaffDetail.tier.bonus).toFixed(2)}</p>
+                                <p className="text-sm font-bold text-emerald-600">+${(ref.commission_amount * (selectedStaffDetail.tier?.bonus || 1)).toFixed(2)}</p>
                                 {allowance > 0 && (
                                   <p className="text-[9px] font-bold text-blue-600 uppercase">Allowance: +${allowance.toFixed(2)}</p>
                                 )}
