@@ -245,19 +245,29 @@ app.post("/api/auth/login", (req, res) => {
 
 app.post("/api/auth/register", (req, res) => {
   const { name, email, branch, phone, password } = req.body;
+  console.log(`Registration attempt for: ${email}`, { name, branch, phone });
   
   // Check if registration is allowed
   const settings = db.prepare("SELECT value FROM settings WHERE key = 'auth'").get() as any;
   const authSettings = settings ? JSON.parse(settings.value) : { allowRegistration: true };
   
   if (!authSettings.allowRegistration) {
+    console.log(`Registration blocked: self-registration disabled for ${email}`);
     return res.status(403).json({ error: "Self-registration is currently disabled. Please contact an administrator." });
   }
 
   // Generate a promo code
-  const namePart = name.split(' ')[0].toUpperCase();
-  const randomPart = Math.floor(100 + Math.random() * 899);
-  const promo_code = `${namePart}-${randomPart}`;
+  const namePart = (name || 'USER').split(' ')[0].toUpperCase();
+  let promo_code = `${namePart}-${Math.floor(100 + Math.random() * 899)}`;
+  
+  // Try to ensure unique promo code (simple retry)
+  let attempts = 0;
+  while (attempts < 5) {
+    const existing = db.prepare("SELECT 1 FROM staff WHERE promo_code = ?").get(promo_code);
+    if (!existing) break;
+    promo_code = `${namePart}-${Math.floor(100 + Math.random() * 899)}`;
+    attempts++;
+  }
 
   try {
     const result = db.prepare(`
@@ -266,16 +276,19 @@ app.post("/api/auth/register", (req, res) => {
     `).run(name, email, promo_code, branch, phone || null, new Date().toISOString(), password || null);
     
     const newStaff = db.prepare("SELECT * FROM staff WHERE id = ?").get(result.lastInsertRowid);
+    console.log(`Registration successful for: ${email}, ID: ${result.lastInsertRowid}`);
     
     // Send notification to admins
     sendAdminNotification(newStaff);
     
     res.json(newStaff);
   } catch (error: any) {
+    console.error(`Registration error for ${email}:`, error);
     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      res.status(400).json({ error: "Email already exists" });
+      const field = error.message.includes('email') ? 'Email' : 'Promo Code';
+      res.status(400).json({ error: `${field} already exists. Please try again.` });
     } else {
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "Internal server error during registration" });
     }
   }
 });

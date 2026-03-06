@@ -308,7 +308,6 @@ export default function App() {
     fetchServices();
     fetchSettings();
     fetchTasks();
-    checkConnection();
   }, []);
 
   const checkConnection = async () => {
@@ -457,17 +456,30 @@ export default function App() {
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
+    setIsSubmitting(true);
     try {
+      console.log('Registration attempt started', { email: authEmail, name: authName });
+      
       // Check if Supabase is properly configured
       const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
                                   import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder-project.supabase.co';
 
       if (isSupabaseConfigured) {
-        const { error: authError } = await supabase.auth.signUp({
-          email: authEmail,
-          password: authPassword,
-        });
-        if (authError) console.warn('Supabase registration failed, trying local backend...', authError);
+        try {
+          const { error: authError } = await supabase.auth.signUp({
+            email: authEmail,
+            password: authPassword,
+            options: {
+              data: {
+                full_name: authName,
+                branch: authBranch
+              }
+            }
+          });
+          if (authError) console.warn('Supabase registration warning:', authError.message);
+        } catch (err) {
+          console.warn('Supabase registration error (skipping):', err);
+        }
       }
 
       // 2. Register in our backend
@@ -484,14 +496,19 @@ export default function App() {
       });
 
       if (res.ok) {
+        console.log('Registration successful', data);
         setCurrentUser(data);
         localStorage.setItem('currentUser', JSON.stringify(data));
         setActiveTab('dashboard');
       } else {
-        setAuthError(data.error || 'Registration failed');
+        console.error('Registration failed:', data);
+        setAuthError(data.error || 'Registration failed. Please try again.');
       }
     } catch (error: any) {
-      setAuthError(error.message || 'Network error. Please try again.');
+      console.error('Registration network error:', error);
+      setAuthError(error.message || 'Network error. Please check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -995,7 +1012,7 @@ export default function App() {
           </div>
 
           <AnimatePresence mode="wait">
-            {(connectionStatus === 'offline' || connectionStatus === 'checking') && (
+            {connectionStatus === 'offline' && (
               <motion.div 
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -1004,10 +1021,10 @@ export default function App() {
               >
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  API Connection Issue: {connectionError || 'Detected'}
+                  API Connection Issue: {connectionError || 'Offline'}
                 </div>
                 <button onClick={checkConnection} className="underline hover:text-amber-900">
-                  {connectionStatus === 'checking' ? 'Checking...' : 'Retry'}
+                  Retry
                 </button>
               </motion.div>
             )}
@@ -1106,10 +1123,11 @@ export default function App() {
                   <input 
                     type="password"
                     required
+                    minLength={6}
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
                     className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
-                    placeholder="••••••••"
+                    placeholder="Min. 6 characters"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -1143,9 +1161,10 @@ export default function App() {
                 </div>
                 <button 
                   type="submit"
-                  className="w-full bg-emerald-600 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 active:scale-[0.98]"
+                  disabled={isSubmitting}
+                  className="w-full bg-emerald-600 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Create Account
+                  {isSubmitting ? 'Creating Account...' : 'Create Account'}
                 </button>
               </motion.form>
             )}
@@ -1179,12 +1198,30 @@ export default function App() {
             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Status</p>
             <p className="text-xs font-bold text-orange-600 uppercase">Under Review</p>
           </div>
-          <button 
-            onClick={handleLogout}
-            className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-900/10"
-          >
-            Sign Out
-          </button>
+          <div className="grid grid-cols-2 gap-4">
+            <button 
+              onClick={async () => {
+                const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser.id}`);
+                if (res.ok && data) {
+                  if (data.is_approved) {
+                    setCurrentUser(data);
+                    localStorage.setItem('currentUser', JSON.stringify(data));
+                  } else {
+                    alert('Your account is still pending approval.');
+                  }
+                }
+              }}
+              className="bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/10"
+            >
+              Check Status
+            </button>
+            <button 
+              onClick={handleLogout}
+              className="bg-zinc-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-900/10"
+            >
+              Sign Out
+            </button>
+          </div>
         </motion.div>
       </div>
     );
