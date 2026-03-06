@@ -131,6 +131,7 @@ interface RolesConfig {
 
 const safeFetch = async (url: string, options?: RequestInit) => {
   try {
+    console.log(`Fetching: ${url}`, options?.method || 'GET');
     const res = await fetch(url, options);
     const contentType = res.headers.get("content-type");
     if (contentType && contentType.includes("application/json")) {
@@ -143,6 +144,7 @@ const safeFetch = async (url: string, options?: RequestInit) => {
       return { res, data: { error: errorText || res.statusText || "Unknown error" } };
     }
   } catch (e: any) {
+    console.error(`Fetch error for ${url}:`, e);
     return { res: { ok: false, status: 0 } as Response, data: { error: e.message || "Network error" } };
   }
 };
@@ -232,7 +234,7 @@ export default function App() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [apiBaseUrl, setApiBaseUrl] = useState(import.meta.env.VITE_API_URL || '');
+  const [apiBaseUrl, setApiBaseUrl] = useState('');
   const [authSettings, setAuthSettings] = useState({ allowRegistration: true });
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   
@@ -247,6 +249,25 @@ export default function App() {
     eligibilityCriteria: 'Must be an active staff member with an approved account.',
     quotas: {} as Record<number, number>
   });
+
+  const checkConnection = async () => {
+    setConnectionStatus('checking');
+    console.log('Checking API connection...');
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/health`);
+    if (res.ok) {
+      console.log('API connection successful:', data);
+      setConnectionStatus('online');
+      setConnectionError(null);
+    } else {
+      console.error('API connection failed:', data);
+      setConnectionStatus('offline');
+      setConnectionError(data.error || 'Could not connect to server');
+    }
+  };
+
+  useEffect(() => {
+    checkConnection();
+  }, [apiBaseUrl]);
 
   useEffect(() => {
     // Check for active session
@@ -344,10 +365,9 @@ export default function App() {
 
   const handlePublicBooking = async (code: string) => {
     setIsPublicBooking(true);
-    const res = await fetch(`/api/staff?promoCode=${code}`);
-    const staff = await res.json();
-    if (staff) {
-      setReferringStaff(staff);
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff?promoCode=${code}`);
+    if (res.ok && data) {
+      setReferringStaff(data);
     }
   };
 
@@ -394,6 +414,7 @@ export default function App() {
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
+    console.log('Login attempt started', { email: authEmail, apiBaseUrl });
     try {
       // Check if Supabase is properly configured
       const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
@@ -654,8 +675,8 @@ export default function App() {
 
   const handleDeleteService = async (id: number) => {
     if (!confirm('Are you sure you want to delete this service?')) return;
-    await fetch(`/api/services/${id}`, { method: 'DELETE' });
-    fetchServices();
+    const { res } = await safeFetch(`/api/services/${id}`, { method: 'DELETE' });
+    if (res.ok) {
   };
 
   const handleSaveStaff = async (e: React.FormEvent) => {
@@ -686,14 +707,16 @@ export default function App() {
 
   const handleDeleteStaff = async (id: number) => {
     if (!confirm('Are you sure you want to delete this staff member?')) return;
-    await fetch(`/api/staff/${id}`, { method: 'DELETE' });
-    fetchStaff();
+    const { res } = await safeFetch(`/api/staff/${id}`, { method: 'DELETE' });
+    if (res.ok) {
   };
 
   const handleResetPassword = async (id: number) => {
     if (!confirm('Reset password to default "password123"?')) return;
-    await fetch(`/api/staff/${id}/reset-password`, { method: 'POST' });
-    alert('Password reset successfully');
+    const { res } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/reset-password`, { method: 'POST' });
+    if (res.ok) {
+      alert('Password reset successfully');
+    }
   };
 
   const handleSaveTask = async (e: React.FormEvent) => {
@@ -709,7 +732,7 @@ export default function App() {
     const method = editingTask?.id ? 'PATCH' : 'POST';
     const url = editingTask?.id ? `/api/tasks/${editingTask.id}` : '/api/tasks';
 
-    const res = await fetch(url, {
+    const { res } = await safeFetch(editingTask?.id ? `${apiBaseUrl}/api/tasks/${editingTask.id}` : `${apiBaseUrl}/api/tasks`, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(taskData)

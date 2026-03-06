@@ -179,6 +179,11 @@ if (db) {
     db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Basic Health Screening", 80, 5);
     db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Comprehensive Screening", 150, 5);
     db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Vaccination Package", 120, 5);
+  // Ensure Paige exists
+  const paigeExists = db.prepare("SELECT 1 FROM staff WHERE email = ?").get("paige@clinic.com");
+  if (!paigeExists) {
+    const now = new Date().toISOString();
+    db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Paige", "paige@clinic.com", "password123", "staff", "PAIGE-HQ", "HQ", "STF-005", now);
   }
 }
 
@@ -580,11 +585,9 @@ async function startServer() {
     });
   }
 
-  if (process.env.NODE_ENV !== "production") {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-  }
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
 }
 
 startServer();
