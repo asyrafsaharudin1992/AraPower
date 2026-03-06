@@ -148,6 +148,7 @@ if (db) {
   try { db.exec("ALTER TABLE staff ADD COLUMN approved_earnings REAL DEFAULT 0"); } catch(e) {}
   try { db.exec("ALTER TABLE staff ADD COLUMN paid_earnings REAL DEFAULT 0"); } catch(e) {}
   try { db.exec("ALTER TABLE staff ADD COLUMN lifetime_earnings REAL DEFAULT 0"); } catch(e) {}
+  try { db.exec("ALTER TABLE staff ADD COLUMN password TEXT"); } catch(e) {}
   try { db.exec("ALTER TABLE staff ADD COLUMN last_payout_date TEXT"); } catch(e) {}
   try { db.exec("ALTER TABLE staff ADD COLUMN referrer_type TEXT DEFAULT 'staff'"); } catch(e) {}
   try { db.exec("ALTER TABLE staff ADD COLUMN phone TEXT"); } catch(e) {}
@@ -179,6 +180,8 @@ if (db) {
     db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Basic Health Screening", 80, 5);
     db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Comprehensive Screening", 150, 5);
     db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Vaccination Package", 120, 5);
+  }
+
   // Ensure Paige exists
   const paigeExists = db.prepare("SELECT 1 FROM staff WHERE email = ?").get("paige@clinic.com");
   if (!paigeExists) {
@@ -241,7 +244,7 @@ app.post("/api/auth/login", (req, res) => {
 });
 
 app.post("/api/auth/register", (req, res) => {
-  const { name, email, branch, phone } = req.body;
+  const { name, email, branch, phone, password } = req.body;
   
   // Check if registration is allowed
   const settings = db.prepare("SELECT value FROM settings WHERE key = 'auth'").get() as any;
@@ -258,9 +261,9 @@ app.post("/api/auth/register", (req, res) => {
 
   try {
     const result = db.prepare(`
-      INSERT INTO staff (name, email, role, promo_code, branch, phone, date_joined, is_approved)
-      VALUES (?, ?, 'staff', ?, ?, ?, ?, 0)
-    `).run(name, email, promo_code, branch, phone || null, new Date().toISOString());
+      INSERT INTO staff (name, email, role, promo_code, branch, phone, date_joined, is_approved, password)
+      VALUES (?, ?, 'staff', ?, ?, ?, ?, 0, ?)
+    `).run(name, email, promo_code, branch, phone || null, new Date().toISOString(), password || null);
     
     const newStaff = db.prepare("SELECT * FROM staff WHERE id = ?").get(result.lastInsertRowid);
     
@@ -356,12 +359,12 @@ app.get("/api/staff", (req, res) => {
 });
 
 app.post("/api/staff", (req, res) => {
-  const { name, email, role, promo_code, staff_id_code, branch, department, position, date_joined, phone } = req.body;
+  const { name, email, role, promo_code, staff_id_code, branch, department, position, date_joined, phone, password } = req.body;
   try {
     const result = db.prepare(`
-      INSERT INTO staff (name, email, role, promo_code, staff_id_code, branch, department, position, date_joined, phone)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name, email, role, promo_code, staff_id_code, branch, department, position, date_joined || new Date().toISOString(), phone || null);
+      INSERT INTO staff (name, email, role, promo_code, staff_id_code, branch, department, position, date_joined, phone, password)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(name, email, role, promo_code, staff_id_code, branch, department, position, date_joined || new Date().toISOString(), phone || null, password || 'password123');
     res.json({ id: result.lastInsertRowid });
   } catch (error: any) {
     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {

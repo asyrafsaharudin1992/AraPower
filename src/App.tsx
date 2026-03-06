@@ -250,21 +250,6 @@ export default function App() {
     quotas: {} as Record<number, number>
   });
 
-  const checkConnection = async () => {
-    setConnectionStatus('checking');
-    console.log('Checking API connection...');
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/health`);
-    if (res.ok) {
-      console.log('API connection successful:', data);
-      setConnectionStatus('online');
-      setConnectionError(null);
-    } else {
-      console.error('API connection failed:', data);
-      setConnectionStatus('offline');
-      setConnectionError(data.error || 'Could not connect to server');
-    }
-  };
-
   useEffect(() => {
     checkConnection();
   }, [apiBaseUrl]);
@@ -473,13 +458,17 @@ export default function App() {
     e.preventDefault();
     setAuthError('');
     try {
-      // 1. Sign up with Supabase
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: authEmail,
-        password: authPassword,
-      });
+      // Check if Supabase is properly configured
+      const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
+                                  import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder-project.supabase.co';
 
-      if (authError) throw authError;
+      if (isSupabaseConfigured) {
+        const { error: authError } = await supabase.auth.signUp({
+          email: authEmail,
+          password: authPassword,
+        });
+        if (authError) console.warn('Supabase registration failed, trying local backend...', authError);
+      }
 
       // 2. Register in our backend
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/auth/register`, {
@@ -489,12 +478,14 @@ export default function App() {
           name: authName, 
           email: authEmail, 
           branch: authBranch, 
-          phone: authPhone 
+          phone: authPhone,
+          password: authPassword
         })
       });
 
       if (res.ok) {
         setCurrentUser(data);
+        localStorage.setItem('currentUser', JSON.stringify(data));
         setActiveTab('dashboard');
       } else {
         setAuthError(data.error || 'Registration failed');
@@ -677,6 +668,8 @@ export default function App() {
     if (!confirm('Are you sure you want to delete this service?')) return;
     const { res } = await safeFetch(`/api/services/${id}`, { method: 'DELETE' });
     if (res.ok) {
+      fetchServices();
+    }
   };
 
   const handleSaveStaff = async (e: React.FormEvent) => {
@@ -685,8 +678,8 @@ export default function App() {
     setIsSavingSetup(true);
     try {
       const method = editingStaff.id ? 'PATCH' : 'POST';
-      const url = editingStaff.id ? `/api/staff/${editingStaff.id}` : '/api/staff';
-      const res = await fetch(url, {
+      const url = editingStaff.id ? `${apiBaseUrl}/api/staff/${editingStaff.id}` : `${apiBaseUrl}/api/staff`;
+      const { res, data } = await safeFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingStaff)
@@ -695,7 +688,6 @@ export default function App() {
         setEditingStaff(null);
         fetchStaff();
       } else {
-        const data = await res.json();
         alert(data.error || 'Failed to save staff');
       }
     } catch (error) {
@@ -709,6 +701,8 @@ export default function App() {
     if (!confirm('Are you sure you want to delete this staff member?')) return;
     const { res } = await safeFetch(`/api/staff/${id}`, { method: 'DELETE' });
     if (res.ok) {
+      fetchStaff();
+    }
   };
 
   const handleResetPassword = async (id: number) => {
@@ -4111,5 +4105,5 @@ export default function App() {
       </main>
     </div>
   );
-  }
+}
 }
