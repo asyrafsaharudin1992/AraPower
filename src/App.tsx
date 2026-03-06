@@ -37,6 +37,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
 import DatePicker from 'react-datepicker';
+import { supabase } from './supabase';
 
 interface Staff {
   id: number;
@@ -165,7 +166,7 @@ export default function App() {
 
   // Clinic & Roles State
   const [clinicProfile, setClinicProfile] = useState<ClinicProfile>({
-    name: 'Clinic Incentive Pro',
+    name: 'Klinik Ara 24 Jam',
     address: '',
     phone: '',
     email: '',
@@ -227,6 +228,8 @@ export default function App() {
   const [authBranch, setAuthBranch] = useState('');
   const [authPhone, setAuthPhone] = useState('');
   const [authError, setAuthError] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState(import.meta.env.VITE_API_URL || '');
@@ -244,6 +247,42 @@ export default function App() {
     eligibilityCriteria: 'Must be an active staff member with an approved account.',
     quotas: {} as Record<number, number>
   });
+
+  useEffect(() => {
+    // Check for active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) {
+        fetchStaffByEmail(session.user.email);
+      } else {
+        setIsAuthChecking(false);
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.email) {
+        fetchStaffByEmail(session.user.email);
+      } else {
+        setCurrentUser(null);
+        localStorage.removeItem('currentUser');
+        setIsAuthChecking(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchStaffByEmail = async (email: string) => {
+    try {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${email}`);
+      if (res.ok && data) {
+        localStorage.setItem('currentUser', JSON.stringify(data));
+        setCurrentUser(data);
+      }
+    } finally {
+      setIsAuthChecking(false);
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -356,23 +395,19 @@ export default function App() {
     e.preventDefault();
     setAuthError('');
     try {
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: authEmail, password: authPassword })
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password: authPassword,
       });
-      if (res.ok) {
-        localStorage.setItem('currentUser', JSON.stringify(data));
-        setCurrentUser(data);
-        if (data.role === 'admin') setActiveTab('admin');
-        else if (data.role === 'receptionist') setActiveTab('receptionist');
-        else setActiveTab('dashboard');
-      } else {
-        setAuthError(`${data.error || 'Login failed'} (Status: ${res.status})`);
+
+      if (error) throw error;
+
+      if (data.user?.email) {
+        await fetchStaffByEmail(data.user.email);
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      setAuthError(`Network error: ${error.message || 'Please check if the API server is running and CORS is enabled.'}`);
+      setAuthError(error.message || 'Login failed');
     }
   };
 
@@ -380,29 +415,39 @@ export default function App() {
     e.preventDefault();
     setAuthError('');
     try {
+      // 1. Sign up with Supabase
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: authEmail,
+        password: authPassword,
+      });
+
+      if (authError) throw authError;
+
+      // 2. Register in our backend
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           name: authName, 
           email: authEmail, 
-          password: authPassword, 
           branch: authBranch, 
           phone: authPhone 
         })
       });
+
       if (res.ok) {
         setCurrentUser(data);
         setActiveTab('dashboard');
       } else {
         setAuthError(data.error || 'Registration failed');
       }
-    } catch (error) {
-      setAuthError('Network error. Please try again.');
+    } catch (error: any) {
+      setAuthError(error.message || 'Network error. Please try again.');
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem('currentUser');
     setCurrentUser(null);
     setActiveTab('dashboard');
@@ -507,13 +552,43 @@ export default function App() {
       });
       if (res.ok) {
         setCurrentUser(data);
-        alert('Profile updated successfully');
+        setSaveStatus({ type: 'success', message: 'Profile updated successfully' });
+        setTimeout(() => setSaveStatus(null), 3000);
       } else {
-        alert(data.error || 'Failed to update profile');
+        setSaveStatus({ type: 'error', message: data.error || 'Failed to update profile' });
       }
     } catch (error) {
       console.error(error);
-      alert('Failed to update profile');
+      setSaveStatus({ type: 'error', message: 'Failed to update profile' });
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser) return;
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${currentUser.id}-${Math.random()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('clinic-assets')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('clinic-assets')
+        .getPublicUrl(filePath);
+
+      await handleUpdateProfile({ profile_picture: publicUrl });
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      alert('Error uploading image: ' + error.message);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -691,8 +766,8 @@ export default function App() {
           ) : (
             <>
               <div className="flex items-center gap-3 mb-8">
-                <div className="bg-emerald-500 p-2 rounded-xl">
-                  <Stethoscope className="text-white w-6 h-6" />
+                <div className="bg-white p-1 rounded-xl border border-zinc-100 shadow-sm">
+                  <img src="https://api.claudette.ai/v1/files/file-34ro25auykfy3fvticfqnl-499672742043/content" alt="Logo" className="w-8 h-8 object-contain" referrerPolicy="no-referrer" />
                 </div>
                 <h1 className="text-2xl font-semibold text-zinc-900 tracking-tight">Clinic Booking</h1>
               </div>
@@ -788,6 +863,17 @@ export default function App() {
     );
   }
 
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+          <p className="text-zinc-400 font-black text-[10px] uppercase tracking-widest">Authenticating...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!currentUser) {
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening';
@@ -811,9 +897,9 @@ export default function App() {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.5 }}
-              className="bg-emerald-500 p-4 rounded-[1.5rem] shadow-lg shadow-emerald-500/20 mb-6"
+              className="bg-white p-2 rounded-[1.5rem] shadow-lg shadow-black/5 mb-6 border border-zinc-100"
             >
-              <Stethoscope className="text-white w-8 h-8" />
+              <img src="https://api.claudette.ai/v1/files/file-34ro25auykfy3fvticfqnl-499672742043/content" alt="Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -1234,8 +1320,8 @@ export default function App() {
         {!isMobile && (
           <nav className="fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-zinc-100 p-6 flex flex-col">
             <div className="flex items-center gap-3 mb-10 px-2">
-              <div className="w-10 h-10 bg-zinc-900 rounded-2xl flex items-center justify-center text-white">
-                <Stethoscope size={24} />
+              <div className="w-10 h-10 bg-white border border-zinc-100 rounded-2xl flex items-center justify-center shadow-sm overflow-hidden">
+                <img src="https://api.claudette.ai/v1/files/file-34ro25auykfy3fvticfqnl-499672742043/content" alt="Logo" className="w-8 h-8 object-contain" referrerPolicy="no-referrer" />
               </div>
               <h1 className="font-bold text-xl tracking-tight">{clinicProfile.name}</h1>
             </div>
@@ -2778,7 +2864,6 @@ export default function App() {
                     const formData = new FormData(e.currentTarget);
                     handleUpdateProfile({
                       nickname: formData.get('nickname') as string,
-                      profile_picture: formData.get('profile_picture') as string,
                       bank_name: formData.get('bank_name') as string,
                       bank_account_number: formData.get('bank_account_number') as string,
                     });
@@ -2797,14 +2882,31 @@ export default function App() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Profile Picture URL</label>
-                      <input 
-                        name="profile_picture"
-                        type="url"
-                        defaultValue={currentUser.profile_picture || ''}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
-                        placeholder="https://images.com/photo.jpg"
-                      />
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Profile Picture</label>
+                      <div className="flex items-center gap-4">
+                        <label className="flex-1 cursor-pointer">
+                          <div className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 hover:border-emerald-500 transition-all text-sm font-medium flex items-center gap-2 text-zinc-500">
+                            <PlusCircle size={18} />
+                            {isUploading ? 'Uploading...' : 'Choose Image'}
+                          </div>
+                          <input 
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                            disabled={isUploading}
+                          />
+                        </label>
+                        {currentUser.profile_picture && (
+                          <button 
+                            type="button"
+                            onClick={() => handleUpdateProfile({ profile_picture: '' })}
+                            className="p-4 rounded-2xl bg-red-50 text-red-500 hover:bg-red-100 transition-all"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
