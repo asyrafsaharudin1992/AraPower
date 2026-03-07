@@ -681,35 +681,67 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file || !currentUser) return;
 
+    // Check if Supabase is actually configured
+    const { data: { publicUrl: testUrl } } = supabase.storage.from('test').getPublicUrl('test');
+    const isPlaceholder = testUrl.includes('placeholder-project.supabase.co');
+
+    if (isPlaceholder) {
+      alert('Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your platform settings and restart the dev server.');
+      return;
+    }
+
+    // Check if user has a Supabase session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.warn('No active Supabase session. Upload might fail if RLS policies require authentication.');
+    }
+
     setIsUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${currentUser.id}-${Math.random()}.${fileExt}`;
+      const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
-      // Ensure bucket exists or handle error gracefully
-      const { error: uploadError } = await supabase.storage
-        .from('clinic-assets')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      // We'll try 'clinic-assets' first, then 'CLINIC-ASSETS' if it fails
+      const bucketNames = ['clinic-assets', 'CLINIC-ASSETS'];
+      let uploadError = null;
+      let successfulBucket = '';
+
+      for (const bucket of bucketNames) {
+        const { error } = await supabase.storage
+          .from(bucket)
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+        
+        if (!error) {
+          successfulBucket = bucket;
+          uploadError = null;
+          break;
+        }
+        uploadError = error;
+      }
 
       if (uploadError) {
+        console.error('Supabase upload error:', uploadError);
         if (uploadError.message.includes('bucket not found')) {
-          throw new Error('Storage bucket "clinic-assets" not found. Please create it in your Supabase dashboard and set it to public.');
+          throw new Error('Storage bucket "clinic-assets" not found. Please ensure you created it in Supabase and it is named exactly "clinic-assets" (lowercase).');
+        }
+        if (uploadError.message.includes('row-level security policy')) {
+          throw new Error('Security Policy Error: Your Supabase bucket is locked. Please ensure you have added the "INSERT" and "SELECT" policies for "public" or "authenticated" users on the "clinic-assets" bucket.');
         }
         throw uploadError;
       }
 
       const { data: { publicUrl } } = supabase.storage
-        .from('clinic-assets')
+        .from(successfulBucket)
         .getPublicUrl(filePath);
 
       await handleUpdateProfile({ profile_picture: publicUrl });
     } catch (error: any) {
       console.error('Error uploading image:', error);
-      alert('Error: ' + error.message);
+      alert('Upload Error: ' + error.message);
     } finally {
       setIsUploading(false);
     }
