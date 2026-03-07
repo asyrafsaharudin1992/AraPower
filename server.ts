@@ -15,13 +15,20 @@ const __dirname = path.dirname(__filename);
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
+let supabase: any = null;
+
 if (!supabaseUrl || !supabaseKey) {
   console.error('CRITICAL ERROR: Supabase environment variables are missing!');
   console.error('VITE_SUPABASE_URL:', supabaseUrl ? 'SET' : 'MISSING');
   console.error('SUPABASE_SERVICE_ROLE_KEY/VITE_SUPABASE_ANON_KEY:', supabaseKey ? 'SET' : 'MISSING');
+} else {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('Supabase client initialized successfully.');
+  } catch (err: any) {
+    console.error('Failed to initialize Supabase client:', err.message);
+  }
 }
-
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -78,7 +85,10 @@ async function sendAdminNotification(newUser: any) {
 
 // Seed Supabase if empty
 async function seedSupabase() {
-  if (!supabaseUrl || !supabaseKey) return;
+  if (!supabase) {
+    console.log('Supabase client not initialized. Skipping seed.');
+    return;
+  }
   
   try {
     console.log('Checking if Supabase needs seeding...');
@@ -136,15 +146,37 @@ app.use(express.json());
 
 const PORT = 3000;
 
+// Middleware to check Supabase initialization
+app.use("/api", (req, res, next) => {
+  if (req.path === "/health" || req.path === "/debug/supabase") {
+    return next();
+  }
+  
+  if (!supabase) {
+    return res.status(500).json({ 
+      error: "Database connection not initialized. Please check your Supabase environment variables.",
+      config: {
+        url: supabaseUrl ? 'SET' : 'MISSING',
+        key: supabaseKey ? 'SET' : 'MISSING'
+      }
+    });
+  }
+  next();
+});
+
 // API Routes
 app.get("/api/health", async (req, res) => {
   let dbStatus = "unknown";
-  try {
-    const { error } = await supabase.from('staff').select('*', { count: 'exact', head: true });
-    if (error) throw error;
-    dbStatus = "connected";
-  } catch (e: any) {
-    dbStatus = `error: ${e.message}`;
+  if (!supabase) {
+    dbStatus = "not_initialized";
+  } else {
+    try {
+      const { error } = await supabase.from('staff').select('*', { count: 'exact', head: true });
+      if (error) throw error;
+      dbStatus = "connected";
+    } catch (e: any) {
+      dbStatus = `error: ${e.message}`;
+    }
   }
 
   res.json({ 
@@ -164,6 +196,7 @@ app.get("/api/debug/supabase", async (req, res) => {
   const report: any = {
     url_configured: !!supabaseUrl,
     key_configured: !!supabaseKey,
+    client_initialized: !!supabase,
     env_vars: {
       VITE_SUPABASE_URL: supabaseUrl ? 'SET' : 'MISSING',
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING',
@@ -172,8 +205,8 @@ app.get("/api/debug/supabase", async (req, res) => {
     tables: {}
   };
 
-  if (!supabaseUrl || !supabaseKey) {
-    return res.status(500).json({ status: 'error', message: 'Supabase credentials missing', report });
+  if (!supabase) {
+    return res.status(500).json({ status: 'error', message: 'Supabase client not initialized', report });
   }
 
   try {
@@ -213,11 +246,6 @@ app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
   console.log(`Login attempt for: ${email}`);
   
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('Login failed: Supabase credentials missing');
-    return res.status(500).json({ error: "Server configuration error: Supabase credentials missing." });
-  }
-
   try {
     const { data: staff, error } = await supabase
       .from('staff')
@@ -254,11 +282,6 @@ app.post("/api/auth/register", async (req, res) => {
   const { name, email, branch, phone, password } = req.body;
   console.log(`Registration attempt for: ${email}`, { name, branch, phone });
   
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('Registration failed: Supabase credentials missing');
-    return res.status(500).json({ error: "Server configuration error: Supabase credentials missing." });
-  }
-
   try {
     // Check if registration is allowed
     console.log('Checking registration settings...');

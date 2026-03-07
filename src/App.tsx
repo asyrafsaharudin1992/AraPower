@@ -3007,7 +3007,7 @@ export default function App() {
                   }}
                   className="space-y-6"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 gap-6">
                     <div className="space-y-2">
                       <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Nickname</label>
                       <input 
@@ -3017,33 +3017,6 @@ export default function App() {
                         className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
                         placeholder="Your preferred name"
                       />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Profile Picture</label>
-                      <div className="flex items-center gap-4">
-                        <label className="flex-1 cursor-pointer">
-                          <div className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 hover:border-emerald-500 transition-all text-sm font-medium flex items-center gap-2 text-zinc-500">
-                            <PlusCircle size={18} />
-                            {isUploading ? 'Uploading...' : 'Choose Image'}
-                          </div>
-                          <input 
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageUpload}
-                            className="hidden"
-                            disabled={isUploading}
-                          />
-                        </label>
-                        {currentUser.profile_picture && (
-                          <button 
-                            type="button"
-                            onClick={() => handleUpdateProfile({ profile_picture: '' })}
-                            className="p-4 rounded-2xl bg-red-50 text-red-500 hover:bg-red-100 transition-all"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        )}
-                      </div>
                     </div>
                   </div>
 
