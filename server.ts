@@ -1,34 +1,35 @@
 import express from "express";
-import Database from "better-sqlite3";
+import { createClient } from '@supabase/supabase-js';
 import path from "path";
 import { fileURLToPath } from "url";
 import { Resend } from 'resend';
 import cors from 'cors';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize database
-let db: any;
-try {
-  const dbPath = process.env.VERCEL ? path.join("/tmp", "clinic.db") : "clinic.db";
-  console.log(`Initializing database at: ${dbPath}`);
-  db = new Database(dbPath);
-} catch (error) {
-  console.error('CRITICAL: Failed to initialize database:', error);
-  // Fallback or exit? For now, we'll let it fail but with a log
-}
+// Initialize Supabase
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 async function sendAdminNotification(newUser: any) {
-  if (!resend || !db) {
-    console.log('RESEND_API_KEY not found or DB not initialized. Skipping email notification.');
+  if (!resend) {
+    console.log('RESEND_API_KEY not found. Skipping email notification.');
     return;
   }
 
-  const admins = db.prepare("SELECT email FROM staff WHERE role = 'admin'").all() as { email: string }[];
-  if (admins.length === 0) return;
+  const { data: admins, error } = await supabase
+    .from('staff')
+    .select('email')
+    .eq('role', 'admin');
+
+  if (error || !admins || admins.length === 0) return;
 
   const adminEmails = admins.map(a => a.email);
 
@@ -60,163 +61,61 @@ async function sendAdminNotification(newUser: any) {
   }
 }
 
-// Initialize database
-if (db) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS staff (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT DEFAULT 'password123',
-      role TEXT DEFAULT 'staff', -- 'staff', 'receptionist', 'admin', 'dispensary'
-      promo_code TEXT UNIQUE NOT NULL,
-      staff_id_code TEXT, -- HR Staff ID
-      branch TEXT,
-      department TEXT,
-      position TEXT,
-      employment_status TEXT DEFAULT 'active', -- 'active', 'suspended', 'resigned', 'under_review'
-      date_joined TEXT,
-      pending_earnings REAL DEFAULT 0,
-      approved_earnings REAL DEFAULT 0,
-      paid_earnings REAL DEFAULT 0,
-      lifetime_earnings REAL DEFAULT 0,
-      last_payout_date TEXT,
-      referrer_type TEXT DEFAULT 'staff', -- 'staff', 'patient', 'public'
-      phone TEXT,
-      is_approved INTEGER DEFAULT 0 -- 0: pending, 1: approved
-    );
+// Seed Supabase if empty
+async function seedSupabase() {
+  try {
+    const { count, error: countError } = await supabase
+      .from('staff')
+      .select('*', { count: 'exact', head: true });
 
-    CREATE TABLE IF NOT EXISTS services (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      base_price REAL NOT NULL,
-      commission_rate REAL NOT NULL, -- Fixed RM5 for screening in this phase
-      aracoins_perk INTEGER DEFAULT 0,
-      allowances_json TEXT DEFAULT '{}'
-    );
+    if (countError) {
+      console.error('Error checking staff count:', countError);
+      return;
+    }
 
-    CREATE TABLE IF NOT EXISTS referrals (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      staff_id INTEGER NOT NULL,
-      service_id INTEGER NOT NULL,
-      patient_name TEXT NOT NULL,
-      patient_phone TEXT,
-      patient_ic TEXT,
-      patient_address TEXT,
-      patient_type TEXT DEFAULT 'new',
-      appointment_date TEXT,
-      booking_time TEXT,
-      visit_date TEXT,
-      date TEXT NOT NULL, -- Referral entry date
-      status TEXT DEFAULT 'entered', -- 'entered', 'completed', 'paid_completed', 'buffer', 'approved', 'payout_processed'
-      payment_status TEXT DEFAULT 'pending', -- 'pending', 'completed'
-      commission_amount REAL DEFAULT 5.0,
-      fraud_flags TEXT DEFAULT '[]',
-      rejection_reason TEXT,
-      created_by INTEGER,
-      verified_by INTEGER,
-      branch TEXT,
-      FOREIGN KEY (staff_id) REFERENCES staff(id),
-      FOREIGN KEY (service_id) REFERENCES services(id)
-    );
+    if (count === 0) {
+      console.log('Seeding initial data to Supabase...');
+      const now = new Date().toISOString();
+      
+      const initialStaff = [
+        { name: "Admin User", email: "admin@clinic.com", password: "password123", role: "admin", promo_code: "ADMIN-HQ", branch: "HQ", staff_id_code: "STF-001", date_joined: now, is_approved: 1 },
+        { name: "Amir", email: "amir@clinic.com", password: "password123", role: "staff", promo_code: "AMIR-BGI", branch: "Bangi", staff_id_code: "STF-002", date_joined: now, is_approved: 1 },
+        { name: "Sarah", email: "sarah@clinic.com", password: "password123", role: "staff", promo_code: "SARAH-KJG", branch: "Kajang", staff_id_code: "STF-003", date_joined: now, is_approved: 1 },
+        { name: "Receptionist Sarah", email: "sarah_rec@clinic.com", password: "password123", role: "receptionist", promo_code: "REC-001", branch: "Bangi", staff_id_code: "STF-004", date_joined: now, is_approved: 1 },
+        { name: "Paige", email: "paige@clinic.com", password: "password123", role: "staff", promo_code: "PAIGE-HQ", branch: "HQ", staff_id_code: "STF-005", date_joined: now, is_approved: 1 }
+      ];
 
-    CREATE TABLE IF NOT EXISTS tasks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      description TEXT,
-      due_date TEXT,
-      status TEXT DEFAULT 'pending',
-      assigned_to INTEGER,
-      created_at TEXT,
-      FOREIGN KEY (assigned_to) REFERENCES staff(id)
-    );
+      await supabase.from('staff').insert(initialStaff);
 
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
-  `);
+      const initialServices = [
+        { name: "Basic Health Screening", base_price: 80, commission_rate: 5 },
+        { name: "Comprehensive Screening", base_price: 150, commission_rate: 5 },
+        { name: "Vaccination Package", base_price: 120, commission_rate: 5 }
+      ];
 
-  // Migration for existing databases
-  try { db.exec("ALTER TABLE staff ADD COLUMN staff_id_code TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN branch TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN department TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN position TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN employment_status TEXT DEFAULT 'active'"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN date_joined TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN pending_earnings REAL DEFAULT 0"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN approved_earnings REAL DEFAULT 0"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN paid_earnings REAL DEFAULT 0"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN lifetime_earnings REAL DEFAULT 0"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN password TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN last_payout_date TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN referrer_type TEXT DEFAULT 'staff'"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN phone TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN is_approved INTEGER DEFAULT 0"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN nickname TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN profile_picture TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN bank_name TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE staff ADD COLUMN bank_account_number TEXT"); } catch(e) {}
-  db.prepare("UPDATE staff SET is_approved = 1 WHERE role = 'admin'").run();
-
-  try { db.exec("ALTER TABLE referrals ADD COLUMN patient_ic TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE referrals ADD COLUMN patient_address TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE referrals ADD COLUMN visit_date TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE referrals ADD COLUMN payment_status TEXT DEFAULT 'pending'"); } catch(e) {}
-  try { db.exec("ALTER TABLE referrals ADD COLUMN fraud_flags TEXT DEFAULT '[]'"); } catch(e) {}
-  try { db.exec("ALTER TABLE referrals ADD COLUMN rejection_reason TEXT"); } catch(e) {}
-  try { db.exec("ALTER TABLE referrals ADD COLUMN branch TEXT"); } catch(e) {}
-
-  // Seed initial data if empty
-  const staffCount = db.prepare("SELECT COUNT(*) as count FROM staff").get() as { count: number };
-  if (staffCount.count === 0) {
-    const now = new Date().toISOString();
-    db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Admin User", "admin@clinic.com", "password123", "admin", "ADMIN-HQ", "HQ", "STF-001", now);
-    db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Amir", "amir@clinic.com", "password123", "staff", "AMIR-BGI", "Bangi", "STF-002", now);
-    db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Sarah", "sarah@clinic.com", "password123", "staff", "SARAH-KJG", "Kajang", "STF-003", now);
-    db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Receptionist Sarah", "sarah_rec@clinic.com", "password123", "receptionist", "REC-001", "Bangi", "STF-004", now);
-    db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Paige", "paige@clinic.com", "password123", "staff", "PAIGE-HQ", "HQ", "STF-005", now);
-
-    db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Basic Health Screening", 80, 5);
-    db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Comprehensive Screening", 150, 5);
-    db.prepare("INSERT INTO services (name, base_price, commission_rate) VALUES (?, ?, ?)").run("Vaccination Package", 120, 5);
-  }
-
-  // Ensure Paige exists
-  const paigeExists = db.prepare("SELECT 1 FROM staff WHERE email = ?").get("paige@clinic.com");
-  if (!paigeExists) {
-    const now = new Date().toISOString();
-    db.prepare("INSERT INTO staff (name, email, password, role, promo_code, branch, staff_id_code, date_joined, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)").run("Paige", "paige@clinic.com", "password123", "staff", "PAIGE-HQ", "HQ", "STF-005", now);
+      await supabase.from('services').insert(initialServices);
+      console.log('Seeding complete.');
+    }
+  } catch (error) {
+    console.error('Failed to seed Supabase:', error);
   }
 }
+
+seedSupabase();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Middleware to check database availability
-app.use((req, res, next) => {
-  if (!db && req.path.startsWith('/api') && req.path !== '/api/health') {
-    return res.status(503).json({ 
-      error: "Database unavailable", 
-      message: "The server is currently unable to handle the request due to a database initialization failure." 
-    });
-  }
-  next();
-});
-
 const PORT = 3000;
 
 // API Routes
-app.get("/api/health", (req, res) => {
+app.get("/api/health", async (req, res) => {
   let dbStatus = "unknown";
   try {
-    if (db) {
-      db.prepare("SELECT 1").get();
-      dbStatus = "connected";
-    } else {
-      dbStatus = "not_initialized";
-    }
+    const { error } = await supabase.from('staff').select('count', { count: 'exact', head: true });
+    if (error) throw error;
+    dbStatus = "connected";
   } catch (e: any) {
     dbStatus = `error: ${e.message}`;
   }
@@ -230,10 +129,17 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
   console.log(`Login attempt for: ${email}`);
-  const staff = db.prepare("SELECT * FROM staff WHERE email = ? AND password = ?").get(email, password) as any;
+  
+  const { data: staff, error } = await supabase
+    .from('staff')
+    .select('*')
+    .eq('email', email)
+    .eq('password', password)
+    .single();
+
   if (staff) {
     console.log(`Login successful for: ${email}`);
     res.json(staff);
@@ -243,15 +149,20 @@ app.post("/api/auth/login", (req, res) => {
   }
 });
 
-app.post("/api/auth/register", (req, res) => {
+app.post("/api/auth/register", async (req, res) => {
   const { name, email, branch, phone, password } = req.body;
   console.log(`Registration attempt for: ${email}`, { name, branch, phone });
   
   // Check if registration is allowed
-  const settings = db.prepare("SELECT value FROM settings WHERE key = 'auth'").get() as any;
-  const authSettings = settings ? JSON.parse(settings.value) : { allowRegistration: true };
+  const { data: authSetting } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'auth')
+    .single();
+    
+  const settings = authSetting ? JSON.parse(authSetting.value) : { allowRegistration: true };
   
-  if (!authSettings.allowRegistration) {
+  if (!settings.allowRegistration) {
     console.log(`Registration blocked: self-registration disabled for ${email}`);
     return res.status(403).json({ error: "Self-registration is currently disabled. Please contact an administrator." });
   }
@@ -260,23 +171,39 @@ app.post("/api/auth/register", (req, res) => {
   const namePart = (name || 'USER').split(' ')[0].toUpperCase();
   let promo_code = `${namePart}-${Math.floor(100 + Math.random() * 899)}`;
   
-  // Try to ensure unique promo code (simple retry)
+  // Try to ensure unique promo code
   let attempts = 0;
   while (attempts < 5) {
-    const existing = db.prepare("SELECT 1 FROM staff WHERE promo_code = ?").get(promo_code);
+    const { data: existing } = await supabase
+      .from('staff')
+      .select('id')
+      .eq('promo_code', promo_code)
+      .single();
     if (!existing) break;
     promo_code = `${namePart}-${Math.floor(100 + Math.random() * 899)}`;
     attempts++;
   }
 
   try {
-    const result = db.prepare(`
-      INSERT INTO staff (name, email, role, promo_code, branch, phone, date_joined, is_approved, password)
-      VALUES (?, ?, 'staff', ?, ?, ?, ?, 0, ?)
-    `).run(name, email, promo_code, branch, phone || null, new Date().toISOString(), password || null);
+    const { data: newStaff, error } = await supabase
+      .from('staff')
+      .insert({
+        name,
+        email,
+        role: 'staff',
+        promo_code,
+        branch,
+        phone: phone || null,
+        date_joined: new Date().toISOString(),
+        is_approved: 0,
+        password: password || 'password123'
+      })
+      .select()
+      .single();
     
-    const newStaff = db.prepare("SELECT * FROM staff WHERE id = ?").get(result.lastInsertRowid);
-    console.log(`Registration successful for: ${email}, ID: ${result.lastInsertRowid}`);
+    if (error) throw error;
+
+    console.log(`Registration successful for: ${email}, ID: ${newStaff.id}`);
     
     // Send notification to admins
     sendAdminNotification(newStaff);
@@ -284,17 +211,18 @@ app.post("/api/auth/register", (req, res) => {
     res.json(newStaff);
   } catch (error: any) {
     console.error(`Registration error for ${email}:`, error);
-    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      const field = error.message.includes('email') ? 'Email' : 'Promo Code';
-      res.status(400).json({ error: `${field} already exists. Please try again.` });
+    if (error.code === '23505') { // Unique constraint violation in Postgres
+      res.status(400).json({ error: `Email or Promo Code already exists. Please try again.` });
     } else {
       res.status(500).json({ error: "Internal server error during registration" });
     }
   }
 });
 
-app.get("/api/settings", (req, res) => {
-  const settings = db.prepare("SELECT * FROM settings").all();
+app.get("/api/settings", async (req, res) => {
+  const { data: settings, error } = await supabase.from('settings').select('*');
+  if (error) return res.status(500).json({ error: error.message });
+  
   const result: any = {};
   settings.forEach((s: any) => {
     result[s.key] = JSON.parse(s.value);
@@ -302,98 +230,143 @@ app.get("/api/settings", (req, res) => {
   res.json(result);
 });
 
-app.post("/api/settings", (req, res) => {
+app.post("/api/settings", async (req, res) => {
   const { key, value } = req.body;
-  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, JSON.stringify(value));
+  const { error } = await supabase
+    .from('settings')
+    .upsert({ key, value: JSON.stringify(value) });
+    
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
 // Tasks API
-app.get("/api/tasks", (req, res) => {
-  const tasks = db.prepare(`
-    SELECT t.*, s.name as assigned_to_name 
-    FROM tasks t 
-    LEFT JOIN staff s ON t.assigned_to = s.id
-    ORDER BY t.due_date ASC
-  `).all();
-  res.json(tasks);
+app.get("/api/tasks", async (req, res) => {
+  const { data: tasks, error } = await supabase
+    .from('tasks')
+    .select(`
+      *,
+      staff:assigned_to (name)
+    `)
+    .order('due_date', { ascending: true });
+
+  if (error) return res.status(500).json({ error: error.message });
+  
+  const formattedTasks = tasks.map(t => ({
+    ...t,
+    assigned_to_name: t.staff?.name
+  }));
+  
+  res.json(formattedTasks);
 });
 
-app.post("/api/tasks", (req, res) => {
+app.post("/api/tasks", async (req, res) => {
   const { title, description, due_date, assigned_to } = req.body;
-  const result = db.prepare(`
-    INSERT INTO tasks (title, description, due_date, assigned_to, created_at)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(title, description, due_date, assigned_to || null, new Date().toISOString());
-  res.json({ id: result.lastInsertRowid });
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert({
+      title,
+      description,
+      due_date,
+      assigned_to: assigned_to || null,
+      created_at: new Date().toISOString()
+    })
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ id: data.id });
 });
 
-app.patch("/api/tasks/:id", (req, res) => {
+app.patch("/api/tasks/:id", async (req, res) => {
   const { id } = req.params;
   const { status, title, description, due_date, assigned_to } = req.body;
   
-  if (status) {
-    db.prepare("UPDATE tasks SET status = ? WHERE id = ?").run(status, id);
-  } else {
-    db.prepare(`
-      UPDATE tasks 
-      SET title = ?, description = ?, due_date = ?, assigned_to = ? 
-      WHERE id = ?
-    `).run(title, description, due_date, assigned_to, id);
-  }
+  const updateData: any = {};
+  if (status) updateData.status = status;
+  if (title) updateData.title = title;
+  if (description) updateData.description = description;
+  if (due_date) updateData.due_date = due_date;
+  if (assigned_to !== undefined) updateData.assigned_to = assigned_to;
+
+  const { error } = await supabase
+    .from('tasks')
+    .update(updateData)
+    .eq('id', id);
+
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
-app.delete("/api/tasks/:id", (req, res) => {
+app.delete("/api/tasks/:id", async (req, res) => {
   const { id } = req.params;
-  db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+  const { error } = await supabase.from('tasks').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
-app.get("/api/staff/email", (req, res) => {
+app.get("/api/staff/email", async (req, res) => {
   const { email } = req.query;
   if (!email) return res.status(400).json({ error: "Email is required" });
-  const staff = db.prepare("SELECT * FROM staff WHERE email = ?").get(email);
+  
+  const { data: staff, error } = await supabase
+    .from('staff')
+    .select('*')
+    .eq('email', email)
+    .single();
+    
   res.json(staff || null);
 });
 
-app.get("/api/staff", (req, res) => {
+app.get("/api/staff", async (req, res) => {
   const { promoCode, id } = req.query;
+  
+  let query = supabase.from('staff').select('*');
+  
   if (id) {
-    const staff = db.prepare("SELECT * FROM staff WHERE id = ?").get(id);
-    return res.json(staff || null);
+    const { data, error } = await query.eq('id', id).single();
+    return res.json(data || null);
   }
+  
   if (promoCode) {
-    const staff = db.prepare("SELECT * FROM staff WHERE promo_code = ?").get(promoCode);
-    return res.json(staff || null);
+    const { data, error } = await query.eq('promo_code', promoCode).single();
+    return res.json(data || null);
   }
-  const staff = db.prepare("SELECT * FROM staff").all();
-  res.json(staff);
+  
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-app.post("/api/staff", (req, res) => {
+app.post("/api/staff", async (req, res) => {
   const { name, email, role, promo_code, staff_id_code, branch, department, position, date_joined, phone, password } = req.body;
   try {
-    const result = db.prepare(`
-      INSERT INTO staff (name, email, role, promo_code, staff_id_code, branch, department, position, date_joined, phone, password)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name, email, role, promo_code, staff_id_code, branch, department, position, date_joined || new Date().toISOString(), phone || null, password || 'password123');
-    res.json({ id: result.lastInsertRowid });
+    const { data, error } = await supabase
+      .from('staff')
+      .insert({
+        name, email, role, promo_code, staff_id_code, branch, department, position, 
+        date_joined: date_joined || new Date().toISOString(), 
+        phone: phone || null, 
+        password: password || 'password123',
+        is_approved: 1 // Manual creation by admin is auto-approved
+      })
+      .select()
+      .single();
+      
+    if (error) throw error;
+    res.json({ id: data.id });
   } catch (error: any) {
-    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if (error.code === '23505') {
       res.status(400).json({ error: "Email or Promo Code already exists" });
     } else {
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: error.message });
     }
   }
 });
 
-app.patch("/api/staff/:id", (req, res) => {
+app.patch("/api/staff/:id", async (req, res) => {
   const { id } = req.params;
   const body = req.body;
-  
-  const updates: string[] = [];
-  const params: any[] = [];
   
   const allowedFields = [
     'name', 'email', 'role', 'promo_code', 'staff_id_code', 
@@ -402,202 +375,301 @@ app.patch("/api/staff/:id", (req, res) => {
     'bank_name', 'bank_account_number'
   ];
 
+  const updateData: any = {};
   Object.keys(body).forEach(key => {
     if (allowedFields.includes(key)) {
-      updates.push(`${key} = ?`);
-      params.push(body[key]);
+      updateData[key] = body[key];
     }
   });
   
-  if (updates.length === 0) {
+  if (Object.keys(updateData).length === 0) {
     return res.status(400).json({ error: "No valid fields provided for update" });
   }
   
-  params.push(id);
   try {
-    db.prepare(`UPDATE staff SET ${updates.join(", ")} WHERE id = ?`).run(...params);
+    const { error } = await supabase
+      .from('staff')
+      .update(updateData)
+      .eq('id', id);
+      
+    if (error) throw error;
     res.json({ success: true });
   } catch (error: any) {
     console.error(`Error updating staff ${id}:`, error);
-    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if (error.code === '23505') {
       res.status(400).json({ error: "Email or Promo Code already exists" });
     } else {
-      res.status(500).json({ error: "Internal server error during update" });
+      res.status(500).json({ error: error.message });
     }
   }
 });
 
-app.post("/api/staff/:id/reset-password", (req, res) => {
+app.post("/api/staff/:id/reset-password", async (req, res) => {
   const { id } = req.params;
-  db.prepare("UPDATE staff SET password = 'password123' WHERE id = ?").run(id);
+  const { error } = await supabase
+    .from('staff')
+    .update({ password: 'password123' })
+    .eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
-app.post("/api/staff/:id/approve", (req, res) => {
+app.post("/api/staff/:id/approve", async (req, res) => {
   const { id } = req.params;
   const { is_approved } = req.body;
   
+  const updateData: any = { is_approved: is_approved ? 1 : 0 };
   if (is_approved) {
-    db.prepare("UPDATE staff SET is_approved = 1, employment_status = 'active' WHERE id = ?").run(id);
-  } else {
-    db.prepare("UPDATE staff SET is_approved = 0 WHERE id = ?").run(id);
+    updateData.employment_status = 'active';
   }
   
+  const { error } = await supabase
+    .from('staff')
+    .update(updateData)
+    .eq('id', id);
+    
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
-app.patch("/api/staff/:id/profile", (req, res) => {
+app.patch("/api/staff/:id/profile", async (req, res) => {
   const { id } = req.params;
   const { nickname, profile_picture, bank_name, bank_account_number } = req.body;
-  db.prepare(`
-    UPDATE staff 
-    SET nickname = ?, profile_picture = ?, bank_name = ?, bank_account_number = ?
-    WHERE id = ?
-  `).run(nickname, profile_picture, bank_name, bank_account_number, id);
   
-  const updatedStaff = db.prepare("SELECT * FROM staff WHERE id = ?").get(id);
-  res.json(updatedStaff);
+  const { data, error } = await supabase
+    .from('staff')
+    .update({ nickname, profile_picture, bank_name, bank_account_number })
+    .eq('id', id)
+    .select()
+    .single();
+    
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-app.delete("/api/staff/:id", (req, res) => {
+app.delete("/api/staff/:id", async (req, res) => {
   const { id } = req.params;
-  db.prepare("DELETE FROM staff WHERE id = ?").run(id);
+  const { error } = await supabase.from('staff').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
-app.get("/api/services", (req, res) => {
-  const services = db.prepare("SELECT * FROM services").all();
+app.get("/api/services", async (req, res) => {
+  const { data: services, error } = await supabase.from('services').select('*');
+  if (error) return res.status(500).json({ error: error.message });
+  
   res.json(services.map((s: any) => ({
     ...s,
     allowances: JSON.parse(s.allowances_json || '{}')
   })));
 });
 
-app.post("/api/services", (req, res) => {
+app.post("/api/services", async (req, res) => {
   const { name, base_price, commission_rate, aracoins_perk, allowances } = req.body;
-  const result = db.prepare(`
-    INSERT INTO services (name, base_price, commission_rate, aracoins_perk, allowances_json)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(name, base_price, commission_rate, aracoins_perk || 0, JSON.stringify(allowances || {}));
-  res.json({ id: result.lastInsertRowid });
+  const { data, error } = await supabase
+    .from('services')
+    .insert({
+      name,
+      base_price,
+      commission_rate,
+      aracoins_perk: aracoins_perk || 0,
+      allowances_json: JSON.stringify(allowances || {})
+    })
+    .select()
+    .single();
+    
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ id: data.id });
 });
 
-app.patch("/api/services/:id", (req, res) => {
+app.patch("/api/services/:id", async (req, res) => {
   const { id } = req.params;
   const { name, base_price, commission_rate, aracoins_perk, allowances } = req.body;
-  db.prepare(`
-    UPDATE services 
-    SET name = ?, base_price = ?, commission_rate = ?, aracoins_perk = ?, allowances_json = ?
-    WHERE id = ?
-  `).run(name, base_price, commission_rate, aracoins_perk || 0, JSON.stringify(allowances || {}), id);
+  
+  const { error } = await supabase
+    .from('services')
+    .update({
+      name,
+      base_price,
+      commission_rate,
+      aracoins_perk: aracoins_perk || 0,
+      allowances_json: JSON.stringify(allowances || {})
+    })
+    .eq('id', id);
+    
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
-app.delete("/api/services/:id", (req, res) => {
+app.delete("/api/services/:id", async (req, res) => {
   const { id } = req.params;
-  db.prepare("DELETE FROM services WHERE id = ?").run(id);
+  const { error } = await supabase.from('services').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
-app.get("/api/referrals", (req, res) => {
+app.get("/api/referrals", async (req, res) => {
   const { staffId, branch } = req.query;
-  let query = `
-    SELECT r.*, s.name as staff_name, s.promo_code, sv.name as service_name 
-    FROM referrals r
-    JOIN staff s ON r.staff_id = s.id
-    JOIN services sv ON r.service_id = sv.id
-  `;
-  const params = [];
-  const conditions = [];
+  
+  let query = supabase
+    .from('referrals')
+    .select(`
+      *,
+      staff:staff_id (name, promo_code),
+      service:service_id (name)
+    `)
+    .order('date', { ascending: false });
 
   if (staffId) {
-    conditions.push("r.staff_id = ?");
-    params.push(staffId);
+    query = query.eq('staff_id', staffId);
   }
   if (branch && branch !== 'all') {
-    conditions.push("r.branch = ?");
-    params.push(branch);
+    query = query.eq('branch', branch);
   }
 
-  if (conditions.length > 0) {
-    query += " WHERE " + conditions.join(" AND ");
-  }
-
-  query += " ORDER BY r.date DESC";
-  const referrals = db.prepare(query).all(...params);
-  res.json(referrals);
+  const { data: referrals, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  
+  const formattedReferrals = referrals.map(r => ({
+    ...r,
+    staff_name: r.staff?.name,
+    promo_code: r.staff?.promo_code,
+    service_name: r.service?.name
+  }));
+  
+  res.json(formattedReferrals);
 });
 
-app.post("/api/referrals", (req, res) => {
+app.post("/api/referrals", async (req, res) => {
   const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch } = req.body;
   
-  const staff = db.prepare("SELECT * FROM staff WHERE id = ?").get(staff_id) as any;
-  if (!staff) return res.status(400).json({ error: "Referrer not found" });
+  const { data: staff, error: staffError } = await supabase
+    .from('staff')
+    .select('*')
+    .eq('id', staff_id)
+    .single();
+    
+  if (staffError || !staff) return res.status(400).json({ error: "Referrer not found" });
 
   // Anti-fraud rules
   const fraudFlags = [];
   if (staff.staff_id_code === patient_ic) fraudFlags.push("Self-referral (IC match)");
   if (staff.phone === patient_phone) fraudFlags.push("Self-referral (Phone match)");
   
-  // Check for repeated surname (simplified)
   const surname = patient_name.split(' ').pop();
-  const similarReferrals = db.prepare("SELECT COUNT(*) as count FROM referrals WHERE patient_name LIKE ? AND staff_id = ?").get(`%${surname}`, staff_id) as { count: number };
-  if (similarReferrals.count >= 3) fraudFlags.push("Repeated surname pattern");
+  const { count: similarCount } = await supabase
+    .from('referrals')
+    .select('*', { count: 'exact', head: true })
+    .ilike('patient_name', `%${surname}`)
+    .eq('staff_id', staff_id);
+    
+  if (similarCount && similarCount >= 3) fraudFlags.push("Repeated surname pattern");
 
-  // Check daily volume
-  const dailyCount = db.prepare("SELECT COUNT(*) as count FROM referrals WHERE staff_id = ? AND date = ?").get(staff_id, date) as { count: number };
-  if (dailyCount.count >= 5) fraudFlags.push("High daily volume (>5)");
+  const { count: dailyCount } = await supabase
+    .from('referrals')
+    .select('*', { count: 'exact', head: true })
+    .eq('staff_id', staff_id)
+    .eq('date', date);
+    
+  if (dailyCount && dailyCount >= 5) fraudFlags.push("High daily volume (>5)");
 
-  const service = db.prepare("SELECT commission_rate FROM services WHERE id = ?").get(service_id) as { commission_rate: number };
-  if (!service) return res.status(400).json({ error: "Service not found" });
+  const { data: service, error: serviceError } = await supabase
+    .from('services')
+    .select('commission_rate')
+    .eq('id', service_id)
+    .single();
+    
+  if (serviceError || !service) return res.status(400).json({ error: "Service not found" });
 
-  const result = db.prepare(`
-    INSERT INTO referrals (staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, status, commission_amount, fraud_flags, created_by, branch)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(staff_id, service_id, patient_name, patient_phone || null, patient_ic || null, patient_address || null, patient_type || 'new', appointment_date || null, booking_time || null, date, 'entered', service.commission_rate, JSON.stringify(fraudFlags), created_by || null, branch || staff.branch);
+  const { data: referral, error: insertError } = await supabase
+    .from('referrals')
+    .insert({
+      staff_id,
+      service_id,
+      patient_name,
+      patient_phone: patient_phone || null,
+      patient_ic: patient_ic || null,
+      patient_address: patient_address || null,
+      patient_type: patient_type || 'new',
+      appointment_date: appointment_date || null,
+      booking_time: booking_time || null,
+      date,
+      status: 'entered',
+      commission_amount: service.commission_rate,
+      fraud_flags: JSON.stringify(fraudFlags),
+      created_by: created_by || null,
+      branch: branch || staff.branch
+    })
+    .select()
+    .single();
+
+  if (insertError) return res.status(500).json({ error: insertError.message });
 
   // Update staff pending earnings
-  db.prepare("UPDATE staff SET pending_earnings = pending_earnings + ? WHERE id = ?").run(service.commission_rate, staff_id);
+  await supabase
+    .from('staff')
+    .update({ pending_earnings: (staff.pending_earnings || 0) + service.commission_rate })
+    .eq('id', staff_id);
 
-  res.json({ id: result.lastInsertRowid, fraudFlags });
+  res.json({ id: referral.id, fraudFlags });
 });
 
-app.patch("/api/referrals/:id", (req, res) => {
+app.patch("/api/referrals/:id", async (req, res) => {
   const { id } = req.params;
   const { status, payment_status, visit_date, verified_by, rejection_reason } = req.body;
   
-  db.transaction(() => {
-    const referral = db.prepare("SELECT * FROM referrals WHERE id = ?").get(id) as any;
-    if (!referral) return;
+  const { data: referral, error: fetchError } = await supabase
+    .from('referrals')
+    .select('*')
+    .eq('id', id)
+    .single();
+    
+  if (fetchError || !referral) return res.status(404).json({ error: "Referral not found" });
 
-    const updates: string[] = [];
-    const params: any[] = [];
+  const updateData: any = {};
+  if (status) updateData.status = status;
+  if (payment_status) updateData.payment_status = payment_status;
+  if (visit_date) updateData.visit_date = visit_date;
+  if (verified_by) updateData.verified_by = verified_by;
+  if (rejection_reason) updateData.rejection_reason = rejection_reason;
 
-    if (status) { updates.push("status = ?"); params.push(status); }
-    if (payment_status) { updates.push("payment_status = ?"); params.push(payment_status); }
-    if (visit_date) { updates.push("visit_date = ?"); params.push(visit_date); }
-    if (verified_by) { updates.push("verified_by = ?"); params.push(verified_by); }
-    if (rejection_reason) { updates.push("rejection_reason = ?"); params.push(rejection_reason); }
+  const { error: updateError } = await supabase
+    .from('referrals')
+    .update(updateData)
+    .eq('id', id);
+    
+  if (updateError) return res.status(500).json({ error: updateError.message });
 
-    if (updates.length > 0) {
-      params.push(id);
-      db.prepare(`UPDATE referrals SET ${updates.join(", ")} WHERE id = ?`).run(...params);
+  // Logic for status transitions
+  const { data: staff } = await supabase.from('staff').select('*').eq('id', referral.staff_id).single();
+  if (!staff) return res.json({ success: true });
+
+  if (status === 'approved' && referral.status !== 'approved') {
+    await supabase
+      .from('staff')
+      .update({ 
+        pending_earnings: (staff.pending_earnings || 0) - referral.commission_amount,
+        approved_earnings: (staff.approved_earnings || 0) + referral.commission_amount,
+        lifetime_earnings: (staff.lifetime_earnings || 0) + referral.commission_amount
+      })
+      .eq('id', referral.staff_id);
+  } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
+    await supabase
+      .from('staff')
+      .update({ 
+        approved_earnings: (staff.approved_earnings || 0) - referral.commission_amount,
+        paid_earnings: (staff.paid_earnings || 0) + referral.commission_amount,
+        last_payout_date: new Date().toISOString()
+      })
+      .eq('id', referral.staff_id);
+  } else if (status === 'rejected' && referral.status !== 'rejected') {
+    if (['entered', 'completed', 'paid_completed', 'buffer'].includes(referral.status)) {
+      await supabase
+        .from('staff')
+        .update({ pending_earnings: (staff.pending_earnings || 0) - referral.commission_amount })
+        .eq('id', referral.staff_id);
     }
-
-    // Logic for status transitions
-    if (status === 'approved' && referral.status !== 'approved') {
-      // Move from pending to approved
-      db.prepare("UPDATE staff SET pending_earnings = pending_earnings - ?, approved_earnings = approved_earnings + ?, lifetime_earnings = lifetime_earnings + ? WHERE id = ?").run(referral.commission_amount, referral.commission_amount, referral.commission_amount, referral.staff_id);
-    } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
-      // Move from approved to paid
-      db.prepare("UPDATE staff SET approved_earnings = approved_earnings - ?, paid_earnings = paid_earnings + ?, last_payout_date = ? WHERE id = ?").run(referral.commission_amount, referral.commission_amount, new Date().toISOString(), referral.staff_id);
-    } else if (status === 'rejected' && referral.status !== 'rejected') {
-      // Deduct from pending if it was pending
-      if (referral.status === 'entered' || referral.status === 'completed' || referral.status === 'paid_completed' || referral.status === 'buffer') {
-        db.prepare("UPDATE staff SET pending_earnings = pending_earnings - ? WHERE id = ?").run(referral.commission_amount, referral.staff_id);
-      }
-    }
-  })();
+  }
   
   res.json({ success: true });
 });

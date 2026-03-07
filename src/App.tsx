@@ -382,9 +382,15 @@ export default function App() {
   }, [currentUser, branchFilter]);
 
   useEffect(() => {
+    let interval: any;
     if (activeTab === 'admin' && currentUser?.role === 'admin') {
       fetchStaff();
+      // Poll every 30 seconds for new applications
+      interval = setInterval(fetchStaff, 30000);
     }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [activeTab, currentUser?.role]);
 
   const fetchStaff = async () => {
