@@ -6,14 +6,27 @@ import { Resend } from 'resend';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
-dotenv.config();
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+dotenv.config();
+
+if (!fs.existsSync(path.join(__dirname, '.env')) && !process.env.VITE_SUPABASE_URL) {
+  console.warn('WARNING: .env file not found and environment variables are missing.');
+}
+
 // Initialize Supabase
-const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+console.log('--- Database Configuration ---');
+console.log('URL:', supabaseUrl ? 'Configured' : 'MISSING');
+console.log('Key:', supabaseKey ? 'Configured' : 'MISSING');
+if (process.env.SUPABASE_SERVICE_ROLE_KEY) console.log('Using: Service Role Key');
+else if (process.env.VITE_SUPABASE_ANON_KEY) console.log('Using: Anon Key');
+console.log('------------------------------');
 
 let supabase: any = null;
 
@@ -154,11 +167,13 @@ app.use("/api", (req, res, next) => {
   
   if (!supabase) {
     return res.status(500).json({ 
-      error: "Database connection not initialized. Please check your Supabase environment variables.",
+      error: "Database connection not initialized.",
+      details: "The server is missing Supabase environment variables. Please ensure VITE_SUPABASE_URL and either SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_ANON_KEY are set in the platform's environment variables/secrets.",
       config: {
         url: supabaseUrl ? 'SET' : 'MISSING',
         key: supabaseKey ? 'SET' : 'MISSING'
-      }
+      },
+      help: "1. Open the platform's Secret Manager/Environment Variables. 2. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY. 3. Restart the dev server. Fallbacks: SUPABASE_URL, SUPABASE_ANON_KEY."
     });
   }
   next();
