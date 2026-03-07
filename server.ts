@@ -14,6 +14,13 @@ const __dirname = path.dirname(__filename);
 // Initialize Supabase
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('CRITICAL ERROR: Supabase environment variables are missing!');
+  console.error('VITE_SUPABASE_URL:', supabaseUrl ? 'SET' : 'MISSING');
+  console.error('SUPABASE_SERVICE_ROLE_KEY/VITE_SUPABASE_ANON_KEY:', supabaseKey ? 'SET' : 'MISSING');
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -24,16 +31,24 @@ async function sendAdminNotification(newUser: any) {
     return;
   }
 
-  const { data: admins, error } = await supabase
-    .from('staff')
-    .select('email')
-    .eq('role', 'admin');
-
-  if (error || !admins || admins.length === 0) return;
-
-  const adminEmails = admins.map(a => a.email);
-
   try {
+    const { data: admins, error } = await supabase
+      .from('staff')
+      .select('email')
+      .eq('role', 'admin');
+
+    if (error) {
+      console.error('Error fetching admins for notification:', error);
+      return;
+    }
+
+    if (!admins || admins.length === 0) {
+      console.log('No admin users found to notify.');
+      return;
+    }
+
+    const adminEmails = admins.map(a => a.email);
+
     await resend.emails.send({
       from: 'AraClinic <notifications@resend.dev>',
       to: adminEmails,
@@ -63,13 +78,20 @@ async function sendAdminNotification(newUser: any) {
 
 // Seed Supabase if empty
 async function seedSupabase() {
+  if (!supabaseUrl || !supabaseKey) return;
+  
   try {
+    console.log('Checking if Supabase needs seeding...');
     const { count, error: countError } = await supabase
       .from('staff')
       .select('*', { count: 'exact', head: true });
 
     if (countError) {
-      console.error('Error checking staff count:', countError);
+      if (countError.code === 'PGRST116' || countError.message.includes('relation "staff" does not exist')) {
+        console.error('ERROR: The "staff" table does not exist in Supabase. Please run the SQL schema provided.');
+      } else {
+        console.error('Error checking staff count:', countError);
+      }
       return;
     }
 
@@ -85,7 +107,8 @@ async function seedSupabase() {
         { name: "Paige", email: "paige@clinic.com", password: "password123", role: "staff", promo_code: "PAIGE-HQ", branch: "HQ", staff_id_code: "STF-005", date_joined: now, is_approved: 1 }
       ];
 
-      await supabase.from('staff').insert(initialStaff);
+      const { error: staffInsertError } = await supabase.from('staff').insert(initialStaff);
+      if (staffInsertError) console.error('Error seeding staff:', staffInsertError);
 
       const initialServices = [
         { name: "Basic Health Screening", base_price: 80, commission_rate: 5 },
@@ -93,8 +116,12 @@ async function seedSupabase() {
         { name: "Vaccination Package", base_price: 120, commission_rate: 5 }
       ];
 
-      await supabase.from('services').insert(initialServices);
+      const { error: serviceInsertError } = await supabase.from('services').insert(initialServices);
+      if (serviceInsertError) console.error('Error seeding services:', serviceInsertError);
+      
       console.log('Seeding complete.');
+    } else {
+      console.log(`Supabase already has ${count} staff members. Skipping seed.`);
     }
   } catch (error) {
     console.error('Failed to seed Supabase:', error);
@@ -133,19 +160,40 @@ app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
   console.log(`Login attempt for: ${email}`);
   
-  const { data: staff, error } = await supabase
-    .from('staff')
-    .select('*')
-    .eq('email', email)
-    .eq('password', password)
-    .single();
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Login failed: Supabase credentials missing');
+    return res.status(500).json({ error: "Server configuration error: Supabase credentials missing." });
+  }
 
-  if (staff) {
-    console.log(`Login successful for: ${email}`);
-    res.json(staff);
-  } else {
-    console.log(`Login failed for: ${email}`);
-    res.status(401).json({ error: "Invalid email or password" });
+  try {
+    const { data: staff, error } = await supabase
+      .from('staff')
+      .select('*')
+      .eq('email', email)
+      .eq('password', password)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        console.log(`Login failed: User not found or invalid password for ${email}`);
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+      if (error.message?.includes('relation "staff" does not exist')) {
+        return res.status(500).json({ error: "Database table 'staff' missing. Please run the SQL schema in Supabase." });
+      }
+      throw error;
+    }
+
+    if (staff) {
+      console.log(`Login successful for: ${email}`);
+      res.json(staff);
+    } else {
+      console.log(`Login failed for: ${email}`);
+      res.status(401).json({ error: "Invalid email or password" });
+    }
+  } catch (error: any) {
+    console.error(`Login error for ${email}:`, error);
+    res.status(500).json({ error: `Server error: ${error.message || 'Unknown error'}` });
   }
 });
 
@@ -153,39 +201,51 @@ app.post("/api/auth/register", async (req, res) => {
   const { name, email, branch, phone, password } = req.body;
   console.log(`Registration attempt for: ${email}`, { name, branch, phone });
   
-  // Check if registration is allowed
-  const { data: authSetting } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', 'auth')
-    .single();
-    
-  const settings = authSetting ? JSON.parse(authSetting.value) : { allowRegistration: true };
-  
-  if (!settings.allowRegistration) {
-    console.log(`Registration blocked: self-registration disabled for ${email}`);
-    return res.status(403).json({ error: "Self-registration is currently disabled. Please contact an administrator." });
-  }
-
-  // Generate a promo code
-  const namePart = (name || 'USER').split(' ')[0].toUpperCase();
-  let promo_code = `${namePart}-${Math.floor(100 + Math.random() * 899)}`;
-  
-  // Try to ensure unique promo code
-  let attempts = 0;
-  while (attempts < 5) {
-    const { data: existing } = await supabase
-      .from('staff')
-      .select('id')
-      .eq('promo_code', promo_code)
-      .single();
-    if (!existing) break;
-    promo_code = `${namePart}-${Math.floor(100 + Math.random() * 899)}`;
-    attempts++;
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Registration failed: Supabase credentials missing');
+    return res.status(500).json({ error: "Server configuration error: Supabase credentials missing." });
   }
 
   try {
-    const { data: newStaff, error } = await supabase
+    // Check if registration is allowed
+    console.log('Checking registration settings...');
+    const { data: authSetting, error: settingsError } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'auth')
+      .single();
+      
+    if (settingsError && settingsError.code !== 'PGRST116') {
+      console.error('Error fetching registration settings:', settingsError);
+      // Continue with default if table exists but key missing
+    }
+    
+    const settings = authSetting ? JSON.parse(authSetting.value) : { allowRegistration: true };
+    
+    if (!settings.allowRegistration) {
+      console.log(`Registration blocked: self-registration disabled for ${email}`);
+      return res.status(403).json({ error: "Self-registration is currently disabled. Please contact an administrator." });
+    }
+
+    // Generate a promo code
+    const namePart = (name || 'USER').split(' ')[0].toUpperCase();
+    let promo_code = `${namePart}-${Math.floor(100 + Math.random() * 899)}`;
+    
+    // Try to ensure unique promo code
+    let attempts = 0;
+    while (attempts < 5) {
+      const { data: existing } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('promo_code', promo_code)
+        .single();
+      if (!existing) break;
+      promo_code = `${namePart}-${Math.floor(100 + Math.random() * 899)}`;
+      attempts++;
+    }
+
+    console.log(`Inserting new staff member: ${email} with promo code ${promo_code}`);
+    const { data: newStaff, error: insertError } = await supabase
       .from('staff')
       .insert({
         name,
@@ -201,20 +261,25 @@ app.post("/api/auth/register", async (req, res) => {
       .select()
       .single();
     
-    if (error) throw error;
+    if (insertError) {
+      console.error('Supabase insert error:', insertError);
+      throw insertError;
+    }
 
     console.log(`Registration successful for: ${email}, ID: ${newStaff.id}`);
     
-    // Send notification to admins
-    sendAdminNotification(newStaff);
+    // Send notification to admins (don't await to avoid blocking response)
+    sendAdminNotification(newStaff).catch(err => console.error('Background notification error:', err));
     
     res.json(newStaff);
   } catch (error: any) {
     console.error(`Registration error for ${email}:`, error);
     if (error.code === '23505') { // Unique constraint violation in Postgres
       res.status(400).json({ error: `Email or Promo Code already exists. Please try again.` });
+    } else if (error.code === 'PGRST116' || error.message?.includes('relation "staff" does not exist')) {
+      res.status(500).json({ error: "Database table 'staff' missing. Please run the SQL schema in Supabase." });
     } else {
-      res.status(500).json({ error: "Internal server error during registration" });
+      res.status(500).json({ error: `Server error: ${error.message || 'Unknown error'}` });
     }
   }
 });
