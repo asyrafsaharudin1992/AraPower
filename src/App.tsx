@@ -2982,12 +2982,34 @@ export default function App() {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-16 -mt-16" />
                 
                 <div className="flex flex-col items-center text-center mb-10 relative z-10">
-                  <div className="relative group mb-6">
-                    <div className="w-32 h-32 rounded-[2.5rem] bg-zinc-100 border-4 border-white shadow-xl overflow-hidden flex items-center justify-center">
+                  <div className="relative group mb-6 flex flex-col items-center">
+                    <div className="w-32 h-32 rounded-[2.5rem] bg-zinc-100 border-4 border-white shadow-xl overflow-hidden flex items-center justify-center relative">
                       {currentUser.profile_picture ? (
                         <img src={currentUser.profile_picture} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
                         <UserCircle size={64} className="text-zinc-300" />
+                      )}
+                      {isUploading && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <RefreshCw className="text-white animate-spin" size={24} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-4 flex gap-2">
+                      <label className="cursor-pointer bg-zinc-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all flex items-center gap-2">
+                        <PlusCircle size={14} />
+                        Choose Image
+                        <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
+                      </label>
+                      {currentUser.profile_picture && (
+                        <button 
+                          type="button"
+                          onClick={() => handleUpdateProfile({ profile_picture: '' })}
+                          className="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all flex items-center gap-2"
+                        >
+                          <Trash2 size={14} />
+                          Remove
+                        </button>
                       )}
                     </div>
                   </div>
