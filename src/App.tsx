@@ -185,7 +185,7 @@ export default function App() {
 
   // Clinic & Roles State
   const [clinicProfile, setClinicProfile] = useState<ClinicProfile>({
-    name: 'Klinik Ara 24 Jam',
+    name: 'AraPower',
     address: '',
     phone: '',
     email: '',
@@ -1240,7 +1240,8 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
             >
-              <h1 className="text-3xl font-black text-zinc-900 tracking-tight mb-2">{clinicProfile.name}</h1>
+              <h1 className="text-3xl font-black text-zinc-900 tracking-tight mb-1">{clinicProfile.name}</h1>
+              <p className="text-emerald-600 text-[10px] font-black uppercase tracking-[0.3em] mb-4">Empowering Healthcare</p>
               <p className="text-zinc-400 text-sm font-medium">{greeting}, please sign in to your account</p>
             </motion.div>
           </div>
@@ -1449,9 +1450,10 @@ export default function App() {
           animate={{ opacity: 1, scale: 1 }}
           className="bg-white p-12 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] max-w-md w-full border border-black/[0.03] text-center"
         >
-          <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-3xl flex items-center justify-center mx-auto mb-8">
+          <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-3xl flex items-center justify-center mx-auto mb-4">
             <Clock size={40} />
           </div>
+          <p className="text-emerald-600 text-[10px] font-black uppercase tracking-[0.3em] mb-8">Empowering Healthcare</p>
           <h1 className="text-2xl font-black text-zinc-900 tracking-tight mb-4">Account Pending Approval</h1>
           <p className="text-zinc-500 text-sm leading-relaxed mb-8 font-medium">
             Hi <span className="text-zinc-900 font-bold">{currentUser.name}</span>, your account has been created successfully. 
@@ -1691,7 +1693,10 @@ export default function App() {
               <div className="w-10 h-10 bg-white border border-zinc-100 rounded-2xl flex items-center justify-center shadow-sm overflow-hidden">
                 <Logo className="w-8 h-8" />
               </div>
-              <h1 className="font-bold text-xl tracking-tight">{clinicProfile.name}</h1>
+              <div>
+                <h1 className="font-bold text-xl tracking-tight text-zinc-900">{clinicProfile.name}</h1>
+                <p className="text-[8px] font-black text-emerald-600 uppercase tracking-[0.2em] -mt-0.5">Empowering Healthcare</p>
+              </div>
             </div>
 
             <div className="flex-1 space-y-2">
