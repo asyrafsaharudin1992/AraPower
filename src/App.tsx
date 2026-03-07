@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+// Force rebuild - Logo update
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
@@ -149,6 +150,17 @@ const safeFetch = async (url: string, options?: RequestInit) => {
     console.error(`Fetch error for ${url}:`, e);
     return { res: { ok: false, status: 0 } as Response, data: { error: e.message || "Network error" } };
   }
+};
+
+// Reusable Logo Component with Fallback
+const Logo = ({ className = "w-8 h-8" }: { className?: string }) => {
+  const size = parseInt(className.match(/\d+/)?.[0] || "24");
+  
+  return (
+    <div className={`${className} flex items-center justify-center bg-emerald-600 rounded-xl shadow-inner overflow-hidden`}>
+      <Activity className="text-white" size={size * 0.7} strokeWidth={2.5} />
+    </div>
+  );
 };
 
 export default function App() {
@@ -943,7 +955,7 @@ export default function App() {
             <>
               <div className="flex items-center gap-3 mb-8">
                 <div className="bg-white p-1 rounded-xl border border-zinc-100 shadow-sm">
-                  <img src="https://api.claudette.ai/v1/files/file-34ro25auykfy3fvticfqnl-499672742043/content" alt="Logo" className="w-8 h-8 object-contain" referrerPolicy="no-referrer" />
+                  <Logo className="w-8 h-8" />
                 </div>
                 <h1 className="text-2xl font-semibold text-zinc-900 tracking-tight">Clinic Booking</h1>
               </div>
@@ -1075,7 +1087,7 @@ export default function App() {
               transition={{ delay: 0.2, duration: 0.5 }}
               className="bg-white p-2 rounded-[1.5rem] shadow-lg shadow-black/5 mb-6 border border-zinc-100"
             >
-              <img src="https://api.claudette.ai/v1/files/file-34ro25auykfy3fvticfqnl-499672742043/content" alt="Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
+              <Logo className="w-12 h-12" />
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -1517,7 +1529,7 @@ export default function App() {
           <nav className="fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-zinc-100 p-6 flex flex-col">
             <div className="flex items-center gap-3 mb-10 px-2">
               <div className="w-10 h-10 bg-white border border-zinc-100 rounded-2xl flex items-center justify-center shadow-sm overflow-hidden">
-                <img src="https://api.claudette.ai/v1/files/file-34ro25auykfy3fvticfqnl-499672742043/content" alt="Logo" className="w-8 h-8 object-contain" referrerPolicy="no-referrer" />
+                <Logo className="w-8 h-8" />
               </div>
               <h1 className="font-bold text-xl tracking-tight">{clinicProfile.name}</h1>
             </div>

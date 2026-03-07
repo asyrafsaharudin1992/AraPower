@@ -1,0 +1,9 @@
+{
+  "name": "Klinik Ara 24 Jam",
+  "short_name": "Klinik Ara",
+  "description": "Referral Portal for Klinik Ara 24 Jam",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981"
+}
