@@ -561,6 +561,39 @@ app.patch("/api/staff/:id", async (req, res) => {
   }
 });
 
+app.post("/api/auth/change-password", async (req, res) => {
+  const { staffId, currentPassword, newPassword } = req.body;
+  
+  try {
+    const { data: staff, error: fetchError } = await supabase
+      .from('staff')
+      .select('password')
+      .eq('id', staffId)
+      .single();
+      
+    if (fetchError || !staff) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    if (staff.password !== currentPassword) {
+      return res.status(401).json({ error: "Incorrect current password" });
+    }
+    
+    const { error: updateError } = await supabase
+      .from('staff')
+      .update({ password: newPassword })
+      .eq('id', staffId);
+      
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message });
+    }
+    
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post("/api/staff/:id/reset-password", async (req, res) => {
   const { id } = req.params;
   const { error } = await supabase

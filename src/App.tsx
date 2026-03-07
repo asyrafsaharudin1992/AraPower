@@ -11,6 +11,7 @@ import {
   DollarSign, 
   LogOut,
   ChevronRight,
+  Lock,
   Stethoscope,
   LayoutDashboard,
   ClipboardList,
@@ -198,6 +199,10 @@ export default function App() {
   // Staff Detail State
   const [selectedStaffDetail, setSelectedStaffDetail] = useState<Staff | null>(null);
   const [showStaffModal, setShowStaffModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
+  const [passwordError, setPasswordError] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isPublicBooking, setIsPublicBooking] = useState(false);
   const [referringStaff, setReferringStaff] = useState<Staff | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
@@ -844,6 +849,46 @@ export default function App() {
     const { res } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/reset-password`, { method: 'POST' });
     if (res.ok) {
       alert('Password reset successfully');
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    
+    if (passwordForm.new !== passwordForm.confirm) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+    
+    if (passwordForm.new.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/auth/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          staffId: currentUser?.id,
+          currentPassword: passwordForm.current,
+          newPassword: passwordForm.new
+        })
+      });
+
+      if (res.ok) {
+        alert('Password changed successfully');
+        setShowPasswordModal(false);
+        setPasswordForm({ current: '', new: '', confirm: '' });
+      } else {
+        setPasswordError(data.error || 'Failed to change password');
+      }
+    } catch (error) {
+      setPasswordError('An unexpected error occurred');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -3156,6 +3201,21 @@ export default function App() {
                     </div>
                   </div>
 
+                  <div className="pt-6 border-t border-zinc-100">
+                    <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                      <Lock size={14} className="text-zinc-400" />
+                      Security
+                    </h4>
+                    <button 
+                      type="button"
+                      onClick={() => setShowPasswordModal(true)}
+                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 text-sm font-bold text-zinc-600 hover:bg-zinc-100 transition-all flex items-center justify-between group"
+                    >
+                      <span>Change Account Password</span>
+                      <ChevronRight size={16} className="text-zinc-300 group-hover:text-zinc-600 transition-colors" />
+                    </button>
+                  </div>
+
                   <div className="flex gap-4 pt-6">
                     <button 
                       type="submit"
@@ -4288,6 +4348,90 @@ export default function App() {
                       className="w-full bg-zinc-900 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/20 active:scale-[0.98]"
                     >
                       {editingTask ? 'Update Task' : 'Create Task'}
+                    </button>
+                  </form>
+                </div>
+              </motion.div>
+            </div>
+          )}
+
+          {showPasswordModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowPasswordModal(false)}
+                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+              >
+                <div className="p-8">
+                  <div className="flex items-center justify-between mb-8">
+                    <h3 className="text-2xl font-black tracking-tighter">Change Password</h3>
+                    <button onClick={() => setShowPasswordModal(false)} className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 hover:bg-zinc-200 transition-all">
+                      <PlusCircle size={20} className="rotate-45" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleChangePassword} className="space-y-6">
+                    {passwordError && (
+                      <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold">
+                        {passwordError}
+                      </div>
+                    )}
+                    
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Current Password</label>
+                      <input 
+                        type="password"
+                        value={passwordForm.current}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        placeholder="••••••••"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">New Password</label>
+                      <input 
+                        type="password"
+                        value={passwordForm.new}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        placeholder="Min. 6 characters"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Confirm New Password</label>
+                      <input 
+                        type="password"
+                        value={passwordForm.confirm}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        placeholder="••••••••"
+                        required
+                      />
+                    </div>
+
+                    <button 
+                      type="submit"
+                      disabled={isChangingPassword}
+                      className="w-full bg-zinc-900 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {isChangingPassword ? (
+                        <>
+                          <RefreshCw size={16} className="animate-spin" />
+                          Updating...
+                        </>
+                      ) : 'Update Password'}
                     </button>
                   </form>
                 </div>
