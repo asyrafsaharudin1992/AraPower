@@ -529,7 +529,7 @@ app.patch("/api/staff/:id", async (req, res) => {
     'name', 'email', 'role', 'promo_code', 'staff_id_code', 
     'branch', 'department', 'position', 'employment_status', 
     'phone', 'is_approved', 'nickname', 'profile_picture', 
-    'bank_name', 'bank_account_number'
+    'bank_name', 'bank_account_number', 'id_type', 'id_number'
   ];
 
   const updateData: any = {};

@@ -68,6 +68,8 @@ interface Staff {
   profile_picture?: string;
   bank_name?: string;
   bank_account_number?: string;
+  id_type?: string;
+  id_number?: string;
   tier?: { name: string; bonus: number; color: string; bg: string };
   monthlySuccessfulRefs?: number;
   earned?: number;
@@ -203,6 +205,14 @@ export default function App() {
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [passwordError, setPasswordError] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [selectedPayoutStaff, setSelectedPayoutStaff] = useState<number[]>([]);
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [payoutMetadata, setPayoutMetadata] = useState({
+    creditingDate: new Date().toLocaleDateString('en-GB'),
+    paymentReference: 'INCENTIVE',
+    paymentDescription: 'STAFF REFERRAL INCENTIVE',
+    bulkPaymentType: 'SALARY'
+  });
   const [isPublicBooking, setIsPublicBooking] = useState(false);
   const [referringStaff, setReferringStaff] = useState<Staff | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
@@ -588,6 +598,97 @@ export default function App() {
     setAuthBranch('');
     setAuthPhone('');
     setAuthError('');
+  };
+
+  const generatePayoutCSV = (metadata: typeof payoutMetadata) => {
+    const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && s.approved_earnings > 0);
+    if (staffToPay.length === 0) {
+      alert('No staff selected or no approved earnings to pay.');
+      return;
+    }
+
+    // Maybank2u Biz Format (M2U Biz)
+    const csvRows = [];
+    
+    // Row 1 empty
+    csvRows.push([]);
+    
+    // Header Section
+    csvRows.push(['Employer Info :']);
+    csvRows.push(['Crediting Date (eg. dd/MM/yyyy)', metadata.creditingDate]);
+    csvRows.push(['Payment Reference', metadata.paymentReference]);
+    csvRows.push(['Payment Description', metadata.paymentDescription]);
+    csvRows.push(['Bulk Payment Type', metadata.bulkPaymentType]);
+    csvRows.push([]); // Row 7 empty
+    
+    // Data Header (Row 8)
+    csvRows.push([
+      'Beneficiary Name',
+      'Beneficiary Bank',
+      'Beneficiary Account No',
+      'ID Type',
+      'ID Number',
+      'Payment Amount',
+      'Payment Reference',
+      'Payment Description'
+    ]);
+
+    // Data Rows
+    staffToPay.forEach(s => {
+      csvRows.push([
+        s.name,
+        s.bank_name || '',
+        s.bank_account_number || '',
+        s.id_type || 'NRIC',
+        s.id_number || '',
+        s.approved_earnings.toFixed(2),
+        metadata.paymentReference,
+        metadata.paymentDescription
+      ]);
+    });
+
+    // Join with commas and newlines
+    const csvContent = csvRows.map(row => 
+      row.map(cell => {
+        const cellStr = String(cell);
+        // Escape commas and quotes if necessary
+        if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+          return `"${cellStr.replace(/"/g, '""')}"`;
+        }
+        return cellStr;
+      }).join(",")
+    ).join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `M2U_Bulk_Payment_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setShowPayoutModal(false);
+  };
+
+  const processPayouts = async () => {
+    if (!confirm('Are you sure you want to mark these payouts as processed? This will update the status of all approved referrals for the selected staff.')) return;
+    
+    const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && s.approved_earnings > 0);
+    
+    for (const staff of staffToPay) {
+      const approvedRefs = referrals.filter(r => r.staff_id === staff.id && r.status === 'approved');
+      for (const ref of approvedRefs) {
+        await safeFetch(`${apiBaseUrl}/api/referrals/${ref.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'payout_processed' })
+        });
+      }
+    }
+    
+    fetchReferrals();
+    setSelectedPayoutStaff([]);
+    alert('Payouts processed successfully.');
   };
 
   const checkPromoCode = async (code: string) => {
@@ -1389,18 +1490,6 @@ export default function App() {
     );
   }
 
-  const adminStats = {
-    totalPayout: staffList.reduce((sum, s) => sum + (s.paid_earnings || 0), 0),
-    totalReferrals: referrals.length,
-    activeStaff: new Set(referrals.map(r => r.staff_id)).size,
-    pendingPayout: staffList.reduce((sum, s) => sum + (s.approved_earnings || 0), 0)
-  };
-
-  const receptionistStats = {
-    arrivedToday: referrals.filter(r => (r.status === 'completed' || r.status === 'paid_completed') && r.visit_date === new Date().toISOString().split('T')[0]).length,
-    pendingVerifications: referrals.filter(r => r.status === 'entered').length
-  };
-
   // Helper to get tier for a given count
   const getTier = (count: number) => {
     return [...TIERS].reverse().find(t => count >= t.min) || TIERS[0];
@@ -1448,6 +1537,18 @@ export default function App() {
   }).sort((a, b) => b.earned - a.earned);
 
   const currentUserStats = staffPerformance.find(s => s.id === currentUser?.id);
+
+  const adminStats = {
+    totalPayout: staffPerformance.reduce((sum, s) => sum + (s.paid_earnings || 0), 0),
+    totalReferrals: referrals.length,
+    activeStaff: new Set(referrals.map(r => r.staff_id)).size,
+    pendingPayout: staffPerformance.reduce((sum, s) => sum + (s.approved_earnings || 0), 0)
+  };
+
+  const receptionistStats = {
+    arrivedToday: referrals.filter(r => (r.status === 'completed' || r.status === 'paid_completed') && r.visit_date === new Date().toISOString().split('T')[0]).length,
+    pendingVerifications: referrals.filter(r => r.status === 'entered').length
+  };
   
   const totalEarned = currentUserStats?.lifetime_earnings || 0;
   const pendingAmount = currentUserStats?.pending_earnings || 0;
@@ -2516,7 +2617,7 @@ export default function App() {
                   <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total Payouts</p>
                     <p className="text-3xl font-bold tracking-tight text-emerald-600">
-                      {clinicProfile.currency}{staffList.reduce((s, staff) => s + (staff.paid_earnings || 0), 0).toFixed(2)}
+                      {clinicProfile.currency}{staffPerformance.reduce((s, staff) => s + (staff.paid_earnings || 0), 0).toFixed(2)}
                     </p>
                   </div>
                   <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
@@ -2732,6 +2833,108 @@ export default function App() {
                         ))}
                       </tbody>
                 </table>
+              </div>
+
+              {/* Payout Management Section */}
+              <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-semibold">Payout Management</h3>
+                    <p className="text-xs text-zinc-400 font-medium">Generate bulk payment files for banking software</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setShowPayoutModal(true)}
+                      disabled={selectedPayoutStaff.length === 0}
+                      className="flex items-center gap-2 text-xs font-bold bg-emerald-600 text-white px-4 py-2 rounded-xl transition-all hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
+                    >
+                      <Download size={14} />
+                      Generate Bulk CSV
+                    </button>
+                    <button 
+                      onClick={processPayouts}
+                      disabled={selectedPayoutStaff.length === 0}
+                      className="flex items-center gap-2 text-xs font-bold bg-zinc-900 text-white px-4 py-2 rounded-xl transition-all hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-zinc-900/20"
+                    >
+                      <CheckCircle2 size={14} />
+                      Mark as Paid
+                    </button>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-zinc-50 border-b border-zinc-100">
+                        <th className="p-4 w-10">
+                          <input 
+                            type="checkbox"
+                            className="rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                            checked={selectedPayoutStaff.length === staffPerformance.filter(s => s.approved_earnings > 0).length && staffPerformance.filter(s => s.approved_earnings > 0).length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedPayoutStaff(staffPerformance.filter(s => s.approved_earnings > 0).map(s => s.id));
+                              } else {
+                                setSelectedPayoutStaff([]);
+                              }
+                            }}
+                          />
+                        </th>
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Staff Member</th>
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Bank Details</th>
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400 text-right">Approved Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-50">
+                      {staffPerformance
+                        .filter(s => s.approved_earnings > 0)
+                        .map((staff) => (
+                        <tr key={staff.id} className="hover:bg-zinc-50/50 transition-colors">
+                          <td className="p-4">
+                            <input 
+                              type="checkbox"
+                              className="rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                              checked={selectedPayoutStaff.includes(staff.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedPayoutStaff([...selectedPayoutStaff, staff.id]);
+                                } else {
+                                  setSelectedPayoutStaff(selectedPayoutStaff.filter(id => id !== staff.id));
+                                }
+                              }}
+                            />
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-600">
+                                {staff.name.charAt(0)}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">{staff.name}</span>
+                                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{staff.branch}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-zinc-700">{staff.bank_name || 'MISSING BANK'}</span>
+                              <span className="text-[10px] text-zinc-400 font-medium tracking-wider">{staff.bank_account_number || 'MISSING ACCOUNT'}</span>
+                            </div>
+                          </td>
+                          <td className="p-4 text-sm font-bold text-right text-emerald-600">
+                            {clinicProfile.currency}{staff.approved_earnings.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                      {staffPerformance.filter(s => s.approved_earnings > 0).length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="p-8 text-center text-zinc-400 text-sm italic">
+                            No approved earnings ready for payout.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </motion.div>
           )}
@@ -3155,6 +3358,8 @@ export default function App() {
                       nickname: formData.get('nickname') as string,
                       bank_name: formData.get('bank_name') as string,
                       bank_account_number: formData.get('bank_account_number') as string,
+                      id_type: formData.get('id_type') as string,
+                      id_number: formData.get('id_number') as string,
                     });
                   }}
                   className="space-y-6"
@@ -3196,6 +3401,28 @@ export default function App() {
                           defaultValue={currentUser.bank_account_number || ''}
                           className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
                           placeholder="1234567890"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">ID Type</label>
+                        <select 
+                          name="id_type"
+                          defaultValue={currentUser.id_type || 'NRIC'}
+                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        >
+                          <option value="NRIC">NRIC</option>
+                          <option value="PASSPORT">Passport</option>
+                          <option value="BUSINESS_REG">Business Registration</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">ID Number</label>
+                        <input 
+                          name="id_number"
+                          type="text"
+                          defaultValue={currentUser.id_number || ''}
+                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          placeholder="e.g. 900101-10-5050"
                         />
                       </div>
                     </div>
@@ -4157,6 +4384,116 @@ export default function App() {
           )}
         </AnimatePresence>
 
+        {/* Payout Modal */}
+        <AnimatePresence>
+          {showPayoutModal && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowPayoutModal(false)}
+                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+              >
+                <div className="p-8">
+                  <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                        <Download size={20} />
+                      </div>
+                      <h3 className="text-xl font-bold text-zinc-900 tracking-tight">M2U Biz Payout</h3>
+                    </div>
+                    <button 
+                      onClick={() => setShowPayoutModal(false)}
+                      className="p-2 hover:bg-zinc-100 rounded-xl transition-colors"
+                    >
+                      <PlusCircle className="rotate-45 text-zinc-400" size={24} />
+                    </button>
+                  </div>
+
+                  <form 
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const formData = new FormData(e.currentTarget);
+                      const metadata = {
+                        creditingDate: formData.get('creditingDate') as string,
+                        paymentReference: formData.get('paymentReference') as string,
+                        paymentDescription: formData.get('paymentDescription') as string,
+                        bulkPaymentType: formData.get('bulkPaymentType') as string
+                      };
+                      generatePayoutCSV(metadata);
+                    }}
+                    className="space-y-6"
+                  >
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Crediting Date (dd/MM/yyyy)</label>
+                      <input 
+                        name="creditingDate"
+                        type="text"
+                        required
+                        defaultValue={new Date().toLocaleDateString('en-GB')}
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        placeholder="e.g. 07/03/2026"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Payment Reference</label>
+                      <input 
+                        name="paymentReference"
+                        type="text"
+                        required
+                        defaultValue="INCENTIVE"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        placeholder="e.g. INCENTIVE"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Payment Description</label>
+                      <input 
+                        name="paymentDescription"
+                        type="text"
+                        required
+                        defaultValue="STAFF REFERRAL INCENTIVE"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        placeholder="e.g. STAFF REFERRAL INCENTIVE"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Bulk Payment Type</label>
+                      <select 
+                        name="bulkPaymentType"
+                        defaultValue="SALARY"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                      >
+                        <option value="SALARY">SALARY</option>
+                        <option value="DIVIDEND">DIVIDEND</option>
+                        <option value="COMMISSION">COMMISSION</option>
+                        <option value="OTHERS">OTHERS</option>
+                      </select>
+                    </div>
+
+                    <button 
+                      type="submit"
+                      className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+                    >
+                      Download CSV Template
+                    </button>
+                  </form>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+        
         {/* Staff Detail Modal */}
         <AnimatePresence>
           {showStaffModal && selectedStaffDetail && (
@@ -4231,6 +4568,25 @@ export default function App() {
                     <div className="bg-zinc-50 p-4 rounded-3xl border border-zinc-100">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Promo Code</p>
                       <p className="text-xl font-bold font-mono text-zinc-900">{selectedStaffDetail.promo_code}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-zinc-50 p-6 rounded-3xl border border-zinc-100 mb-8">
+                    <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <DollarSign size={14} className="text-emerald-500" />
+                      Payment Information
+                    </h4>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Bank Details</p>
+                        <p className="text-sm font-bold text-zinc-900">{selectedStaffDetail.bank_name || 'Not Set'}</p>
+                        <p className="text-xs text-zinc-500 font-mono">{selectedStaffDetail.bank_account_number || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Identity Info</p>
+                        <p className="text-sm font-bold text-zinc-900">{selectedStaffDetail.id_type || 'NRIC'}</p>
+                        <p className="text-xs text-zinc-500 font-mono">{selectedStaffDetail.id_number || 'N/A'}</p>
+                      </div>
                     </div>
                   </div>
 
