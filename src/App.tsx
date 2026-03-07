@@ -36,7 +36,8 @@ import {
   Calendar,
   CheckSquare,
   Activity,
-  RefreshCw
+  RefreshCw,
+  Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -174,7 +175,7 @@ export default function App() {
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'kit'>('dashboard');
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   
   // Setup Tab State
@@ -1652,13 +1653,13 @@ export default function App() {
                 <span className="text-[9px] font-black uppercase tracking-widest">History</span>
               </button>
               <button 
-                onClick={() => setActiveTab('guide')}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'guide' ? 'text-emerald-600 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+                onClick={() => setActiveTab('kit')}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'kit' ? 'text-emerald-600 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
               >
-                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'guide' ? 'bg-emerald-50' : ''}`}>
-                  <BookOpen size={22} />
+                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'kit' ? 'bg-emerald-50' : ''}`}>
+                  <QrCode size={22} />
                 </div>
-                <span className="text-[9px] font-black uppercase tracking-widest">Guide</span>
+                <span className="text-[9px] font-black uppercase tracking-widest">Kit</span>
               </button>
               <button 
                 onClick={() => setActiveTab('profile')}
@@ -1715,11 +1716,11 @@ export default function App() {
                 <span className="text-sm font-medium">Referrals</span>
               </button>
               <button 
-                onClick={() => setActiveTab('guide')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'guide' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                onClick={() => setActiveTab('kit')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'kit' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
               >
-                <BookOpen size={18} />
-                <span className="text-sm font-medium">User Guide</span>
+                <QrCode size={18} />
+                <span className="text-sm font-medium">Referral Kit</span>
               </button>
               <button 
                 onClick={() => setActiveTab('profile')}
@@ -1835,7 +1836,7 @@ export default function App() {
               <header className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
                 <div>
                   <h2 className="text-2xl sm:text-3xl font-black tracking-tighter capitalize text-zinc-900">
-                    {activeTab === 'guide' ? 'User Guide' : activeTab === 'profile' ? 'My Profile' : activeTab}
+                    {activeTab === 'guide' ? 'User Guide' : activeTab === 'profile' ? 'My Profile' : activeTab === 'kit' ? 'Referral Kit' : activeTab}
                   </h2>
                   <p className="text-zinc-500 text-sm font-medium">Welcome back, {currentUser.name}</p>
                 </div>
@@ -1865,9 +1866,9 @@ export default function App() {
                 {isMobile && currentUser.role === 'staff' && (
                   <div className="space-y-4">
                     {/* Main Card: Earnings Breakdown */}
-                    <div className="relative overflow-hidden bg-white/80 backdrop-blur-xl p-8 rounded-[2.5rem] border border-black/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-                      <div className="absolute -top-12 -right-12 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl" />
-                      <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl" />
+                    <div className="relative overflow-hidden bg-pink-50 p-8 rounded-[2.5rem] border border-pink-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+                      <div className="absolute -top-12 -right-12 w-40 h-40 bg-pink-200/20 rounded-full blur-3xl" />
+                      <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-rose-200/20 rounded-full blur-3xl" />
                       
                       <div className="relative">
                         <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-black mb-2">Lifetime Earnings</p>
@@ -1910,20 +1911,20 @@ export default function App() {
 
                     {/* Secondary Grid */}
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] border border-black/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-                        <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-black mb-2">AraCoins</p>
+                      <div className="bg-yellow-50 p-6 rounded-[2rem] border border-yellow-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+                        <p className="text-[10px] uppercase tracking-widest text-yellow-600 font-black mb-2">AraCoins</p>
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">
-                            <Coins size={16} className="text-yellow-600" />
+                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+                            <Coins size={16} className="text-yellow-500" />
                           </div>
                           <p className="text-2xl font-black text-zinc-900">{currentUser.aracoins || 0}</p>
                         </div>
                       </div>
-                      <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] border border-black/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-                        <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-black mb-2">Success</p>
+                      <div className="bg-blue-50 p-6 rounded-[2rem] border border-blue-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+                        <p className="text-[10px] uppercase tracking-widest text-blue-600 font-black mb-2">Success</p>
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                            <CheckCircle2 size={16} className="text-blue-600" />
+                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+                            <CheckCircle2 size={16} className="text-blue-500" />
                           </div>
                           <p className="text-2xl font-black text-zinc-900">{currentUserStats?.monthlySuccessfulRefs || 0}</p>
                         </div>
@@ -1992,11 +1993,11 @@ export default function App() {
 
                 {/* Tier Progress Card (Staff Only - Desktop) */}
                 {!isMobile && currentUser.role === 'staff' && (
-                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm overflow-hidden relative">
+                  <div className="bg-purple-50 p-6 rounded-3xl border border-purple-100 shadow-sm overflow-hidden relative">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
-                        <TrendingUp className="text-emerald-500" size={20} />
-                        <h3 className="font-semibold">Monthly Tier</h3>
+                        <TrendingUp className="text-purple-500" size={20} />
+                        <h3 className="font-semibold text-purple-900">Monthly Tier</h3>
                       </div>
                       <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${currentUserStats?.tier.bg} ${currentUserStats?.tier.color}`}>
                         {currentUserStats?.tier.name}
@@ -2037,201 +2038,9 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Log New Referral (Staff Only) */}
-                {currentUser.role === 'staff' && (
-                  <div className={`${isMobile ? 'bg-white/80 backdrop-blur-xl p-8 rounded-[2.5rem]' : 'bg-white p-6 rounded-3xl'} border border-black/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
-                    <div className="flex items-center gap-2 mb-6">
-                      <div className={`w-10 h-10 rounded-2xl ${isMobile ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-500'} flex items-center justify-center shadow-lg shadow-emerald-500/20`}>
-                        <PlusCircle size={20} />
-                      </div>
-                      <h3 className="font-bold text-zinc-900">Log New Referral</h3>
-                    </div>
-                    <form onSubmit={handleSubmitReferral} className="space-y-4">
-                      <div>
-                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient Name</label>
-                        <input 
-                          type="text" 
-                          required
-                          value={patientName}
-                          onChange={(e) => setPatientName(e.target.value)}
-                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
-                          placeholder="Enter patient name"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">WhatsApp Number</label>
-                          <input 
-                            type="tel" 
-                            required
-                            value={patientPhone}
-                            onChange={(e) => setPatientPhone(e.target.value)}
-                            className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
-                            placeholder="e.g. +60123456789"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient IC</label>
-                          <input 
-                            type="text" 
-                            required
-                            value={patientIC}
-                            onChange={(e) => setPatientIC(e.target.value)}
-                            className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
-                            placeholder="IC Number"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient Address</label>
-                        <textarea 
-                          required
-                          value={patientAddress}
-                          onChange={(e) => setPatientAddress(e.target.value)}
-                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium h-20 resize-none"
-                          placeholder="Enter patient address"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Target Branch</label>
-                        <select 
-                          required
-                          value={selectedBranch}
-                          onChange={(e) => setSelectedBranch(e.target.value)}
-                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all appearance-none text-sm font-medium"
-                        >
-                          <option value="">Select Branch</option>
-                          <option value="Bangi">Bangi</option>
-                          <option value="Kajang">Kajang</option>
-                          <option value="HQ">HQ</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Service Promoted</label>
-                        <div className="relative">
-                          <select 
-                            required
-                            value={selectedService}
-                            onChange={(e) => setSelectedService(e.target.value)}
-                            className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all appearance-none text-sm font-medium pr-12"
-                          >
-                            <option value="">Select a service</option>
-                            {services.map(s => (
-                              <option key={s.id} value={s.id}>{s.name} ({clinicProfile.currency}{s.commission_rate} incentive)</option>
-                            ))}
-                          </select>
-                          <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
-                            <ChevronRight size={16} className="rotate-90" />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Booking Date</label>
-                          <input 
-                            type="date" 
-                            required
-                            min={new Date().toISOString().split('T')[0]}
-                            value={appointmentDate}
-                            onChange={(e) => setAppointmentDate(e.target.value)}
-                            className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Booking Time</label>
-                          <select 
-                            required
-                            value={bookingTime}
-                            onChange={(e) => setBookingTime(e.target.value)}
-                            className="w-full px-5 py-4 rounded-2xl bg-zinc-50/50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all appearance-none text-sm font-medium"
-                          >
-                            <option value="">Select time</option>
-                            {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(time => (
-                              <option key={time} value={time}>{time}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                      <button 
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-bold text-sm hover:bg-zinc-800 transition-all active:scale-[0.98] shadow-xl shadow-zinc-900/10 disabled:opacity-50 mt-2"
-                      >
-                        {isSubmitting ? 'Submitting...' : 'Submit Referral'}
-                      </button>
-                    </form>
-                  </div>
-                )}
+                {/* Log New Referral moved to Kit Page */}
 
-                {/* Referral Toolkit (Staff Only) */}
-                {currentUser.role === 'staff' && (
-                  <div className={`${isMobile ? 'bg-white/80 backdrop-blur-xl p-8 rounded-[2.5rem]' : 'bg-white p-6 rounded-3xl'} border border-black/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
-                    <div className="flex items-center gap-2 mb-6">
-                      <div className={`w-10 h-10 rounded-2xl ${isMobile ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-500'} flex items-center justify-center shadow-lg shadow-blue-500/20`}>
-                        <QrCode size={20} />
-                      </div>
-                      <h3 className="font-bold text-zinc-900">Referral Toolkit</h3>
-                    </div>
-                    
-                    <div className="space-y-6">
-                      <div className="flex flex-col items-center p-6 bg-zinc-50/50 rounded-[2rem] border border-zinc-100">
-                        <div className="p-4 bg-white rounded-3xl shadow-sm mb-4">
-                          <QRCodeCanvas 
-                            value={`${window.location.origin}?ref=${currentUser.promo_code}`}
-                            size={140}
-                            level="H"
-                            includeMargin={false}
-                            className="rounded-lg"
-                          />
-                        </div>
-                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Personal QR Code</p>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="p-5 bg-zinc-50/50 rounded-2xl border border-zinc-100 flex items-center justify-between">
-                          <div>
-                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Referral Code</p>
-                            <p className="text-xl font-black text-zinc-900 tracking-tighter">{currentUser.promo_code}</p>
-                          </div>
-                          <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText(currentUser.promo_code);
-                              alert('Code copied!');
-                            }}
-                            className="p-3 bg-white rounded-xl border border-zinc-100 text-zinc-400 hover:text-emerald-500 transition-all active:scale-90"
-                          >
-                            <Copy size={18} />
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <button 
-                            onClick={() => {
-                              const url = `${window.location.origin}?ref=${currentUser.promo_code}`;
-                              const text = `Hi! Book your appointment at our clinic using my referral link: ${url}`;
-                              window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                            }}
-                            className="flex items-center justify-center gap-2 p-4 bg-emerald-500 text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-95 shadow-lg shadow-emerald-500/10"
-                          >
-                            <MessageCircle size={14} />
-                            WhatsApp
-                          </button>
-                          <button 
-                            onClick={() => {
-                              const url = `${window.location.origin}?ref=${currentUser.promo_code}`;
-                              navigator.clipboard.writeText(url);
-                              alert('Link copied!');
-                            }}
-                            className="flex items-center justify-center gap-2 p-4 bg-white text-zinc-900 border border-zinc-100 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-zinc-50 transition-all active:scale-95 shadow-sm"
-                          >
-                            <Share2 size={14} />
-                            Copy Link
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* Referral Toolkit removed from Home - Moved to Kit Page */}
               </div>
 
               {/* Recent Activity & Admin Insights */}
@@ -3113,6 +2922,230 @@ export default function App() {
               </div>
             </motion.div>
           )}
+          {activeTab === 'kit' && currentUser.role === 'staff' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-2xl mx-auto space-y-8"
+            >
+              <div className="bg-zinc-900 text-white p-8 rounded-[2.5rem] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/20 rounded-full blur-[80px] -mr-32 -mt-32" />
+                <div className="relative z-10">
+                  <h3 className="text-2xl font-black tracking-tighter mb-2">Referral Kit</h3>
+                  <p className="text-zinc-400 text-sm font-medium max-w-md">Everything you need to refer patients and earn rewards.</p>
+                </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                <div className="flex items-center gap-2 mb-8">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <QrCode size={20} />
+                  </div>
+                  <h3 className="font-bold text-zinc-900">Your Toolkit</h3>
+                </div>
+                
+                <div className="space-y-8">
+                  <div className="flex flex-col items-center p-8 bg-zinc-50/50 rounded-[2.5rem] border border-zinc-100">
+                    <div className="p-6 bg-white rounded-[2rem] shadow-sm mb-6">
+                      <QRCodeCanvas 
+                        value={`${window.location.origin}?ref=${currentUser.promo_code}`}
+                        size={180}
+                        level="H"
+                        includeMargin={false}
+                        className="rounded-lg"
+                      />
+                    </div>
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Personal QR Code</p>
+                    <p className="text-xs text-zinc-500 mt-2 text-center max-w-[200px]">Patients can scan this to book directly with your referral code.</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="p-6 bg-zinc-50/50 rounded-2xl border border-zinc-100 flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Referral Code</p>
+                        <p className="text-2xl font-black text-zinc-900 tracking-tighter">{currentUser.promo_code}</p>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(currentUser.promo_code);
+                          alert('Code copied!');
+                        }}
+                        className="p-4 bg-white rounded-xl border border-zinc-100 text-zinc-400 hover:text-emerald-500 transition-all active:scale-90"
+                      >
+                        <Copy size={20} />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <button 
+                        onClick={() => {
+                          const url = `${window.location.origin}?ref=${currentUser.promo_code}`;
+                          const text = `Hi! Book your appointment at our clinic using my referral link: ${url}`;
+                          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                        }}
+                        className="flex items-center justify-center gap-3 p-5 bg-emerald-500 text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-95 shadow-lg shadow-emerald-500/10"
+                      >
+                        <MessageCircle size={18} />
+                        Share on WhatsApp
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const url = `${window.location.origin}?ref=${currentUser.promo_code}`;
+                          navigator.clipboard.writeText(url);
+                          alert('Link copied!');
+                        }}
+                        className="flex items-center justify-center gap-3 p-5 bg-white text-zinc-900 border border-zinc-100 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-zinc-50 transition-all active:scale-95 shadow-sm"
+                      >
+                        <Share2 size={18} />
+                        Copy Referral Link
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Log New Referral (Staff Only) */}
+              {currentUser.role === 'staff' && (
+                <div className="bg-emerald-50 p-8 rounded-[2.5rem] border border-emerald-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+                  <div className="flex items-center gap-2 mb-6">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                      <PlusCircle size={20} />
+                    </div>
+                    <h3 className="font-bold text-emerald-900">Log New Referral</h3>
+                  </div>
+                  <form onSubmit={handleSubmitReferral} className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient Name</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={patientName}
+                        onChange={(e) => setPatientName(e.target.value)}
+                        className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
+                        placeholder="Enter patient name"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">WhatsApp Number</label>
+                        <input 
+                          type="tel" 
+                          required
+                          value={patientPhone}
+                          onChange={(e) => setPatientPhone(e.target.value)}
+                          className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
+                          placeholder="e.g. +60123456789"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient IC</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={patientIC}
+                          onChange={(e) => setPatientIC(e.target.value)}
+                          className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
+                          placeholder="IC Number"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient Address</label>
+                      <textarea 
+                        required
+                        value={patientAddress}
+                        onChange={(e) => setPatientAddress(e.target.value)}
+                        className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium h-20 resize-none"
+                        placeholder="Enter patient address"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Target Branch</label>
+                      <select 
+                        required
+                        value={selectedBranch}
+                        onChange={(e) => setSelectedBranch(e.target.value)}
+                        className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all appearance-none text-sm font-medium"
+                      >
+                        <option value="">Select Branch</option>
+                        <option value="Bangi">Bangi</option>
+                        <option value="Kajang">Kajang</option>
+                        <option value="HQ">HQ</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Service Promoted</label>
+                      <div className="relative">
+                        <select 
+                          required
+                          value={selectedService}
+                          onChange={(e) => setSelectedService(e.target.value)}
+                          className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all appearance-none text-sm font-medium pr-12"
+                        >
+                          <option value="">Select a service</option>
+                          {services.map(s => (
+                            <option key={s.id} value={s.id}>{s.name} ({clinicProfile.currency}{s.commission_rate} incentive)</option>
+                          ))}
+                        </select>
+                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                          <ChevronRight size={16} className="rotate-90" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Booking Date</label>
+                        <input 
+                          type="date" 
+                          required
+                          min={new Date().toISOString().split('T')[0]}
+                          value={appointmentDate}
+                          onChange={(e) => setAppointmentDate(e.target.value)}
+                          className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Booking Time</label>
+                        <select 
+                          required
+                          value={bookingTime}
+                          onChange={(e) => setBookingTime(e.target.value)}
+                          className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all appearance-none text-sm font-medium"
+                        >
+                          <option value="">Select time</option>
+                          {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(time => (
+                            <option key={time} value={time}>{time}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button 
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-bold text-sm hover:bg-zinc-800 transition-all active:scale-[0.98] shadow-xl shadow-zinc-900/10 disabled:opacity-50 mt-2"
+                    >
+                      {isSubmitting ? 'Submitting...' : 'Submit Referral'}
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              <div className="bg-blue-50 p-8 rounded-[2.5rem] border border-blue-100">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-blue-500 text-white rounded-2xl flex items-center justify-center shrink-0">
+                    <Info size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-blue-900 mb-1">How to use?</h4>
+                    <p className="text-xs text-blue-700 leading-relaxed">
+                      Share your link or QR code on social media, WhatsApp, or print it out! When patients book using your link, you'll see them in your history automatically.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
           {activeTab === 'guide' && (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -3123,6 +3156,13 @@ export default function App() {
               <div className="bg-zinc-900 text-white p-8 rounded-[2.5rem] relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/20 rounded-full blur-[80px] -mr-32 -mt-32" />
                 <div className="relative z-10">
+                  <button 
+                    onClick={() => setActiveTab('profile')}
+                    className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-4 hover:text-emerald-300 transition-colors"
+                  >
+                    <ChevronRight size={16} className="rotate-180" />
+                    Back to Profile
+                  </button>
                   <h3 className="text-2xl font-black tracking-tighter mb-2">Platform User Guide</h3>
                   <p className="text-zinc-400 text-sm font-medium max-w-md">Learn how to maximize your efficiency and earnings with the {clinicProfile.name} portal.</p>
                 </div>
@@ -3434,6 +3474,18 @@ export default function App() {
                   </div>
 
                   <div className="pt-6 border-t border-zinc-100">
+                    <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                      <BookOpen size={14} className="text-emerald-500" />
+                      Resources
+                    </h4>
+                    <button 
+                      type="button"
+                      onClick={() => setActiveTab('guide')}
+                      className="w-full px-6 py-4 rounded-2xl bg-emerald-50 border border-emerald-100 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-all flex items-center justify-between group mb-4"
+                    >
+                      <span>View User Guide & FAQ</span>
+                      <ChevronRight size={16} className="text-emerald-400 group-hover:text-emerald-600 transition-colors" />
+                    </button>
                     <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
                       <Lock size={14} className="text-zinc-400" />
                       Security
