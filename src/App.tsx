@@ -106,6 +106,7 @@ interface Referral {
   fraud_flags?: string;
   rejection_reason?: string;
   branch?: string;
+  patient_type?: 'new' | 'existing';
 }
 
 interface AppSettings {
@@ -161,7 +162,7 @@ const Logo = ({ className = "w-8 h-8" }: { className?: string }) => {
   const size = parseInt(className.match(/\d+/)?.[0] || "24");
   
   return (
-    <div className={`${className} flex items-center justify-center bg-emerald-600 rounded-xl shadow-inner overflow-hidden`}>
+    <div className={`${className} flex items-center justify-center bg-violet-600 rounded-xl shadow-inner overflow-hidden`}>
       <Activity className="text-white" size={size * 0.7} strokeWidth={2.5} />
     </div>
   );
@@ -237,8 +238,8 @@ export default function App() {
   // Commission Tiers Configuration
   const TIERS = [
     { name: 'Bronze', min: 0, bonus: 1, color: 'text-orange-700', bg: 'bg-orange-100' },
-    { name: 'Silver', min: 6, bonus: 1.2, color: 'text-zinc-500', bg: 'bg-zinc-100' },
-    { name: 'Gold', min: 11, bonus: 1.5, color: 'text-yellow-700', bg: 'bg-yellow-100' }
+    { name: 'Silver', min: 6, bonus: 1.2, color: 'text-violet-700', bg: 'bg-violet-100' },
+    { name: 'Gold', min: 11, bonus: 1.5, color: 'text-fuchsia-700', bg: 'bg-fuchsia-100' }
   ];
 
   // Form states
@@ -246,6 +247,7 @@ export default function App() {
   const [patientPhone, setPatientPhone] = useState('');
   const [patientIC, setPatientIC] = useState('');
   const [patientAddress, setPatientAddress] = useState('');
+  const [patientType, setPatientType] = useState<'new' | 'existing'>('new');
   const [appointmentDate, setAppointmentDate] = useState('');
   const [bookingTime, setBookingTime] = useState('');
   const [selectedBranch, setSelectedBranch] = useState<string>('');
@@ -719,6 +721,7 @@ export default function App() {
           patient_phone: patientPhone,
           patient_ic: patientIC,
           patient_address: patientAddress,
+          patient_type: patientType,
           appointment_date: appointmentDate,
           booking_time: bookingTime,
           date: new Date().toISOString().split('T')[0],
@@ -736,6 +739,7 @@ export default function App() {
         setPatientPhone('');
         setPatientIC('');
         setPatientAddress('');
+        setPatientType('new');
         setAppointmentDate('');
         setBookingTime('');
         setSelectedService('');
@@ -1049,13 +1053,14 @@ export default function App() {
 
   const exportToCSV = () => {
     const headers = currentUser?.role === 'admin' 
-      ? ['Date', 'Patient Name', 'Service', 'Staff Name', 'Incentive ($)', 'Status']
-      : ['Date', 'Patient Name', 'Service', 'Incentive ($)', 'Status'];
+      ? ['Date', 'Patient Name', 'Patient Type', 'Service', 'Staff Name', 'Incentive ($)', 'Status']
+      : ['Date', 'Patient Name', 'Patient Type', 'Service', 'Incentive ($)', 'Status'];
 
     const csvRows = referrals.map(ref => {
       const row = [
         ref.date,
         `"${ref.patient_name}"`,
+        ref.patient_type || 'new',
         `"${ref.service_name}"`,
         ...(currentUser?.role === 'admin' ? [`"${ref.staff_name}"`] : []),
         ref.commission_amount.toFixed(2),
@@ -1086,14 +1091,14 @@ export default function App() {
         >
           {bookingSuccess ? (
             <div className="text-center py-8">
-              <div className="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="text-emerald-600 w-8 h-8" />
+              <div className="bg-violet-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 className="text-violet-600 w-8 h-8" />
               </div>
               <h2 className="text-2xl font-bold mb-2">Booking Confirmed!</h2>
               <p className="text-zinc-500 mb-8">Thank you for your referral. We will contact you shortly to finalize your appointment.</p>
               <button 
                 onClick={() => setBookingSuccess(false)}
-                className="w-full bg-zinc-900 text-white py-3 rounded-xl font-medium"
+                className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-3 rounded-xl font-medium shadow-lg shadow-violet-500/20"
               >
                 Book Another
               </button>
@@ -1108,9 +1113,9 @@ export default function App() {
               </div>
               
               {referringStaff ? (
-                <div className="bg-emerald-50 p-4 rounded-2xl mb-6 border border-emerald-100">
-                  <p className="text-xs text-emerald-700 font-bold uppercase tracking-wider mb-1">Referred By</p>
-                  <p className="font-semibold text-emerald-900">{referringStaff.name}</p>
+                <div className="bg-violet-50 p-4 rounded-2xl mb-6 border border-violet-100">
+                  <p className="text-xs text-violet-700 font-bold uppercase tracking-wider mb-1">Referred By</p>
+                  <p className="font-semibold text-violet-900">{referringStaff.name}</p>
                 </div>
               ) : (
                 <div className="bg-orange-50 p-4 rounded-2xl mb-6 border border-orange-100">
@@ -1127,7 +1132,7 @@ export default function App() {
                     required
                     value={patientName}
                     onChange={(e) => setPatientName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all"
                     placeholder="Enter your name"
                   />
                 </div>
@@ -1138,9 +1143,21 @@ export default function App() {
                     required
                     value={patientPhone}
                     onChange={(e) => setPatientPhone(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all"
                     placeholder="e.g. +60123456789"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Patient Type</label>
+                  <select 
+                    required
+                    value={patientType}
+                    onChange={(e) => setPatientType(e.target.value as 'new' | 'existing')}
+                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all appearance-none"
+                  >
+                    <option value="new">New Patient</option>
+                    <option value="existing">Existing Patient</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Service Required</label>
@@ -1148,7 +1165,7 @@ export default function App() {
                     required
                     value={selectedService}
                     onChange={(e) => setSelectedService(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all appearance-none"
+                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all appearance-none"
                   >
                     <option value="">Select a service</option>
                     {services.map(s => (
@@ -1165,7 +1182,7 @@ export default function App() {
                       min={new Date().toISOString().split('T')[0]}
                       value={appointmentDate}
                       onChange={(e) => setAppointmentDate(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all"
                     />
                   </div>
                   <div>
@@ -1174,7 +1191,7 @@ export default function App() {
                       required
                       value={bookingTime}
                       onChange={(e) => setBookingTime(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all appearance-none"
+                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all appearance-none"
                     >
                       <option value="">Select time</option>
                       {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(time => (
@@ -1186,7 +1203,7 @@ export default function App() {
                 <button 
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-zinc-900 text-white py-4 rounded-xl font-bold hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                  className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-4 rounded-xl font-bold hover:from-violet-700 hover:to-fuchsia-700 transition-colors disabled:opacity-50"
                 >
                   {isSubmitting ? 'Processing...' : 'Confirm Appointment'}
                 </button>
@@ -1202,7 +1219,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+          <div className="w-12 h-12 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin"></div>
           <p className="text-zinc-400 font-black text-[10px] uppercase tracking-widest">Authenticating...</p>
         </div>
       </div>
@@ -1217,7 +1234,7 @@ export default function App() {
       <div className="min-h-screen bg-[#FBFBFD] flex items-center justify-center p-4 font-sans relative overflow-hidden">
         {/* Background Decorative Elements */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
-          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-50 rounded-full blur-[120px] opacity-60" />
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-violet-50 rounded-full blur-[120px] opacity-60" />
           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-50 rounded-full blur-[120px] opacity-60" />
         </div>
 
@@ -1242,7 +1259,7 @@ export default function App() {
               transition={{ delay: 0.3, duration: 0.5 }}
             >
               <h1 className="text-3xl font-black text-zinc-900 tracking-tight mb-1">{clinicProfile.name}</h1>
-              <p className="text-emerald-600 text-[10px] font-black uppercase tracking-[0.3em] mb-4">Empowering Healthcare</p>
+              <p className="text-violet-600 text-[10px] font-black uppercase tracking-[0.3em] mb-4">Empowering Healthcare</p>
               <p className="text-zinc-400 text-sm font-medium">{greeting}, please sign in to your account</p>
             </motion.div>
           </div>
@@ -1250,26 +1267,26 @@ export default function App() {
           <div className="flex gap-8 mb-10 border-b border-zinc-100 relative">
             <button 
               onClick={() => { setAuthMode('login'); setAuthError(''); }}
-              className={`pb-4 text-xs font-black uppercase tracking-[0.2em] transition-all relative z-10 ${authMode === 'login' ? 'text-emerald-600' : 'text-zinc-400 hover:text-zinc-600'}`}
+              className={`pb-4 text-xs font-black uppercase tracking-[0.2em] transition-all relative z-10 ${authMode === 'login' ? 'text-violet-600' : 'text-zinc-400 hover:text-zinc-600'}`}
             >
               Login
               {authMode === 'login' && (
                 <motion.div 
                   layoutId="auth-tab"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-600"
                 />
               )}
             </button>
             {authSettings.allowRegistration && (
               <button 
                 onClick={() => { setAuthMode('register'); setAuthError(''); }}
-                className={`pb-4 text-xs font-black uppercase tracking-[0.2em] transition-all relative z-10 ${authMode === 'register' ? 'text-emerald-600' : 'text-zinc-400 hover:text-zinc-600'}`}
+                className={`pb-4 text-xs font-black uppercase tracking-[0.2em] transition-all relative z-10 ${authMode === 'register' ? 'text-violet-600' : 'text-zinc-400 hover:text-zinc-600'}`}
               >
                 Register
                 {authMode === 'register' && (
                   <motion.div 
                     layoutId="auth-tab"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-600"
                   />
                 )}
               </button>
@@ -1324,7 +1341,7 @@ export default function App() {
                       required
                       value={authEmail}
                       onChange={(e) => setAuthEmail(e.target.value)}
-                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium group-hover:bg-white"
+                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium group-hover:bg-white"
                       placeholder="admin@clinic.com"
                     />
                   </div>
@@ -1337,14 +1354,14 @@ export default function App() {
                       required
                       value={authPassword}
                       onChange={(e) => setAuthPassword(e.target.value)}
-                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium group-hover:bg-white"
+                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium group-hover:bg-white"
                       placeholder="••••••••"
                     />
                   </div>
                 </div>
                 <button 
                   type="submit"
-                  className="w-full bg-zinc-900 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/20 active:scale-[0.98]"
+                  className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:from-violet-700 hover:to-fuchsia-700 transition-all shadow-xl shadow-violet-600/20 active:scale-[0.98]"
                 >
                   Sign In
                 </button>
@@ -1368,7 +1385,7 @@ export default function App() {
                     required
                     value={authName}
                     onChange={(e) => setAuthName(e.target.value)}
-                    className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                    className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                     placeholder="John Doe"
                   />
                 </div>
@@ -1379,7 +1396,7 @@ export default function App() {
                     required
                     value={authEmail}
                     onChange={(e) => setAuthEmail(e.target.value)}
-                    className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                    className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                     placeholder="john@clinic.com"
                   />
                 </div>
@@ -1391,7 +1408,7 @@ export default function App() {
                     minLength={6}
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
-                    className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                    className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                     placeholder="Min. 6 characters"
                   />
                 </div>
@@ -1403,7 +1420,7 @@ export default function App() {
                         required
                         value={authBranch}
                         onChange={(e) => setAuthBranch(e.target.value)}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium appearance-none"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium appearance-none"
                       >
                         <option value="">Select</option>
                         <option value="Bangi">Bangi</option>
@@ -1419,7 +1436,7 @@ export default function App() {
                       required
                       value={authPhone}
                       onChange={(e) => setAuthPhone(e.target.value)}
-                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                       placeholder="6012..."
                     />
                   </div>
@@ -1427,7 +1444,7 @@ export default function App() {
                 <button 
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-emerald-600 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:from-violet-700 hover:to-fuchsia-700 transition-all shadow-xl shadow-violet-600/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Creating Account...' : 'Create Account'}
                 </button>
@@ -1454,7 +1471,7 @@ export default function App() {
           <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-3xl flex items-center justify-center mx-auto mb-4">
             <Clock size={40} />
           </div>
-          <p className="text-emerald-600 text-[10px] font-black uppercase tracking-[0.3em] mb-8">Empowering Healthcare</p>
+          <p className="text-violet-600 text-[10px] font-black uppercase tracking-[0.3em] mb-8">Empowering Healthcare</p>
           <h1 className="text-2xl font-black text-zinc-900 tracking-tight mb-4">Account Pending Approval</h1>
           <p className="text-zinc-500 text-sm leading-relaxed mb-8 font-medium">
             Hi <span className="text-zinc-900 font-bold">{currentUser.name}</span>, your account has been created successfully. 
@@ -1477,7 +1494,7 @@ export default function App() {
                   }
                 }
               }}
-              className="bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/10"
+              className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:from-violet-700 hover:to-fuchsia-700 transition-all shadow-lg shadow-violet-600/10"
             >
               Check Status
             </button>
@@ -1568,9 +1585,9 @@ export default function App() {
     switch (status) {
       case 'entered': return 'bg-orange-100 text-orange-700';
       case 'completed': return 'bg-indigo-100 text-indigo-700';
-      case 'paid_completed': return 'bg-emerald-100 text-emerald-700';
+      case 'paid_completed': return 'bg-violet-100 text-violet-700';
       case 'buffer': return 'bg-blue-100 text-blue-700';
-      case 'approved': return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+      case 'approved': return 'bg-violet-100 text-violet-700 border border-violet-200';
       case 'payout_processed': return 'bg-zinc-100 text-zinc-700';
       case 'rejected': return 'bg-red-100 text-red-700';
       default: return 'bg-zinc-100 text-zinc-700';
@@ -1595,14 +1612,14 @@ export default function App() {
     if ((currentUser.role === 'admin' || currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && isMobile) {
       return (
         <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-8 text-center">
-          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mb-6">
+          <div className="w-20 h-20 bg-violet-100 text-violet-600 rounded-3xl flex items-center justify-center mb-6">
             <LayoutDashboard size={40} />
           </div>
           <h1 className="text-2xl font-bold mb-2">Desktop View Required</h1>
           <p className="text-zinc-500 max-w-xs mb-8">The {currentUser.role === 'admin' ? 'Admin Panel' : (currentUser.role === 'receptionist' ? 'Receptionist Portal' : 'Dispensary Portal')} is optimized for desktop use. Please switch to a larger screen to manage the clinic.</p>
           <button 
             onClick={handleLogout}
-            className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-medium"
+            className="px-6 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-xl font-medium shadow-lg shadow-violet-500/20"
           >
             Sign Out
           </button>
@@ -1613,14 +1630,14 @@ export default function App() {
     if (currentUser.role === 'staff' && !isMobile) {
       return (
         <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-8 text-center">
-          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mb-6">
+          <div className="w-20 h-20 bg-violet-100 text-violet-600 rounded-3xl flex items-center justify-center mb-6">
             <MessageCircle size={40} />
           </div>
           <h1 className="text-2xl font-bold mb-2">Mobile View Required</h1>
           <p className="text-zinc-500 max-w-xs mb-8">The Staff Portal is optimized for mobile use. Please access this page from your smartphone.</p>
           <button 
             onClick={handleLogout}
-            className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-medium"
+            className="px-6 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-xl font-medium shadow-lg shadow-violet-500/20"
           >
             Sign Out
           </button>
@@ -1629,43 +1646,43 @@ export default function App() {
     }
 
     return (
-      <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans">
+      <div className={`min-h-screen font-sans transition-colors duration-500 ${isMobile ? 'bg-brand-bg text-white' : 'bg-zinc-50 text-zinc-900'}`}>
         {/* Mobile Navigation (Floating Glass Dock - iOS 26 style) */}
         {isMobile && (
           <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
-            <nav className="max-w-md mx-auto bg-white/70 backdrop-blur-2xl border border-white/40 px-6 py-3 flex justify-around items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] pointer-events-auto">
+            <nav className="max-w-md mx-auto bg-brand-surface/80 backdrop-blur-2xl border border-white/10 px-6 py-3 flex justify-around items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] pointer-events-auto">
               <button 
                 onClick={() => setActiveTab('dashboard')}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'dashboard' ? 'text-emerald-600 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'dashboard' ? 'text-brand-peach scale-110' : 'text-zinc-400 hover:text-zinc-300'}`}
               >
-                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-emerald-50' : ''}`}>
+                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-brand-bg' : ''}`}>
                   <LayoutDashboard size={22} />
                 </div>
                 <span className="text-[9px] font-black uppercase tracking-widest">Home</span>
               </button>
               <button 
                 onClick={() => setActiveTab('referrals')}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'referrals' ? 'text-emerald-600 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'referrals' ? 'text-brand-peach scale-110' : 'text-zinc-400 hover:text-zinc-300'}`}
               >
-                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-emerald-50' : ''}`}>
+                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-brand-bg' : ''}`}>
                   <ClipboardList size={22} />
                 </div>
                 <span className="text-[9px] font-black uppercase tracking-widest">History</span>
               </button>
               <button 
                 onClick={() => setActiveTab('kit')}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'kit' ? 'text-emerald-600 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'kit' ? 'text-brand-peach scale-110' : 'text-zinc-400 hover:text-zinc-300'}`}
               >
-                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'kit' ? 'bg-emerald-50' : ''}`}>
+                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'kit' ? 'bg-brand-bg' : ''}`}>
                   <QrCode size={22} />
                 </div>
                 <span className="text-[9px] font-black uppercase tracking-widest">Kit</span>
               </button>
               <button 
                 onClick={() => setActiveTab('profile')}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'profile' ? 'text-emerald-600 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'profile' ? 'text-brand-peach scale-110' : 'text-zinc-400 hover:text-zinc-300'}`}
               >
-                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'profile' ? 'bg-emerald-50' : ''}`}>
+                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'profile' ? 'bg-brand-bg' : ''}`}>
                   <UserCircle size={22} />
                 </div>
                 <span className="text-[9px] font-black uppercase tracking-widest">Profile</span>
@@ -1673,9 +1690,9 @@ export default function App() {
               {(currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && (
                 <button 
                   onClick={() => setActiveTab('receptionist')}
-                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'receptionist' ? 'text-emerald-600 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'receptionist' ? 'text-brand-peach scale-110' : 'text-zinc-400 hover:text-zinc-300'}`}
                 >
-                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'receptionist' ? 'bg-emerald-50' : ''}`}>
+                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'receptionist' ? 'bg-brand-bg' : ''}`}>
                     {currentUser.role === 'receptionist' ? <CheckCircle2 size={22} /> : <DollarSign size={22} />}
                   </div>
                   <span className="text-[9px] font-black uppercase tracking-widest">
@@ -1696,42 +1713,42 @@ export default function App() {
               </div>
               <div>
                 <h1 className="font-bold text-xl tracking-tight text-zinc-900">{clinicProfile.name}</h1>
-                <p className="text-[8px] font-black text-emerald-600 uppercase tracking-[0.2em] -mt-0.5">Empowering Healthcare</p>
+                <p className="text-[8px] font-black text-violet-600 uppercase tracking-[0.2em] -mt-0.5">Empowering Healthcare</p>
               </div>
             </div>
 
             <div className="flex-1 space-y-2">
               <button 
                 onClick={() => setActiveTab('dashboard')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'dashboard' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'dashboard' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
               >
                 <LayoutDashboard size={18} />
                 <span className="text-sm font-medium">Dashboard</span>
               </button>
               <button 
                 onClick={() => setActiveTab('referrals')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'referrals' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'referrals' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
               >
                 <ClipboardList size={18} />
                 <span className="text-sm font-medium">Referrals</span>
               </button>
               <button 
                 onClick={() => setActiveTab('kit')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'kit' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'kit' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
               >
                 <QrCode size={18} />
                 <span className="text-sm font-medium">Referral Kit</span>
               </button>
               <button 
                 onClick={() => setActiveTab('profile')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
               >
                 <UserCircle size={18} />
                 <span className="text-sm font-medium">My Profile</span>
               </button>
               <button 
                 onClick={() => setActiveTab('tasks')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'tasks' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'tasks' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
               >
                 <CheckSquare size={18} />
                 <span className="text-sm font-medium">Tasks</span>
@@ -1739,7 +1756,7 @@ export default function App() {
               {rolesConfig[currentUser.role]?.canViewAnalytics && (
                 <button 
                   onClick={() => setActiveTab('admin')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'admin' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'admin' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
                 >
                   <Users size={18} />
                   <span className="text-sm font-medium">Admin Panel</span>
@@ -1749,7 +1766,7 @@ export default function App() {
 
             <div className="pt-6 border-t border-zinc-100">
               <div className="flex items-center gap-3 mb-4 px-2">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
+                <div className="w-8 h-8 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold">
                   {currentUser.name.charAt(0)}
                 </div>
                 <div className="overflow-hidden">
@@ -1763,7 +1780,7 @@ export default function App() {
               {rolesConfig[currentUser.role]?.canManageSettings && (
                 <button 
                   onClick={() => setActiveTab('setup')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'setup' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'setup' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
                 >
                   <Settings size={18} />
                   <span className="text-sm font-medium">Setup</span>
@@ -1774,11 +1791,11 @@ export default function App() {
         )}
 
         {/* Main Content */}
-        <main className={`${!isMobile ? 'ml-64' : 'pb-32 min-h-screen bg-[#FBFBFD]'} p-4 lg:p-8 relative overflow-hidden`}>
+        <main className={`${!isMobile ? 'ml-64 bg-[#FBFBFD]' : 'pb-32 min-h-screen bg-brand-bg'} p-4 lg:p-8 relative overflow-hidden`}>
           {isMobile && (
             <>
-              <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-emerald-50/50 to-transparent -z-10" />
-              <div className="absolute top-[10%] -right-[20%] w-[80%] h-[40%] bg-blue-50/30 rounded-full blur-[100px] -z-10" />
+              <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-brand-surface/20 to-transparent -z-10" />
+              <div className="absolute top-[10%] -right-[20%] w-[80%] h-[40%] bg-brand-pink/5 rounded-full blur-[100px] -z-10" />
             </>
           )}
 
@@ -1819,7 +1836,7 @@ export default function App() {
                 </p>
                 <button 
                   onClick={() => setActiveTab('profile')}
-                  className="px-6 py-3 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-100 transition-all active:scale-95"
+                  className="px-6 py-3 bg-violet-50 text-violet-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-violet-100 transition-all active:scale-95"
                 >
                   Complete your profile while you wait
                 </button>
@@ -1835,10 +1852,10 @@ export default function App() {
             <>
               <header className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
                 <div>
-                  <h2 className="text-2xl sm:text-3xl font-black tracking-tighter capitalize text-zinc-900">
+                  <h2 className={`text-2xl sm:text-3xl font-black tracking-tighter capitalize ${isMobile ? 'text-white' : 'text-zinc-900'}`}>
                     {activeTab === 'guide' ? 'User Guide' : activeTab === 'profile' ? 'My Profile' : activeTab === 'kit' ? 'Referral Kit' : activeTab}
                   </h2>
-                  <p className="text-zinc-500 text-sm font-medium">Welcome back, {currentUser.name}</p>
+                  <p className={`${isMobile ? 'text-zinc-400' : 'text-zinc-500'} text-sm font-medium`}>Welcome back, {currentUser.name}</p>
                 </div>
                 
                 {activeTab === 'dashboard' && currentUser.role !== 'admin' && (
@@ -1866,29 +1883,29 @@ export default function App() {
                 {isMobile && currentUser.role === 'staff' && (
                   <div className="space-y-4">
                     {/* Main Card: Earnings Breakdown */}
-                    <div className="relative overflow-hidden bg-pink-50 p-8 rounded-[2.5rem] border border-pink-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-                      <div className="absolute -top-12 -right-12 w-40 h-40 bg-pink-200/20 rounded-full blur-3xl" />
-                      <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-rose-200/20 rounded-full blur-3xl" />
+                    <div className="relative overflow-hidden bg-brand-surface p-8 rounded-[2.5rem] border border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.2)]">
+                      <div className="absolute -top-12 -right-12 w-40 h-40 bg-brand-peach/10 rounded-full blur-3xl" />
+                      <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-brand-pink/10 rounded-full blur-3xl" />
                       
                       <div className="relative">
                         <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-black mb-2">Lifetime Earnings</p>
                         <div className="flex items-baseline gap-1">
-                          <span className="text-4xl font-black tracking-tighter text-zinc-900">{clinicProfile.currency}{totalEarned.toFixed(2)}</span>
-                          <span className="text-sm font-bold text-emerald-500">+{((currentUserStats?.tier.bonus || 1) - 1) * 100}% Bonus</span>
+                          <span className="text-4xl font-black tracking-tighter text-white">{clinicProfile.currency}{totalEarned.toFixed(2)}</span>
+                          <span className="text-sm font-bold text-brand-peach">+{((currentUserStats?.tier.bonus || 1) - 1) * 100}% Bonus</span>
                         </div>
                         
                         <div className="mt-6 grid grid-cols-3 gap-2">
-                          <div className="bg-zinc-50/50 p-3 rounded-2xl border border-zinc-100">
+                          <div className="bg-brand-bg/50 p-3 rounded-2xl border border-white/5">
                             <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Pending</p>
-                            <p className="text-sm font-black text-zinc-900">{clinicProfile.currency}{pendingAmount.toFixed(0)}</p>
+                            <p className="text-sm font-black text-white">{clinicProfile.currency}{pendingAmount.toFixed(0)}</p>
                           </div>
-                          <div className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100">
-                            <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Approved</p>
-                            <p className="text-sm font-black text-emerald-700">{clinicProfile.currency}{approvedAmount.toFixed(0)}</p>
+                          <div className="bg-brand-bg/50 p-3 rounded-2xl border border-white/5">
+                            <p className="text-[8px] font-black text-brand-peach uppercase tracking-widest mb-1">Approved</p>
+                            <p className="text-sm font-black text-brand-peach">{clinicProfile.currency}{approvedAmount.toFixed(0)}</p>
                           </div>
-                          <div className="bg-blue-50/50 p-3 rounded-2xl border border-blue-100">
-                            <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest mb-1">Paid</p>
-                            <p className="text-sm font-black text-blue-700">{clinicProfile.currency}{paidAmount.toFixed(0)}</p>
+                          <div className="bg-brand-bg/50 p-3 rounded-2xl border border-white/5">
+                            <p className="text-[8px] font-black text-brand-pink uppercase tracking-widest mb-1">Paid</p>
+                            <p className="text-sm font-black text-brand-pink">{clinicProfile.currency}{paidAmount.toFixed(0)}</p>
                           </div>
                         </div>
 
@@ -1900,7 +1917,7 @@ export default function App() {
                             </div>
                             <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
                               <div 
-                                className="h-full bg-emerald-500 rounded-full transition-all duration-1000"
+                                className="h-full bg-violet-500 rounded-full transition-all duration-1000"
                                 style={{ width: `${Math.min(100, (currentUserStats?.monthlySuccessfulRefs || 0) / (nextTier?.min || 1) * 100)}%` }}
                               />
                             </div>
@@ -1911,22 +1928,22 @@ export default function App() {
 
                     {/* Secondary Grid */}
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-yellow-50 p-6 rounded-[2rem] border border-yellow-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-                        <p className="text-[10px] uppercase tracking-widest text-yellow-600 font-black mb-2">AraCoins</p>
+                      <div className="bg-brand-surface p-6 rounded-[2rem] border border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.2)]">
+                        <p className="text-[10px] uppercase tracking-widest text-brand-peach font-black mb-2">AraCoins</p>
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
-                            <Coins size={16} className="text-yellow-500" />
+                          <div className="w-8 h-8 rounded-full bg-brand-bg flex items-center justify-center shadow-sm">
+                            <Coins size={16} className="text-brand-peach" />
                           </div>
-                          <p className="text-2xl font-black text-zinc-900">{currentUser.aracoins || 0}</p>
+                          <p className="text-2xl font-black text-white">{currentUser.aracoins || 0}</p>
                         </div>
                       </div>
-                      <div className="bg-blue-50 p-6 rounded-[2rem] border border-blue-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-                        <p className="text-[10px] uppercase tracking-widest text-blue-600 font-black mb-2">Success</p>
+                      <div className="bg-brand-surface p-6 rounded-[2rem] border border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.2)]">
+                        <p className="text-[10px] uppercase tracking-widest text-brand-pink font-black mb-2">Success</p>
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
-                            <CheckCircle2 size={16} className="text-blue-500" />
+                          <div className="w-8 h-8 rounded-full bg-brand-bg flex items-center justify-center shadow-sm">
+                            <CheckCircle2 size={16} className="text-brand-pink" />
                           </div>
-                          <p className="text-2xl font-black text-zinc-900">{currentUserStats?.monthlySuccessfulRefs || 0}</p>
+                          <p className="text-2xl font-black text-white">{currentUserStats?.monthlySuccessfulRefs || 0}</p>
                         </div>
                       </div>
                     </div>
@@ -1935,13 +1952,13 @@ export default function App() {
 
                 {isMobile && currentUser.role === 'receptionist' && (
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-3xl border border-black/5 shadow-sm">
+                    <div className="bg-brand-surface p-4 rounded-3xl border border-white/10 shadow-sm">
                       <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold mb-1">Arrived Today</p>
-                      <p className="text-xl font-bold text-emerald-600">{receptionistStats.arrivedToday}</p>
+                      <p className="text-xl font-bold text-brand-peach">{receptionistStats.arrivedToday}</p>
                     </div>
-                    <div className="bg-white p-4 rounded-3xl border border-black/5 shadow-sm">
+                    <div className="bg-brand-surface p-4 rounded-3xl border border-white/10 shadow-sm">
                       <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold mb-1">Pending</p>
-                      <p className="text-xl font-bold text-orange-500">{receptionistStats.pendingVerifications}</p>
+                      <p className="text-xl font-bold text-brand-pink">{receptionistStats.pendingVerifications}</p>
                     </div>
                   </div>
                 )}
@@ -1968,7 +1985,7 @@ export default function App() {
                           <p className="text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">
                             {currentUser.role === 'receptionist' ? 'Arrived Today' : 'Paid Today'}
                           </p>
-                          <p className="text-2xl font-bold text-emerald-600">
+                          <p className="text-2xl font-bold text-violet-600">
                             {currentUser.role === 'receptionist' ? receptionistStats.arrivedToday : referrals.filter(r => r.status === 'paid_completed' && r.date === new Date().toISOString().split('T')[0]).length}
                           </p>
                           <p className="text-[10px] text-zinc-400 mt-1">
@@ -2014,7 +2031,7 @@ export default function App() {
                           initial={{ width: 0 }}
                           animate={{ width: `${progressToNext}%` }}
                           transition={{ type: "spring", stiffness: 40, damping: 12, delay: 0.2 }}
-                          className="h-full bg-emerald-500 rounded-full relative"
+                          className="h-full bg-violet-500 rounded-full relative"
                         >
                           {/* Shimmer effect */}
                           <motion.div
@@ -2028,10 +2045,10 @@ export default function App() {
 
                     {nextTier ? (
                       <p className="text-[11px] text-zinc-500 leading-relaxed">
-                        Achieve <span className="font-bold text-zinc-900">{nextTier.min - (currentUserStats?.monthlySuccessfulRefs || 0)} more</span> successful referrals this month to reach <span className="font-bold text-zinc-900">{nextTier.name} Tier</span> and get a <span className="text-emerald-600 font-bold">{((nextTier.bonus - 1) * 100).toFixed(0)}% bonus</span> on all commissions!
+                        Achieve <span className="font-bold text-zinc-900">{nextTier.min - (currentUserStats?.monthlySuccessfulRefs || 0)} more</span> successful referrals this month to reach <span className="font-bold text-zinc-900">{nextTier.name} Tier</span> and get a <span className="text-violet-600 font-bold">{((nextTier.bonus - 1) * 100).toFixed(0)}% bonus</span> on all commissions!
                       </p>
                     ) : (
-                      <p className="text-[11px] text-emerald-600 font-bold leading-relaxed">
+                      <p className="text-[11px] text-violet-600 font-bold leading-relaxed">
                         Maximum Tier Reached! You are earning 50% bonus on all successful referrals this month.
                       </p>
                     )}
@@ -2073,7 +2090,7 @@ export default function App() {
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-bold text-zinc-900">{staff.monthlySuccessfulRefs} referrals</p>
-                              <p className="text-[10px] text-emerald-600 font-bold">${staff.earned.toFixed(2)} earned</p>
+                              <p className="text-[10px] text-violet-600 font-bold">${staff.earned.toFixed(2)} earned</p>
                             </div>
                           </div>
                         ))}
@@ -2085,10 +2102,10 @@ export default function App() {
                 <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
                   <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="text-emerald-500" size={20} />
+                      <TrendingUp className="text-violet-500" size={20} />
                       <h3 className="font-semibold">Recent Referrals</h3>
                     </div>
-                    <button onClick={() => setActiveTab('referrals')} className="text-xs font-bold text-emerald-600 hover:underline">View All</button>
+                    <button onClick={() => setActiveTab('referrals')} className="text-xs font-bold text-violet-600 hover:underline">View All</button>
                   </div>
                   <div className="divide-y divide-zinc-50">
                     {referrals.slice(0, 5).map((ref) => (
@@ -2125,11 +2142,11 @@ export default function App() {
               key="referrals"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden"
+              className={`${isMobile ? 'bg-brand-surface border-white/10' : 'bg-white border-black/5 shadow-sm'} rounded-3xl border overflow-hidden`}
             >
-              <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className={`p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${isMobile ? 'border-white/5' : 'border-zinc-100'}`}>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <h3 className="font-semibold">Referral History</h3>
+                  <h3 className={`font-semibold ${isMobile ? 'text-white' : 'text-zinc-900'}`}>Referral History</h3>
                   <div className="flex flex-wrap gap-2">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
@@ -2138,13 +2155,13 @@ export default function App() {
                         placeholder="Search patient, staff, or service..."
                         value={referralSearch}
                         onChange={(e) => setReferralSearch(e.target.value)}
-                        className="pl-9 pr-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-full sm:w-64"
+                        className={`pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 w-full sm:w-64 ${isMobile ? 'bg-brand-bg border-white/5 text-white focus:ring-brand-peach/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
                       />
                     </div>
                     <select 
                       value={referralBranchFilter}
                       onChange={(e) => setReferralBranchFilter(e.target.value)}
-                      className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${isMobile ? 'bg-brand-bg border-white/5 text-white focus:ring-brand-peach/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
                     >
                       <option value="all">All Branches</option>
                       <option value="Bangi">Bangi</option>
@@ -2154,7 +2171,7 @@ export default function App() {
                     <select 
                       value={referralStatusFilter}
                       onChange={(e) => setReferralStatusFilter(e.target.value)}
-                      className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${isMobile ? 'bg-brand-bg border-white/5 text-white focus:ring-brand-peach/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
                     >
                       <option value="all">All Statuses</option>
                       <option value="entered">Entered</option>
@@ -2169,7 +2186,7 @@ export default function App() {
                 </div>
                 <button 
                   onClick={exportToCSV}
-                  className="flex items-center gap-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 px-3 py-2 rounded-xl transition-colors self-start sm:self-auto"
+                  className={`flex items-center gap-2 text-xs font-bold transition-colors self-start sm:self-auto px-3 py-2 rounded-xl ${isMobile ? 'text-brand-peach hover:bg-brand-bg' : 'text-violet-600 hover:bg-violet-50'}`}
                 >
                   <Download size={14} />
                   Export CSV
@@ -2187,14 +2204,14 @@ export default function App() {
                     .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
                     .filter(ref => referralStatusFilter === 'all' ? true : ref.status === referralStatusFilter)
                     .map((ref) => (
-                    <div key={ref.id} className="bg-white p-5 rounded-3xl border border-black/5 shadow-sm space-y-4">
+                    <div key={ref.id} className={`${isMobile ? 'bg-brand-bg/30 border-white/5' : 'bg-white border-black/5'} p-5 rounded-3xl border shadow-sm space-y-4`}>
                       <div className="flex justify-between items-start">
                         <div className="flex items-center gap-3">
                           <div className={`p-2 rounded-xl ${getStatusColor(ref.status)}`}>
                             {ref.status === 'payout_processed' || ref.status === 'approved' ? <CheckCircle2 size={18} /> : <Clock size={18} />}
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-zinc-900">{ref.patient_name}</p>
+                            <p className={`text-sm font-bold ${isMobile ? 'text-white' : 'text-zinc-900'}`}>{ref.patient_name}</p>
                             <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">{ref.date} • {ref.branch}</p>
                           </div>
                         </div>
@@ -2203,36 +2220,36 @@ export default function App() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4 py-3 border-y border-zinc-50">
+                      <div className={`grid grid-cols-2 gap-4 py-3 border-y ${isMobile ? 'border-white/5' : 'border-zinc-50'}`}>
                         <div>
                           <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Service</p>
-                          <p className="text-xs font-medium text-zinc-700">{ref.service_name}</p>
+                          <p className={`text-xs font-medium ${isMobile ? 'text-zinc-300' : 'text-zinc-700'}`}>{ref.service_name}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Incentive</p>
-                          <p className="text-sm font-bold text-emerald-600">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
+                          <p className={`text-sm font-bold ${isMobile ? 'text-brand-peach' : 'text-violet-600'}`}>{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
                         </div>
                       </div>
 
-                      <div className="py-3 border-b border-zinc-50">
+                      <div className={`py-3 border-b ${isMobile ? 'border-white/5' : 'border-zinc-50'}`}>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Patient IC</p>
-                            <p className="text-xs font-medium text-zinc-700">{ref.patient_ic || 'N/A'}</p>
+                            <p className={`text-xs font-medium ${isMobile ? 'text-zinc-300' : 'text-zinc-700'}`}>{ref.patient_ic || 'N/A'}</p>
                           </div>
                           <div>
                             <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Patient Address</p>
-                            <p className="text-xs font-medium text-zinc-700 truncate" title={ref.patient_address}>{ref.patient_address || 'N/A'}</p>
+                            <p className={`text-xs font-medium truncate ${isMobile ? 'text-zinc-300' : 'text-zinc-700'}`} title={ref.patient_address}>{ref.patient_address || 'N/A'}</p>
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-[10px] font-bold text-zinc-500">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${isMobile ? 'bg-brand-surface text-zinc-400' : 'bg-zinc-100 text-zinc-500'}`}>
                             {ref.staff_name.charAt(0)}
                           </div>
-                          <p className="text-xs font-medium text-zinc-600">{ref.staff_name}</p>
+                          <p className={`text-xs font-medium ${isMobile ? 'text-zinc-400' : 'text-zinc-600'}`}>{ref.staff_name}</p>
                         </div>
                         <div className="flex gap-2">
                           {ref.patient_phone && (
@@ -2241,7 +2258,7 @@ export default function App() {
                                 const text = `Hi ${ref.patient_name}! This is ${ref.staff_name} from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`;
                                 window.open(`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
                               }}
-                              className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
+                              className="flex items-center gap-1.5 text-[10px] font-bold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-lg hover:bg-violet-100 transition-colors"
                             >
                               <MessageCircle size={12} />
                               Follow-up
@@ -2267,7 +2284,7 @@ export default function App() {
                             href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
+                            className="flex-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:from-violet-700 hover:to-fuchsia-700 transition-colors flex items-center justify-center gap-2"
                           >
                             <Phone size={14} />
                             WhatsApp Follow-up
@@ -2288,7 +2305,7 @@ export default function App() {
                           {ref.status === 'buffer' && (
                             <button 
                               onClick={() => handleUpdateStatus(ref.id, 'approved')}
-                              className="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-600 transition-colors"
+                              className="flex-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:from-violet-700 hover:to-fuchsia-700 transition-colors"
                             >
                               Approve to Wallet
                             </button>
@@ -2335,7 +2352,12 @@ export default function App() {
                           <p className="text-[10px] text-zinc-400">{ref.booking_time}</p>
                         </td>
                         <td className="p-4">
-                          <p className="text-sm font-medium">{ref.patient_name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium">{ref.patient_name}</p>
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ref.patient_type === 'existing' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
+                              {ref.patient_type || 'new'}
+                            </span>
+                          </div>
                           <p className="text-[10px] text-zinc-400">{ref.patient_phone} • <span className="font-bold text-indigo-600">{ref.branch}</span></p>
                           <div className="mt-1 pt-1 border-t border-zinc-50">
                             <p className="text-[9px] text-zinc-400 font-medium">IC: {ref.patient_ic || 'N/A'}</p>
@@ -2343,7 +2365,7 @@ export default function App() {
                           </div>
                         </td>
                         <td className="p-4 text-sm text-zinc-500">{ref.service_name}</td>
-                        <td className="p-4 text-sm font-medium text-emerald-600">{ref.staff_name}</td>
+                        <td className="p-4 text-sm font-medium text-violet-600">{ref.staff_name}</td>
                         <td className="p-4 text-sm font-bold">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
                         <td className="p-4">
                           <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
@@ -2358,7 +2380,7 @@ export default function App() {
                                   href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                                  className="p-2 text-violet-500 hover:bg-violet-50 rounded-lg transition-colors"
                                   title="WhatsApp Follow-up"
                                 >
                                   <Phone size={14} />
@@ -2383,7 +2405,7 @@ export default function App() {
                               {(currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && ref.status === 'completed' && (
                                 <button 
                                   onClick={() => handleUpdateStatus(ref.id, 'paid_completed', { payment_status: 'completed' })}
-                                  className="text-[10px] font-bold text-emerald-600 hover:underline"
+                                  className="text-[10px] font-bold text-violet-600 hover:underline"
                                 >
                                   Mark Paid
                                 </button>
@@ -2399,7 +2421,7 @@ export default function App() {
                               {currentUser.role === 'admin' && ref.status === 'approved' && (
                                 <button 
                                   onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
-                                  className="text-[10px] font-bold text-emerald-600 hover:underline"
+                                  className="text-[10px] font-bold text-violet-600 hover:underline"
                                 >
                                   Pay
                                 </button>
@@ -2430,7 +2452,7 @@ export default function App() {
                   </div>
                   <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total Payouts</p>
-                    <p className="text-3xl font-bold tracking-tight text-emerald-600">
+                    <p className="text-3xl font-bold tracking-tight text-violet-600">
                       {clinicProfile.currency}{staffPerformance.reduce((s, staff) => s + (staff.paid_earnings || 0), 0).toFixed(2)}
                     </p>
                   </div>
@@ -2489,7 +2511,7 @@ export default function App() {
                         <div className="flex gap-2">
                           <button 
                             onClick={() => handleApproveStaff(staff.id, true)}
-                            className="flex-1 bg-emerald-500 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/10"
+                            className="flex-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:from-violet-700 hover:to-fuchsia-700 transition-all shadow-lg shadow-violet-600/10"
                           >
                             Approve
                           </button>
@@ -2517,7 +2539,7 @@ export default function App() {
                       placeholder="Search staff name..."
                       value={adminSearch}
                       onChange={(e) => setAdminSearch(e.target.value)}
-                      className="pl-9 pr-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-full sm:w-64"
+                      className="pl-9 pr-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20 w-full sm:w-64"
                     />
                   </div>
                 </div>
@@ -2559,7 +2581,7 @@ export default function App() {
                           </span>
                         </td>
                         <td className="p-4 text-sm font-semibold text-center">{staff.monthlySuccessfulRefs}</td>
-                        <td className="p-4 text-sm font-bold text-right text-emerald-600">
+                        <td className="p-4 text-sm font-bold text-right text-violet-600">
                           {clinicProfile.currency}{staff.earned.toFixed(2)}
                         </td>
                       </tr>
@@ -2574,7 +2596,7 @@ export default function App() {
                   <h3 className="font-semibold">Manage Referrals</h3>
                   <button 
                     onClick={exportToCSV}
-                    className="flex items-center gap-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 px-3 py-2 rounded-xl transition-colors"
+                    className="flex items-center gap-2 text-xs font-bold text-violet-600 hover:bg-violet-50 px-3 py-2 rounded-xl transition-colors"
                   >
                     <Download size={14} />
                     Export CSV
@@ -2596,7 +2618,12 @@ export default function App() {
                           <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
                             <td className="p-4 text-sm font-medium">{ref.staff_name}</td>
                             <td className="p-4 text-sm">
-                              <p className="font-medium">{ref.patient_name}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium">{ref.patient_name}</p>
+                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ref.patient_type === 'existing' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
+                                  {ref.patient_type || 'new'}
+                                </span>
+                              </div>
                               {ref.patient_phone && <p className="text-[10px] text-zinc-400">{ref.patient_phone} • <span className="font-bold text-indigo-600">{ref.branch}</span></p>}
                             </td>
                             <td className="p-4 text-sm text-zinc-500">{ref.service_name}</td>
@@ -2628,7 +2655,7 @@ export default function App() {
                                 {ref.status === 'buffer' && (
                                   <button 
                                     onClick={() => handleUpdateStatus(ref.id, 'approved')}
-                                    className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-600 transition-colors"
+                                    className="text-[10px] font-bold uppercase tracking-wider bg-violet-500 text-white px-3 py-1.5 rounded-lg hover:bg-violet-600 transition-colors"
                                   >
                                     Approve
                                   </button>
@@ -2660,7 +2687,7 @@ export default function App() {
                     <button 
                       onClick={() => setShowPayoutModal(true)}
                       disabled={selectedPayoutStaff.length === 0}
-                      className="flex items-center gap-2 text-xs font-bold bg-emerald-600 text-white px-4 py-2 rounded-xl transition-all hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
+                      className="flex items-center gap-2 text-xs font-bold bg-violet-600 text-white px-4 py-2 rounded-xl transition-all hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500/20"
                     >
                       <Download size={14} />
                       Generate Bulk CSV
@@ -2682,7 +2709,7 @@ export default function App() {
                         <th className="p-4 w-10">
                           <input 
                             type="checkbox"
-                            className="rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                            className="rounded border-zinc-300 text-violet-600 focus:ring-violet-500"
                             checked={selectedPayoutStaff.length === staffPerformance.filter(s => s.approved_earnings > 0).length && staffPerformance.filter(s => s.approved_earnings > 0).length > 0}
                             onChange={(e) => {
                               if (e.target.checked) {
@@ -2706,7 +2733,7 @@ export default function App() {
                           <td className="p-4">
                             <input 
                               type="checkbox"
-                              className="rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                              className="rounded border-zinc-300 text-violet-600 focus:ring-violet-500"
                               checked={selectedPayoutStaff.includes(staff.id)}
                               onChange={(e) => {
                                 if (e.target.checked) {
@@ -2734,7 +2761,7 @@ export default function App() {
                               <span className="text-[10px] text-zinc-400 font-medium tracking-wider">{staff.bank_account_number || 'MISSING ACCOUNT'}</span>
                             </div>
                           </td>
-                          <td className="p-4 text-sm font-bold text-right text-emerald-600">
+                          <td className="p-4 text-sm font-bold text-right text-violet-600">
                             {clinicProfile.currency}{staff.approved_earnings.toFixed(2)}
                           </td>
                         </tr>
@@ -2766,7 +2793,7 @@ export default function App() {
                   <div className="lg:col-span-1">
                     <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
                       <div className="flex items-center gap-2 mb-6">
-                        <PlusCircle className="text-emerald-500" size={20} />
+                        <PlusCircle className="text-violet-500" size={20} />
                         <h3 className="font-semibold">Log Walk-in Referral</h3>
                       </div>
                       <form onSubmit={handleSubmitReferral} className="space-y-4">
@@ -2777,11 +2804,11 @@ export default function App() {
                             required
                             value={walkInPromoCode}
                             onChange={(e) => checkPromoCode(e.target.value.toUpperCase())}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all font-mono"
                             placeholder="e.g. SMITH10"
                           />
                           {walkInStaff ? (
-                            <p className="mt-2 text-xs text-emerald-600 font-medium">✓ Referrer: {walkInStaff.name}</p>
+                            <p className="mt-2 text-xs text-violet-600 font-medium">✓ Referrer: {walkInStaff.name}</p>
                           ) : walkInPromoCode.length >= 3 ? (
                             <p className="mt-2 text-xs text-red-500 font-medium">✗ Invalid Referral Code</p>
                           ) : null}
@@ -2793,9 +2820,21 @@ export default function App() {
                             required
                             value={patientName}
                             onChange={(e) => setPatientName(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all"
                             placeholder="Enter patient name"
                           />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Patient Type</label>
+                          <select 
+                            required
+                            value={patientType}
+                            onChange={(e) => setPatientType(e.target.value as 'new' | 'existing')}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all appearance-none"
+                          >
+                            <option value="new">New Patient</option>
+                            <option value="existing">Existing Patient</option>
+                          </select>
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Service</label>
@@ -2803,7 +2842,7 @@ export default function App() {
                             required
                             value={selectedService}
                             onChange={(e) => setSelectedService(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all appearance-none"
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all appearance-none"
                           >
                             <option value="">Select a service</option>
                             {services.map(s => (
@@ -2832,7 +2871,7 @@ export default function App() {
                         <select 
                           value={branchFilter}
                           onChange={(e) => setBranchFilter(e.target.value)}
-                          className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                         >
                           <option value="all">All Branches</option>
                           <option value="Bangi">Bangi</option>
@@ -2842,7 +2881,7 @@ export default function App() {
                         <select 
                           value={statusFilter}
                           onChange={(e) => setStatusFilter(e.target.value)}
-                          className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                         >
                           <option value="all">All Statuses</option>
                           <option value="entered">Entered</option>
@@ -2858,7 +2897,7 @@ export default function App() {
                             placeholder="Search patient name..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-4 pr-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            className="pl-4 pr-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                           />
                         </div>
                       </div>
@@ -2880,7 +2919,7 @@ export default function App() {
                               <p className="text-[10px] text-zinc-400">Service</p>
                             </div>
                             <div>
-                              <p className="text-xs font-medium text-emerald-600">{ref.staff_name}</p>
+                              <p className="text-xs font-medium text-violet-600">{ref.staff_name}</p>
                               <p className="text-[10px] text-zinc-400">Staff</p>
                             </div>
                             <div>
@@ -2898,7 +2937,7 @@ export default function App() {
                             <select 
                               value={ref.status}
                               onChange={(e) => handleUpdateStatus(ref.id, e.target.value as any)}
-                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             >
                               <option value="entered">Entered</option>
                               <option value="completed">Visit Completed</option>
@@ -2929,25 +2968,25 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               className="max-w-2xl mx-auto space-y-8"
             >
-              <div className="bg-zinc-900 text-white p-8 rounded-[2.5rem] relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/20 rounded-full blur-[80px] -mr-32 -mt-32" />
+              <div className={`p-8 rounded-[2.5rem] relative overflow-hidden ${isMobile ? 'bg-gradient-to-br from-brand-primary via-brand-surface to-brand-bg text-white' : 'bg-gradient-to-br from-violet-600 via-violet-700 to-fuchsia-700 text-white'}`}>
+                <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-[80px] -mr-32 -mt-32 ${isMobile ? 'bg-brand-peach/20' : 'bg-fuchsia-500/20'}`} />
                 <div className="relative z-10">
                   <h3 className="text-2xl font-black tracking-tighter mb-2">Referral Kit</h3>
-                  <p className="text-zinc-400 text-sm font-medium max-w-md">Everything you need to refer patients and earn rewards.</p>
+                  <p className={`${isMobile ? 'text-white/80' : 'text-white/70'} text-sm font-medium max-w-md`}>Everything you need to refer patients and earn rewards.</p>
                 </div>
               </div>
 
-              <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+              <div className={`${isMobile ? 'bg-brand-surface border-white/10' : 'bg-white border-black/5'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
                 <div className="flex items-center gap-2 mb-8">
-                  <div className="w-10 h-10 rounded-2xl bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${isMobile ? 'bg-brand-peach text-brand-bg shadow-brand-peach/20' : 'bg-blue-500 text-white shadow-blue-500/20'}`}>
                     <QrCode size={20} />
                   </div>
-                  <h3 className="font-bold text-zinc-900">Your Toolkit</h3>
+                  <h3 className={`font-bold ${isMobile ? 'text-white' : 'text-zinc-900'}`}>Your Toolkit</h3>
                 </div>
                 
                 <div className="space-y-8">
-                  <div className="flex flex-col items-center p-8 bg-zinc-50/50 rounded-[2.5rem] border border-zinc-100">
-                    <div className="p-6 bg-white rounded-[2rem] shadow-sm mb-6">
+                  <div className={`flex flex-col items-center p-8 rounded-[2.5rem] border ${isMobile ? 'bg-brand-bg/50 border-white/5' : 'bg-zinc-50/50 border-zinc-100'}`}>
+                    <div className={`p-6 rounded-[2rem] shadow-sm mb-6 ${isMobile ? 'bg-white' : 'bg-white'}`}>
                       <QRCodeCanvas 
                         value={`${window.location.origin}?ref=${currentUser.promo_code}`}
                         size={180}
@@ -2957,21 +2996,21 @@ export default function App() {
                       />
                     </div>
                     <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Personal QR Code</p>
-                    <p className="text-xs text-zinc-500 mt-2 text-center max-w-[200px]">Patients can scan this to book directly with your referral code.</p>
+                    <p className={`text-xs mt-2 text-center max-w-[200px] ${isMobile ? 'text-zinc-400' : 'text-zinc-500'}`}>Patients can scan this to book directly with your referral code.</p>
                   </div>
 
                   <div className="space-y-4">
-                    <div className="p-6 bg-zinc-50/50 rounded-2xl border border-zinc-100 flex items-center justify-between">
+                    <div className={`p-6 rounded-2xl border flex items-center justify-between ${isMobile ? 'bg-brand-bg/50 border-white/5' : 'bg-zinc-50/50 border-zinc-100'}`}>
                       <div>
                         <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Referral Code</p>
-                        <p className="text-2xl font-black text-zinc-900 tracking-tighter">{currentUser.promo_code}</p>
+                        <p className={`text-2xl font-black tracking-tighter ${isMobile ? 'text-white' : 'text-zinc-900'}`}>{currentUser.promo_code}</p>
                       </div>
                       <button 
                         onClick={() => {
                           navigator.clipboard.writeText(currentUser.promo_code);
                           alert('Code copied!');
                         }}
-                        className="p-4 bg-white rounded-xl border border-zinc-100 text-zinc-400 hover:text-emerald-500 transition-all active:scale-90"
+                        className={`p-4 rounded-xl border transition-all active:scale-90 ${isMobile ? 'bg-brand-surface border-white/10 text-brand-peach hover:text-brand-pink' : 'bg-white border-zinc-100 text-zinc-400 hover:text-violet-500'}`}
                       >
                         <Copy size={20} />
                       </button>
@@ -2984,7 +3023,7 @@ export default function App() {
                           const text = `Hi! Book your appointment at our clinic using my referral link: ${url}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                         }}
-                        className="flex items-center justify-center gap-3 p-5 bg-emerald-500 text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-95 shadow-lg shadow-emerald-500/10"
+                        className={`flex items-center justify-center gap-3 p-5 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg ${isMobile ? 'bg-brand-peach text-brand-bg shadow-brand-peach/10 hover:bg-brand-peach/90' : 'bg-gradient-to-r from-orange-400 to-rose-400 text-white shadow-orange-500/10 hover:from-orange-500 hover:to-rose-500'}`}
                       >
                         <MessageCircle size={18} />
                         Share on WhatsApp
@@ -2995,7 +3034,7 @@ export default function App() {
                           navigator.clipboard.writeText(url);
                           alert('Link copied!');
                         }}
-                        className="flex items-center justify-center gap-3 p-5 bg-white text-zinc-900 border border-zinc-100 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-zinc-50 transition-all active:scale-95 shadow-sm"
+                        className={`flex items-center justify-center gap-3 p-5 border rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-sm ${isMobile ? 'bg-brand-surface text-white border-white/10 hover:bg-brand-surface/80' : 'bg-white text-zinc-900 border-zinc-100 hover:bg-zinc-50'}`}
                       >
                         <Share2 size={18} />
                         Copy Referral Link
@@ -3007,12 +3046,12 @@ export default function App() {
 
               {/* Log New Referral (Staff Only) */}
               {currentUser.role === 'staff' && (
-                <div className="bg-emerald-50 p-8 rounded-[2.5rem] border border-emerald-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+                <div className={`${isMobile ? 'bg-brand-surface border-white/10' : 'bg-violet-50 border-violet-100'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.02)]`}>
                   <div className="flex items-center gap-2 mb-6">
-                    <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${isMobile ? 'bg-brand-peach text-brand-bg shadow-brand-peach/20' : 'bg-violet-500 text-white shadow-violet-500/20'}`}>
                       <PlusCircle size={20} />
                     </div>
-                    <h3 className="font-bold text-emerald-900">Log New Referral</h3>
+                    <h3 className={`font-bold ${isMobile ? 'text-white' : 'text-violet-900'}`}>Log New Referral</h3>
                   </div>
                   <form onSubmit={handleSubmitReferral} className="space-y-4">
                     <div>
@@ -3022,7 +3061,7 @@ export default function App() {
                         required
                         value={patientName}
                         onChange={(e) => setPatientName(e.target.value)}
-                        className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
+                        className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         placeholder="Enter patient name"
                       />
                     </div>
@@ -3034,7 +3073,7 @@ export default function App() {
                           required
                           value={patientPhone}
                           onChange={(e) => setPatientPhone(e.target.value)}
-                          className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                           placeholder="e.g. +60123456789"
                         />
                       </div>
@@ -3045,10 +3084,22 @@ export default function App() {
                           required
                           value={patientIC}
                           onChange={(e) => setPatientIC(e.target.value)}
-                          className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                           placeholder="IC Number"
                         />
                       </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient Type</label>
+                      <select 
+                        required
+                        value={patientType}
+                        onChange={(e) => setPatientType(e.target.value as 'new' | 'existing')}
+                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                      >
+                        <option value="new">New Patient</option>
+                        <option value="existing">Existing Patient</option>
+                      </select>
                     </div>
                     <div>
                       <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient Address</label>
@@ -3056,7 +3107,7 @@ export default function App() {
                         required
                         value={patientAddress}
                         onChange={(e) => setPatientAddress(e.target.value)}
-                        className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium h-20 resize-none"
+                        className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium h-20 resize-none focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         placeholder="Enter patient address"
                       />
                     </div>
@@ -3066,7 +3117,7 @@ export default function App() {
                         required
                         value={selectedBranch}
                         onChange={(e) => setSelectedBranch(e.target.value)}
-                        className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all appearance-none text-sm font-medium"
+                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                       >
                         <option value="">Select Branch</option>
                         <option value="Bangi">Bangi</option>
@@ -3081,7 +3132,7 @@ export default function App() {
                           required
                           value={selectedService}
                           onChange={(e) => setSelectedService(e.target.value)}
-                          className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all appearance-none text-sm font-medium pr-12"
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium pr-12 focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         >
                           <option value="">Select a service</option>
                           {services.map(s => (
@@ -3102,7 +3153,7 @@ export default function App() {
                           min={new Date().toISOString().split('T')[0]}
                           value={appointmentDate}
                           onChange={(e) => setAppointmentDate(e.target.value)}
-                          className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all text-sm font-medium"
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         />
                       </div>
                       <div>
@@ -3111,7 +3162,7 @@ export default function App() {
                           required
                           value={bookingTime}
                           onChange={(e) => setBookingTime(e.target.value)}
-                          className="w-full px-5 py-4 rounded-2xl bg-white border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 transition-all appearance-none text-sm font-medium"
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         >
                           <option value="">Select time</option>
                           {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(time => (
@@ -3121,11 +3172,21 @@ export default function App() {
                       </div>
                     </div>
                     <button 
-                      type="submit"
+                      type="submit" 
                       disabled={isSubmitting}
-                      className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-bold text-sm hover:bg-zinc-800 transition-all active:scale-[0.98] shadow-xl shadow-zinc-900/10 disabled:opacity-50 mt-2"
+                      className={`w-full py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] shadow-xl disabled:opacity-50 mt-2 flex items-center justify-center gap-2 ${isMobile ? 'bg-brand-peach text-brand-bg shadow-brand-peach/20 hover:bg-brand-peach/90' : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-violet-900/10 hover:from-violet-700 hover:to-fuchsia-700'}`}
                     >
-                      {isSubmitting ? 'Submitting...' : 'Submit Referral'}
+                      {isSubmitting ? (
+                        <>
+                          <RefreshCw size={16} className="animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <PlusCircle size={16} />
+                          Submit Referral
+                        </>
+                      )}
                     </button>
                   </form>
                 </div>
@@ -3154,11 +3215,11 @@ export default function App() {
               className="space-y-8"
             >
               <div className="bg-zinc-900 text-white p-8 rounded-[2.5rem] relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/20 rounded-full blur-[80px] -mr-32 -mt-32" />
+                <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/20 rounded-full blur-[80px] -mr-32 -mt-32" />
                 <div className="relative z-10">
                   <button 
                     onClick={() => setActiveTab('profile')}
-                    className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-4 hover:text-emerald-300 transition-colors"
+                    className="flex items-center gap-2 text-violet-400 text-xs font-bold uppercase tracking-widest mb-4 hover:text-violet-300 transition-colors"
                   >
                     <ChevronRight size={16} className="rotate-180" />
                     Back to Profile
@@ -3169,76 +3230,76 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className={`p-6 rounded-3xl border ${currentUser.role === 'staff' ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-black/5'}`}>
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'staff' ? 'bg-emerald-500 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
+                <div className={`p-6 rounded-3xl border ${currentUser.role === 'staff' ? 'bg-violet-50 border-violet-100' : 'bg-white border-black/5'}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'staff' ? 'bg-violet-500 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
                     <Users size={24} />
                   </div>
                   <h4 className="font-bold mb-2">For Staff Members</h4>
                   <ul className="space-y-3 text-xs text-zinc-500 font-medium">
                     <li className="flex gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
                       <span>Share your unique QR code or referral link with patients.</span>
                     </li>
                     <li className="flex gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
                       <span>Track your "Pending" earnings as soon as a patient books.</span>
                     </li>
                     <li className="flex gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
                       <span>Earnings move to "Approved" once the patient completes their visit.</span>
                     </li>
                     <li className="flex gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
                       <span>Reach higher tiers (Silver/Gold) to earn up to 1.5x bonus!</span>
                     </li>
                   </ul>
                 </div>
 
-                <div className={`p-6 rounded-3xl border ${currentUser.role === 'receptionist' ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-black/5'}`}>
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'receptionist' ? 'bg-emerald-500 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
+                <div className={`p-6 rounded-3xl border ${currentUser.role === 'receptionist' ? 'bg-violet-50 border-violet-100' : 'bg-white border-black/5'}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'receptionist' ? 'bg-violet-500 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
                     <CheckCircle2 size={24} />
                   </div>
                   <h4 className="font-bold mb-2">For Receptionists</h4>
                   <ul className="space-y-3 text-xs text-zinc-500 font-medium">
                     <li className="flex gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
                       <span>Use the "Check-in" tab to find patients arriving today.</span>
                     </li>
                     <li className="flex gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
                       <span>Mark visits as "Completed" after the consultation.</span>
                     </li>
                     <li className="flex gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
                       <span>Update "Payment Status" to trigger the 7-day buffer period.</span>
                     </li>
                     <li className="flex gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
                       <span>Verify walk-in referrals by entering the staff's promo code.</span>
                     </li>
                   </ul>
                 </div>
 
-                <div className={`p-6 rounded-3xl border ${currentUser.role === 'admin' ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-black/5'}`}>
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'admin' ? 'bg-emerald-500 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
+                <div className={`p-6 rounded-3xl border ${currentUser.role === 'admin' ? 'bg-violet-50 border-violet-100' : 'bg-white border-black/5'}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'admin' ? 'bg-violet-500 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
                     <ShieldCheck size={24} />
                   </div>
                   <h4 className="font-bold mb-2">For Administrators</h4>
                   <ul className="space-y-3 text-xs text-zinc-500 font-medium">
                     <li className="flex gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
                       <span>Approve new staff registrations in the "Setup &gt; Staff" tab.</span>
                     </li>
                     <li className="flex gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
                       <span>Monitor clinic-wide performance in the "Admin Panel".</span>
                     </li>
                     <li className="flex gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
                       <span>Process payouts for "Approved" earnings at the end of the month.</span>
                     </li>
                     <li className="flex gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
                       <span>Manage services, branches, and system roles in "Setup".</span>
                     </li>
                   </ul>
@@ -3357,7 +3418,7 @@ export default function App() {
               className="max-w-2xl mx-auto space-y-8"
             >
               <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-16 -mt-16" />
+                <div className="absolute top-0 right-0 w-32 h-32 bg-violet-50 rounded-full blur-3xl -mr-16 -mt-16" />
                 
                 <div className="flex flex-col items-center text-center mb-10 relative z-10">
                   <div className="relative group mb-6 flex flex-col items-center">
@@ -3416,7 +3477,7 @@ export default function App() {
                         name="nickname"
                         type="text"
                         defaultValue={currentUser.nickname || ''}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         placeholder="Your preferred name"
                       />
                     </div>
@@ -3424,7 +3485,7 @@ export default function App() {
 
                   <div className="pt-6 border-t border-zinc-100">
                     <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                      <DollarSign size={14} className="text-emerald-500" />
+                      <DollarSign size={14} className="text-violet-500" />
                       Bank Account Details
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -3434,7 +3495,7 @@ export default function App() {
                           name="bank_name"
                           type="text"
                           defaultValue={currentUser.bank_name || ''}
-                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                           placeholder="e.g. Maybank, CIMB"
                         />
                       </div>
@@ -3444,7 +3505,7 @@ export default function App() {
                           name="bank_account_number"
                           type="text"
                           defaultValue={currentUser.bank_account_number || ''}
-                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                           placeholder="1234567890"
                         />
                       </div>
@@ -3453,7 +3514,7 @@ export default function App() {
                         <select 
                           name="id_type"
                           defaultValue={currentUser.id_type || 'NRIC'}
-                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         >
                           <option value="NRIC">NRIC</option>
                           <option value="PASSPORT">Passport</option>
@@ -3466,7 +3527,7 @@ export default function App() {
                           name="id_number"
                           type="text"
                           defaultValue={currentUser.id_number || ''}
-                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                           placeholder="e.g. 900101-10-5050"
                         />
                       </div>
@@ -3475,16 +3536,16 @@ export default function App() {
 
                   <div className="pt-6 border-t border-zinc-100">
                     <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                      <BookOpen size={14} className="text-emerald-500" />
+                      <BookOpen size={14} className="text-violet-500" />
                       Resources
                     </h4>
                     <button 
                       type="button"
                       onClick={() => setActiveTab('guide')}
-                      className="w-full px-6 py-4 rounded-2xl bg-emerald-50 border border-emerald-100 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-all flex items-center justify-between group mb-4"
+                      className="w-full px-6 py-4 rounded-2xl bg-violet-50 border border-violet-100 text-sm font-bold text-violet-700 hover:bg-violet-100 transition-all flex items-center justify-between group mb-4"
                     >
                       <span>View User Guide & FAQ</span>
-                      <ChevronRight size={16} className="text-emerald-400 group-hover:text-emerald-600 transition-colors" />
+                      <ChevronRight size={16} className="text-violet-400 group-hover:text-violet-600 transition-colors" />
                     </button>
                     <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
                       <Lock size={14} className="text-zinc-400" />
@@ -3519,14 +3580,14 @@ export default function App() {
                 </form>
               </div>
 
-              <div className="bg-emerald-50 p-8 rounded-[2.5rem] border border-emerald-100">
+              <div className="bg-violet-50 p-8 rounded-[2.5rem] border border-violet-100">
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 bg-violet-500 text-white rounded-2xl flex items-center justify-center shrink-0">
                     <Zap size={20} />
                   </div>
                   <div>
-                    <h4 className="font-bold text-emerald-900 mb-1">Security Tip</h4>
-                    <p className="text-xs text-emerald-700 leading-relaxed">Keep your bank details updated to ensure smooth incentive payouts. Your information is encrypted and only visible to the clinic administrator.</p>
+                    <h4 className="font-bold text-violet-900 mb-1">Security Tip</h4>
+                    <p className="text-xs text-violet-700 leading-relaxed">Keep your bank details updated to ensure smooth incentive payouts. Your information is encrypted and only visible to the clinic administrator.</p>
                   </div>
                 </div>
               </div>
@@ -3598,7 +3659,7 @@ export default function App() {
                             required
                             value={editingService?.name || ''}
                             onChange={(e) => setEditingService({...editingService, name: e.target.value})}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             placeholder="e.g. Dental Cleaning"
                           />
                         </div>
@@ -3610,7 +3671,7 @@ export default function App() {
                               required
                               value={editingService?.base_price || ''}
                               onChange={(e) => setEditingService({...editingService, base_price: parseFloat(e.target.value)})}
-                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             />
                           </div>
                           <div>
@@ -3620,7 +3681,7 @@ export default function App() {
                               required
                               value={editingService?.commission_rate || ''}
                               onChange={(e) => setEditingService({...editingService, commission_rate: parseFloat(e.target.value)})}
-                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             />
                           </div>
                         </div>
@@ -3630,7 +3691,7 @@ export default function App() {
                             type="number" 
                             value={editingService?.aracoins_perk || ''}
                             onChange={(e) => setEditingService({...editingService, aracoins_perk: parseInt(e.target.value)})}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             placeholder="Coins per referral"
                           />
                         </div>
@@ -3691,7 +3752,7 @@ export default function App() {
                                 <p className="text-sm font-medium">{service.name}</p>
                               </td>
                               <td className="p-4">
-                                <p className="text-xs text-zinc-500">${service.base_price} / <span className="text-emerald-600 font-bold">${service.commission_rate}</span></p>
+                                <p className="text-xs text-zinc-500">${service.base_price} / <span className="text-violet-600 font-bold">${service.commission_rate}</span></p>
                               </td>
                               <td className="p-4">
                                 <div className="flex flex-wrap gap-1">
@@ -3737,7 +3798,7 @@ export default function App() {
                             required
                             value={editingStaff?.name || ''}
                             onChange={(e) => setEditingStaff({...editingStaff, name: e.target.value})}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                           />
                         </div>
                         <div>
@@ -3747,7 +3808,7 @@ export default function App() {
                             required
                             value={editingStaff?.email || ''}
                             onChange={(e) => setEditingStaff({...editingStaff, email: e.target.value})}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                           />
                         </div>
                         <div>
@@ -3756,7 +3817,7 @@ export default function App() {
                             type="text" 
                             value={editingStaff?.phone || ''}
                             onChange={(e) => setEditingStaff({...editingStaff, phone: e.target.value})}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             placeholder="e.g. 60123456789"
                           />
                         </div>
@@ -3768,7 +3829,7 @@ export default function App() {
                               required
                               value={editingStaff?.staff_id_code || ''}
                               onChange={(e) => setEditingStaff({...editingStaff, staff_id_code: e.target.value.toUpperCase()})}
-                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                               placeholder="e.g. HR001"
                             />
                           </div>
@@ -3778,7 +3839,7 @@ export default function App() {
                               required
                               value={editingStaff?.branch || ''}
                               onChange={(e) => setEditingStaff({...editingStaff, branch: e.target.value})}
-                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             >
                               <option value="">Select Branch</option>
                               <option value="Bangi">Bangi</option>
@@ -3794,7 +3855,7 @@ export default function App() {
                               type="text" 
                               value={editingStaff?.department || ''}
                               onChange={(e) => setEditingStaff({...editingStaff, department: e.target.value})}
-                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             />
                           </div>
                           <div>
@@ -3803,7 +3864,7 @@ export default function App() {
                               type="text" 
                               value={editingStaff?.position || ''}
                               onChange={(e) => setEditingStaff({...editingStaff, position: e.target.value})}
-                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             />
                           </div>
                         </div>
@@ -3813,7 +3874,7 @@ export default function App() {
                             <select 
                               value={editingStaff?.employment_status || 'permanent'}
                               onChange={(e) => setEditingStaff({...editingStaff, employment_status: e.target.value})}
-                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             >
                               <option value="permanent">Permanent</option>
                               <option value="contract">Contract</option>
@@ -3826,7 +3887,7 @@ export default function App() {
                               type="date" 
                               value={editingStaff?.date_joined || ''}
                               onChange={(e) => setEditingStaff({...editingStaff, date_joined: e.target.value})}
-                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                              className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             />
                           </div>
                         </div>
@@ -3836,7 +3897,7 @@ export default function App() {
                             required
                             value={editingStaff?.role || 'staff'}
                             onChange={(e) => setEditingStaff({...editingStaff, role: e.target.value})}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-none"
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 appearance-none"
                           >
                             <option value="staff">Staff</option>
                             <option value="receptionist">Receptionist</option>
@@ -3851,7 +3912,7 @@ export default function App() {
                               required
                               value={editingStaff?.promo_code || ''}
                               onChange={(e) => setEditingStaff({...editingStaff, promo_code: e.target.value.toUpperCase()})}
-                              className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-mono"
+                              className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 font-mono"
                               placeholder="e.g. SMITH10"
                             />
                             <button 
@@ -3944,7 +4005,7 @@ export default function App() {
                                   <div>
                                     <p className="text-sm font-medium">{staff.nickname || staff.name}</p>
                                     {staff.nickname && <p className="text-[10px] text-zinc-400">Real Name: {staff.name}</p>}
-                                    <p className="text-[10px] text-zinc-400">{staff.email} • <span className="font-bold text-emerald-600">{staff.promo_code}</span></p>
+                                    <p className="text-[10px] text-zinc-400">{staff.email} • <span className="font-bold text-violet-600">{staff.promo_code}</span></p>
                                   </div>
                                 </div>
                                 <span className="text-[9px] font-bold uppercase text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded mt-1 inline-block">
@@ -3955,7 +4016,7 @@ export default function App() {
                                 <p className="text-xs font-medium text-zinc-600">{staff.staff_id_code || 'N/A'}</p>
                                 <p className="text-[10px] text-zinc-400">{staff.branch} • {staff.department}</p>
                                 {staff.bank_name && (
-                                  <p className="text-[9px] font-bold text-emerald-600 mt-1 uppercase tracking-tighter">
+                                  <p className="text-[9px] font-bold text-violet-600 mt-1 uppercase tracking-tighter">
                                     {staff.bank_name}: {staff.bank_account_number}
                                   </p>
                                 )}
@@ -3963,14 +4024,14 @@ export default function App() {
                               <td className="p-4">
                                 <div className="flex flex-col gap-2">
                                   <span className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider w-fit ${
-                                    staff.is_approved ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 
+                                    staff.is_approved ? 'bg-violet-50 text-violet-600 border border-violet-100' : 
                                     (staff.employment_status === 'rejected' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-orange-50 text-orange-600 border border-orange-100')
                                   }`}>
                                     {staff.is_approved ? 'Approved' : (staff.employment_status === 'rejected' ? 'Rejected' : 'Pending')}
                                   </span>
                                   <button 
                                     onClick={() => handleApproveStaff(staff.id, !staff.is_approved)}
-                                    className={`text-[9px] font-bold uppercase tracking-tighter underline decoration-dotted underline-offset-2 ${staff.is_approved ? 'text-red-400 hover:text-red-600' : 'text-emerald-500 hover:text-emerald-700'}`}
+                                    className={`text-[9px] font-bold uppercase tracking-tighter underline decoration-dotted underline-offset-2 ${staff.is_approved ? 'text-red-400 hover:text-red-600' : 'text-violet-500 hover:text-violet-700'}`}
                                   >
                                     {staff.is_approved ? 'Revoke Approval' : (staff.employment_status === 'rejected' ? 'Restore & Approve' : 'Approve Now')}
                                   </button>
@@ -3984,7 +4045,7 @@ export default function App() {
                                   </div>
                                   <div className="flex flex-col">
                                     <span className="text-[8px] text-zinc-400 uppercase font-bold">Approved</span>
-                                    <span className="text-xs font-bold text-emerald-600">{staff.approved_earnings.toFixed(0)}</span>
+                                    <span className="text-xs font-bold text-violet-600">{staff.approved_earnings.toFixed(0)}</span>
                                   </div>
                                   <div className="flex flex-col">
                                     <span className="text-[8px] text-zinc-400 uppercase font-bold">Paid</span>
@@ -4027,7 +4088,7 @@ export default function App() {
                           type="text"
                           value={clinicProfile.name}
                           onChange={(e) => setClinicProfile({ ...clinicProfile, name: e.target.value })}
-                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         />
                       </div>
                       <div>
@@ -4036,7 +4097,7 @@ export default function App() {
                           type="text"
                           value={clinicProfile.currency}
                           onChange={(e) => setClinicProfile({ ...clinicProfile, currency: e.target.value })}
-                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                           placeholder="RM, $, etc."
                         />
                       </div>
@@ -4046,7 +4107,7 @@ export default function App() {
                       <textarea 
                         value={clinicProfile.address}
                         onChange={(e) => setClinicProfile({ ...clinicProfile, address: e.target.value })}
-                        className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium h-24 resize-none"
+                        className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium h-24 resize-none"
                       />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -4056,7 +4117,7 @@ export default function App() {
                           type="tel"
                           value={clinicProfile.phone}
                           onChange={(e) => setClinicProfile({ ...clinicProfile, phone: e.target.value })}
-                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         />
                       </div>
                       <div>
@@ -4065,7 +4126,7 @@ export default function App() {
                           type="email"
                           value={clinicProfile.email}
                           onChange={(e) => setClinicProfile({ ...clinicProfile, email: e.target.value })}
-                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         />
                       </div>
                     </div>
@@ -4104,7 +4165,7 @@ export default function App() {
                             {referralSettings.types.map(type => (
                               <span key={type} className="px-3 py-1.5 bg-zinc-100 text-zinc-700 rounded-lg text-xs font-bold">{type}</span>
                             ))}
-                            <button className="px-3 py-1.5 border border-dashed border-zinc-300 text-zinc-400 rounded-lg text-xs font-bold hover:border-emerald-500 hover:text-emerald-500 transition-colors">+ Add Type</button>
+                            <button className="px-3 py-1.5 border border-dashed border-zinc-300 text-zinc-400 rounded-lg text-xs font-bold hover:border-violet-500 hover:text-violet-500 transition-colors">+ Add Type</button>
                           </div>
                         </div>
                         <div className="space-y-4">
@@ -4113,7 +4174,7 @@ export default function App() {
                             type="number" 
                             value={referralSettings.defaultCommission}
                             onChange={(e) => setReferralSettings({...referralSettings, defaultCommission: Number(e.target.value)})}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                           />
                         </div>
                       </div>
@@ -4124,7 +4185,7 @@ export default function App() {
                           value={referralSettings.eligibilityCriteria}
                           onChange={(e) => setReferralSettings({...referralSettings, eligibilityCriteria: e.target.value})}
                           rows={3}
-                          className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
+                          className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 text-sm"
                         />
                       </div>
 
@@ -4155,7 +4216,7 @@ export default function App() {
                                     />
                                   </td>
                                   <td className="p-3">
-                                    <button className="text-emerald-600 font-bold hover:underline">Update</button>
+                                    <button className="text-violet-600 font-bold hover:underline">Update</button>
                                   </td>
                                 </tr>
                               ))}
@@ -4205,7 +4266,7 @@ export default function App() {
                                     };
                                     setRolesConfig(newConfig);
                                   }}
-                                  className={`w-10 h-5 rounded-full transition-all relative ${value ? 'bg-emerald-500' : 'bg-zinc-200'}`}
+                                  className={`w-10 h-5 rounded-full transition-all relative ${value ? 'bg-violet-500' : 'bg-zinc-200'}`}
                                 >
                                   <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${value ? 'left-5.5' : 'left-0.5'}`} />
                                 </button>
@@ -4243,7 +4304,7 @@ export default function App() {
               ) : setupSubTab === 'auth' ? (
                 <div className="max-w-2xl mx-auto space-y-8">
                   <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-50/50 rounded-full blur-3xl -z-10 -mr-32 -mt-32" />
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-violet-50/50 rounded-full blur-3xl -z-10 -mr-32 -mt-32" />
                     
                     <div className="flex items-center gap-4 mb-10">
                       <div className="w-14 h-14 bg-zinc-900 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-zinc-900/20">
@@ -4283,7 +4344,7 @@ export default function App() {
                               setTimeout(() => setSaveStatus(null), 3000);
                             }
                           }}
-                          className={`w-16 h-8 rounded-full transition-all relative shadow-inner ${authSettings.allowRegistration ? 'bg-emerald-500' : 'bg-zinc-200'}`}
+                          className={`w-16 h-8 rounded-full transition-all relative shadow-inner ${authSettings.allowRegistration ? 'bg-violet-500' : 'bg-zinc-200'}`}
                         >
                           <div className={`absolute top-1.5 w-5 h-5 bg-white rounded-full transition-all shadow-md ${authSettings.allowRegistration ? 'left-9' : 'left-1.5'}`} />
                         </button>
@@ -4295,9 +4356,9 @@ export default function App() {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
-                            className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-3 ${saveStatus.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}
+                            className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-3 ${saveStatus.type === 'success' ? 'bg-violet-50 text-violet-600 border border-violet-100' : 'bg-red-50 text-red-600 border border-red-100'}`}
                           >
-                            <div className={`w-2 h-2 rounded-full ${saveStatus.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`} />
+                            <div className={`w-2 h-2 rounded-full ${saveStatus.type === 'success' ? 'bg-violet-500' : 'bg-red-500'} animate-pulse`} />
                             {saveStatus.message}
                           </motion.div>
                         )}
@@ -4331,7 +4392,7 @@ export default function App() {
                           type="time" 
                           value={appSettings.workingHours.start}
                           onChange={(e) => setAppSettings({...appSettings, workingHours: {...appSettings.workingHours, start: e.target.value}})}
-                          className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                         />
                       </div>
                       <div>
@@ -4340,7 +4401,7 @@ export default function App() {
                           type="time" 
                           value={appSettings.workingHours.end}
                           onChange={(e) => setAppSettings({...appSettings, workingHours: {...appSettings.workingHours, end: e.target.value}})}
-                          className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                         />
                       </div>
                     </div>
@@ -4351,7 +4412,7 @@ export default function App() {
                         <input 
                           type="date" 
                           id="new-blocked-date"
-                          className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                         />
                         <button 
                           onClick={() => {
@@ -4384,7 +4445,7 @@ export default function App() {
                         <input 
                           type="time" 
                           id="new-blocked-time"
-                          className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                         />
                         <button 
                           onClick={() => {
@@ -4429,7 +4490,7 @@ export default function App() {
                           }
                         }}
                         disabled={isSavingSetup}
-                        className="w-full bg-emerald-500 text-white py-4 rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                        className="w-full bg-violet-500 text-white py-4 rounded-xl font-bold text-sm hover:bg-violet-600 transition-all shadow-lg shadow-violet-500/20 disabled:opacity-50"
                       >
                         {isSavingSetup ? 'Saving...' : 'Save Booking Settings'}
                       </button>
@@ -4461,7 +4522,7 @@ export default function App() {
                 <div className="p-8">
                   <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-2xl bg-violet-100 text-violet-600 flex items-center justify-center">
                         <Download size={20} />
                       </div>
                       <h3 className="text-xl font-bold text-zinc-900 tracking-tight">M2U Biz Payout</h3>
@@ -4495,7 +4556,7 @@ export default function App() {
                         type="text"
                         required
                         defaultValue={new Date().toLocaleDateString('en-GB')}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         placeholder="e.g. 07/03/2026"
                       />
                     </div>
@@ -4507,7 +4568,7 @@ export default function App() {
                         type="text"
                         required
                         defaultValue="INCENTIVE"
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         placeholder="e.g. INCENTIVE"
                       />
                     </div>
@@ -4519,7 +4580,7 @@ export default function App() {
                         type="text"
                         required
                         defaultValue="STAFF REFERRAL INCENTIVE"
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         placeholder="e.g. STAFF REFERRAL INCENTIVE"
                       />
                     </div>
@@ -4529,7 +4590,7 @@ export default function App() {
                       <select 
                         name="bulkPaymentType"
                         defaultValue="SALARY"
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                       >
                         <option value="SALARY">SALARY</option>
                         <option value="DIVIDEND">DIVIDEND</option>
@@ -4540,7 +4601,7 @@ export default function App() {
 
                     <button 
                       type="submit"
-                      className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+                      className="w-full bg-violet-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-violet-700 transition-all shadow-lg shadow-violet-600/20"
                     >
                       Download CSV Template
                     </button>
@@ -4571,7 +4632,7 @@ export default function App() {
                 <div className="p-8">
                   <div className="flex items-start justify-between mb-8">
                     <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-3xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl font-bold overflow-hidden border border-emerald-100 shadow-sm">
+                      <div className="w-16 h-16 rounded-3xl bg-violet-100 text-violet-700 flex items-center justify-center text-2xl font-bold overflow-hidden border border-violet-100 shadow-sm">
                         {selectedStaffDetail.profile_picture ? (
                           <img 
                             src={selectedStaffDetail.profile_picture} 
@@ -4591,7 +4652,7 @@ export default function App() {
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">{selectedStaffDetail.role}</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-violet-600 bg-violet-50 px-2 py-0.5 rounded-md">{selectedStaffDetail.role}</p>
                           <p className="text-zinc-400 text-xs font-medium">{selectedStaffDetail.email}</p>
                         </div>
                         <div className="flex items-center gap-2 mt-2">
@@ -4620,7 +4681,7 @@ export default function App() {
                     </div>
                     <div className="bg-zinc-50 p-4 rounded-3xl border border-zinc-100">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total Earned</p>
-                      <p className="text-xl font-bold text-emerald-600">${selectedStaffDetail.earned.toFixed(2)}</p>
+                      <p className="text-xl font-bold text-violet-600">${selectedStaffDetail.earned.toFixed(2)}</p>
                     </div>
                     <div className="bg-zinc-50 p-4 rounded-3xl border border-zinc-100">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Promo Code</p>
@@ -4630,7 +4691,7 @@ export default function App() {
 
                   <div className="bg-zinc-50 p-6 rounded-3xl border border-zinc-100 mb-8">
                     <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <DollarSign size={14} className="text-emerald-500" />
+                      <DollarSign size={14} className="text-violet-500" />
                       Payment Information
                     </h4>
                     <div className="grid grid-cols-2 gap-6">
@@ -4663,7 +4724,7 @@ export default function App() {
                                 <p className="text-[10px] text-zinc-500 uppercase font-medium">{ref.service_name} • {ref.date}</p>
                               </div>
                               <div className="text-right">
-                                <p className="text-sm font-bold text-emerald-600">+${(ref.commission_amount * (selectedStaffDetail.tier?.bonus || 1)).toFixed(2)}</p>
+                                <p className="text-sm font-bold text-violet-600">+${(ref.commission_amount * (selectedStaffDetail.tier?.bonus || 1)).toFixed(2)}</p>
                                 {allowance > 0 && (
                                   <p className="text-[9px] font-bold text-blue-600 uppercase">Allowance: +${allowance.toFixed(2)}</p>
                                 )}
@@ -4715,7 +4776,7 @@ export default function App() {
                         name="title"
                         required
                         defaultValue={editingTask?.title || ''}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         placeholder="e.g. Monthly Inventory Check"
                       />
                     </div>
@@ -4725,7 +4786,7 @@ export default function App() {
                         name="description"
                         rows={3}
                         defaultValue={editingTask?.description || ''}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         placeholder="Details about the task..."
                       />
                     </div>
@@ -4736,7 +4797,7 @@ export default function App() {
                           selected={taskDueDate}
                           onChange={(date) => setTaskDueDate(date)}
                           dateFormat="yyyy-MM-dd"
-                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                           placeholderText="Select due date"
                           required
                         />
@@ -4746,7 +4807,7 @@ export default function App() {
                         <select 
                           name="assigned_to"
                           defaultValue={editingTask?.assigned_to || ''}
-                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium appearance-none"
+                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium appearance-none"
                         >
                           <option value="">Unassigned</option>
                           {staffList.map(staff => (
@@ -4804,7 +4865,7 @@ export default function App() {
                         type="password"
                         value={passwordForm.current}
                         onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         placeholder="••••••••"
                         required
                       />
@@ -4816,7 +4877,7 @@ export default function App() {
                         type="password"
                         value={passwordForm.new}
                         onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         placeholder="Min. 6 characters"
                         required
                       />
@@ -4828,7 +4889,7 @@ export default function App() {
                         type="password"
                         value={passwordForm.confirm}
                         onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-medium"
+                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         placeholder="••••••••"
                         required
                       />
