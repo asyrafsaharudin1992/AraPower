@@ -1344,11 +1344,6 @@ export default function App() {
     );
   }
 
-  const totalEarned = currentUser?.lifetime_earnings || 0;
-  const pendingAmount = currentUser?.pending_earnings || 0;
-  const approvedAmount = currentUser?.approved_earnings || 0;
-  const paidAmount = currentUser?.paid_earnings || 0;
-
   const adminStats = {
     totalPayout: staffList.reduce((sum, s) => sum + (s.paid_earnings || 0), 0),
     totalReferrals: referrals.length,
@@ -1378,22 +1373,41 @@ export default function App() {
     const tier = getTier(monthlySuccessfulRefs);
     
     const totalRefs = staffRefs.length;
-    const baseEarned = staffRefs
-      .filter(r => r.status === 'completed' || r.status === 'paid_completed' || r.status === 'buffer' || r.status === 'approved' || r.status === 'payout_processed')
-      .reduce((sum, r) => sum + r.commission_amount, 0);
     
-    const totalWithBonus = staffRefs
-      .filter(r => r.status === 'completed' || r.status === 'paid_completed' || r.status === 'buffer' || r.status === 'approved' || r.status === 'payout_processed')
-      .reduce((sum, r) => {
-        // Apply tier based on monthly success at the time of calculation
-        // In a real app, you might lock the tier at the end of the month
-        return sum + (r.commission_amount * tier.bonus);
-      }, 0);
+    // Calculate dynamic earnings based on status
+    const pending_earnings = staffRefs
+      .filter(r => r.status === 'completed' || r.status === 'paid_completed' || r.status === 'buffer')
+      .reduce((sum, r) => sum + (r.commission_amount * tier.bonus), 0);
+    
+    const approved_earnings = staffRefs
+      .filter(r => r.status === 'approved')
+      .reduce((sum, r) => sum + (r.commission_amount * tier.bonus), 0);
+      
+    const paid_earnings = staffRefs
+      .filter(r => r.status === 'payout_processed')
+      .reduce((sum, r) => sum + (r.commission_amount * tier.bonus), 0);
 
-    return { ...staff, totalRefs, monthlySuccessfulRefs, earned: totalWithBonus, tier };
+    const totalWithBonus = pending_earnings + approved_earnings + paid_earnings;
+
+    return { 
+      ...staff, 
+      totalRefs, 
+      monthlySuccessfulRefs, 
+      earned: totalWithBonus, 
+      tier,
+      pending_earnings,
+      approved_earnings,
+      paid_earnings,
+      lifetime_earnings: totalWithBonus
+    };
   }).sort((a, b) => b.earned - a.earned);
 
-  const currentUserStats = staffPerformance.find(s => s.id === currentUser.id);
+  const currentUserStats = staffPerformance.find(s => s.id === currentUser?.id);
+  
+  const totalEarned = currentUserStats?.lifetime_earnings || 0;
+  const pendingAmount = currentUserStats?.pending_earnings || 0;
+  const approvedAmount = currentUserStats?.approved_earnings || 0;
+  const paidAmount = currentUserStats?.paid_earnings || 0;
   const nextTier = TIERS.find(t => (currentUserStats?.monthlySuccessfulRefs || 0) < t.min);
   const progressToNext = nextTier 
     ? ((currentUserStats?.monthlySuccessfulRefs || 0) / nextTier.min) * 100 
@@ -3572,7 +3586,7 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-50">
-                          {staffList.map(staff => (
+                          {staffPerformance.map(staff => (
                             <tr key={staff.id} className="hover:bg-zinc-50/50 transition-colors">
                               <td className="p-4">
                                 <div className="flex items-center gap-3">
