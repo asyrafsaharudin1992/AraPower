@@ -257,23 +257,47 @@ export default function App() {
   }, [apiBaseUrl]);
 
   useEffect(() => {
+    const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
+                                import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder-project.supabase.co';
+
+    if (!isSupabaseConfigured) {
+      console.log('Supabase not configured, relying on local session');
+      setIsAuthChecking(false);
+      return;
+    }
+
     // Check for active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
         fetchStaffByEmail(session.user.email, session.user);
       } else {
-        setIsAuthChecking(false);
+        // If no Supabase session, check if we have a local user before stopping check
+        const saved = localStorage.getItem('currentUser');
+        if (!saved) {
+          setIsAuthChecking(false);
+        } else {
+          // If we have a saved user, we keep it but still stop the initial check
+          setIsAuthChecking(false);
+        }
       }
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state change:', event, session?.user?.email);
       if (session?.user?.email) {
         fetchStaffByEmail(session.user.email, session.user);
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         localStorage.removeItem('currentUser');
         setIsAuthChecking(false);
+      } else {
+        // For other events like INITIAL_SESSION with no session, 
+        // only clear if we don't have a local user
+        const saved = localStorage.getItem('currentUser');
+        if (!saved && event === 'INITIAL_SESSION') {
+          setIsAuthChecking(false);
+        }
       }
     });
 
@@ -663,17 +687,34 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file || !currentUser) return;
 
+    const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
+                                import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder-project.supabase.co';
+
+    if (!isSupabaseConfigured) {
+      alert('Supabase is not configured. Image upload requires a valid Supabase connection.');
+      return;
+    }
+
     setIsUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${currentUser.id}-${Math.random()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
+      // Ensure bucket exists or handle error gracefully
       const { error: uploadError } = await supabase.storage
         .from('clinic-assets')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        if (uploadError.message.includes('bucket not found')) {
+          throw new Error('Storage bucket "clinic-assets" not found. Please create it in your Supabase dashboard and set it to public.');
+        }
+        throw uploadError;
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from('clinic-assets')
@@ -682,7 +723,7 @@ export default function App() {
       await handleUpdateProfile({ profile_picture: publicUrl });
     } catch (error: any) {
       console.error('Error uploading image:', error);
-      alert('Error uploading image: ' + error.message);
+      alert('Error: ' + error.message);
     } finally {
       setIsUploading(false);
     }
