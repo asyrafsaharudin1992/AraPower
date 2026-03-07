@@ -140,7 +140,7 @@ const PORT = 3000;
 app.get("/api/health", async (req, res) => {
   let dbStatus = "unknown";
   try {
-    const { error } = await supabase.from('staff').select('count', { count: 'exact', head: true });
+    const { error } = await supabase.from('staff').select('*', { count: 'exact', head: true });
     if (error) throw error;
     dbStatus = "connected";
   } catch (e: any) {
@@ -152,8 +152,61 @@ app.get("/api/health", async (req, res) => {
     db: dbStatus,
     time: new Date().toISOString(),
     vercel: !!process.env.VERCEL,
-    env: process.env.NODE_ENV
+    env: process.env.NODE_ENV,
+    config: {
+      url: supabaseUrl ? 'SET' : 'MISSING',
+      key: supabaseKey ? 'SET' : 'MISSING'
+    }
   });
+});
+
+app.get("/api/debug/supabase", async (req, res) => {
+  const report: any = {
+    url_configured: !!supabaseUrl,
+    key_configured: !!supabaseKey,
+    env_vars: {
+      VITE_SUPABASE_URL: supabaseUrl ? 'SET' : 'MISSING',
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING',
+      VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'MISSING',
+    },
+    tables: {}
+  };
+
+  if (!supabaseUrl || !supabaseKey) {
+    return res.status(500).json({ status: 'error', message: 'Supabase credentials missing', report });
+  }
+
+  try {
+    // Check staff table
+    const { count: staffCount, error: staffError } = await supabase
+      .from('staff')
+      .select('*', { count: 'exact', head: true });
+    
+    report.tables.staff = staffError ? { status: 'error', error: staffError } : { status: 'ok', count: staffCount };
+
+    // Check services table
+    const { count: servicesCount, error: servicesError } = await supabase
+      .from('services')
+      .select('*', { count: 'exact', head: true });
+    
+    report.tables.services = servicesError ? { status: 'error', error: servicesError } : { status: 'ok', count: servicesCount };
+
+    // Check settings table
+    const { count: settingsCount, error: settingsError } = await supabase
+      .from('settings')
+      .select('*', { count: 'exact', head: true });
+    
+    report.tables.settings = settingsError ? { status: 'error', error: settingsError } : { status: 'ok', count: settingsCount };
+
+    const allOk = !staffError && !servicesError && !settingsError;
+    res.json({ 
+      status: allOk ? 'ok' : 'partial_error', 
+      message: allOk ? 'Supabase connection and schema verified' : 'Some tables are missing or inaccessible',
+      report 
+    });
+  } catch (error: any) {
+    res.status(500).json({ status: 'error', message: error.message, report });
+  }
 });
 
 app.post("/api/auth/login", async (req, res) => {

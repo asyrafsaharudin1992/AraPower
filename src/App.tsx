@@ -32,7 +32,9 @@ import {
   Zap,
   ShieldAlert,
   Calendar,
-  CheckSquare
+  CheckSquare,
+  Activity,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -3466,6 +3468,33 @@ export default function App() {
                   </div>
                   <div className="lg:col-span-2">
                     <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                      <div className="flex items-center justify-between p-4 border-b border-zinc-100 bg-zinc-50/50">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Staff Directory</h3>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={async () => {
+                              try {
+                                const res = await fetch('/api/debug/supabase');
+                                const data = await res.json();
+                                alert(`Database Status: ${data.message}\n\nReport:\n${JSON.stringify(data.report, null, 2)}`);
+                              } catch (err: any) {
+                                alert(`Failed to check database: ${err.message}`);
+                              }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-[10px] font-bold text-zinc-600 hover:bg-zinc-50 transition-colors shadow-sm"
+                          >
+                            <Activity size={12} />
+                            Diagnostics
+                          </button>
+                          <button 
+                            onClick={fetchStaff}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-[10px] font-bold text-zinc-600 hover:bg-zinc-50 transition-colors shadow-sm"
+                          >
+                            <RefreshCw size={12} />
+                            Refresh
+                          </button>
+                        </div>
+                      </div>
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-zinc-50 border-b border-zinc-100">
