@@ -257,15 +257,6 @@ export default function App() {
   }, [apiBaseUrl]);
 
   useEffect(() => {
-    const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
-                                import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder-project.supabase.co';
-
-    if (!isSupabaseConfigured) {
-      console.log('Supabase not configured, relying on local session');
-      setIsAuthChecking(false);
-      return;
-    }
-
     // Check for active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
@@ -280,6 +271,9 @@ export default function App() {
           setIsAuthChecking(false);
         }
       }
+    }).catch(err => {
+      console.warn('Supabase session check failed:', err);
+      setIsAuthChecking(false);
     });
 
     // Listen for auth changes
@@ -686,14 +680,6 @@ export default function App() {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !currentUser) return;
-
-    const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
-                                import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder-project.supabase.co';
-
-    if (!isSupabaseConfigured) {
-      alert('Supabase is not configured. Image upload requires a valid Supabase connection.');
-      return;
-    }
 
     setIsUploading(true);
     try {
