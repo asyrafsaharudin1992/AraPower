@@ -390,19 +390,39 @@ app.post("/api/staff", (req, res) => {
 
 app.patch("/api/staff/:id", (req, res) => {
   const { id } = req.params;
-  const { name, email, role, promo_code, staff_id_code, branch, department, position, employment_status, phone } = req.body;
+  const body = req.body;
+  
+  const updates: string[] = [];
+  const params: any[] = [];
+  
+  const allowedFields = [
+    'name', 'email', 'role', 'promo_code', 'staff_id_code', 
+    'branch', 'department', 'position', 'employment_status', 
+    'phone', 'is_approved', 'nickname', 'profile_picture', 
+    'bank_name', 'bank_account_number'
+  ];
+
+  Object.keys(body).forEach(key => {
+    if (allowedFields.includes(key)) {
+      updates.push(`${key} = ?`);
+      params.push(body[key]);
+    }
+  });
+  
+  if (updates.length === 0) {
+    return res.status(400).json({ error: "No valid fields provided for update" });
+  }
+  
+  params.push(id);
   try {
-    db.prepare(`
-      UPDATE staff 
-      SET name = ?, email = ?, role = ?, promo_code = ?, staff_id_code = ?, branch = ?, department = ?, position = ?, employment_status = ?, phone = ?
-      WHERE id = ?
-    `).run(name, email, role, promo_code, staff_id_code, branch, department, position, employment_status, phone, id);
+    db.prepare(`UPDATE staff SET ${updates.join(", ")} WHERE id = ?`).run(...params);
     res.json({ success: true });
   } catch (error: any) {
+    console.error(`Error updating staff ${id}:`, error);
     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       res.status(400).json({ error: "Email or Promo Code already exists" });
     } else {
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "Internal server error during update" });
     }
   }
 });
@@ -416,7 +436,13 @@ app.post("/api/staff/:id/reset-password", (req, res) => {
 app.post("/api/staff/:id/approve", (req, res) => {
   const { id } = req.params;
   const { is_approved } = req.body;
-  db.prepare("UPDATE staff SET is_approved = ? WHERE id = ?").run(is_approved ? 1 : 0, id);
+  
+  if (is_approved) {
+    db.prepare("UPDATE staff SET is_approved = 1, employment_status = 'active' WHERE id = ?").run(id);
+  } else {
+    db.prepare("UPDATE staff SET is_approved = 0 WHERE id = ?").run(id);
+  }
+  
   res.json({ success: true });
 });
 

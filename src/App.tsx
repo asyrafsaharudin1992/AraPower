@@ -258,7 +258,7 @@ export default function App() {
     // Check for active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
-        fetchStaffByEmail(session.user.email);
+        fetchStaffByEmail(session.user.email, session.user);
       } else {
         setIsAuthChecking(false);
       }
@@ -267,7 +267,7 @@ export default function App() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user?.email) {
-        fetchStaffByEmail(session.user.email);
+        fetchStaffByEmail(session.user.email, session.user);
       } else {
         setCurrentUser(null);
         localStorage.removeItem('currentUser');
@@ -278,12 +278,32 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchStaffByEmail = async (email: string) => {
+  const fetchStaffByEmail = async (email: string, user?: any) => {
     try {
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${email}`);
       if (res.ok && data) {
         localStorage.setItem('currentUser', JSON.stringify(data));
         setCurrentUser(data);
+      } else if (user) {
+        // User exists in Supabase but not in our local DB (likely due to DB reset)
+        // Attempt to auto-recreate the record using Supabase metadata
+        console.log('User not found in local DB, attempting to recreate from Supabase metadata');
+        const metadata = user.user_metadata || {};
+        const { res: regRes, data: regData } = await safeFetch(`${apiBaseUrl}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: metadata.full_name || email.split('@')[0],
+            email: email,
+            branch: metadata.branch || 'HQ',
+            phone: metadata.phone || '',
+            password: 'password123' // Default password since we can't get it from Supabase
+          })
+        });
+        if (regRes.ok && regData) {
+          localStorage.setItem('currentUser', JSON.stringify(regData));
+          setCurrentUser(regData);
+        }
       }
     } finally {
       setIsAuthChecking(false);
@@ -365,7 +385,7 @@ export default function App() {
     if (activeTab === 'admin' && currentUser?.role === 'admin') {
       fetchStaff();
     }
-  }, [activeTab, currentUser]);
+  }, [activeTab, currentUser?.role]);
 
   const fetchStaff = async () => {
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff`);
@@ -373,7 +393,9 @@ export default function App() {
       setStaffList(data);
       if (currentUser) {
         const updatedMe = data.find((s: Staff) => s.id === currentUser.id);
-        if (updatedMe) setCurrentUser(updatedMe);
+        if (updatedMe && JSON.stringify(updatedMe) !== JSON.stringify(currentUser)) {
+          setCurrentUser(updatedMe);
+        }
       }
     }
   };
@@ -445,7 +467,7 @@ export default function App() {
       }
 
       if (data.user?.email) {
-        await fetchStaffByEmail(data.user.email);
+        await fetchStaffByEmail(data.user.email, data.user);
       }
     } catch (error: any) {
       console.error('Login error:', error);
@@ -715,10 +737,26 @@ export default function App() {
   };
 
   const handleDeleteStaff = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this staff member?')) return;
-    const { res } = await safeFetch(`/api/staff/${id}`, { method: 'DELETE' });
+    if (!confirm('Are you sure you want to delete this staff member? This will permanently remove their record.')) return;
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}`, { method: 'DELETE' });
     if (res.ok) {
       fetchStaff();
+    } else {
+      alert(data.error || 'Delete failed');
+    }
+  };
+
+  const handleRejectStaff = async (id: number) => {
+    if (!confirm('Reject this application? The user will not be able to access the portal.')) return;
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employment_status: 'rejected', is_approved: 0 })
+    });
+    if (res.ok) {
+      fetchStaff();
+    } else {
+      alert(data.error || 'Rejection failed');
     }
   };
 
@@ -2352,13 +2390,13 @@ export default function App() {
                   <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Staff Approvals</p>
                     <p className="text-3xl font-bold tracking-tight text-blue-500">
-                      {staffList.filter(s => !s.is_approved).length}
+                      {staffList.filter(s => !s.is_approved && s.employment_status !== 'rejected').length}
                     </p>
                   </div>
                 </div>
 
               {/* Staff Approvals Section */}
-              {staffList.filter(s => !s.is_approved).length > 0 && (
+              {staffList.filter(s => !s.is_approved && s.employment_status !== 'rejected').length > 0 && (
                 <div className="bg-blue-50/50 rounded-[2.5rem] border border-blue-100 p-8">
                   <div className="flex items-center justify-between mb-6">
                     <div>
@@ -2370,7 +2408,7 @@ export default function App() {
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {staffList.filter(s => !s.is_approved).map(staff => (
+                    {staffList.filter(s => !s.is_approved && s.employment_status !== 'rejected').map(staff => (
                       <div key={staff.id} className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm hover:shadow-md transition-all">
                         <div className="flex items-center gap-4 mb-4">
                           <div className="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center text-lg font-black text-zinc-400">
@@ -2403,7 +2441,7 @@ export default function App() {
                             Approve
                           </button>
                           <button 
-                            onClick={() => handleDeleteStaff(staff.id)}
+                            onClick={() => handleRejectStaff(staff.id)}
                             className="px-4 bg-red-50 text-red-500 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all"
                           >
                             Reject
@@ -3465,14 +3503,17 @@ export default function App() {
                               </td>
                               <td className="p-4">
                                 <div className="flex flex-col gap-2">
-                                  <span className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider w-fit ${staff.is_approved ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
-                                    {staff.is_approved ? 'Approved' : 'Pending'}
+                                  <span className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider w-fit ${
+                                    staff.is_approved ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 
+                                    (staff.employment_status === 'rejected' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-orange-50 text-orange-600 border border-orange-100')
+                                  }`}>
+                                    {staff.is_approved ? 'Approved' : (staff.employment_status === 'rejected' ? 'Rejected' : 'Pending')}
                                   </span>
                                   <button 
                                     onClick={() => handleApproveStaff(staff.id, !staff.is_approved)}
                                     className={`text-[9px] font-bold uppercase tracking-tighter underline decoration-dotted underline-offset-2 ${staff.is_approved ? 'text-red-400 hover:text-red-600' : 'text-emerald-500 hover:text-emerald-700'}`}
                                   >
-                                    {staff.is_approved ? 'Revoke Approval' : 'Approve Now'}
+                                    {staff.is_approved ? 'Revoke Approval' : (staff.employment_status === 'rejected' ? 'Restore & Approve' : 'Approve Now')}
                                   </button>
                                 </div>
                               </td>
