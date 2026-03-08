@@ -42,7 +42,9 @@ import {
   BarChart3,
   User,
   Eye,
-  EyeOff
+  EyeOff,
+  ArrowRight,
+  Mail
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -295,6 +297,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [authEmail, setAuthEmail] = useState('');
+  const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'auth'>('welcome');
   const [showWelcome, setShowWelcome] = useState(false);
   const [authPassword, setAuthPassword] = useState('');
   const [authName, setAuthName] = useState('');
@@ -1280,6 +1283,55 @@ export default function App() {
     );
   }
 
+  // Welcome / Onboarding Screen
+  if (!currentUser && onboardingStep === 'welcome') {
+    return (
+      <div className="min-h-screen bg-[#FF8A8A] flex items-center justify-center p-0 sm:p-4 font-sans">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative"
+        >
+          {/* Topographic Background */}
+          <div className="absolute top-0 left-0 right-0 h-[60%] overflow-hidden z-0 bg-[#FF8A8A]">
+            <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <path d="M0,20 Q25,10 50,20 T100,20" fill="none" stroke="white" strokeWidth="0.5" />
+              <path d="M0,40 Q25,30 50,40 T100,40" fill="none" stroke="white" strokeWidth="0.5" />
+              <path d="M0,60 Q25,50 50,60 T100,60" fill="none" stroke="white" strokeWidth="0.5" />
+              <path d="M0,80 Q25,70 50,80 T100,80" fill="none" stroke="white" strokeWidth="0.5" />
+              <path d="M0,100 Q25,90 50,100 T100,100" fill="none" stroke="white" strokeWidth="0.5" />
+            </svg>
+            <svg className="absolute bottom-0 w-full h-32 text-white fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none">
+              <path d="M0,160C480,320,960,0,1440,160L1440,320L0,320Z"></path>
+            </svg>
+          </div>
+
+          <div className="flex-1 flex flex-col px-10 pb-12 relative z-10 justify-end">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <h1 className="text-5xl font-black text-[#1A365D] mb-12 tracking-tight leading-tight">Welcome to AraPower</h1>
+              
+              <div className="flex items-center justify-end gap-4">
+                <button 
+                  onClick={() => setOnboardingStep('auth')}
+                  className="flex items-center gap-3 group"
+                >
+                  <span className="text-zinc-400 font-bold text-lg group-hover:text-zinc-600 transition-colors">Continue</span>
+                  <div className="w-14 h-14 bg-[#FF8A8A] rounded-full flex items-center justify-center text-white shadow-lg shadow-[#FF8A8A]/30 group-hover:scale-110 transition-transform">
+                    <ArrowRight size={24} />
+                  </div>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   if (showWelcome && currentUser) {
     return (
       <div className="min-h-screen bg-[#FFF5F0] flex items-center justify-center p-0 sm:p-4 font-sans">
@@ -1307,9 +1359,6 @@ export default function App() {
               transition={{ delay: 0.3, duration: 0.8, type: 'spring' }}
               className="mb-8"
             >
-              <div className="w-24 h-24 bg-white rounded-[2.5rem] shadow-xl flex items-center justify-center mx-auto mb-6 border border-zinc-50">
-                <Logo className="w-16 h-16" />
-              </div>
               <h1 className="text-4xl font-black text-zinc-900 tracking-tighter mb-2">Welcome to</h1>
               <h2 className="text-5xl font-black text-brand-primary tracking-tighter">AraPower</h2>
             </motion.div>
@@ -1338,66 +1387,48 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-[#FFF5F0] flex items-center justify-center p-0 sm:p-4 font-sans">
+      <div className="min-h-screen bg-[#FF8A8A] flex items-center justify-center p-0 sm:p-4 font-sans">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative"
         >
-          {/* Wavy Top Background */}
-          <div className="absolute top-0 left-0 right-0 h-[35%] overflow-hidden z-0">
-            {/* Main Gradient Background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#FFB79D] via-[#F2994A] to-[#E67E22]" />
-            
-            {/* Layered Waves for Depth - Smooth organic curves matching the image */}
-            <svg className="absolute bottom-0 w-full h-32 text-white/10 fill-current translate-y-4" viewBox="0 0 1440 320" preserveAspectRatio="none">
-              <path d="M0,160C320,300,640,0,1440,160L1440,320L0,320Z"></path>
+          {/* Topographic Background */}
+          <div className="absolute top-0 left-0 right-0 h-[45%] overflow-hidden z-0 bg-[#FF8A8A]">
+            <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <path d="M10,10 Q30,0 50,10 T90,10" fill="none" stroke="white" strokeWidth="0.5" />
+              <path d="M0,30 Q40,20 80,30 T120,30" fill="none" stroke="white" strokeWidth="0.5" />
+              <path d="M-20,50 Q20,40 60,50 T140,50" fill="none" stroke="white" strokeWidth="0.5" />
             </svg>
-            
-            <svg className="absolute bottom-0 w-full h-24 text-white fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none">
-              <path d="M0,224C480,350,960,100,1440,224L1440,320L0,320Z"></path>
+            <svg className="absolute bottom-0 w-full h-32 text-white fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none">
+              <path d="M0,128C480,256,960,0,1440,128L1440,320L0,320Z"></path>
             </svg>
           </div>
 
-          <div className="flex-1 flex flex-col px-8 pt-[30%] pb-10 overflow-y-auto relative z-10">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.6 }}
-              className="mb-8"
-            >
-              <h1 className="text-4xl font-bold text-zinc-800 mb-2">
-                {authMode === 'login' ? 'Sign In' : 'Sign Up'}
-              </h1>
-              <p className="text-zinc-500 text-sm">
-                {authMode === 'login' ? 'Sign in to your Registered Account.' : 'Create your account to get started.'}
-              </p>
-              <div className="w-12 h-1 bg-brand-primary mt-4 rounded-full" />
-            </motion.div>
+          <div className="flex-1 flex flex-col px-8 pb-10 overflow-y-auto relative z-10">
+            {/* Spacer to push content below the wavy background */}
+            <div className="min-h-[35%] w-full" />
+            
+            <div className="flex-1 flex flex-col justify-center py-4">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.6 }}
+                className="mb-8"
+              >
+                <h1 className="text-4xl font-black text-[#1A365D] mb-1">
+                  {authMode === 'login' ? 'Sign in' : 'Sign up'}
+                </h1>
+                <div className="w-10 h-1 bg-[#FF8A8A] rounded-full mb-4" />
+              </motion.div>
 
           <AnimatePresence mode="wait">
-            {connectionStatus === 'offline' && (
-              <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mb-6 p-3 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-xl border border-amber-100 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  API Connection Issue: {connectionError || 'Offline'}
-                </div>
-                <button onClick={checkConnection} className="underline hover:text-amber-900">
-                  Retry
-                </button>
-              </motion.div>
-            )}
             {authError && (
               <motion.div 
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="mb-8 p-4 bg-red-50 text-red-600 text-[11px] font-bold rounded-2xl border border-red-100 flex items-center gap-3"
+                className="mb-6 p-4 bg-red-50 text-red-600 text-xs font-bold rounded-2xl border border-red-100 flex items-center gap-3"
               >
                 <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                 {authError}
@@ -1415,28 +1446,32 @@ export default function App() {
                 onSubmit={handleLoginSubmit} 
                 className="flex-1 flex flex-col"
               >
-                <div className="space-y-8 mb-8">
-                  <div className="space-y-2 border-b border-zinc-200 pb-2">
-                    <label className="block text-sm font-semibold text-zinc-700">Email Address</label>
-                    <input 
-                      type="email"
-                      required
-                      value={authEmail}
-                      onChange={(e) => setAuthEmail(e.target.value)}
-                      className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300"
-                      placeholder="simonnjege@gmail.com"
-                    />
+                <div className="space-y-6 mb-8">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-zinc-500">Email</label>
+                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-2 transition-colors">
+                      <Mail size={18} className="text-zinc-300" />
+                      <input 
+                        type="email"
+                        required
+                        value={authEmail}
+                        onChange={(e) => setAuthEmail(e.target.value)}
+                        className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-sm"
+                        placeholder="demo@email.com"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2 border-b border-zinc-200 pb-2 relative">
-                    <label className="block text-sm font-semibold text-zinc-700">Password</label>
-                    <div className="flex items-center">
+                  <div className="space-y-2 relative">
+                    <label className="block text-sm font-bold text-zinc-500">Password</label>
+                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-2 transition-colors">
+                      <Lock size={18} className="text-zinc-300" />
                       <input 
                         type={showPassword ? "text" : "password"}
                         required
                         value={authPassword}
                         onChange={(e) => setAuthPassword(e.target.value)}
-                        className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300"
-                        placeholder="••••••••"
+                        className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-sm"
+                        placeholder="enter your password"
                       />
                       <button 
                         type="button"
@@ -1449,26 +1484,29 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="text-right mb-12">
-                  <button type="button" className="text-brand-primary text-sm font-semibold hover:underline">
+                <div className="flex items-center justify-between mb-10">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <div className="w-5 h-5 rounded border-2 border-zinc-200 flex items-center justify-center group-hover:border-[#FF8A8A] transition-colors">
+                      <div className="w-3 h-3 bg-[#FF8A8A] rounded-sm opacity-0 group-hover:opacity-20 transition-opacity" />
+                    </div>
+                    <span className="text-xs font-bold text-zinc-500">Remember Me</span>
+                  </label>
+                  <button type="button" className="text-[#FF8A8A] text-xs font-bold hover:underline">
                     Forgot Password?
                   </button>
                 </div>
 
-                <div className="mt-auto flex gap-4">
-                  <button 
-                    type="button"
-                    onClick={() => setAuthMode('register')}
-                    className="flex-1 py-4 border-2 border-brand-primary text-brand-primary rounded-full font-bold text-sm uppercase tracking-wider hover:bg-brand-primary/5 transition-all"
-                  >
-                    Sign Up
-                  </button>
+                <div className="mt-auto space-y-6">
                   <button 
                     type="submit"
-                    className="flex-1 py-4 bg-gradient-to-r from-brand-primary to-[#2A5D74] text-white rounded-full font-bold text-sm uppercase tracking-wider shadow-lg shadow-brand-primary/30 hover:shadow-brand-primary/40 transition-all active:scale-[0.98]"
+                    className="w-full py-5 bg-[#F2994A] text-white rounded-2xl font-black text-lg shadow-xl shadow-[#F2994A]/30 hover:shadow-[#F2994A]/40 transition-all active:scale-[0.98]"
                   >
-                    Sign In
+                    Login
                   </button>
+                  
+                  <p className="text-center text-sm font-bold text-zinc-400">
+                    Don't have an Account ? <button onClick={() => setAuthMode('register')} className="text-[#FF8A8A] hover:underline">Sign up</button>
+                  </p>
                 </div>
               </motion.form>
             ) : (
@@ -1480,98 +1518,100 @@ export default function App() {
                 onSubmit={handleRegisterSubmit} 
                 className="flex-1 flex flex-col"
               >
-                <div className="space-y-6 mb-8">
-                  <div className="space-y-2 border-b border-zinc-200 pb-2">
-                    <label className="block text-sm font-semibold text-zinc-700">Full Name</label>
-                    <input 
-                      type="text"
-                      required
-                      value={authName}
-                      onChange={(e) => setAuthName(e.target.value)}
-                      className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300"
-                      placeholder="John Doe"
-                    />
+                <div className="space-y-4 mb-8">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-zinc-500">Full Name</label>
+                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-1 transition-colors">
+                      <User size={16} className="text-zinc-300" />
+                      <input 
+                        type="text"
+                        required
+                        value={authName}
+                        onChange={(e) => setAuthName(e.target.value)}
+                        className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-sm"
+                        placeholder="John Doe"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2 border-b border-zinc-200 pb-2">
-                    <label className="block text-sm font-semibold text-zinc-700">Email Address</label>
-                    <input 
-                      type="email"
-                      required
-                      value={authEmail}
-                      onChange={(e) => setAuthEmail(e.target.value)}
-                      className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300"
-                      placeholder="john@clinic.com"
-                    />
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-zinc-500">Email</label>
+                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-1 transition-colors">
+                      <Mail size={16} className="text-zinc-300" />
+                      <input 
+                        type="email"
+                        required
+                        value={authEmail}
+                        onChange={(e) => setAuthEmail(e.target.value)}
+                        className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-sm"
+                        placeholder="john@clinic.com"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2 border-b border-zinc-200 pb-2 relative">
-                    <label className="block text-sm font-semibold text-zinc-700">Password</label>
-                    <div className="flex items-center">
+                  <div className="space-y-1 relative">
+                    <label className="block text-xs font-bold text-zinc-500">Password</label>
+                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-1 transition-colors">
+                      <Lock size={16} className="text-zinc-300" />
                       <input 
                         type={showPassword ? "text" : "password"}
                         required
                         minLength={6}
                         value={authPassword}
                         onChange={(e) => setAuthPassword(e.target.value)}
-                        className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300"
+                        className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-sm"
                         placeholder="Min. 6 characters"
                       />
-                      <button 
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="text-zinc-300 hover:text-zinc-500 transition-colors"
-                      >
-                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2 border-b border-zinc-200 pb-2">
-                      <label className="block text-sm font-semibold text-zinc-700">Branch</label>
-                      <select 
-                        required
-                        value={authBranch}
-                        onChange={(e) => setAuthBranch(e.target.value)}
-                        className="w-full bg-transparent focus:outline-none text-zinc-800 appearance-none"
-                      >
-                        <option value="">Select</option>
-                        <option value="Bangi">Bangi</option>
-                        <option value="Kajang">Kajang</option>
-                        <option value="HQ">HQ</option>
-                      </select>
+                    <div className="space-y-1">
+                      <label className="block text-xs font-bold text-zinc-500">Branch</label>
+                      <div className="border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-1 transition-colors">
+                        <select 
+                          required
+                          value={authBranch}
+                          onChange={(e) => setAuthBranch(e.target.value)}
+                          className="w-full bg-transparent focus:outline-none text-zinc-800 appearance-none text-sm"
+                        >
+                          <option value="">Select</option>
+                          <option value="Bangi">Bangi</option>
+                          <option value="Kajang">Kajang</option>
+                          <option value="HQ">HQ</option>
+                        </select>
+                      </div>
                     </div>
-                    <div className="space-y-2 border-b border-zinc-200 pb-2">
-                      <label className="block text-sm font-semibold text-zinc-700">Phone</label>
-                      <input 
-                        type="tel"
-                        required
-                        value={authPhone}
-                        onChange={(e) => setAuthPhone(e.target.value)}
-                        className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300"
-                        placeholder="6012..."
-                      />
+                    <div className="space-y-1">
+                      <label className="block text-xs font-bold text-zinc-500">Phone</label>
+                      <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-1 transition-colors">
+                        <Phone size={16} className="text-zinc-300" />
+                        <input 
+                          type="tel"
+                          required
+                          value={authPhone}
+                          onChange={(e) => setAuthPhone(e.target.value)}
+                          className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-sm"
+                          placeholder="6012..."
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-auto flex gap-4">
-                  <button 
-                    type="button"
-                    onClick={() => setAuthMode('login')}
-                    className="flex-1 py-4 border-2 border-brand-primary text-brand-primary rounded-full font-bold text-sm uppercase tracking-wider hover:bg-brand-primary/5 transition-all"
-                  >
-                    Sign In
-                  </button>
+                <div className="mt-auto space-y-4">
                   <button 
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 py-4 bg-gradient-to-r from-brand-primary to-[#2A5D74] text-white rounded-full font-bold text-sm uppercase tracking-wider shadow-lg shadow-brand-primary/30 hover:shadow-brand-primary/40 transition-all active:scale-[0.98] disabled:opacity-50"
+                    className="w-full py-4 bg-[#FF8A8A] text-white rounded-2xl font-black text-lg shadow-xl shadow-[#FF8A8A]/30 hover:shadow-[#FF8A8A]/40 transition-all active:scale-[0.98] disabled:opacity-50"
                   >
                     {isSubmitting ? 'Creating...' : 'Sign Up'}
                   </button>
+                  <p className="text-center text-sm font-bold text-zinc-400">
+                    Already have an account? <button onClick={() => setAuthMode('login')} className="text-[#FF8A8A] hover:underline">Sign in</button>
+                  </p>
                 </div>
               </motion.form>
             )}
           </AnimatePresence>
+          </div>
         </div>
       </motion.div>
     </div>
