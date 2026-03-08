@@ -127,7 +127,7 @@ interface Referral {
   rejection_reason?: string;
   branch?: string;
   patient_type?: 'new' | 'existing';
-  aracoins_perk?: number;
+  aracoins?: number;
 }
 
 interface AppSettings {

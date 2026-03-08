@@ -786,7 +786,7 @@ app.post("/api/referrals", async (req, res) => {
       date,
       status: 'entered',
       commission_amount: service.commission_rate,
-      aracoins_perk: service.aracoins_perk || 0,
+      aracoins: service.aracoins_perk || 0,
       fraud_flags: JSON.stringify(fraudFlags),
       created_by: created_by || null,
       branch: branch || staff.branch
@@ -842,7 +842,7 @@ app.patch("/api/referrals/:id", async (req, res) => {
         pending_earnings: (staff.pending_earnings || 0) - referral.commission_amount,
         approved_earnings: (staff.approved_earnings || 0) + referral.commission_amount,
         lifetime_earnings: (staff.lifetime_earnings || 0) + referral.commission_amount,
-        aracoins: (staff.aracoins || 0) + (referral.aracoins_perk || 0)
+        aracoins: (staff.aracoins || 0) + (referral.aracoins || 0)
       })
       .eq('id', referral.staff_id);
   } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
