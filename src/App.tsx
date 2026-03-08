@@ -1292,10 +1292,10 @@ export default function App() {
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative"
+          className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-y-auto flex flex-col relative"
         >
           {/* Topographic Background */}
-          <div className="absolute top-0 left-0 right-0 h-[60%] overflow-hidden z-0 bg-brand-primary">
+          <div className="relative w-full h-[60%] shrink-0 overflow-hidden z-0 bg-brand-primary">
             <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none">
               <path d="M0,20 Q25,10 50,20 T100,20" fill="none" stroke="white" strokeWidth="0.5" />
               <path d="M0,40 Q25,30 50,40 T100,40" fill="none" stroke="white" strokeWidth="0.5" />
@@ -1308,13 +1308,13 @@ export default function App() {
             </svg>
           </div>
 
-          <div className="flex-1 flex flex-col px-10 pb-12 relative z-10 justify-end">
+          <div className="flex-1 flex flex-col px-10 pb-12 relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <h1 className="text-5xl font-black text-[#1A365D] mb-12 tracking-tight leading-tight">Welcome to AraPower</h1>
+              <h1 className="text-5xl font-black text-brand-primary mb-12 tracking-tight leading-tight">Welcome to AraPower</h1>
               
               <div className="flex items-center justify-end gap-4">
                 <button 
@@ -1393,10 +1393,10 @@ export default function App() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative"
+          className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-y-auto flex flex-col relative"
         >
           {/* Topographic Background */}
-          <div className="absolute top-0 left-0 right-0 h-[45%] overflow-hidden z-0 bg-brand-primary">
+          <div className="relative w-full h-[45%] shrink-0 overflow-hidden z-0 bg-brand-primary">
             <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none">
               <path d="M10,10 Q30,0 50,10 T90,10" fill="none" stroke="white" strokeWidth="0.5" />
               <path d="M0,30 Q40,20 80,30 T120,30" fill="none" stroke="white" strokeWidth="0.5" />
@@ -1407,9 +1407,7 @@ export default function App() {
             </svg>
           </div>
 
-          <div className="flex-1 flex flex-col px-8 pb-10 overflow-y-auto relative z-10">
-            {/* Spacer to push content below the wavy background */}
-            <div className="min-h-[35%] w-full" />
+          <div className="flex-1 flex flex-col px-8 pb-10 relative z-10">
             
             <div className="flex-1 flex flex-col justify-center py-4">
               <motion.div
