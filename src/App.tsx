@@ -1142,7 +1142,7 @@ export default function App() {
 
   if (isPublicBooking) {
     return (
-      <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center p-4 font-sans">
+      <div className="min-h-screen w-full overflow-x-hidden bg-[#f5f5f5] flex items-center justify-center p-4 font-sans">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -1276,7 +1276,7 @@ export default function App() {
 
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+      <div className="min-h-screen w-full overflow-x-hidden bg-zinc-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin"></div>
           <p className="text-zinc-400 font-black text-[10px] uppercase tracking-widest">Authenticating...</p>
@@ -1288,7 +1288,7 @@ export default function App() {
   // Welcome / Onboarding Screen
   if (!currentUser && onboardingStep === 'welcome') {
     return (
-      <div className="min-h-screen bg-brand-primary flex items-center justify-center p-0 sm:p-4 font-sans">
+      <div className="min-h-screen w-full overflow-x-hidden bg-brand-primary flex items-center justify-center p-0 sm:p-4 font-sans">
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -1336,7 +1336,7 @@ export default function App() {
 
   if (showWelcome && currentUser) {
     return (
-      <div className="min-h-screen bg-[#FFF5F0] flex items-center justify-center p-0 sm:p-4 font-sans">
+      <div className="min-h-screen w-full overflow-x-hidden bg-[#FFF5F0] flex items-center justify-center p-0 sm:p-4 font-sans">
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -1389,7 +1389,7 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-brand-primary flex items-center justify-center p-0 sm:p-4 font-sans">
+      <div className="min-h-screen w-full overflow-x-hidden bg-brand-primary flex items-center justify-center p-0 sm:p-4 font-sans">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1620,7 +1620,7 @@ export default function App() {
 
   if (currentUser.is_approved === 0 && currentUser.role !== 'admin') {
     return (
-      <div className="min-h-screen bg-[#FBFBFD] flex items-center justify-center p-4 font-sans relative overflow-hidden">
+      <div className="min-h-screen w-full overflow-x-hidden bg-[#FBFBFD] flex items-center justify-center p-4 font-sans relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
           <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-orange-50 rounded-full blur-[120px] opacity-60" />
         </div>
@@ -1773,7 +1773,7 @@ export default function App() {
     // Device Guard
     if ((currentUser.role === 'admin' || currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && isMobile) {
       return (
-        <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-8 text-center">
+        <div className="min-h-screen w-full overflow-x-hidden bg-zinc-50 flex flex-col items-center justify-center p-8 text-center">
           <div className="w-20 h-20 bg-violet-100 text-violet-600 rounded-3xl flex items-center justify-center mb-6">
             <LayoutDashboard size={40} />
           </div>
@@ -1791,7 +1791,7 @@ export default function App() {
 
     if (currentUser.role === 'staff' && !isMobile) {
       return (
-        <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-8 text-center">
+        <div className="min-h-screen w-full overflow-x-hidden bg-zinc-50 flex flex-col items-center justify-center p-8 text-center">
           <div className="w-20 h-20 bg-violet-100 text-violet-600 rounded-3xl flex items-center justify-center mb-6">
             <MessageCircle size={40} />
           </div>
@@ -1808,7 +1808,7 @@ export default function App() {
     }
 
     return (
-      <div className={`min-h-screen font-sans transition-colors duration-500 ${isMobile ? 'bg-zinc-50 text-zinc-900' : 'bg-zinc-50 text-zinc-900'}`}>
+      <div className={`min-h-screen w-full overflow-x-hidden font-sans transition-colors duration-500 ${isMobile ? 'bg-zinc-50 text-zinc-900' : 'bg-zinc-50 text-zinc-900'}`}>
         {/* Mobile Navigation (Floating Glass Dock - iOS 26 style) */}
         {isMobile && (
           <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
