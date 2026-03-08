@@ -315,7 +315,7 @@ export default function App() {
   // Task State
   const [tasks, setTasks] = useState<any[]>([]);
   const [showReferralModal, setShowReferralModal] = useState(false);
-  const [expandedReferralId, setExpandedReferralId] = useState<number | null>(null);
+  const [expandedReferralIds, setExpandedReferralIds] = useState<number[]>([]);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [taskDueDate, setTaskDueDate] = useState<Date | null>(null);
@@ -2392,11 +2392,15 @@ export default function App() {
                     .map((ref, idx) => (
                     <div 
                       key={ref.id} 
-                      className={`rounded-[2.5rem] overflow-hidden transition-all duration-300 border border-white/5 ${expandedReferralId === ref.id ? 'ring-2 ring-brand-accent shadow-2xl' : 'shadow-sm'}`}
+                      className={`rounded-[2.5rem] overflow-hidden transition-all duration-500 border border-white/10 ${expandedReferralIds.includes(ref.id) ? 'shadow-2xl' : 'shadow-sm'}`}
                     >
                       <div 
-                        onClick={() => setExpandedReferralId(expandedReferralId === ref.id ? null : ref.id)}
-                        className={`p-6 flex items-center justify-between cursor-pointer transition-colors ${expandedReferralId === ref.id ? 'bg-[#172554]' : 'bg-[#1e3a8a]'}`}
+                        onClick={() => {
+                          setExpandedReferralIds(prev => 
+                            prev.includes(ref.id) ? prev.filter(id => id !== ref.id) : [...prev, ref.id]
+                          );
+                        }}
+                        className="p-6 flex items-center justify-between cursor-pointer bg-[#1e3a8a]"
                       >
                         <div className="flex items-center gap-4">
                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
@@ -2420,17 +2424,18 @@ export default function App() {
                               {getStatusLabel(ref.status)}
                             </span>
                           </div>
-                          <ChevronRight size={16} className={`text-[#f5f5dc]/40 transition-transform duration-300 ${expandedReferralId === ref.id ? 'rotate-90' : ''}`} />
+                          <ChevronRight size={16} className={`text-[#f5f5dc]/40 transition-transform duration-300 ${expandedReferralIds.includes(ref.id) ? 'rotate-90' : ''}`} />
                         </div>
                       </div>
 
                       <AnimatePresence>
-                        {expandedReferralId === ref.id && (
+                        {expandedReferralIds.includes(ref.id) && (
                           <motion.div 
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
-                            className="bg-[#172554] border-t border-white/10"
+                            transition={{ duration: 0.4, ease: [0.04, 0.62, 0.23, 0.98] }}
+                            className="bg-[#1e3a8a] border-t border-white/10 overflow-hidden"
                           >
                             <div className="p-6 space-y-6">
                               <div className="grid grid-cols-2 gap-6">
