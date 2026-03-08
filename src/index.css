@@ -4,11 +4,11 @@
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --color-brand-primary: #2D2A4A;
-  --color-brand-secondary: #F5C691;
-  --color-brand-accent: #F7A89B;
-  --color-brand-bg: #1A1625;
-  --color-brand-surface: #2D2A4A;
-  --color-brand-peach: #F5C691;
-  --color-brand-pink: #F7A89B;
+  --color-brand-primary: #1A3D4C;
+  --color-brand-secondary: #F2994A;
+  --color-brand-accent: #F2994A;
+  --color-brand-bg: #FFFFFF;
+  --color-brand-surface: #FFF5E9;
+  --color-brand-peach: #F2994A;
+  --color-brand-pink: #F2994A;
 }

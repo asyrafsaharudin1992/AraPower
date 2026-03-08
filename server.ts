@@ -134,9 +134,9 @@ async function seedSupabase() {
       if (staffInsertError) console.error('Error seeding staff:', staffInsertError);
 
       const initialServices = [
-        { name: "Basic Health Screening", base_price: 80, commission_rate: 5 },
-        { name: "Comprehensive Screening", base_price: 150, commission_rate: 5 },
-        { name: "Vaccination Package", base_price: 120, commission_rate: 5 }
+        { name: "Basic Health Screening", base_price: 80, commission_rate: 5, aracoins_perk: 10 },
+        { name: "Comprehensive Screening", base_price: 150, commission_rate: 5, aracoins_perk: 20 },
+        { name: "Vaccination Package", base_price: 120, commission_rate: 5, aracoins_perk: 15 }
       ];
 
       const { error: serviceInsertError } = await supabase.from('services').insert(initialServices);
@@ -765,7 +765,7 @@ app.post("/api/referrals", async (req, res) => {
 
   const { data: service, error: serviceError } = await supabase
     .from('services')
-    .select('commission_rate')
+    .select('commission_rate, aracoins_perk')
     .eq('id', service_id)
     .single();
     
@@ -786,6 +786,7 @@ app.post("/api/referrals", async (req, res) => {
       date,
       status: 'entered',
       commission_amount: service.commission_rate,
+      aracoins_perk: service.aracoins_perk || 0,
       fraud_flags: JSON.stringify(fraudFlags),
       created_by: created_by || null,
       branch: branch || staff.branch
@@ -840,7 +841,8 @@ app.patch("/api/referrals/:id", async (req, res) => {
       .update({ 
         pending_earnings: (staff.pending_earnings || 0) - referral.commission_amount,
         approved_earnings: (staff.approved_earnings || 0) + referral.commission_amount,
-        lifetime_earnings: (staff.lifetime_earnings || 0) + referral.commission_amount
+        lifetime_earnings: (staff.lifetime_earnings || 0) + referral.commission_amount,
+        aracoins: (staff.aracoins || 0) + (referral.aracoins_perk || 0)
       })
       .eq('id', referral.staff_id);
   } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {

@@ -37,12 +37,26 @@ import {
   CheckSquare,
   Activity,
   RefreshCw,
-  Info
+  Info,
+  Plus,
+  BarChart3,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
 import DatePicker from 'react-datepicker';
 import { supabase } from './supabase';
+
+interface Promotion {
+  id: number;
+  title: string;
+  description: string;
+  image_url?: string;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+  created_at: string;
+}
 
 interface Staff {
   id: number;
@@ -107,6 +121,7 @@ interface Referral {
   rejection_reason?: string;
   branch?: string;
   patient_type?: 'new' | 'existing';
+  aracoins_perk?: number;
 }
 
 interface AppSettings {
@@ -176,7 +191,27 @@ export default function App() {
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'kit'>('dashboard');
+  const [promotions, setPromotions] = useState<Promotion[]>([
+    {
+      id: 1,
+      title: "Ramadan Special 2026",
+      description: "Get 20% off on all dental checkups during the month of Ramadan. Share the smile with your family!",
+      start_date: "2026-03-01",
+      end_date: "2026-03-31",
+      is_active: true,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 2,
+      title: "New Branch Opening: Bangi",
+      description: "We are opening our new branch in Bangi! Refer 5 friends and get a free scaling session.",
+      start_date: "2026-04-01",
+      end_date: "2026-05-31",
+      is_active: true,
+      created_at: new Date().toISOString()
+    }
+  ]);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'kit' | 'promotions'>('dashboard');
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   
   // Setup Tab State
@@ -272,6 +307,8 @@ export default function App() {
   
   // Task State
   const [tasks, setTasks] = useState<any[]>([]);
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [expandedReferralId, setExpandedReferralId] = useState<number | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [taskDueDate, setTaskDueDate] = useState<Date | null>(null);
@@ -1646,60 +1683,58 @@ export default function App() {
     }
 
     return (
-      <div className={`min-h-screen font-sans transition-colors duration-500 ${isMobile ? 'bg-brand-bg text-white' : 'bg-zinc-50 text-zinc-900'}`}>
+      <div className={`min-h-screen font-sans transition-colors duration-500 ${isMobile ? 'bg-zinc-50 text-zinc-900' : 'bg-zinc-50 text-zinc-900'}`}>
         {/* Mobile Navigation (Floating Glass Dock - iOS 26 style) */}
         {isMobile && (
           <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
-            <nav className="max-w-md mx-auto bg-brand-surface/80 backdrop-blur-2xl border border-white/10 px-6 py-3 flex justify-around items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] pointer-events-auto">
-              <button 
-                onClick={() => setActiveTab('dashboard')}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'dashboard' ? 'text-brand-peach scale-110' : 'text-zinc-400 hover:text-zinc-300'}`}
-              >
-                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-brand-bg' : ''}`}>
-                  <LayoutDashboard size={22} />
-                </div>
-                <span className="text-[9px] font-black uppercase tracking-widest">Home</span>
-              </button>
-              <button 
-                onClick={() => setActiveTab('referrals')}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'referrals' ? 'text-brand-peach scale-110' : 'text-zinc-400 hover:text-zinc-300'}`}
-              >
-                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-brand-bg' : ''}`}>
-                  <ClipboardList size={22} />
-                </div>
-                <span className="text-[9px] font-black uppercase tracking-widest">History</span>
-              </button>
-              <button 
-                onClick={() => setActiveTab('kit')}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'kit' ? 'text-brand-peach scale-110' : 'text-zinc-400 hover:text-zinc-300'}`}
-              >
-                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'kit' ? 'bg-brand-bg' : ''}`}>
-                  <QrCode size={22} />
-                </div>
-                <span className="text-[9px] font-black uppercase tracking-widest">Kit</span>
-              </button>
-              <button 
-                onClick={() => setActiveTab('profile')}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'profile' ? 'text-brand-peach scale-110' : 'text-zinc-400 hover:text-zinc-300'}`}
-              >
-                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'profile' ? 'bg-brand-bg' : ''}`}>
-                  <UserCircle size={22} />
-                </div>
-                <span className="text-[9px] font-black uppercase tracking-widest">Profile</span>
-              </button>
-              {(currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && (
+            <nav className="max-w-md mx-auto bg-white/90 backdrop-blur-2xl border border-zinc-200 px-4 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto">
+              <div className="flex flex-1 justify-around items-center">
                 <button 
-                  onClick={() => setActiveTab('receptionist')}
-                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'receptionist' ? 'text-brand-peach scale-110' : 'text-zinc-400 hover:text-zinc-300'}`}
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'dashboard' ? 'text-brand-primary scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
                 >
-                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'receptionist' ? 'bg-brand-bg' : ''}`}>
-                    {currentUser.role === 'receptionist' ? <CheckCircle2 size={22} /> : <DollarSign size={22} />}
+                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-brand-surface' : ''}`}>
+                    <LayoutDashboard size={22} />
                   </div>
-                  <span className="text-[9px] font-black uppercase tracking-widest">
-                    {currentUser.role === 'receptionist' ? 'Check-in' : 'Payout'}
-                  </span>
                 </button>
-              )}
+                <button 
+                  onClick={() => setActiveTab('referrals')}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'referrals' ? 'text-brand-primary scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+                >
+                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-brand-surface' : ''}`}>
+                    <Calendar size={22} />
+                  </div>
+                </button>
+              </div>
+
+              {/* Central FAB */}
+              <div className="px-2">
+                <button 
+                  onClick={() => setShowReferralModal(true)}
+                  className="w-14 h-14 bg-brand-accent text-white rounded-full flex items-center justify-center shadow-lg shadow-brand-accent/40 active:scale-95 transition-transform"
+                >
+                  <Plus size={28} strokeWidth={3} />
+                </button>
+              </div>
+
+              <div className="flex flex-1 justify-around items-center">
+                <button 
+                  onClick={() => setActiveTab('promotions')}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'promotions' ? 'text-brand-primary scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+                >
+                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'promotions' ? 'bg-brand-surface' : ''}`}>
+                    <Zap size={22} />
+                  </div>
+                </button>
+                <button 
+                  onClick={() => setActiveTab('profile')}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'profile' ? 'text-brand-primary scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+                >
+                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'profile' ? 'bg-brand-surface' : ''}`}>
+                    <UserCircle size={22} />
+                  </div>
+                </button>
+              </div>
             </nav>
           </div>
         )}
@@ -1740,18 +1775,18 @@ export default function App() {
                 <span className="text-sm font-medium">Referral Kit</span>
               </button>
               <button 
+                onClick={() => setActiveTab('promotions')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'promotions' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
+              >
+                <Zap size={18} />
+                <span className="text-sm font-medium">Promotions</span>
+              </button>
+              <button 
                 onClick={() => setActiveTab('profile')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
               >
                 <UserCircle size={18} />
                 <span className="text-sm font-medium">My Profile</span>
-              </button>
-              <button 
-                onClick={() => setActiveTab('tasks')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'tasks' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
-              >
-                <CheckSquare size={18} />
-                <span className="text-sm font-medium">Tasks</span>
               </button>
               {rolesConfig[currentUser.role]?.canViewAnalytics && (
                 <button 
@@ -1791,11 +1826,11 @@ export default function App() {
         )}
 
         {/* Main Content */}
-        <main className={`${!isMobile ? 'ml-64 bg-[#FBFBFD]' : 'pb-32 min-h-screen bg-brand-bg'} p-4 lg:p-8 relative overflow-hidden`}>
+        <main className={`${!isMobile ? 'ml-64 bg-[#FBFBFD]' : 'pb-32 min-h-screen bg-zinc-50'} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
           {isMobile && (
             <>
-              <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-brand-surface/20 to-transparent -z-10" />
-              <div className="absolute top-[10%] -right-[20%] w-[80%] h-[40%] bg-brand-pink/5 rounded-full blur-[100px] -z-10" />
+              <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-brand-peach/10 to-transparent -z-10" />
+              <div className="absolute top-[10%] -right-[20%] w-[80%] h-[40%] bg-brand-pink/10 rounded-full blur-[100px] -z-10" />
             </>
           )}
 
@@ -1850,15 +1885,15 @@ export default function App() {
             </motion.div>
           ) : (
             <>
-              <header className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-                <div>
-                  <h2 className={`text-2xl sm:text-3xl font-black tracking-tighter capitalize ${isMobile ? 'text-white' : 'text-zinc-900'}`}>
+              <header className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-[100] ${isMobile ? 'sticky top-0 bg-zinc-50/80 backdrop-blur-xl py-4 -mx-4 px-4 border-b border-zinc-200/50 mb-6' : 'mb-8 relative'}`}>
+                <div className={isMobile ? '' : ''}>
+                  <h2 className={`text-3xl sm:text-3xl font-black tracking-tighter capitalize ${isMobile ? 'text-zinc-900' : 'text-zinc-900'}`}>
                     {activeTab === 'guide' ? 'User Guide' : activeTab === 'profile' ? 'My Profile' : activeTab === 'kit' ? 'Referral Kit' : activeTab}
                   </h2>
-                  <p className={`${isMobile ? 'text-zinc-400' : 'text-zinc-500'} text-sm font-medium`}>Welcome back, {currentUser.name}</p>
+                  {!isMobile && <p className={`${isMobile ? 'text-zinc-600' : 'text-zinc-500'} text-sm font-medium`}>Welcome back, {currentUser.name}</p>}
                 </div>
                 
-                {activeTab === 'dashboard' && currentUser.role !== 'admin' && (
+                {activeTab === 'dashboard' && currentUser.role !== 'admin' && !isMobile && (
                   <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-black/5 shadow-sm">
                     <Clock size={16} className="text-zinc-400" />
                     <span className="text-xs font-bold text-zinc-500">
@@ -1882,70 +1917,96 @@ export default function App() {
                 {/* Mobile Stats Grid - ios26v style */}
                 {isMobile && currentUser.role === 'staff' && (
                   <div className="space-y-4">
-                    {/* Main Card: Earnings Breakdown */}
-                    <div className="relative overflow-hidden bg-brand-surface p-8 rounded-[2.5rem] border border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.2)]">
-                      <div className="absolute -top-12 -right-12 w-40 h-40 bg-brand-peach/10 rounded-full blur-3xl" />
-                      <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-brand-pink/10 rounded-full blur-3xl" />
-                      
-                      <div className="relative">
-                        <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-black mb-2">Lifetime Earnings</p>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-4xl font-black tracking-tighter text-white">{clinicProfile.currency}{totalEarned.toFixed(2)}</span>
-                          <span className="text-sm font-bold text-brand-peach">+{((currentUserStats?.tier.bonus || 1) - 1) * 100}% Bonus</span>
+                    {/* Main Card: Earnings Breakdown - Dark Design */}
+                    <div className="relative overflow-hidden bg-brand-primary p-8 rounded-[2.5rem] shadow-2xl shadow-brand-primary/20">
+                      <div className="relative flex items-center justify-between">
+                        <div className="max-w-[60%]">
+                          <p className="text-brand-peach text-[10px] font-black uppercase tracking-widest mb-1">Lifetime Earning</p>
+                          <h3 className="text-white text-3xl font-black leading-tight mb-4">
+                            {clinicProfile.currency}{(currentUserStats?.lifetime_earnings || 0).toFixed(0)}
+                          </h3>
+                          <button 
+                            onClick={() => setActiveTab('referrals')}
+                            className="px-6 py-2.5 bg-brand-accent text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-brand-accent/20 active:scale-95 transition-transform"
+                          >
+                            View History
+                          </button>
                         </div>
                         
-                        <div className="mt-6 grid grid-cols-3 gap-2">
-                          <div className="bg-brand-bg/50 p-3 rounded-2xl border border-white/5">
-                            <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Pending</p>
-                            <p className="text-sm font-black text-white">{clinicProfile.currency}{pendingAmount.toFixed(0)}</p>
-                          </div>
-                          <div className="bg-brand-bg/50 p-3 rounded-2xl border border-white/5">
-                            <p className="text-[8px] font-black text-brand-peach uppercase tracking-widest mb-1">Approved</p>
-                            <p className="text-sm font-black text-brand-peach">{clinicProfile.currency}{approvedAmount.toFixed(0)}</p>
-                          </div>
-                          <div className="bg-brand-bg/50 p-3 rounded-2xl border border-white/5">
-                            <p className="text-[8px] font-black text-brand-pink uppercase tracking-widest mb-1">Paid</p>
-                            <p className="text-sm font-black text-brand-pink">{clinicProfile.currency}{paidAmount.toFixed(0)}</p>
-                          </div>
-                        </div>
-
-                        <div className="mt-6 flex items-center gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                              <span>{currentUserStats?.tier.name} Tier</span>
-                              <span>{currentUserStats?.monthlySuccessfulRefs} / {nextTier?.min || 'Max'}</span>
-                            </div>
-                            <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-violet-500 rounded-full transition-all duration-1000"
-                                style={{ width: `${Math.min(100, (currentUserStats?.monthlySuccessfulRefs || 0) / (nextTier?.min || 1) * 100)}%` }}
-                              />
-                            </div>
+                        <div className="relative w-24 h-24 flex items-center justify-center">
+                          <svg className="w-full h-full -rotate-90">
+                            <circle
+                              cx="48"
+                              cy="48"
+                              r="38"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="8"
+                              className="text-white/10"
+                            />
+                            <circle
+                              cx="48"
+                              cy="48"
+                              r="38"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="8"
+                              strokeDasharray={2 * Math.PI * 38}
+                              strokeDashoffset={2 * Math.PI * 38 * (1 - Math.min(1, (currentUserStats?.monthlySuccessfulRefs || 0) / (nextTier?.min || 1)))}
+                              strokeLinecap="round"
+                              className="text-brand-accent transition-all duration-1000"
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-white font-black text-sm">
+                              {Math.round(Math.min(100, (currentUserStats?.monthlySuccessfulRefs || 0) / (nextTier?.min || 1) * 100))}%
+                            </span>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Secondary Grid */}
+                    {/* Service Performance - Approved Commissions */}
+                    <div className="pt-4">
+                      <h3 className="text-xl font-black text-zinc-900 tracking-tight">Service Performance</h3>
+                      <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">Approved Commissions</p>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-brand-surface p-6 rounded-[2rem] border border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.2)]">
-                        <p className="text-[10px] uppercase tracking-widest text-brand-peach font-black mb-2">AraCoins</p>
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-brand-bg flex items-center justify-center shadow-sm">
-                            <Coins size={16} className="text-brand-peach" />
+                      {services.map(service => {
+                        const count = referrals.filter(r => 
+                          r.staff_id === currentUser.id && 
+                          r.service_id === service.id && 
+                          r.status === 'approved'
+                        ).length;
+                        
+                        if (count === 0) return null;
+
+                        return (
+                          <div 
+                            key={service.id}
+                            className="p-5 rounded-[2rem] bg-brand-accent flex flex-col justify-between min-h-[120px] shadow-lg shadow-brand-accent/20 active:scale-[0.98] transition-transform"
+                          >
+                            <p className="text-xs font-black text-zinc-900 leading-tight line-clamp-2">{service.name}</p>
+                            <div className="flex items-end justify-between mt-2">
+                              <span className="text-3xl font-black text-zinc-900">{count}</span>
+                              <span className="text-[8px] font-black uppercase tracking-widest text-zinc-900/60 mb-1">Approved</span>
+                            </div>
                           </div>
-                          <p className="text-2xl font-black text-white">{currentUser.aracoins || 0}</p>
-                        </div>
-                      </div>
-                      <div className="bg-brand-surface p-6 rounded-[2rem] border border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.2)]">
-                        <p className="text-[10px] uppercase tracking-widest text-brand-pink font-black mb-2">Success</p>
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-brand-bg flex items-center justify-center shadow-sm">
-                            <CheckCircle2 size={16} className="text-brand-pink" />
+                        );
+                      }).filter(Boolean)}
+                      
+                      {services.filter(service => 
+                        referrals.some(r => r.staff_id === currentUser.id && r.service_id === service.id && r.status === 'approved')
+                      ).length === 0 && (
+                        <div className="col-span-2 p-10 rounded-[2.5rem] bg-zinc-100 border border-zinc-200 text-center">
+                          <div className="w-12 h-12 bg-zinc-200 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                            <ClipboardList className="text-zinc-400" size={24} />
                           </div>
-                          <p className="text-2xl font-black text-white">{currentUserStats?.monthlySuccessfulRefs || 0}</p>
+                          <p className="text-zinc-500 text-xs font-black uppercase tracking-widest">No approved commissions</p>
+                          <p className="text-zinc-400 text-[10px] font-bold mt-1">Your approved referrals will appear here</p>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -2142,11 +2203,11 @@ export default function App() {
               key="referrals"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`${isMobile ? 'bg-brand-surface border-white/10' : 'bg-white border-black/5 shadow-sm'} rounded-3xl border overflow-hidden`}
+              className={`${isMobile ? 'bg-[#1e293b] border-white/10' : 'bg-white border-black/5 shadow-sm'} rounded-3xl border overflow-hidden`}
             >
-              <div className={`p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${isMobile ? 'border-white/5' : 'border-zinc-100'}`}>
+              <div className={`p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${isMobile ? 'border-white/10' : 'border-zinc-100'}`}>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <h3 className={`font-semibold ${isMobile ? 'text-white' : 'text-zinc-900'}`}>Referral History</h3>
+                  <h3 className={`font-semibold ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>Referral History</h3>
                   <div className="flex flex-wrap gap-2">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
@@ -2155,13 +2216,13 @@ export default function App() {
                         placeholder="Search patient, staff, or service..."
                         value={referralSearch}
                         onChange={(e) => setReferralSearch(e.target.value)}
-                        className={`pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 w-full sm:w-64 ${isMobile ? 'bg-brand-bg border-white/5 text-white focus:ring-brand-peach/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
+                        className={`pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 w-full sm:w-64 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
                       />
                     </div>
                     <select 
                       value={referralBranchFilter}
                       onChange={(e) => setReferralBranchFilter(e.target.value)}
-                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${isMobile ? 'bg-brand-bg border-white/5 text-white focus:ring-brand-peach/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
+                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
                     >
                       <option value="all">All Branches</option>
                       <option value="Bangi">Bangi</option>
@@ -2171,7 +2232,7 @@ export default function App() {
                     <select 
                       value={referralStatusFilter}
                       onChange={(e) => setReferralStatusFilter(e.target.value)}
-                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${isMobile ? 'bg-brand-bg border-white/5 text-white focus:ring-brand-peach/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
+                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
                     >
                       <option value="all">All Statuses</option>
                       <option value="entered">Entered</option>
@@ -2186,7 +2247,7 @@ export default function App() {
                 </div>
                 <button 
                   onClick={exportToCSV}
-                  className={`flex items-center gap-2 text-xs font-bold transition-colors self-start sm:self-auto px-3 py-2 rounded-xl ${isMobile ? 'text-brand-peach hover:bg-brand-bg' : 'text-violet-600 hover:bg-violet-50'}`}
+                  className={`flex items-center gap-2 text-xs font-bold transition-colors self-start sm:self-auto px-3 py-2 rounded-xl ${isMobile ? 'text-brand-accent hover:bg-[#0f172a]' : 'text-violet-600 hover:bg-violet-50'}`}
                 >
                   <Download size={14} />
                   Export CSV
@@ -2194,7 +2255,7 @@ export default function App() {
               </div>
 
               {isMobile ? (
-                <div className="space-y-4">
+                <div className="space-y-4 p-4">
                   {referrals
                     .filter(ref => 
                       ref.patient_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
@@ -2203,123 +2264,99 @@ export default function App() {
                     )
                     .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
                     .filter(ref => referralStatusFilter === 'all' ? true : ref.status === referralStatusFilter)
-                    .map((ref) => (
-                    <div key={ref.id} className={`${isMobile ? 'bg-brand-bg/30 border-white/5' : 'bg-white border-black/5'} p-5 rounded-3xl border shadow-sm space-y-4`}>
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl ${getStatusColor(ref.status)}`}>
-                            {ref.status === 'payout_processed' || ref.status === 'approved' ? <CheckCircle2 size={18} /> : <Clock size={18} />}
+                    .map((ref, idx) => (
+                    <div 
+                      key={ref.id} 
+                      className={`rounded-[2.5rem] overflow-hidden transition-all duration-300 border border-white/5 ${expandedReferralId === ref.id ? 'ring-2 ring-brand-accent shadow-2xl' : 'shadow-sm'}`}
+                    >
+                      <div 
+                        onClick={() => setExpandedReferralId(expandedReferralId === ref.id ? null : ref.id)}
+                        className={`p-6 flex items-center justify-between cursor-pointer transition-colors ${expandedReferralId === ref.id ? 'bg-[#172554]' : 'bg-[#1e3a8a]'}`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                            ref.status === 'completed' || ref.status === 'paid_completed' ? 'bg-green-500/20 text-green-400' :
+                            ref.status === 'rejected' ? 'bg-red-500/20 text-red-400' : 'bg-white/10 text-white/80'
+                          }`}>
+                            <ClipboardList size={20} />
                           </div>
                           <div>
-                            <p className={`text-sm font-bold ${isMobile ? 'text-white' : 'text-zinc-900'}`}>{ref.patient_name}</p>
-                            <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">{ref.date} • {ref.branch}</p>
+                            <p className="text-sm font-black text-[#f5f5dc]">{ref.patient_name}</p>
+                            <p className="text-[10px] font-bold text-[#f5f5dc]/80 uppercase tracking-widest">{ref.date}</p>
                           </div>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
-                          {getStatusLabel(ref.status)}
-                        </span>
-                      </div>
-
-                      <div className={`grid grid-cols-2 gap-4 py-3 border-y ${isMobile ? 'border-white/5' : 'border-zinc-50'}`}>
-                        <div>
-                          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Service</p>
-                          <p className={`text-xs font-medium ${isMobile ? 'text-zinc-300' : 'text-zinc-700'}`}>{ref.service_name}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Incentive</p>
-                          <p className={`text-sm font-bold ${isMobile ? 'text-brand-peach' : 'text-violet-600'}`}>{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
-                        </div>
-                      </div>
-
-                      <div className={`py-3 border-b ${isMobile ? 'border-white/5' : 'border-zinc-50'}`}>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="text-right flex items-center gap-3">
                           <div>
-                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Patient IC</p>
-                            <p className={`text-xs font-medium ${isMobile ? 'text-zinc-300' : 'text-zinc-700'}`}>{ref.patient_ic || 'N/A'}</p>
+                            <p className="text-sm font-black text-brand-accent">{clinicProfile.currency}{ref.commission_amount.toFixed(0)}</p>
+                            <span className={`text-[8px] font-black uppercase tracking-widest ${
+                              ref.status === 'completed' || ref.status === 'paid_completed' ? 'text-green-400' :
+                              ref.status === 'rejected' ? 'text-red-400' : 'text-[#f5f5dc]/70'
+                            }`}>
+                              {getStatusLabel(ref.status)}
+                            </span>
                           </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Patient Address</p>
-                            <p className={`text-xs font-medium truncate ${isMobile ? 'text-zinc-300' : 'text-zinc-700'}`} title={ref.patient_address}>{ref.patient_address || 'N/A'}</p>
-                          </div>
+                          <ChevronRight size={16} className={`text-[#f5f5dc]/40 transition-transform duration-300 ${expandedReferralId === ref.id ? 'rotate-90' : ''}`} />
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${isMobile ? 'bg-brand-surface text-zinc-400' : 'bg-zinc-100 text-zinc-500'}`}>
-                            {ref.staff_name.charAt(0)}
-                          </div>
-                          <p className={`text-xs font-medium ${isMobile ? 'text-zinc-400' : 'text-zinc-600'}`}>{ref.staff_name}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          {ref.patient_phone && (
-                            <button 
-                              onClick={() => {
-                                const text = `Hi ${ref.patient_name}! This is ${ref.staff_name} from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`;
-                                window.open(`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
-                              }}
-                              className="flex items-center gap-1.5 text-[10px] font-bold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-lg hover:bg-violet-100 transition-colors"
-                            >
-                              <MessageCircle size={12} />
-                              Follow-up
-                            </button>
-                          )}
-                          <button 
-                            onClick={() => {
-                              const url = `${window.location.origin}?ref=${ref.promo_code}`;
-                              navigator.clipboard.writeText(url);
-                              alert('Referral link copied!');
-                            }}
-                            className="flex items-center gap-1.5 text-[10px] font-bold text-zinc-600 bg-zinc-50 px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors"
+                      <AnimatePresence>
+                        {expandedReferralId === ref.id && (
+                          <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="bg-[#172554] border-t border-white/10"
                           >
-                            <Share2 size={12} />
-                            Link
-                          </button>
-                        </div>
-                      </div>
+                            <div className="p-6 space-y-6">
+                              <div className="grid grid-cols-2 gap-6">
+                                <div>
+                                  <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Service</p>
+                                  <p className="text-xs font-bold text-[#f5f5dc] leading-tight">{ref.service_name}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Branch</p>
+                                  <p className="text-xs font-bold text-[#f5f5dc]">{ref.branch}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Patient IC</p>
+                                  <p className="text-xs font-bold text-[#f5f5dc]">{ref.patient_ic || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Incentive</p>
+                                  <p className="text-xs font-bold text-brand-accent">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Patient Address</p>
+                                <p className="text-xs font-bold text-[#f5f5dc] leading-relaxed">{ref.patient_address || 'N/A'}</p>
+                              </div>
 
-                      <div className="flex gap-2 pt-2">
-                        {ref.patient_phone && (
-                          <a 
-                            href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:from-violet-700 hover:to-fuchsia-700 transition-colors flex items-center justify-center gap-2"
-                          >
-                            <Phone size={14} />
-                            WhatsApp Follow-up
-                          </a>
+                              <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-[10px] font-black text-[#f5f5dc]/60">
+                                    {ref.staff_name.charAt(0)}
+                                  </div>
+                                  <p className="text-xs font-bold text-[#f5f5dc]/80">{ref.staff_name}</p>
+                                </div>
+                                {ref.patient_phone && (
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const text = `Hi ${ref.patient_name}! This is ${ref.staff_name} from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`;
+                                      window.open(`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-green-500/20 text-green-400 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform border border-green-500/30"
+                                  >
+                                    <MessageCircle size={14} />
+                                    Follow Up
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </motion.div>
                         )}
-                      </div>
-
-                      {currentUser.role === 'admin' && (ref.status === 'paid_completed' || ref.status === 'buffer' || ref.status === 'approved') && (
-                        <div className="flex gap-2 pt-2">
-                          {ref.status === 'paid_completed' && (
-                            <button 
-                              onClick={() => handleUpdateStatus(ref.id, 'buffer')}
-                              className="flex-1 bg-blue-500 text-white py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-blue-600 transition-colors"
-                            >
-                              Start 7-Day Buffer
-                            </button>
-                          )}
-                          {ref.status === 'buffer' && (
-                            <button 
-                              onClick={() => handleUpdateStatus(ref.id, 'approved')}
-                              className="flex-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:from-violet-700 hover:to-fuchsia-700 transition-colors"
-                            >
-                              Approve to Wallet
-                            </button>
-                          )}
-                          {ref.status === 'approved' && (
-                            <button 
-                              onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
-                              className="flex-1 bg-zinc-900 text-white py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-zinc-800 transition-colors"
-                            >
-                              Mark as Paid
-                            </button>
-                          )}
-                        </div>
-                      )}
+                      </AnimatePresence>
                     </div>
                   ))}
                 </div>
@@ -2976,17 +3013,17 @@ export default function App() {
                 </div>
               </div>
 
-              <div className={`${isMobile ? 'bg-brand-surface border-white/10' : 'bg-white border-black/5'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
+              <div className={`${isMobile ? 'bg-white border-zinc-200 rotate-[1deg]' : 'bg-white border-black/5'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
                 <div className="flex items-center gap-2 mb-8">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${isMobile ? 'bg-brand-peach text-brand-bg shadow-brand-peach/20' : 'bg-blue-500 text-white shadow-blue-500/20'}`}>
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${isMobile ? 'bg-brand-peach text-brand-primary shadow-brand-peach/20 rotate-[-5deg]' : 'bg-blue-500 text-white shadow-blue-500/20'}`}>
                     <QrCode size={20} />
                   </div>
-                  <h3 className={`font-bold ${isMobile ? 'text-white' : 'text-zinc-900'}`}>Your Toolkit</h3>
+                  <h3 className={`font-bold ${isMobile ? 'text-zinc-900' : 'text-zinc-900'}`}>Your Toolkit</h3>
                 </div>
                 
                 <div className="space-y-8">
-                  <div className={`flex flex-col items-center p-8 rounded-[2.5rem] border ${isMobile ? 'bg-brand-bg/50 border-white/5' : 'bg-zinc-50/50 border-zinc-100'}`}>
-                    <div className={`p-6 rounded-[2rem] shadow-sm mb-6 ${isMobile ? 'bg-white' : 'bg-white'}`}>
+                  <div className={`flex flex-col items-center p-8 rounded-[2.5rem] border ${isMobile ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
+                    <div className={`p-6 rounded-[2rem] shadow-sm mb-6 bg-white`}>
                       <QRCodeCanvas 
                         value={`${window.location.origin}?ref=${currentUser.promo_code}`}
                         size={180}
@@ -2995,22 +3032,22 @@ export default function App() {
                         className="rounded-lg"
                       />
                     </div>
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Personal QR Code</p>
-                    <p className={`text-xs mt-2 text-center max-w-[200px] ${isMobile ? 'text-zinc-400' : 'text-zinc-500'}`}>Patients can scan this to book directly with your referral code.</p>
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Personal QR Code</p>
+                    <p className={`text-xs mt-2 text-center max-w-[200px] ${isMobile ? 'text-zinc-600' : 'text-zinc-500'}`}>Patients can scan this to book directly with your referral code.</p>
                   </div>
 
                   <div className="space-y-4">
-                    <div className={`p-6 rounded-2xl border flex items-center justify-between ${isMobile ? 'bg-brand-bg/50 border-white/5' : 'bg-zinc-50/50 border-zinc-100'}`}>
+                    <div className={`p-6 rounded-2xl border flex items-center justify-between ${isMobile ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
                       <div>
-                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Referral Code</p>
-                        <p className={`text-2xl font-black tracking-tighter ${isMobile ? 'text-white' : 'text-zinc-900'}`}>{currentUser.promo_code}</p>
+                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Referral Code</p>
+                        <p className={`text-2xl font-black tracking-tighter ${isMobile ? 'text-zinc-900' : 'text-zinc-900'}`}>{currentUser.promo_code}</p>
                       </div>
                       <button 
                         onClick={() => {
                           navigator.clipboard.writeText(currentUser.promo_code);
                           alert('Code copied!');
                         }}
-                        className={`p-4 rounded-xl border transition-all active:scale-90 ${isMobile ? 'bg-brand-surface border-white/10 text-brand-peach hover:text-brand-pink' : 'bg-white border-zinc-100 text-zinc-400 hover:text-violet-500'}`}
+                        className={`p-4 rounded-xl border transition-all active:scale-90 ${isMobile ? 'bg-white border-zinc-200 text-brand-primary hover:bg-zinc-50' : 'bg-white border-zinc-100 text-zinc-400 hover:text-violet-500'}`}
                       >
                         <Copy size={20} />
                       </button>
@@ -3023,7 +3060,7 @@ export default function App() {
                           const text = `Hi! Book your appointment at our clinic using my referral link: ${url}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                         }}
-                        className={`flex items-center justify-center gap-3 p-5 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg ${isMobile ? 'bg-brand-peach text-brand-bg shadow-brand-peach/10 hover:bg-brand-peach/90' : 'bg-gradient-to-r from-orange-400 to-rose-400 text-white shadow-orange-500/10 hover:from-orange-500 hover:to-rose-500'}`}
+                        className={`flex items-center justify-center gap-3 p-5 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg ${isMobile ? 'bg-brand-peach text-brand-primary shadow-brand-peach/10 hover:bg-brand-peach/90' : 'bg-gradient-to-r from-orange-400 to-rose-400 text-white shadow-orange-500/10 hover:from-orange-500 hover:to-rose-500'}`}
                       >
                         <MessageCircle size={18} />
                         Share on WhatsApp
@@ -3034,7 +3071,7 @@ export default function App() {
                           navigator.clipboard.writeText(url);
                           alert('Link copied!');
                         }}
-                        className={`flex items-center justify-center gap-3 p-5 border rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-sm ${isMobile ? 'bg-brand-surface text-white border-white/10 hover:bg-brand-surface/80' : 'bg-white text-zinc-900 border-zinc-100 hover:bg-zinc-50'}`}
+                        className={`flex items-center justify-center gap-3 p-5 border rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-sm ${isMobile ? 'bg-white text-zinc-900 border-zinc-200 hover:bg-zinc-50' : 'bg-white text-zinc-900 border-zinc-100 hover:bg-zinc-50'}`}
                       >
                         <Share2 size={18} />
                         Copy Referral Link
@@ -3045,79 +3082,79 @@ export default function App() {
               </div>
 
               {/* Log New Referral (Staff Only) */}
-              {currentUser.role === 'staff' && (
-                <div className={`${isMobile ? 'bg-brand-surface border-white/10' : 'bg-violet-50 border-violet-100'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.02)]`}>
+              {currentUser.role === 'staff' && !isMobile && (
+                <div className={`${isMobile ? 'bg-white border-zinc-200 rotate-[-1deg]' : 'bg-violet-50 border-violet-100'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.02)]`}>
                   <div className="flex items-center gap-2 mb-6">
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${isMobile ? 'bg-brand-peach text-brand-bg shadow-brand-peach/20' : 'bg-violet-500 text-white shadow-violet-500/20'}`}>
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${isMobile ? 'bg-brand-peach text-brand-primary shadow-brand-peach/20 rotate-[5deg]' : 'bg-violet-500 text-white shadow-violet-500/20'}`}>
                       <PlusCircle size={20} />
                     </div>
-                    <h3 className={`font-bold ${isMobile ? 'text-white' : 'text-violet-900'}`}>Log New Referral</h3>
+                    <h3 className={`font-bold ${isMobile ? 'text-zinc-900' : 'text-violet-900'}`}>Log New Referral</h3>
                   </div>
                   <form onSubmit={handleSubmitReferral} className="space-y-4">
                     <div>
-                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient Name</label>
+                      <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Patient Name</label>
                       <input 
                         type="text" 
                         required
                         value={patientName}
                         onChange={(e) => setPatientName(e.target.value)}
-                        className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                        className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         placeholder="Enter patient name"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">WhatsApp Number</label>
+                        <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">WhatsApp Number</label>
                         <input 
                           type="tel" 
                           required
                           value={patientPhone}
                           onChange={(e) => setPatientPhone(e.target.value)}
-                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                           placeholder="e.g. +60123456789"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient IC</label>
+                        <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Patient IC</label>
                         <input 
                           type="text" 
                           required
                           value={patientIC}
                           onChange={(e) => setPatientIC(e.target.value)}
-                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                           placeholder="IC Number"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient Type</label>
+                      <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Patient Type</label>
                       <select 
                         required
                         value={patientType}
                         onChange={(e) => setPatientType(e.target.value as 'new' | 'existing')}
-                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                       >
                         <option value="new">New Patient</option>
                         <option value="existing">Existing Patient</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Patient Address</label>
+                      <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Patient Address</label>
                       <textarea 
                         required
                         value={patientAddress}
                         onChange={(e) => setPatientAddress(e.target.value)}
-                        className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium h-20 resize-none focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                        className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium h-20 resize-none focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         placeholder="Enter patient address"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Target Branch</label>
+                      <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Target Branch</label>
                       <select 
                         required
                         value={selectedBranch}
                         onChange={(e) => setSelectedBranch(e.target.value)}
-                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                       >
                         <option value="">Select Branch</option>
                         <option value="Bangi">Bangi</option>
@@ -3126,17 +3163,17 @@ export default function App() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Service Promoted</label>
+                      <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Service Promoted</label>
                       <div className="relative">
                         <select 
                           required
                           value={selectedService}
                           onChange={(e) => setSelectedService(e.target.value)}
-                          className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium pr-12 focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium pr-12 focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         >
                           <option value="">Select a service</option>
                           {services.map(s => (
-                            <option key={s.id} value={s.id}>{s.name} ({clinicProfile.currency}{s.commission_rate} incentive)</option>
+                            <option key={s.id} value={s.id}>{s.name} ({clinicProfile.currency}{s.commission_rate} incentive {s.aracoins_perk > 0 ? `+ ${s.aracoins_perk} Coins` : ''})</option>
                           ))}
                         </select>
                         <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
@@ -3146,23 +3183,23 @@ export default function App() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Booking Date</label>
+                        <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Booking Date</label>
                         <input 
                           type="date" 
                           required
                           min={new Date().toISOString().split('T')[0]}
                           value={appointmentDate}
                           onChange={(e) => setAppointmentDate(e.target.value)}
-                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Booking Time</label>
+                        <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Booking Time</label>
                         <select 
                           required
                           value={bookingTime}
                           onChange={(e) => setBookingTime(e.target.value)}
-                          className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-brand-bg border-white/5 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-white' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         >
                           <option value="">Select time</option>
                           {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(time => (
@@ -3174,7 +3211,7 @@ export default function App() {
                     <button 
                       type="submit" 
                       disabled={isSubmitting}
-                      className={`w-full py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] shadow-xl disabled:opacity-50 mt-2 flex items-center justify-center gap-2 ${isMobile ? 'bg-brand-peach text-brand-bg shadow-brand-peach/20 hover:bg-brand-peach/90' : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-violet-900/10 hover:from-violet-700 hover:to-fuchsia-700'}`}
+                      className={`w-full py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] shadow-xl disabled:opacity-50 mt-2 flex items-center justify-center gap-2 ${isMobile ? 'bg-brand-peach text-brand-primary shadow-brand-peach/20 hover:bg-brand-peach/90' : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-violet-900/10 hover:from-violet-700 hover:to-fuchsia-700'}`}
                     >
                       {isSubmitting ? (
                         <>
@@ -3333,83 +3370,6 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'tasks' && (
-            <motion.div 
-              key="tasks"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-8"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-3xl font-black tracking-tighter text-zinc-900">Task Management</h2>
-                  <p className="text-zinc-500 font-medium">Schedule and track clinic operations</p>
-                </div>
-                <button 
-                  onClick={() => { 
-                    setEditingTask(null); 
-                    setTaskDueDate(null);
-                    setShowTaskModal(true); 
-                  }}
-                  className="bg-zinc-900 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all flex items-center gap-2 shadow-xl shadow-zinc-900/20"
-                >
-                  <PlusCircle size={18} />
-                  Create New Task
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {['pending', 'in_progress', 'completed'].map(status => (
-                  <div key={status} className="space-y-4">
-                    <div className="flex items-center justify-between px-2">
-                      <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{status.replace('_', ' ')}</h4>
-                      <span className="text-[10px] font-black bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full">
-                        {tasks.filter(t => t.status === status).length}
-                      </span>
-                    </div>
-                    <div className="space-y-4">
-                      {tasks.filter(t => t.status === status).map(task => (
-                        <motion.div 
-                          layoutId={`task-${task.id}`}
-                          key={task.id}
-                          className="bg-white p-5 rounded-3xl border border-black/5 shadow-sm hover:shadow-md transition-all group"
-                        >
-                          <div className="flex justify-between items-start mb-3">
-                            <h5 className="font-bold text-zinc-900 leading-tight">{task.title}</h5>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => { 
-                                setEditingTask(task); 
-                                setTaskDueDate(task.due_date ? new Date(task.due_date) : null);
-                                setShowTaskModal(true); 
-                              }} className="p-1.5 text-zinc-400 hover:text-zinc-900"><Edit2 size={12} /></button>
-                              <button onClick={() => handleDeleteTask(task.id)} className="p-1.5 text-zinc-400 hover:text-red-600"><Trash2 size={12} /></button>
-                            </div>
-                          </div>
-                          <p className="text-xs text-zinc-500 mb-4 line-clamp-2">{task.description}</p>
-                          <div className="flex items-center justify-between pt-4 border-t border-zinc-50">
-                            <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400">
-                              <Calendar size={12} />
-                              {task.due_date}
-                            </div>
-                            <select 
-                              value={task.status}
-                              onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)}
-                              className="text-[9px] font-black uppercase tracking-widest bg-zinc-50 border-none focus:ring-0 rounded-lg py-1 px-2 cursor-pointer"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="in_progress">Doing</option>
-                              <option value="completed">Done</option>
-                            </select>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
           {activeTab === 'profile' && currentUser && (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -3417,16 +3377,16 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               className="max-w-2xl mx-auto space-y-8"
             >
-              <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-violet-50 rounded-full blur-3xl -mr-16 -mt-16" />
+              <div className={`${isMobile ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border relative overflow-hidden`}>
+                <div className={`absolute top-0 right-0 w-32 h-32 ${isMobile ? 'bg-brand-accent/10' : 'bg-violet-50'} rounded-full blur-3xl -mr-16 -mt-16`} />
                 
                 <div className="flex flex-col items-center text-center mb-10 relative z-10">
                   <div className="relative group mb-6 flex flex-col items-center">
-                    <div className="w-32 h-32 rounded-[2.5rem] bg-zinc-100 border-4 border-white shadow-xl overflow-hidden flex items-center justify-center relative">
+                    <div className={`w-32 h-32 rounded-[2.5rem] ${isMobile ? 'bg-[#0f172a] border-white/10' : 'bg-zinc-100 border-white'} border-4 shadow-xl overflow-hidden flex items-center justify-center relative`}>
                       {currentUser.profile_picture ? (
                         <img src={currentUser.profile_picture} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
-                        <UserCircle size={64} className="text-zinc-300" />
+                        <UserCircle size={64} className={isMobile ? 'text-[#f5f5dc]/20' : 'text-zinc-300'} />
                       )}
                       {isUploading && (
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
@@ -3435,7 +3395,7 @@ export default function App() {
                       )}
                     </div>
                     <div className="mt-4 flex gap-2">
-                      <label className="cursor-pointer bg-zinc-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all flex items-center gap-2">
+                      <label className={`cursor-pointer ${isMobile ? 'bg-brand-accent text-white' : 'bg-zinc-900 text-white'} px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2`}>
                         <PlusCircle size={14} />
                         Choose Image
                         <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
@@ -3444,7 +3404,7 @@ export default function App() {
                         <button 
                           type="button"
                           onClick={() => handleUpdateProfile({ profile_picture: '' })}
-                          className="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all flex items-center gap-2"
+                          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${isMobile ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
                         >
                           <Trash2 size={14} />
                           Remove
@@ -3452,8 +3412,8 @@ export default function App() {
                       )}
                     </div>
                   </div>
-                  <h3 className="text-2xl font-black tracking-tighter text-zinc-900">{currentUser.nickname || currentUser.name}</h3>
-                  <p className="text-zinc-400 text-sm font-medium uppercase tracking-widest">{currentUser.role}</p>
+                  <h3 className={`text-2xl font-black tracking-tighter ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{currentUser.nickname || currentUser.name}</h3>
+                  <p className={`text-sm font-medium uppercase tracking-widest ${isMobile ? 'text-[#f5f5dc]/60' : 'text-zinc-400'}`}>{currentUser.role}</p>
                 </div>
 
                 <form 
@@ -3472,49 +3432,65 @@ export default function App() {
                 >
                   <div className="grid grid-cols-1 gap-6">
                     <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Nickname</label>
+                      <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Nickname</label>
                       <input 
                         name="nickname"
                         type="text"
                         defaultValue={currentUser.nickname || ''}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
+                        className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
+                          isMobile 
+                            ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-brand-accent/20 focus:border-brand-accent' 
+                            : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'
+                        }`}
                         placeholder="Your preferred name"
                       />
                     </div>
                   </div>
 
-                  <div className="pt-6 border-t border-zinc-100">
-                    <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                      <DollarSign size={14} className="text-violet-500" />
+                  <div className={`pt-6 border-t ${isMobile ? 'border-white/5' : 'border-zinc-100'}`}>
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
+                      <DollarSign size={14} className={isMobile ? 'text-brand-accent' : 'text-violet-500'} />
                       Bank Account Details
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Bank Name</label>
+                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Bank Name</label>
                         <input 
                           name="bank_name"
                           type="text"
                           defaultValue={currentUser.bank_name || ''}
-                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
+                          className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
+                            isMobile 
+                              ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-brand-accent/20 focus:border-brand-accent' 
+                              : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'
+                          }`}
                           placeholder="e.g. Maybank, CIMB"
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Account Number</label>
+                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Account Number</label>
                         <input 
                           name="bank_account_number"
                           type="text"
                           defaultValue={currentUser.bank_account_number || ''}
-                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
+                          className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
+                            isMobile 
+                              ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-brand-accent/20 focus:border-brand-accent' 
+                              : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'
+                          }`}
                           placeholder="1234567890"
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">ID Type</label>
+                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>ID Type</label>
                         <select 
                           name="id_type"
                           defaultValue={currentUser.id_type || 'NRIC'}
-                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
+                          className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
+                            isMobile 
+                              ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-brand-accent/20 focus:border-brand-accent' 
+                              : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'
+                          }`}
                         >
                           <option value="NRIC">NRIC</option>
                           <option value="PASSPORT">Passport</option>
@@ -3522,56 +3498,76 @@ export default function App() {
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">ID Number</label>
+                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>ID Number</label>
                         <input 
                           name="id_number"
                           type="text"
                           defaultValue={currentUser.id_number || ''}
-                          className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
+                          className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
+                            isMobile 
+                              ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-brand-accent/20 focus:border-brand-accent' 
+                              : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'
+                          }`}
                           placeholder="e.g. 900101-10-5050"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="pt-6 border-t border-zinc-100">
-                    <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                      <BookOpen size={14} className="text-violet-500" />
+                  <div className={`pt-6 border-t ${isMobile ? 'border-white/5' : 'border-zinc-100'}`}>
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
+                      <BookOpen size={14} className={isMobile ? 'text-brand-accent' : 'text-violet-500'} />
                       Resources
                     </h4>
                     <button 
                       type="button"
                       onClick={() => setActiveTab('guide')}
-                      className="w-full px-6 py-4 rounded-2xl bg-violet-50 border border-violet-100 text-sm font-bold text-violet-700 hover:bg-violet-100 transition-all flex items-center justify-between group mb-4"
+                      className={`w-full px-6 py-4 rounded-2xl text-sm font-bold transition-all flex items-center justify-between group mb-4 ${
+                        isMobile 
+                          ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] hover:bg-brand-accent/10' 
+                          : 'bg-violet-50 border-violet-100 text-violet-700 hover:bg-violet-100'
+                      }`}
                     >
                       <span>View User Guide & FAQ</span>
-                      <ChevronRight size={16} className="text-violet-400 group-hover:text-violet-600 transition-colors" />
+                      <ChevronRight size={16} className={`${isMobile ? 'text-[#f5f5dc]/40' : 'text-violet-400'} group-hover:text-brand-accent transition-colors`} />
                     </button>
-                    <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                      <Lock size={14} className="text-zinc-400" />
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
+                      <Lock size={14} className={isMobile ? 'text-[#f5f5dc]/20' : 'text-zinc-400'} />
                       Security
                     </h4>
                     <button 
                       type="button"
                       onClick={() => setShowPasswordModal(true)}
-                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 text-sm font-bold text-zinc-600 hover:bg-zinc-100 transition-all flex items-center justify-between group"
+                      className={`w-full px-6 py-4 rounded-2xl text-sm font-bold transition-all flex items-center justify-between group ${
+                        isMobile 
+                          ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc]/60 hover:bg-brand-accent/10' 
+                          : 'bg-zinc-50 border-zinc-100 text-zinc-600 hover:bg-zinc-100'
+                      }`}
                     >
                       <span>Change Account Password</span>
-                      <ChevronRight size={16} className="text-zinc-300 group-hover:text-zinc-600 transition-colors" />
+                      <ChevronRight size={16} className={`${isMobile ? 'text-[#f5f5dc]/20' : 'text-zinc-300'} group-hover:text-brand-accent transition-colors`} />
                     </button>
                   </div>
 
                   <div className="flex gap-4 pt-6">
                     <button 
                       type="submit"
-                      className="flex-1 bg-zinc-900 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/20 active:scale-[0.98]"
+                      className={`flex-1 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-[0.98] ${
+                        isMobile 
+                          ? 'bg-brand-accent text-white shadow-brand-accent/20 hover:opacity-90' 
+                          : 'bg-zinc-900 text-white shadow-zinc-900/20 hover:bg-zinc-800'
+                      }`}
                     >
                       Save Changes
                     </button>
                     <button 
                       type="button"
                       onClick={handleLogout}
-                      className="px-8 bg-red-50 text-red-600 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100 active:scale-[0.98] flex items-center gap-2"
+                      className={`px-8 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all border active:scale-[0.98] flex items-center gap-2 ${
+                        isMobile 
+                          ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' 
+                          : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
+                      }`}
                     >
                       <LogOut size={18} />
                       Sign Out
@@ -3580,17 +3576,104 @@ export default function App() {
                 </form>
               </div>
 
-              <div className="bg-violet-50 p-8 rounded-[2.5rem] border border-violet-100">
+              <div className={`${isMobile ? 'bg-brand-accent/10 border-brand-accent/20' : 'bg-violet-50 border-violet-100'} p-8 rounded-[2.5rem] border`}>
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-violet-500 text-white rounded-2xl flex items-center justify-center shrink-0">
+                  <div className={`w-10 h-10 ${isMobile ? 'bg-brand-accent' : 'bg-violet-500'} text-white rounded-2xl flex items-center justify-center shrink-0`}>
                     <Zap size={20} />
                   </div>
                   <div>
-                    <h4 className="font-bold text-violet-900 mb-1">Security Tip</h4>
-                    <p className="text-xs text-violet-700 leading-relaxed">Keep your bank details updated to ensure smooth incentive payouts. Your information is encrypted and only visible to the clinic administrator.</p>
+                    <h4 className={`font-bold mb-1 ${isMobile ? 'text-brand-accent' : 'text-violet-900'}`}>Security Tip</h4>
+                    <p className={`text-xs leading-relaxed ${isMobile ? 'text-[#f5f5dc]/70' : 'text-violet-700'}`}>Keep your bank details updated to ensure smooth incentive payouts. Your information is encrypted and only visible to the clinic administrator.</p>
                   </div>
                 </div>
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'promotions' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-4xl mx-auto space-y-8"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className={`text-3xl font-black tracking-tighter ${isMobile ? 'text-zinc-900' : 'text-zinc-900'}`}>Promotions</h2>
+                  <p className="text-zinc-500 text-sm font-medium">Stay updated with our latest offers and news</p>
+                </div>
+                {currentUser.role === 'admin' && (
+                  <button 
+                    onClick={() => {
+                      // Logic to show create promotion modal
+                      alert('Admin: Create promotion feature coming soon!');
+                    }}
+                    className="flex items-center gap-2 px-6 py-3 bg-brand-accent text-white rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-brand-accent/20"
+                  >
+                    <Plus size={16} />
+                    New Promotion
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-24">
+                {promotions.map((promo) => (
+                  <motion.div 
+                    key={promo.id}
+                    whileHover={{ y: -5 }}
+                    className={`${isMobile ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} rounded-[2.5rem] border overflow-hidden flex flex-col`}
+                  >
+                    {promo.image_url ? (
+                      <div className="h-48 overflow-hidden">
+                        <img src={promo.image_url} alt={promo.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      </div>
+                    ) : (
+                      <div className={`h-48 ${isMobile ? 'bg-[#0f172a]' : 'bg-violet-50'} flex items-center justify-center`}>
+                        <Zap size={48} className={isMobile ? 'text-brand-accent/20' : 'text-violet-200'} />
+                      </div>
+                    )}
+                    <div className="p-8 flex-1 flex flex-col">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${promo.is_active ? 'bg-green-500/10 text-green-500' : 'bg-zinc-100 text-zinc-400'}`}>
+                          {promo.is_active ? 'Active' : 'Ended'}
+                        </span>
+                        <span className={`text-[10px] font-bold ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
+                          {new Date(promo.start_date).toLocaleDateString()} - {new Date(promo.end_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <h3 className={`text-xl font-black tracking-tight mb-3 ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{promo.title}</h3>
+                      <p className={`text-sm leading-relaxed mb-6 flex-1 ${isMobile ? 'text-[#f5f5dc]/70' : 'text-zinc-600'}`}>{promo.description}</p>
+                      
+                      {currentUser.role === 'admin' && (
+                        <div className="flex gap-3 pt-6 border-t border-white/5">
+                          <button className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isMobile ? 'bg-white/5 text-[#f5f5dc]/60 hover:bg-white/10' : 'bg-zinc-50 text-zinc-600 hover:bg-zinc-100'}`}>
+                            Edit
+                          </button>
+                          <button 
+                            onClick={() => {
+                              if (confirm('Are you sure you want to delete this promotion?')) {
+                                setPromotions(promotions.filter(p => p.id !== promo.id));
+                              }
+                            }}
+                            className={`px-4 py-3 rounded-xl text-red-500 transition-all ${isMobile ? 'bg-red-500/10 hover:bg-red-500/20' : 'bg-red-50 hover:bg-red-100'}`}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              {promotions.length === 0 && (
+                <div className="text-center py-20">
+                  <div className={`w-20 h-20 ${isMobile ? 'bg-[#1e293b]' : 'bg-zinc-100'} rounded-[2rem] flex items-center justify-center mx-auto mb-6`}>
+                    <Zap size={32} className="text-zinc-400" />
+                  </div>
+                  <h3 className={`text-xl font-black tracking-tight mb-2 ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>No active promotions</h3>
+                  <p className="text-zinc-500 text-sm font-medium">Check back later for exciting new offers!</p>
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -4742,8 +4825,6 @@ export default function App() {
             </div>
           )}
         </AnimatePresence>
-            </>
-          )}
         {/* Task Modal */}
         <AnimatePresence>
           {showTaskModal && (
@@ -4828,7 +4909,9 @@ export default function App() {
               </motion.div>
             </div>
           )}
+        </AnimatePresence>
 
+        <AnimatePresence>
           {showPasswordModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
               <motion.div 
@@ -4913,8 +4996,156 @@ export default function App() {
             </div>
           )}
         </AnimatePresence>
+
+        <AnimatePresence>
+          {showReferralModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowReferralModal(false)}
+                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+              >
+                <div className="p-8 overflow-y-auto">
+                  <div className="flex items-center justify-between mb-8">
+                    <h3 className="text-2xl font-black tracking-tighter">Log New Referral</h3>
+                    <button onClick={() => setShowReferralModal(false)} className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 hover:bg-zinc-200 transition-all">
+                      <PlusCircle size={20} className="rotate-45" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={(e) => {
+                    handleSubmitReferral(e);
+                    setShowReferralModal(false);
+                  }} className="space-y-6">
+                    {/* QR Code Section */}
+                    <div className="bg-zinc-50 p-6 rounded-3xl border border-zinc-100 flex flex-col items-center text-center">
+                      <div className="p-3 bg-white rounded-2xl shadow-sm mb-4">
+                        <QRCodeCanvas 
+                          value={`${window.location.origin}/refer?staff=${currentUser.id}`}
+                          size={120}
+                          level="H"
+                          includeMargin={false}
+                        />
+                      </div>
+                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Your Personal QR</p>
+                      <p className="text-[9px] font-bold text-zinc-500 leading-tight">Patients can scan this to book directly under your name</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Patient Name</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={patientName}
+                        onChange={(e) => setPatientName(e.target.value)}
+                        className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900"
+                        placeholder="Enter patient name"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">WhatsApp Number</label>
+                        <input 
+                          type="tel" 
+                          required
+                          value={patientPhone}
+                          onChange={(e) => setPatientPhone(e.target.value)}
+                          className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900"
+                          placeholder="e.g. +60123456789"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Patient IC</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={patientIC}
+                          onChange={(e) => setPatientIC(e.target.value)}
+                          className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900"
+                          placeholder="IC Number"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Target Branch</label>
+                      <select 
+                        required
+                        value={selectedBranch}
+                        onChange={(e) => setSelectedBranch(e.target.value)}
+                        className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900"
+                      >
+                        <option value="">Select Branch</option>
+                        <option value="Bangi">Bangi</option>
+                        <option value="Kajang">Kajang</option>
+                        <option value="HQ">HQ</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Service Promoted</label>
+                      <select 
+                        required
+                        value={selectedService}
+                        onChange={(e) => setSelectedService(e.target.value)}
+                        className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900"
+                      >
+                        <option value="">Select a service</option>
+                        {services.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Booking Date</label>
+                        <input 
+                          type="date" 
+                          required
+                          min={new Date().toISOString().split('T')[0]}
+                          value={appointmentDate}
+                          onChange={(e) => setAppointmentDate(e.target.value)}
+                          className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Booking Time</label>
+                        <select 
+                          required
+                          value={bookingTime}
+                          onChange={(e) => setBookingTime(e.target.value)}
+                          className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900"
+                        >
+                          <option value="">Select time</option>
+                          {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(time => (
+                            <option key={time} value={time}>{time}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button 
+                      type="submit" 
+                      disabled={isSubmitting}
+                      className="w-full py-5 bg-brand-accent text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] shadow-xl shadow-brand-accent/20 disabled:opacity-50 mt-2 flex items-center justify-center gap-2"
+                    >
+                      {isSubmitting ? 'Submitting...' : 'Submit Referral'}
+                    </button>
+                  </form>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+      </>
+    )}
       </main>
     </div>
   );
-}
+  }
 }
