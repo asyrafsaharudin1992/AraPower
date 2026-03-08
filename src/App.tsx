@@ -40,7 +40,9 @@ import {
   Info,
   Plus,
   BarChart3,
-  User
+  User,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -291,7 +293,9 @@ export default function App() {
 
   // Auth States
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [showPassword, setShowPassword] = useState(false);
   const [authEmail, setAuthEmail] = useState('');
+  const [showWelcome, setShowWelcome] = useState(false);
   const [authPassword, setAuthPassword] = useState('');
   const [authName, setAuthName] = useState('');
   const [authBranch, setAuthBranch] = useState('');
@@ -364,6 +368,15 @@ export default function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (showWelcome) {
+      const timer = setTimeout(() => {
+        setShowWelcome(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showWelcome]);
 
   const fetchStaffByEmail = async (email: string, user?: any) => {
     try {
@@ -530,6 +543,7 @@ export default function App() {
         if (res.ok && data && !data.error) {
           setCurrentUser(data);
           localStorage.setItem('currentUser', JSON.stringify(data));
+          setShowWelcome(true);
           return;
         } else {
           throw new Error(data.error || 'Invalid credentials');
@@ -554,6 +568,7 @@ export default function App() {
         if (res.ok && localData && !localData.error) {
           setCurrentUser(localData);
           localStorage.setItem('currentUser', JSON.stringify(localData));
+          setShowWelcome(true);
           return;
         }
         throw error;
@@ -561,6 +576,7 @@ export default function App() {
 
       if (data.user?.email) {
         await fetchStaffByEmail(data.user.email, data.user);
+        setShowWelcome(true);
       }
     } catch (error: any) {
       console.error('Login error:', error);
@@ -614,6 +630,7 @@ export default function App() {
         console.log('Registration successful', data);
         setCurrentUser(data);
         localStorage.setItem('currentUser', JSON.stringify(data));
+        setShowWelcome(true);
         setActiveTab('dashboard');
       } else {
         console.error('Registration failed:', data);
@@ -1263,72 +1280,100 @@ export default function App() {
     );
   }
 
-  if (!currentUser) {
-    const hour = new Date().getHours();
-    const greeting = hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening';
-
+  if (showWelcome && currentUser) {
     return (
-      <div className="min-h-screen bg-[#FBFBFD] flex items-center justify-center p-4 font-sans relative overflow-hidden">
-        {/* Background Decorative Elements */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
-          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-violet-50 rounded-full blur-[120px] opacity-60" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-50 rounded-full blur-[120px] opacity-60" />
-        </div>
-
+      <div className="min-h-screen bg-[#FFF5F0] flex items-center justify-center p-0 sm:p-4 font-sans">
         <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="bg-white p-8 sm:p-12 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] max-w-lg w-full border border-black/[0.03] relative z-10"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative items-center justify-center"
         >
-          <div className="flex flex-col items-center text-center mb-10">
-            <motion.div 
+          {/* Wavy Top Background - Same as Login */}
+          <div className="absolute top-0 left-0 right-0 h-[45%] overflow-hidden z-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#FFB79D] via-[#F2994A] to-[#E67E22]" />
+            <svg className="absolute bottom-0 w-full h-40 text-white/10 fill-current translate-y-4" viewBox="0 0 1440 320" preserveAspectRatio="none">
+              <path d="M0,160C320,300,640,0,1440,160L1440,320L0,320Z"></path>
+            </svg>
+            <svg className="absolute bottom-0 w-full h-32 text-white fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none">
+              <path d="M0,224C480,350,960,100,1440,224L1440,320L0,320Z"></path>
+            </svg>
+          </div>
+
+          <div className="relative z-10 text-center px-8">
+            <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-              className="bg-white p-2 rounded-[1.5rem] shadow-lg shadow-black/5 mb-6 border border-zinc-100"
+              transition={{ delay: 0.3, duration: 0.8, type: 'spring' }}
+              className="mb-8"
             >
-              <Logo className="w-12 h-12" />
+              <div className="w-24 h-24 bg-white rounded-[2.5rem] shadow-xl flex items-center justify-center mx-auto mb-6 border border-zinc-50">
+                <Logo className="w-16 h-16" />
+              </div>
+              <h1 className="text-4xl font-black text-zinc-900 tracking-tighter mb-2">Welcome to</h1>
+              <h2 className="text-5xl font-black text-brand-primary tracking-tighter">AraPower</h2>
             </motion.div>
+            
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.5 }}
+              transition={{ delay: 0.8, duration: 0.5 }}
+              className="flex flex-col items-center gap-4"
             >
-              <h1 className="text-3xl font-black text-zinc-900 tracking-tight mb-1">{clinicProfile.name}</h1>
-              <p className="text-violet-600 text-[10px] font-black uppercase tracking-[0.3em] mb-4">Empowering Healthcare</p>
-              <p className="text-zinc-400 text-sm font-medium">{greeting}, please sign in to your account</p>
+              <p className="text-zinc-500 font-medium">Preparing your personalized dashboard...</p>
+              <div className="w-48 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: '100%' }}
+                  transition={{ duration: 2.5, ease: "easeInOut" }}
+                  className="h-full bg-brand-primary"
+                />
+              </div>
             </motion.div>
           </div>
-          
-          <div className="flex gap-8 mb-10 border-b border-zinc-100 relative">
-            <button 
-              onClick={() => { setAuthMode('login'); setAuthError(''); }}
-              className={`pb-4 text-xs font-black uppercase tracking-[0.2em] transition-all relative z-10 ${authMode === 'login' ? 'text-violet-600' : 'text-zinc-400 hover:text-zinc-600'}`}
-            >
-              Login
-              {authMode === 'login' && (
-                <motion.div 
-                  layoutId="auth-tab"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-600"
-                />
-              )}
-            </button>
-            {authSettings.allowRegistration && (
-              <button 
-                onClick={() => { setAuthMode('register'); setAuthError(''); }}
-                className={`pb-4 text-xs font-black uppercase tracking-[0.2em] transition-all relative z-10 ${authMode === 'register' ? 'text-violet-600' : 'text-zinc-400 hover:text-zinc-600'}`}
-              >
-                Register
-                {authMode === 'register' && (
-                  <motion.div 
-                    layoutId="auth-tab"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-600"
-                  />
-                )}
-              </button>
-            )}
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-[#FFF5F0] flex items-center justify-center p-0 sm:p-4 font-sans">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative"
+        >
+          {/* Wavy Top Background */}
+          <div className="absolute top-0 left-0 right-0 h-[35%] overflow-hidden z-0">
+            {/* Main Gradient Background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#FFB79D] via-[#F2994A] to-[#E67E22]" />
+            
+            {/* Layered Waves for Depth - Smooth organic curves matching the image */}
+            <svg className="absolute bottom-0 w-full h-32 text-white/10 fill-current translate-y-4" viewBox="0 0 1440 320" preserveAspectRatio="none">
+              <path d="M0,160C320,300,640,0,1440,160L1440,320L0,320Z"></path>
+            </svg>
+            
+            <svg className="absolute bottom-0 w-full h-24 text-white fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none">
+              <path d="M0,224C480,350,960,100,1440,224L1440,320L0,320Z"></path>
+            </svg>
           </div>
+
+          <div className="flex-1 flex flex-col px-8 pt-[30%] pb-10 overflow-y-auto relative z-10">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.6 }}
+              className="mb-8"
+            >
+              <h1 className="text-4xl font-bold text-zinc-800 mb-2">
+                {authMode === 'login' ? 'Sign In' : 'Sign Up'}
+              </h1>
+              <p className="text-zinc-500 text-sm">
+                {authMode === 'login' ? 'Sign in to your Registered Account.' : 'Create your account to get started.'}
+              </p>
+              <div className="w-12 h-1 bg-brand-primary mt-4 rounded-full" />
+            </motion.div>
 
           <AnimatePresence mode="wait">
             {connectionStatus === 'offline' && (
@@ -1336,7 +1381,7 @@ export default function App() {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="mb-4 p-3 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-xl border border-amber-100 flex items-center justify-between"
+                className="mb-6 p-3 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-xl border border-amber-100 flex items-center justify-between"
               >
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
@@ -1368,43 +1413,63 @@ export default function App() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 onSubmit={handleLoginSubmit} 
-                className="space-y-6"
+                className="flex-1 flex flex-col"
               >
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Email Address</label>
-                  <div className="relative group">
+                <div className="space-y-8 mb-8">
+                  <div className="space-y-2 border-b border-zinc-200 pb-2">
+                    <label className="block text-sm font-semibold text-zinc-700">Email Address</label>
                     <input 
                       type="email"
                       required
                       value={authEmail}
                       onChange={(e) => setAuthEmail(e.target.value)}
-                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium group-hover:bg-white"
-                      placeholder="admin@clinic.com"
+                      className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300"
+                      placeholder="simonnjege@gmail.com"
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Password</label>
-                  <div className="relative group">
-                    <input 
-                      type="password"
-                      required
-                      value={authPassword}
-                      onChange={(e) => setAuthPassword(e.target.value)}
-                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium group-hover:bg-white"
-                      placeholder="••••••••"
-                    />
+                  <div className="space-y-2 border-b border-zinc-200 pb-2 relative">
+                    <label className="block text-sm font-semibold text-zinc-700">Password</label>
+                    <div className="flex items-center">
+                      <input 
+                        type={showPassword ? "text" : "password"}
+                        required
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300"
+                        placeholder="••••••••"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="text-zinc-300 hover:text-zinc-500 transition-colors"
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <button 
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:from-violet-700 hover:to-fuchsia-700 transition-all shadow-xl shadow-violet-600/20 active:scale-[0.98]"
-                >
-                  Sign In
-                </button>
-                <p className="text-center text-[10px] text-zinc-400 font-bold tracking-tight">
-                  Forgot password? Contact your administrator for a reset.
-                </p>
+
+                <div className="text-right mb-12">
+                  <button type="button" className="text-brand-primary text-sm font-semibold hover:underline">
+                    Forgot Password?
+                  </button>
+                </div>
+
+                <div className="mt-auto flex gap-4">
+                  <button 
+                    type="button"
+                    onClick={() => setAuthMode('register')}
+                    className="flex-1 py-4 border-2 border-brand-primary text-brand-primary rounded-full font-bold text-sm uppercase tracking-wider hover:bg-brand-primary/5 transition-all"
+                  >
+                    Sign Up
+                  </button>
+                  <button 
+                    type="submit"
+                    className="flex-1 py-4 bg-gradient-to-r from-brand-primary to-[#2A5D74] text-white rounded-full font-bold text-sm uppercase tracking-wider shadow-lg shadow-brand-primary/30 hover:shadow-brand-primary/40 transition-all active:scale-[0.98]"
+                  >
+                    Sign In
+                  </button>
+                </div>
               </motion.form>
             ) : (
               <motion.form 
@@ -1413,51 +1478,60 @@ export default function App() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 onSubmit={handleRegisterSubmit} 
-                className="space-y-5"
+                className="flex-1 flex flex-col"
               >
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Full Name</label>
-                  <input 
-                    type="text"
-                    required
-                    value={authName}
-                    onChange={(e) => setAuthName(e.target.value)}
-                    className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
-                    placeholder="John Doe"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Email Address</label>
-                  <input 
-                    type="email"
-                    required
-                    value={authEmail}
-                    onChange={(e) => setAuthEmail(e.target.value)}
-                    className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
-                    placeholder="john@clinic.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Password</label>
-                  <input 
-                    type="password"
-                    required
-                    minLength={6}
-                    value={authPassword}
-                    onChange={(e) => setAuthPassword(e.target.value)}
-                    className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
-                    placeholder="Min. 6 characters"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Branch</label>
-                    <div className="relative">
+                <div className="space-y-6 mb-8">
+                  <div className="space-y-2 border-b border-zinc-200 pb-2">
+                    <label className="block text-sm font-semibold text-zinc-700">Full Name</label>
+                    <input 
+                      type="text"
+                      required
+                      value={authName}
+                      onChange={(e) => setAuthName(e.target.value)}
+                      className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300"
+                      placeholder="John Doe"
+                    />
+                  </div>
+                  <div className="space-y-2 border-b border-zinc-200 pb-2">
+                    <label className="block text-sm font-semibold text-zinc-700">Email Address</label>
+                    <input 
+                      type="email"
+                      required
+                      value={authEmail}
+                      onChange={(e) => setAuthEmail(e.target.value)}
+                      className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300"
+                      placeholder="john@clinic.com"
+                    />
+                  </div>
+                  <div className="space-y-2 border-b border-zinc-200 pb-2 relative">
+                    <label className="block text-sm font-semibold text-zinc-700">Password</label>
+                    <div className="flex items-center">
+                      <input 
+                        type={showPassword ? "text" : "password"}
+                        required
+                        minLength={6}
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300"
+                        placeholder="Min. 6 characters"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="text-zinc-300 hover:text-zinc-500 transition-colors"
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 border-b border-zinc-200 pb-2">
+                      <label className="block text-sm font-semibold text-zinc-700">Branch</label>
                       <select 
                         required
                         value={authBranch}
                         onChange={(e) => setAuthBranch(e.target.value)}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium appearance-none"
+                        className="w-full bg-transparent focus:outline-none text-zinc-800 appearance-none"
                       >
                         <option value="">Select</option>
                         <option value="Bangi">Bangi</option>
@@ -1465,31 +1539,42 @@ export default function App() {
                         <option value="HQ">HQ</option>
                       </select>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Phone</label>
-                    <input 
-                      type="tel"
-                      required
-                      value={authPhone}
-                      onChange={(e) => setAuthPhone(e.target.value)}
-                      className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
-                      placeholder="6012..."
-                    />
+                    <div className="space-y-2 border-b border-zinc-200 pb-2">
+                      <label className="block text-sm font-semibold text-zinc-700">Phone</label>
+                      <input 
+                        type="tel"
+                        required
+                        value={authPhone}
+                        onChange={(e) => setAuthPhone(e.target.value)}
+                        className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300"
+                        placeholder="6012..."
+                      />
+                    </div>
                   </div>
                 </div>
-                <button 
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:from-violet-700 hover:to-fuchsia-700 transition-all shadow-xl shadow-violet-600/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? 'Creating Account...' : 'Create Account'}
-                </button>
+
+                <div className="mt-auto flex gap-4">
+                  <button 
+                    type="button"
+                    onClick={() => setAuthMode('login')}
+                    className="flex-1 py-4 border-2 border-brand-primary text-brand-primary rounded-full font-bold text-sm uppercase tracking-wider hover:bg-brand-primary/5 transition-all"
+                  >
+                    Sign In
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex-1 py-4 bg-gradient-to-r from-brand-primary to-[#2A5D74] text-white rounded-full font-bold text-sm uppercase tracking-wider shadow-lg shadow-brand-primary/30 hover:shadow-brand-primary/40 transition-all active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Creating...' : 'Sign Up'}
+                  </button>
+                </div>
               </motion.form>
             )}
           </AnimatePresence>
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
+    </div>
     );
   }
 
