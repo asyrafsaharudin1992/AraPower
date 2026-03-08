@@ -44,7 +44,9 @@ import {
   Eye,
   EyeOff,
   ArrowRight,
-  Mail
+  Mail,
+  Trophy,
+  Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -1286,14 +1288,14 @@ export default function App() {
   // Welcome / Onboarding Screen
   if (!currentUser && onboardingStep === 'welcome') {
     return (
-      <div className="min-h-screen bg-[#FF8A8A] flex items-center justify-center p-0 sm:p-4 font-sans">
+      <div className="min-h-screen bg-brand-primary flex items-center justify-center p-0 sm:p-4 font-sans">
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative"
         >
           {/* Topographic Background */}
-          <div className="absolute top-0 left-0 right-0 h-[60%] overflow-hidden z-0 bg-[#FF8A8A]">
+          <div className="absolute top-0 left-0 right-0 h-[60%] overflow-hidden z-0 bg-brand-primary">
             <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none">
               <path d="M0,20 Q25,10 50,20 T100,20" fill="none" stroke="white" strokeWidth="0.5" />
               <path d="M0,40 Q25,30 50,40 T100,40" fill="none" stroke="white" strokeWidth="0.5" />
@@ -1320,7 +1322,7 @@ export default function App() {
                   className="flex items-center gap-3 group"
                 >
                   <span className="text-zinc-400 font-bold text-lg group-hover:text-zinc-600 transition-colors">Continue</span>
-                  <div className="w-14 h-14 bg-[#FF8A8A] rounded-full flex items-center justify-center text-white shadow-lg shadow-[#FF8A8A]/30 group-hover:scale-110 transition-transform">
+                  <div className="w-14 h-14 bg-brand-accent rounded-full flex items-center justify-center text-white shadow-lg shadow-brand-accent/30 group-hover:scale-110 transition-transform">
                     <ArrowRight size={24} />
                   </div>
                 </button>
@@ -1343,7 +1345,7 @@ export default function App() {
         >
           {/* Wavy Top Background - Same as Login */}
           <div className="absolute top-0 left-0 right-0 h-[45%] overflow-hidden z-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#FFB79D] via-[#F2994A] to-[#E67E22]" />
+            <div className="absolute inset-0 bg-brand-primary" />
             <svg className="absolute bottom-0 w-full h-40 text-white/10 fill-current translate-y-4" viewBox="0 0 1440 320" preserveAspectRatio="none">
               <path d="M0,160C320,300,640,0,1440,160L1440,320L0,320Z"></path>
             </svg>
@@ -1387,14 +1389,14 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-[#FF8A8A] flex items-center justify-center p-0 sm:p-4 font-sans">
+      <div className="min-h-screen bg-brand-primary flex items-center justify-center p-0 sm:p-4 font-sans">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative"
         >
           {/* Topographic Background */}
-          <div className="absolute top-0 left-0 right-0 h-[45%] overflow-hidden z-0 bg-[#FF8A8A]">
+          <div className="absolute top-0 left-0 right-0 h-[45%] overflow-hidden z-0 bg-brand-primary">
             <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none">
               <path d="M10,10 Q30,0 50,10 T90,10" fill="none" stroke="white" strokeWidth="0.5" />
               <path d="M0,30 Q40,20 80,30 T120,30" fill="none" stroke="white" strokeWidth="0.5" />
@@ -1416,10 +1418,10 @@ export default function App() {
                 transition={{ delay: 0.2, duration: 0.6 }}
                 className="mb-8"
               >
-                <h1 className="text-4xl font-black text-[#1A365D] mb-1">
+                <h1 className="text-4xl font-black text-brand-primary mb-1">
                   {authMode === 'login' ? 'Sign in' : 'Sign up'}
                 </h1>
-                <div className="w-10 h-1 bg-[#FF8A8A] rounded-full mb-4" />
+                <div className="w-10 h-1 bg-brand-accent rounded-full mb-4" />
               </motion.div>
 
           <AnimatePresence mode="wait">
@@ -1449,7 +1451,7 @@ export default function App() {
                 <div className="space-y-6 mb-8">
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-zinc-500">Email</label>
-                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-2 transition-colors">
+                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-brand-accent pb-2 transition-colors">
                       <Mail size={18} className="text-zinc-300" />
                       <input 
                         type="email"
@@ -1463,7 +1465,7 @@ export default function App() {
                   </div>
                   <div className="space-y-2 relative">
                     <label className="block text-sm font-bold text-zinc-500">Password</label>
-                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-2 transition-colors">
+                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-brand-accent pb-2 transition-colors">
                       <Lock size={18} className="text-zinc-300" />
                       <input 
                         type={showPassword ? "text" : "password"}
@@ -1486,12 +1488,12 @@ export default function App() {
 
                 <div className="flex items-center justify-between mb-10">
                   <label className="flex items-center gap-2 cursor-pointer group">
-                    <div className="w-5 h-5 rounded border-2 border-zinc-200 flex items-center justify-center group-hover:border-[#FF8A8A] transition-colors">
-                      <div className="w-3 h-3 bg-[#FF8A8A] rounded-sm opacity-0 group-hover:opacity-20 transition-opacity" />
+                    <div className="w-5 h-5 rounded border-2 border-zinc-200 flex items-center justify-center group-hover:border-brand-accent transition-colors">
+                      <div className="w-3 h-3 bg-brand-accent rounded-sm opacity-0 group-hover:opacity-20 transition-opacity" />
                     </div>
                     <span className="text-xs font-bold text-zinc-500">Remember Me</span>
                   </label>
-                  <button type="button" className="text-[#FF8A8A] text-xs font-bold hover:underline">
+                  <button type="button" className="text-brand-accent text-xs font-bold hover:underline">
                     Forgot Password?
                   </button>
                 </div>
@@ -1499,13 +1501,13 @@ export default function App() {
                 <div className="mt-auto space-y-6">
                   <button 
                     type="submit"
-                    className="w-full py-5 bg-[#F2994A] text-white rounded-2xl font-black text-lg shadow-xl shadow-[#F2994A]/30 hover:shadow-[#F2994A]/40 transition-all active:scale-[0.98]"
+                    className="w-full py-5 bg-brand-accent text-white rounded-2xl font-black text-lg shadow-xl shadow-brand-accent/30 hover:shadow-brand-accent/40 transition-all active:scale-[0.98]"
                   >
                     Login
                   </button>
                   
                   <p className="text-center text-sm font-bold text-zinc-400">
-                    Don't have an Account ? <button onClick={() => setAuthMode('register')} className="text-[#FF8A8A] hover:underline">Sign up</button>
+                    Don't have an Account ? <button onClick={() => setAuthMode('register')} className="text-brand-accent hover:underline">Sign up</button>
                   </p>
                 </div>
               </motion.form>
@@ -1521,7 +1523,7 @@ export default function App() {
                 <div className="space-y-4 mb-8">
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-zinc-500">Full Name</label>
-                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-1 transition-colors">
+                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-brand-accent pb-1 transition-colors">
                       <User size={16} className="text-zinc-300" />
                       <input 
                         type="text"
@@ -1535,7 +1537,7 @@ export default function App() {
                   </div>
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-zinc-500">Email</label>
-                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-1 transition-colors">
+                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-brand-accent pb-1 transition-colors">
                       <Mail size={16} className="text-zinc-300" />
                       <input 
                         type="email"
@@ -1549,7 +1551,7 @@ export default function App() {
                   </div>
                   <div className="space-y-1 relative">
                     <label className="block text-xs font-bold text-zinc-500">Password</label>
-                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-1 transition-colors">
+                    <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-brand-accent pb-1 transition-colors">
                       <Lock size={16} className="text-zinc-300" />
                       <input 
                         type={showPassword ? "text" : "password"}
@@ -1565,7 +1567,7 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="block text-xs font-bold text-zinc-500">Branch</label>
-                      <div className="border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-1 transition-colors">
+                      <div className="border-b border-zinc-200 focus-within:border-brand-accent pb-1 transition-colors">
                         <select 
                           required
                           value={authBranch}
@@ -1581,7 +1583,7 @@ export default function App() {
                     </div>
                     <div className="space-y-1">
                       <label className="block text-xs font-bold text-zinc-500">Phone</label>
-                      <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-[#FF8A8A] pb-1 transition-colors">
+                      <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-brand-accent pb-1 transition-colors">
                         <Phone size={16} className="text-zinc-300" />
                         <input 
                           type="tel"
@@ -1600,12 +1602,12 @@ export default function App() {
                   <button 
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full py-4 bg-[#FF8A8A] text-white rounded-2xl font-black text-lg shadow-xl shadow-[#FF8A8A]/30 hover:shadow-[#FF8A8A]/40 transition-all active:scale-[0.98] disabled:opacity-50"
+                    className="w-full py-4 bg-brand-accent text-white rounded-2xl font-black text-lg shadow-xl shadow-brand-accent/30 hover:shadow-brand-accent/40 transition-all active:scale-[0.98] disabled:opacity-50"
                   >
                     {isSubmitting ? 'Creating...' : 'Sign Up'}
                   </button>
                   <p className="text-center text-sm font-bold text-zinc-400">
-                    Already have an account? <button onClick={() => setAuthMode('login')} className="text-[#FF8A8A] hover:underline">Sign in</button>
+                    Already have an account? <button onClick={() => setAuthMode('login')} className="text-brand-accent hover:underline">Sign in</button>
                   </p>
                 </div>
               </motion.form>
@@ -1907,6 +1909,13 @@ export default function App() {
                 <span className="text-sm font-medium">Promotions</span>
               </button>
               <button 
+                onClick={() => setActiveTab('tasks')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'tasks' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
+              >
+                <CheckSquare size={18} />
+                <span className="text-sm font-medium">Tasks</span>
+              </button>
+              <button 
                 onClick={() => setActiveTab('profile')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
               >
@@ -1954,8 +1963,8 @@ export default function App() {
         <main className={`${!isMobile ? 'ml-64 bg-[#FBFBFD]' : 'pb-32 min-h-screen bg-zinc-50'} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
           {isMobile && (
             <>
-              <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-brand-peach/10 to-transparent -z-10" />
-              <div className="absolute top-[10%] -right-[20%] w-[80%] h-[40%] bg-brand-pink/10 rounded-full blur-[100px] -z-10" />
+              <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-brand-primary/20 to-transparent -z-10" />
+              <div className="absolute top-[10%] -right-[20%] w-[80%] h-[40%] bg-brand-primary/10 rounded-full blur-[100px] -z-10" />
             </>
           )}
 
@@ -2059,34 +2068,7 @@ export default function App() {
                         </div>
                         
                         <div className="relative w-24 h-24 flex items-center justify-center">
-                          <svg className="w-full h-full -rotate-90">
-                            <circle
-                              cx="48"
-                              cy="48"
-                              r="38"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="8"
-                              className="text-white/10"
-                            />
-                            <circle
-                              cx="48"
-                              cy="48"
-                              r="38"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="8"
-                              strokeDasharray={2 * Math.PI * 38}
-                              strokeDashoffset={2 * Math.PI * 38 * (1 - Math.min(1, (currentUserStats?.monthlySuccessfulRefs || 0) / (nextTier?.min || 1)))}
-                              strokeLinecap="round"
-                              className="text-brand-accent transition-all duration-1000"
-                            />
-                          </svg>
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-white font-black text-sm">
-                              {Math.round(Math.min(100, (currentUserStats?.monthlySuccessfulRefs || 0) / (nextTier?.min || 1) * 100))}%
-                            </span>
-                          </div>
+                          <Trophy className="text-brand-accent" size={48} />
                         </div>
                       </div>
                     </div>
@@ -3716,6 +3698,122 @@ export default function App() {
                     <p className={`text-xs leading-relaxed ${isMobile ? 'text-[#f5f5dc]/70' : 'text-violet-700'}`}>Keep your bank details updated to ensure smooth incentive payouts. Your information is encrypted and only visible to the clinic administrator.</p>
                   </div>
                 </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'tasks' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-5xl mx-auto space-y-8"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-3xl font-black tracking-tighter text-zinc-900">Task Management</h2>
+                  <p className="text-zinc-500 text-sm font-medium">Track and manage clinic operations</p>
+                </div>
+                {currentUser.role === 'admin' && (
+                  <button 
+                    onClick={() => {
+                      setEditingTask(null);
+                      setTaskDueDate(new Date());
+                      setShowTaskModal(true);
+                    }}
+                    className="flex items-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all active:scale-95 shadow-lg shadow-zinc-900/20"
+                  >
+                    <Plus size={16} />
+                    New Task
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 pb-24">
+                {tasks.map((task) => (
+                  <motion.div 
+                    key={task.id}
+                    layout
+                    className="bg-white p-6 rounded-[2rem] border border-black/5 shadow-sm hover:shadow-md transition-all group"
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div className="flex items-start gap-4 flex-1">
+                        <div className={`mt-1 w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                          task.status === 'completed' ? 'bg-green-50 text-green-600' : 
+                          task.status === 'in_progress' ? 'bg-blue-50 text-blue-600' : 'bg-zinc-50 text-zinc-400'
+                        }`}>
+                          {task.status === 'completed' ? <CheckCircle2 size={20} /> : <Clock size={20} />}
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-zinc-900 mb-1">{task.title}</h3>
+                          <p className="text-sm text-zinc-500 line-clamp-2 mb-3">{task.description}</p>
+                          <div className="flex flex-wrap items-center gap-4">
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                              <Calendar size={12} className="text-violet-500" />
+                              Due: {new Date(task.due_date).toLocaleDateString()}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                              <User size={12} className="text-blue-500" />
+                              Assigned: {task.assigned_to_name || 'Unassigned'}
+                            </div>
+                            <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${
+                              task.status === 'completed' ? 'text-green-600' : 
+                              task.status === 'in_progress' ? 'text-blue-600' : 'text-zinc-400'
+                            }`}>
+                              <div className={`w-1.5 h-1.5 rounded-full ${
+                                task.status === 'completed' ? 'bg-green-600' : 
+                                task.status === 'in_progress' ? 'bg-blue-600' : 'bg-zinc-400'
+                              }`} />
+                              {task.status.replace('_', ' ')}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        <select 
+                          value={task.status}
+                          onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)}
+                          className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-violet-500/10 transition-all appearance-none cursor-pointer"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="completed">Completed</option>
+                        </select>
+
+                        {currentUser.role === 'admin' && (
+                          <div className="flex items-center gap-2 pl-3 border-l border-zinc-100">
+                            <button 
+                              onClick={() => {
+                                setEditingTask(task);
+                                setTaskDueDate(new Date(task.due_date));
+                                setShowTaskModal(true);
+                              }}
+                              className="p-2 rounded-lg text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-all"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteTask(task.id)}
+                              className="p-2 rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-500 transition-all"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+
+                {tasks.length === 0 && (
+                  <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-zinc-200">
+                    <div className="w-20 h-20 bg-zinc-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                      <CheckSquare size={32} className="text-zinc-200" />
+                    </div>
+                    <h3 className="text-xl font-black tracking-tight text-zinc-900 mb-2">No tasks found</h3>
+                    <p className="text-zinc-500 text-sm font-medium">Everything is up to date!</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
