@@ -43,3 +43,30 @@
 @utility transition-grid {
   transition: grid-template-rows 0.3s ease-in-out, opacity 0.3s ease-in-out;
 }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 1s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-in-out forwards;
+}
+
+.fade-out {
+  animation: fadeOut 0.4s ease-in-out forwards;
+}
