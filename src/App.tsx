@@ -256,7 +256,7 @@ export default function App() {
     branches: [] as string[]
   });
 
-  const [branches, setBranches] = useState<string[]>(['HQ', 'Bangi', 'Kajang', 'Shah Alam', 'Damansara']);
+  const [branches, setBranches] = useState<any[]>([]);
 
   const [promotions, setPromotions] = useState<Promotion[]>([
     {
@@ -282,7 +282,7 @@ export default function App() {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   
   // Setup Tab State
-  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral'>('staff');
+  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches'>('staff');
   const [promoSubTab, setPromoSubTab] = useState<'ads' | 'services'>('ads');
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
   const [editingStaff, setEditingStaff] = useState<Partial<Staff> | null>(null);
@@ -378,6 +378,10 @@ export default function App() {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState('');
+  const [branchChangeRequests, setBranchChangeRequests] = useState<any[]>([]);
+  const [showBranchModal, setShowBranchModal] = useState(false);
+  const [editingBranch, setEditingBranch] = useState<any>(null);
+  const [branchPerformance, setBranchPerformance] = useState<any>(null);
   const [authSettings, setAuthSettings] = useState({ allowRegistration: true });
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   
@@ -622,8 +626,16 @@ export default function App() {
       console.log('Current user detected:', currentUser.email, currentUser.role, currentUser.branch);
       fetchReferrals();
       fetchPromotions();
+      fetchServices();
+      fetchTasks();
+      if (currentUser.role === 'admin') {
+        fetchStaff();
+        fetchSettings();
+        fetchBranches();
+        fetchBranchChangeRequests();
+      }
     }
-  }, [currentUser, branchFilter]);
+  }, [currentUser, branchFilter, activeTab]);
 
   useEffect(() => {
     let interval: any;
@@ -655,12 +667,25 @@ export default function App() {
     if (res.ok) setServices(data);
   };
 
+  const fetchBranches = async () => {
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/branches`);
+    if (res.ok) setBranches(data);
+  };
+
+  const fetchBranchChangeRequests = async () => {
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/branch-change-requests`);
+    if (res.ok) setBranchChangeRequests(data);
+  };
+
   const fetchReferrals = async () => {
-    let url = (currentUser?.role === 'admin' || currentUser?.role === 'receptionist') ? `${apiBaseUrl}/api/referrals` : `${apiBaseUrl}/api/referrals?staffId=${currentUser?.id}`;
+    if (!currentUser) return;
     
-    if (branchFilter !== 'all') {
-      const separator = url.includes('?') ? '&' : '?';
-      url += `${separator}branch=${branchFilter}`;
+    let url = (currentUser.role === 'admin' || currentUser.role === 'receptionist') 
+      ? `${apiBaseUrl}/api/referrals?requesterRole=${currentUser.role}&requesterBranch=${currentUser.branch}` 
+      : `${apiBaseUrl}/api/referrals?staffId=${currentUser.id}`;
+    
+    if (branchFilter !== 'all' && currentUser.role === 'admin') {
+      url += `&branch=${branchFilter}`;
     }
 
     const { res, data } = await safeFetch(url);
@@ -1666,9 +1691,9 @@ export default function App() {
                               className="w-full bg-transparent focus:outline-none text-zinc-800 appearance-none text-base"
                             >
                               <option value="">Select</option>
-                              <option value="Bangi">Bangi</option>
-                              <option value="Kajang">Kajang</option>
-                              <option value="HQ">HQ</option>
+                              {branches.map(b => (
+                                <option key={b.id} value={b.name}>{b.name}</option>
+                              ))}
                             </select>
                           </div>
                         </div>
@@ -2539,9 +2564,9 @@ export default function App() {
                       className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
                     >
                       <option value="all">All Branches</option>
-                      <option value="Bangi">Bangi</option>
-                      <option value="Kajang">Kajang</option>
-                      <option value="HQ">HQ</option>
+                      {branches.map(b => (
+                        <option key={b.id} value={b.name}>{b.name}</option>
+                      ))}
                     </select>
                     <select 
                       value={referralStatusFilter}
@@ -3128,7 +3153,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'receptionist' && (currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && (
+          {activeTab === 'receptionist' && (currentUser.role === 'receptionist' || currentUser.role === 'dispensary' || currentUser.role === 'admin') && (
             <motion.div 
               key="receptionist"
               initial={{ opacity: 0, y: 10 }}
@@ -3156,7 +3181,9 @@ export default function App() {
                             placeholder="e.g. SMITH10"
                           />
                           {walkInStaff ? (
-                            <p className="mt-2 text-xs text-violet-600 font-medium">✓ Referrer: {walkInStaff.name}</p>
+                            <p className="mt-2 text-xs text-emerald-600 font-medium flex items-center gap-1">
+                              <CheckCircle2 size={12} /> Valid Referral Code
+                            </p>
                           ) : walkInPromoCode.length >= 3 ? (
                             <p className="mt-2 text-xs text-red-500 font-medium">✗ Invalid Referral Code</p>
                           ) : null}
@@ -3214,18 +3241,20 @@ export default function App() {
                 <div className={currentUser.role === 'receptionist' ? 'lg:col-span-2' : 'lg:col-span-3'}>
                   <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
                     <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <h3 className="font-semibold">{currentUser.role === 'receptionist' ? 'Patient Check-in' : 'Pending Payouts'}</h3>
+                      <h3 className="font-semibold">{currentUser.role === 'receptionist' ? `Patient Check-in (${currentUser.branch})` : 'Pending Payouts'}</h3>
                       <div className="flex flex-col sm:flex-row gap-2">
-                        <select 
-                          value={branchFilter}
-                          onChange={(e) => setBranchFilter(e.target.value)}
-                          className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20"
-                        >
-                          <option value="all">All Branches</option>
-                          <option value="Bangi">Bangi</option>
-                          <option value="Kajang">Kajang</option>
-                          <option value="HQ">HQ</option>
-                        </select>
+                        {currentUser.role === 'admin' && (
+                          <select 
+                            value={branchFilter}
+                            onChange={(e) => setBranchFilter(e.target.value)}
+                            className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                          >
+                            <option value="all">All Branches</option>
+                            {branches.map(b => (
+                              <option key={b.id} value={b.name}>{b.name}</option>
+                            ))}
+                          </select>
+                        )}
                         <select 
                           value={statusFilter}
                           onChange={(e) => setStatusFilter(e.target.value)}
@@ -3266,10 +3295,12 @@ export default function App() {
                               <p className="text-xs font-medium text-zinc-500">{ref.service_name}</p>
                               <p className="text-[10px] text-zinc-400">Service</p>
                             </div>
-                            <div>
-                              <p className="text-xs font-medium text-violet-600">{ref.staff_name}</p>
-                              <p className="text-[10px] text-zinc-400">Staff</p>
-                            </div>
+                            {currentUser.role === 'admin' && (
+                              <div>
+                                <p className="text-xs font-medium text-violet-600">{ref.staff_name}</p>
+                                <p className="text-[10px] text-zinc-400">Staff</p>
+                              </div>
+                            )}
                             <div>
                               <p className="text-xs font-medium text-zinc-500">{ref.appointment_date}</p>
                               <p className="text-[10px] text-zinc-400">{ref.booking_time}</p>
@@ -3468,9 +3499,9 @@ export default function App() {
                         className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                       >
                         <option value="">Select Branch</option>
-                        <option value="Bangi">Bangi</option>
-                        <option value="Kajang">Kajang</option>
-                        <option value="HQ">HQ</option>
+                        {branches.map(b => (
+                          <option key={b.id} value={b.name}>{b.name}</option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -3755,6 +3786,66 @@ export default function App() {
                         }`}
                         placeholder="Your preferred name"
                       />
+                    </div>
+                  </div>
+
+                  <div className={`pt-6 border-t ${isMobile ? 'border-white/5' : 'border-zinc-100'}`}>
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
+                      <MapPin size={14} className={isMobile ? 'text-brand-accent' : 'text-violet-500'} />
+                      Branch Assignment
+                    </h4>
+                    <div className="space-y-4">
+                      <div className={`p-4 rounded-2xl border ${isMobile ? 'bg-[#0f172a] border-white/5' : 'bg-zinc-50 border-zinc-100'}`}>
+                        <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Current Branch</p>
+                        <p className={`text-sm font-bold ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{currentUser.branch || 'Not Assigned'}</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Request Branch Change</label>
+                        <div className="flex gap-2">
+                          <select 
+                            id="requestedBranch"
+                            className={`flex-1 px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
+                              isMobile 
+                                ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-brand-accent/20 focus:border-brand-accent' 
+                                : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'
+                            }`}
+                          >
+                            <option value="">Select New Branch</option>
+                            {branches.filter(b => b.name !== currentUser.branch).map(branch => (
+                              <option key={branch.id} value={branch.name}>{branch.name}</option>
+                            ))}
+                          </select>
+                          <button 
+                            type="button"
+                            onClick={async () => {
+                              const requestedBranch = (document.getElementById('requestedBranch') as HTMLSelectElement).value;
+                              if (!requestedBranch) return alert('Please select a branch');
+                              
+                              const reason = prompt('Reason for branch change request:');
+                              if (!reason) return;
+
+                              const { res } = await safeFetch(`${apiBaseUrl}/api/branch-change-requests`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  staff_id: currentUser.id,
+                                  current_branch: currentUser.branch,
+                                  requested_branch: requestedBranch,
+                                  reason
+                                })
+                              });
+                              
+                              if (res.ok) {
+                                alert('Branch change request submitted!');
+                              }
+                            }}
+                            className={`px-6 py-4 rounded-2xl font-bold text-sm transition-all ${isMobile ? 'bg-brand-accent text-white' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -4513,6 +4604,12 @@ export default function App() {
                 >
                   Referral Settings
                 </button>
+                <button 
+                  onClick={() => setSetupSubTab('branches')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'branches' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  Branch Management
+                </button>
               </div>
 
               {setupSubTab === 'staff' ? (
@@ -4572,9 +4669,9 @@ export default function App() {
                               className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             >
                               <option value="">Select Branch</option>
-                              <option value="Bangi">Bangi</option>
-                              <option value="Kajang">Kajang</option>
-                              <option value="HQ">HQ</option>
+                              {branches.map(b => (
+                                <option key={b.id} value={b.name}>{b.name}</option>
+                              ))}
                             </select>
                           </div>
                         </div>
@@ -4880,6 +4977,185 @@ export default function App() {
                     >
                       {isSavingSetup ? 'Saving...' : 'Save Profile'}
                     </button>
+                  </div>
+                </div>
+              ) : setupSubTab === 'branches' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-1">
+                    <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm sticky top-8">
+                      <h3 className="font-semibold mb-6">{editingBranch?.id ? 'Edit Branch' : 'Create New Branch'}</h3>
+                      <form 
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          setIsSavingSetup(true);
+                          try {
+                            const url = editingBranch?.id ? `${apiBaseUrl}/api/branches/${editingBranch.id}` : `${apiBaseUrl}/api/branches`;
+                            const method = editingBranch?.id ? 'PUT' : 'POST';
+                            const { res } = await safeFetch(url, {
+                              method,
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify(editingBranch)
+                            });
+                            if (res.ok) {
+                              alert(`Branch ${editingBranch?.id ? 'updated' : 'created'}!`);
+                              setEditingBranch(null);
+                              fetchBranches();
+                            }
+                          } catch (e) {
+                            console.error(e);
+                          } finally {
+                            setIsSavingSetup(false);
+                          }
+                        }} 
+                        className="space-y-4"
+                      >
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Branch Name</label>
+                          <input 
+                            type="text" 
+                            required
+                            value={editingBranch?.name || ''}
+                            onChange={(e) => setEditingBranch({...editingBranch, name: e.target.value})}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                            placeholder="e.g. Bangi, Kajang"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Location</label>
+                          <input 
+                            type="text" 
+                            value={editingBranch?.location || ''}
+                            onChange={(e) => setEditingBranch({...editingBranch, location: e.target.value})}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                            placeholder="e.g. Selangor"
+                          />
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <button 
+                            type="submit"
+                            disabled={isSavingSetup}
+                            className="flex-1 bg-zinc-900 text-white py-3 rounded-xl font-bold hover:bg-zinc-800 transition-all disabled:opacity-50"
+                          >
+                            {isSavingSetup ? 'Saving...' : (editingBranch?.id ? 'Update Branch' : 'Create Branch')}
+                          </button>
+                          {editingBranch && (
+                            <button 
+                              type="button"
+                              onClick={() => setEditingBranch(null)}
+                              className="px-4 py-3 rounded-xl bg-zinc-100 text-zinc-600 font-bold hover:bg-zinc-200 transition-all"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-2 space-y-6">
+                    <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-zinc-50 border-b border-zinc-100">
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Branch Name</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Location</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Members</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {branches.map(branch => (
+                            <tr key={branch.id} className="border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors">
+                              <td className="p-4">
+                                <span className="font-bold text-zinc-900">{branch.name}</span>
+                              </td>
+                              <td className="p-4 text-sm text-zinc-500">{branch.location || 'N/A'}</td>
+                              <td className="p-4">
+                                <span className="px-2 py-1 bg-zinc-100 text-zinc-600 rounded-lg text-[10px] font-bold">
+                                  {staffList.filter(s => s.branch === branch.name).length} members
+                                </span>
+                              </td>
+                              <td className="p-4 text-right">
+                                <div className="flex justify-end gap-2">
+                                  <button 
+                                    onClick={async () => {
+                                      const { res, data } = await safeFetch(`${apiBaseUrl}/api/branches/${branch.name}/performance`);
+                                      if (res.ok) setBranchPerformance({ ...data, name: branch.name });
+                                    }}
+                                    className="p-2 text-zinc-400 hover:text-violet-600 transition-colors"
+                                    title="View Performance"
+                                  >
+                                    <TrendingUp size={16} />
+                                  </button>
+                                  <button onClick={() => setEditingBranch(branch)} className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors">
+                                    <Edit2 size={16} />
+                                  </button>
+                                  <button 
+                                    onClick={async () => {
+                                      if (confirm(`Are you sure you want to delete branch "${branch.name}"?`)) {
+                                        const { res } = await safeFetch(`${apiBaseUrl}/api/branches/${branch.id}`, { method: 'DELETE' });
+                                        if (res.ok) fetchBranches();
+                                      }
+                                    }}
+                                    className="p-2 text-zinc-400 hover:text-red-600 transition-colors"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {branchPerformance && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-zinc-900 text-white p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden"
+                      >
+                        <button 
+                          onClick={() => setBranchPerformance(null)}
+                          className="absolute top-6 right-6 text-white/40 hover:text-white"
+                        >
+                          <Plus size={20} className="rotate-45" />
+                        </button>
+                        <h4 className="text-sm font-bold uppercase tracking-widest text-white/40 mb-6">Performance: {branchPerformance.name}</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                          <div>
+                            <p className="text-3xl font-black tracking-tighter mb-1">{branchPerformance.total}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Total Referrals</p>
+                          </div>
+                          <div>
+                            <p className="text-3xl font-black tracking-tighter mb-1 text-emerald-400">{branchPerformance.successful}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Successful</p>
+                          </div>
+                          <div>
+                            <p className="text-3xl font-black tracking-tighter mb-1 text-orange-400">{branchPerformance.pending}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Pending</p>
+                          </div>
+                          <div>
+                            <p className="text-3xl font-black tracking-tighter mb-1 text-violet-400">RM {branchPerformance.total_commission}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Total Commission</p>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-8 pt-8 border-t border-white/10">
+                          <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-4">Branch Members</h5>
+                          <div className="flex flex-wrap gap-2">
+                            {staffList.filter(s => s.branch === branchPerformance.name).map(member => (
+                              <div key={member.id} className="px-3 py-1.5 bg-white/5 rounded-xl border border-white/10 flex items-center gap-2">
+                                <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center text-[8px] font-bold">
+                                  {member.name.charAt(0)}
+                                </div>
+                                <span className="text-xs font-medium">{member.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
                 </div>
               ) : setupSubTab === 'referral' ? (
@@ -5729,9 +6005,9 @@ export default function App() {
                         className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900"
                       >
                         <option value="">Select Branch</option>
-                        <option value="Bangi">Bangi</option>
-                        <option value="Kajang">Kajang</option>
-                        <option value="HQ">HQ</option>
+                        {branches.map(b => (
+                          <option key={b.id} value={b.name}>{b.name}</option>
+                        ))}
                       </select>
                     </div>
                     <div>

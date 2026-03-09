@@ -124,12 +124,21 @@ async function seedSupabase() {
       console.log('Seeding initial data to Supabase...');
       const now = new Date().toISOString();
       
+      const initialBranches = [
+        { name: "HQ", location: "Kuala Lumpur" },
+        { name: "Bangi", location: "Selangor" },
+        { name: "Kajang", location: "Selangor" }
+      ];
+
+      const { error: branchInsertError } = await supabase.from('branches').insert(initialBranches);
+      if (branchInsertError) console.error('Error seeding branches:', branchInsertError);
+
       const initialStaff = [
-        { name: "Admin User", email: "admin@clinic.com", password: "password123", role: "admin", promo_code: "ADMIN-HQ", branch: "HQ", staff_id_code: "STF-001", date_joined: now, is_approved: 1 },
-        { name: "Amir", email: "amir@clinic.com", password: "password123", role: "staff", promo_code: "AMIR-BGI", branch: "Bangi", staff_id_code: "STF-002", date_joined: now, is_approved: 1 },
-        { name: "Sarah", email: "sarah@clinic.com", password: "password123", role: "staff", promo_code: "SARAH-KJG", branch: "Kajang", staff_id_code: "STF-003", date_joined: now, is_approved: 1 },
-        { name: "Receptionist Sarah", email: "sarah_rec@clinic.com", password: "password123", role: "receptionist", promo_code: "REC-001", branch: "Bangi", staff_id_code: "STF-004", date_joined: now, is_approved: 1 },
-        { name: "Paige", email: "paige@clinic.com", password: "password123", role: "staff", promo_code: "PAIGE-HQ", branch: "HQ", staff_id_code: "STF-005", date_joined: now, is_approved: 1 }
+        { name: "Admin User", email: "admin@clinic.com", password: "password123", role: "admin", promo_code: "ARA-ADMIN1", branch: "HQ", staff_id_code: "STF-001", date_joined: now, is_approved: 1 },
+        { name: "Amir", email: "amir@clinic.com", password: "password123", role: "staff", promo_code: "ARA-AMIR22", branch: "Bangi", staff_id_code: "STF-002", date_joined: now, is_approved: 1 },
+        { name: "Sarah", email: "sarah@clinic.com", password: "password123", role: "staff", promo_code: "ARA-SARAH3", branch: "Kajang", staff_id_code: "STF-003", date_joined: now, is_approved: 1 },
+        { name: "Receptionist Sarah", email: "sarah_rec@clinic.com", password: "password123", role: "receptionist", promo_code: "ARA-REC444", branch: "Bangi", staff_id_code: "STF-004", date_joined: now, is_approved: 1 },
+        { name: "Paige", email: "paige@clinic.com", password: "password123", role: "staff", promo_code: "ARA-PAIGE5", branch: "HQ", staff_id_code: "STF-005", date_joined: now, is_approved: 1 }
       ];
 
       const { error: staffInsertError } = await supabase.from('staff').insert(initialStaff);
@@ -198,7 +207,115 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-// API Routes
+// Branch Management Routes
+app.get("/api/branches", async (req, res) => {
+  const { data, error } = await supabase.from('branches').select('*').order('name');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post("/api/branches", async (req, res) => {
+  const { name, location } = req.body;
+  const { data, error } = await supabase.from('branches').insert({ name, location }).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.put("/api/branches/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, location } = req.body;
+  const { data, error } = await supabase.from('branches').update({ name, location }).eq('id', id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.delete("/api/branches/:id", async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase.from('branches').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+app.get("/api/branches/:name/performance", async (req, res) => {
+  const { name } = req.params;
+  const { data: referrals, error } = await supabase
+    .from('referrals')
+    .select('status, commission_earned')
+    .eq('branch', name);
+  
+  if (error) return res.status(500).json({ error: error.message });
+  
+  const performance = {
+    total: referrals.length,
+    successful: referrals.filter(r => r.status === 'successful').length,
+    pending: referrals.filter(r => r.status === 'pending').length,
+    total_commission: referrals.reduce((sum, r) => sum + (r.commission_earned || 0), 0)
+  };
+  
+  res.json(performance);
+});
+
+// Branch Change Requests
+app.post("/api/branch-change-requests", async (req, res) => {
+  const { staff_id, current_branch, requested_branch, reason } = req.body;
+  const { data, error } = await supabase
+    .from('branch_change_requests')
+    .insert({ 
+      staff_id, 
+      current_branch, 
+      requested_branch, 
+      reason,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    })
+    .select()
+    .single();
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.get("/api/branch-change-requests", async (req, res) => {
+  const { data, error } = await supabase
+    .from('branch_change_requests')
+    .select('*, staff:staff_id(name, email)')
+    .order('created_at', { ascending: false });
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.put("/api/branch-change-requests/:id", async (req, res) => {
+  const { id } = req.params;
+  const { status, admin_notes } = req.body;
+  
+  const { data: request, error: fetchError } = await supabase
+    .from('branch_change_requests')
+    .select('*')
+    .eq('id', id)
+    .single();
+    
+  if (fetchError) return res.status(500).json({ error: fetchError.message });
+  
+  if (status === 'approved') {
+    const { error: updateStaffError } = await supabase
+      .from('staff')
+      .update({ branch: request.requested_branch })
+      .eq('id', request.staff_id);
+      
+    if (updateStaffError) return res.status(500).json({ error: updateStaffError.message });
+  }
+  
+  const { data, error } = await supabase
+    .from('branch_change_requests')
+    .update({ status, admin_notes })
+    .eq('id', id)
+    .select()
+    .single();
+    
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
 app.get("/api/health", async (req, res) => {
   let dbStatus = "unknown";
   if (!supabase) {
@@ -337,20 +454,28 @@ app.post("/api/auth/register", async (req, res) => {
       return res.status(403).json({ error: "Self-registration is currently disabled. Please contact an administrator." });
     }
 
-    // Generate a promo code
-    const namePart = (name || 'USER').split(' ')[0].toUpperCase();
-    let promo_code = `${namePart}-${Math.floor(100 + Math.random() * 899)}`;
+    // Generate a random promo code (void of user identity)
+    const generateRandomCode = () => {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let result = 'ARA-';
+      for (let i = 0; i < 6; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    };
+
+    let promo_code = generateRandomCode();
     
     // Try to ensure unique promo code
     let attempts = 0;
-    while (attempts < 5) {
+    while (attempts < 10) {
       const { data: existing } = await supabase
         .from('staff')
         .select('id')
         .eq('promo_code', promo_code)
         .single();
       if (!existing) break;
-      promo_code = `${namePart}-${Math.floor(100 + Math.random() * 899)}`;
+      promo_code = generateRandomCode();
       attempts++;
     }
 
@@ -578,11 +703,27 @@ app.get("/api/staff", async (req, res) => {
 
 app.post("/api/staff", async (req, res) => {
   const { name, email, role, promo_code, staff_id_code, branch, department, position, date_joined, phone, password } = req.body;
+  
+  // Generate a random promo code if not provided (void of user identity)
+  const generateRandomCode = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let result = 'ARA-';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
+  let final_promo_code = promo_code;
+  if (!final_promo_code) {
+    final_promo_code = generateRandomCode();
+  }
+
   try {
     const { data, error } = await supabase
       .from('staff')
       .insert({
-        name, email, role, promo_code, staff_id_code, branch, department, position, 
+        name, email, role, promo_code: final_promo_code, staff_id_code, branch, department, position, 
         date_joined: date_joined || new Date().toISOString(), 
         phone: phone || null, 
         password: password || 'password123',
@@ -791,7 +932,7 @@ app.delete("/api/services/:id", async (req, res) => {
 });
 
 app.get("/api/referrals", async (req, res) => {
-  const { staffId, branch } = req.query;
+  const { staffId, branch, requesterRole, requesterBranch } = req.query;
   
   let query = supabase
     .from('referrals')
@@ -805,7 +946,11 @@ app.get("/api/referrals", async (req, res) => {
   if (staffId) {
     query = query.eq('staff_id', staffId);
   }
-  if (branch && branch !== 'all') {
+  
+  // Receptionist restriction: can only see referrals to their branch
+  if (requesterRole === 'receptionist') {
+    query = query.eq('branch', requesterBranch);
+  } else if (branch && branch !== 'all') {
     query = query.eq('branch', branch);
   }
 
@@ -878,7 +1023,7 @@ app.post("/api/referrals", async (req, res) => {
     commission_amount: service.commission_rate,
     fraud_flags: JSON.stringify(fraudFlags),
     created_by: created_by || null,
-    branch: branch || staff.branch
+    branch: staff.branch // Referral will go to the assigned branch only
   };
 
   // Only include aracoins_perk if the column exists in the database
