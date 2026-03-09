@@ -32,6 +32,26 @@ let supabase: any = null;
 let referralColumns: Set<string> = new Set();
 let serviceColumns: Set<string> = new Set();
 
+const logError = (context: string, error: any) => {
+  console.error(`[${context}] Error:`, error);
+  if (error) {
+    try {
+      const details = JSON.stringify(error, Object.getOwnPropertyNames(error), 2);
+      console.error(`[${context}] Details:`, details);
+    } catch (e) {
+      console.error(`[${context}] Could not stringify error:`, e);
+    }
+  }
+};
+
+const checkSupabase = (res: express.Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database connection not initialized. Please check environment variables." });
+    return false;
+  }
+  return true;
+};
+
 if (!supabaseUrl || !supabaseKey) {
   console.error('CRITICAL ERROR: Supabase environment variables are missing!');
   console.error('VITE_SUPABASE_URL:', supabaseUrl ? 'SET' : 'MISSING');
@@ -60,7 +80,7 @@ async function sendAdminNotification(newUser: any) {
       .eq('role', 'admin');
 
     if (error) {
-      console.error('Error fetching admins for notification:', error);
+      logError('Admin Notification Fetch', error);
       return;
     }
 
@@ -111,6 +131,15 @@ async function seedSupabase() {
       .from('staff')
       .select('*', { count: 'exact', head: true });
 
+    // Check other critical tables
+    const tables = ['branches', 'services', 'settings', 'referrals'];
+    for (const table of tables) {
+      const { error: tableError } = await supabase.from(table).select('*', { count: 'exact', head: true }).limit(1);
+      if (tableError && (tableError.code === '42P01' || tableError.message.includes('does not exist') || tableError.message.includes('schema cache'))) {
+        console.error(`CRITICAL: Table "${table}" is missing in Supabase!`);
+      }
+    }
+
     if (countError) {
       if (countError.code === 'PGRST116' || countError.message.includes('relation "staff" does not exist')) {
         console.error('ERROR: The "staff" table does not exist in Supabase. Please run the SQL schema provided.');
@@ -131,7 +160,7 @@ async function seedSupabase() {
       ];
 
       const { error: branchInsertError } = await supabase.from('branches').insert(initialBranches);
-      if (branchInsertError) console.error('Error seeding branches:', branchInsertError);
+      if (branchInsertError) logError('Seed Branches', branchInsertError);
 
       const initialStaff = [
         { name: "Admin User", email: "admin@clinic.com", password: "password123", role: "admin", promo_code: "ARA-ADMIN1", branch: "HQ", staff_id_code: "STF-001", date_joined: now, is_approved: 1 },
@@ -142,7 +171,7 @@ async function seedSupabase() {
       ];
 
       const { error: staffInsertError } = await supabase.from('staff').insert(initialStaff);
-      if (staffInsertError) console.error('Error seeding staff:', staffInsertError);
+      if (staffInsertError) logError('Seed Staff', staffInsertError);
 
       const initialServices = [
         { name: "Basic Health Screening", base_price: 80, commission_rate: 5, aracoins_perk: 10 },
@@ -157,7 +186,7 @@ async function seedSupabase() {
       });
 
       const { error: serviceInsertError } = await supabase.from('services').insert(initialServices);
-      if (serviceInsertError) console.error('Error seeding services:', serviceInsertError);
+      if (serviceInsertError) logError('Seed Services', serviceInsertError);
       
       console.log('Seeding complete.');
     } else {
@@ -209,23 +238,47 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Branch Management Routes
 app.get("/api/branches", async (req, res) => {
+  if (!checkSupabase(res)) return;
   const { data, error } = await supabase.from('branches').select('*').order('name');
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    const isMissingTable = error.code === '42P01' || error.message?.includes('schema cache') || error.message?.includes('does not exist');
+    if (isMissingTable) {
+      console.warn('⚠️ [GET /api/branches] The "branches" table is missing in Supabase.');
+      return res.status(412).json({ 
+        error: "The branches table does not exist.", 
+        code: error.code,
+        isMissingTable: true 
+      });
+    }
+    logError('GET /api/branches', error);
+    return res.status(500).json({ 
+      error: error.message, 
+      code: error.code
+    });
+  }
   res.json(data);
 });
 
 app.post("/api/branches", async (req, res) => {
+  if (!checkSupabase(res)) return;
   const { name, location } = req.body;
   const { data, error } = await supabase.from('branches').insert({ name, location }).select().single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    logError('POST /api/branches', error);
+    return res.status(500).json({ error: error.message, details: error });
+  }
   res.json(data);
 });
 
 app.put("/api/branches/:id", async (req, res) => {
+  if (!checkSupabase(res)) return;
   const { id } = req.params;
   const { name, location } = req.body;
   const { data, error } = await supabase.from('branches').update({ name, location }).eq('id', id).select().single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    logError('PUT /api/branches', error);
+    return res.status(500).json({ error: error.message, details: error });
+  }
   res.json(data);
 });
 
@@ -247,8 +300,8 @@ app.get("/api/branches/:name/performance", async (req, res) => {
   
   const performance = {
     total: referrals.length,
-    successful: referrals.filter(r => r.status === 'successful').length,
-    pending: referrals.filter(r => r.status === 'pending').length,
+    successful: referrals.filter(r => ['approved', 'payout_processed'].includes(r.status)).length,
+    pending: referrals.filter(r => ['entered', 'completed', 'paid_completed', 'buffer'].includes(r.status)).length,
     total_commission: referrals.reduce((sum, r) => sum + (r.commission_earned || 0), 0)
   };
   
@@ -375,6 +428,20 @@ app.get("/api/debug/supabase", async (req, res) => {
     
     report.tables.services = servicesError ? { status: 'error', error: servicesError } : { status: 'ok', count: servicesCount };
 
+    // Check branches table
+    const { count: branchesCount, error: branchesError } = await supabase
+      .from('branches')
+      .select('*', { count: 'exact', head: true });
+    
+    report.tables.branches = branchesError ? { status: 'error', error: branchesError } : { status: 'ok', count: branchesCount };
+
+    // Check branch change requests table
+    const { count: bcrCount, error: bcrError } = await supabase
+      .from('branch_change_requests')
+      .select('*', { count: 'exact', head: true });
+    
+    report.tables.branch_change_requests = bcrError ? { status: 'error', error: bcrError } : { status: 'ok', count: bcrCount };
+
     // Check settings table
     const { count: settingsCount, error: settingsError } = await supabase
       .from('settings')
@@ -430,6 +497,7 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 app.post("/api/auth/register", async (req, res) => {
+  if (!checkSupabase(res)) return;
   const { name, email, branch, phone, password } = req.body;
   console.log(`Registration attempt for: ${email}`, { name, branch, phone });
   
@@ -443,8 +511,7 @@ app.post("/api/auth/register", async (req, res) => {
       .single();
       
     if (settingsError && settingsError.code !== 'PGRST116') {
-      console.error('Error fetching registration settings:', settingsError);
-      // Continue with default if table exists but key missing
+      logError('Registration Settings Check', settingsError);
     }
     
     const settings = authSetting ? JSON.parse(authSetting.value) : { allowRegistration: true };
@@ -497,7 +564,7 @@ app.post("/api/auth/register", async (req, res) => {
       .single();
     
     if (insertError) {
-      console.error('Supabase insert error:', insertError);
+      logError('Supabase Registration Insert', insertError);
       throw insertError;
     }
 
@@ -508,7 +575,7 @@ app.post("/api/auth/register", async (req, res) => {
     
     res.json(newStaff);
   } catch (error: any) {
-    console.error(`Registration error for ${email}:`, error);
+    logError(`Registration error for ${email}`, error);
     if (error.code === '23505') { // Unique constraint violation in Postgres
       res.status(400).json({ error: `Email or Promo Code already exists. Please try again.` });
     } else if (error.code === 'PGRST116' || error.message?.includes('relation "staff" does not exist')) {
@@ -539,7 +606,7 @@ app.get("/api/promotions", async (req, res) => {
       .eq('key', 'promotions');
       
     if (error) {
-      console.error('Error fetching promotions:', error);
+      logError('GET /api/promotions', error);
       return res.status(500).json({ error: error.message });
     }
     
@@ -581,7 +648,7 @@ app.post("/api/promotions", async (req, res) => {
       .insert({ key: 'promotions', value: JSON.stringify(promotions) });
 
     if (insertError) {
-      console.error('Error inserting promotions:', insertError);
+      logError('POST /api/promotions', insertError);
       return res.status(500).json({ error: insertError.message });
     }
     
@@ -669,6 +736,7 @@ app.delete("/api/tasks/:id", async (req, res) => {
 });
 
 app.get("/api/staff/email", async (req, res) => {
+  if (!checkSupabase(res)) return;
   const { email } = req.query;
   if (!email) return res.status(400).json({ error: "Email is required" });
   
@@ -1165,7 +1233,33 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.get("/api/diag", async (req, res) => {
+  const diag: any = {
+    supabaseInitialized: !!supabase,
+    env: {
+      supabaseUrl: !!supabaseUrl,
+      supabaseKey: !!supabaseKey,
+    },
+    tables: {}
+  };
+  
+  if (supabase) {
+    const tableList = ['staff', 'branches', 'referrals', 'services', 'tasks', 'settings', 'promotions', 'branch_change_requests'];
+    
+    for (const table of tableList) {
+      try {
+        const { count, error } = await supabase.from(table).select('*', { count: 'exact', head: true });
+        diag.tables[table] = error ? { error: error.message, code: error.code } : { exists: true, count };
+      } catch (e: any) {
+        diag.tables[table] = { error: e.message };
+      }
+    }
+  }
+  
+  res.json(diag);
+});
+
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }

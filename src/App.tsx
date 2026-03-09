@@ -197,7 +197,11 @@ const safeFetch = async (url: string, options?: RequestInit) => {
     }
   } catch (e: any) {
     console.error(`Fetch error for ${url}:`, e);
-    return { res: { ok: false, status: 0 } as Response, data: { error: e.message || "Network error" } };
+    const isNetworkError = e.message === 'Failed to fetch' || e.name === 'TypeError';
+    const errorMsg = isNetworkError 
+      ? "Network error: The server could not be reached. Please ensure the backend is running and you have a stable connection."
+      : (e.message || "Network error");
+    return { res: { ok: false, status: 0 } as Response, data: { error: errorMsg } };
   }
 };
 
@@ -257,6 +261,7 @@ export default function App() {
   });
 
   const [branches, setBranches] = useState<any[]>([]);
+  const [dbError, setDbError] = useState<string | null>(null);
 
   const [promotions, setPromotions] = useState<Promotion[]>([
     {
@@ -668,8 +673,22 @@ export default function App() {
   };
 
   const fetchBranches = async () => {
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/branches`);
-    if (res.ok) setBranches(data);
+    try {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/branches`);
+      if (res.ok) {
+        setBranches(Array.isArray(data) ? data : []);
+        setDbError(null);
+      } else {
+        console.error('Failed to fetch branches:', data.error);
+        if (res.status === 412 || data.isMissingTable || data.error?.includes('Could not find the table') || data.error?.includes('relation "branches" does not exist')) {
+          setDbError('branches');
+        }
+        setBranches([]);
+      }
+    } catch (err) {
+      console.error('Error fetching branches:', err);
+      setBranches([]);
+    }
   };
 
   const fetchBranchChangeRequests = async () => {
@@ -4213,24 +4232,25 @@ export default function App() {
                           <div className="space-y-2">
                             <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Branch Availability</label>
                             <div className="flex flex-wrap gap-2">
-                              {branches.map(branch => (
+                              {branches.map(branchObj => (
                                 <button
-                                  key={branch}
+                                  key={branchObj.id}
                                   onClick={() => {
+                                    const branchName = branchObj.name;
                                     setNewPromo(prev => ({
                                       ...prev,
-                                      branches: prev.branches.includes(branch) 
-                                        ? prev.branches.filter(b => b !== branch)
-                                        : [...prev.branches, branch]
+                                      branches: prev.branches.includes(branchName) 
+                                        ? prev.branches.filter(b => b !== branchName)
+                                        : [...prev.branches, branchName]
                                     }));
                                   }}
                                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                    newPromo.branches.includes(branch)
+                                    newPromo.branches.includes(branchObj.name)
                                       ? (isMobile ? 'bg-brand-accent text-white shadow-lg shadow-brand-accent/20' : 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20')
                                       : (isMobile ? 'bg-[#0f172a] text-[#f5f5dc]/40' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200')
                                   }`}
                                 >
-                                  {branch}
+                                  {branchObj.name}
                                 </button>
                               ))}
                             </div>
@@ -4624,7 +4644,7 @@ export default function App() {
                             type="text" 
                             required
                             value={editingStaff?.name || ''}
-                            onChange={(e) => setEditingStaff({...editingStaff, name: e.target.value})}
+                            onChange={(e) => setEditingStaff(prev => ({...(prev || {}), name: e.target.value}))}
                             className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                           />
                         </div>
@@ -4634,7 +4654,7 @@ export default function App() {
                             type="email" 
                             required
                             value={editingStaff?.email || ''}
-                            onChange={(e) => setEditingStaff({...editingStaff, email: e.target.value})}
+                            onChange={(e) => setEditingStaff(prev => ({...(prev || {}), email: e.target.value}))}
                             className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                           />
                         </div>
@@ -4643,7 +4663,7 @@ export default function App() {
                           <input 
                             type="text" 
                             value={editingStaff?.phone || ''}
-                            onChange={(e) => setEditingStaff({...editingStaff, phone: e.target.value})}
+                            onChange={(e) => setEditingStaff(prev => ({...(prev || {}), phone: e.target.value}))}
                             className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             placeholder="e.g. 60123456789"
                           />
@@ -4655,7 +4675,7 @@ export default function App() {
                               type="text" 
                               required
                               value={editingStaff?.staff_id_code || ''}
-                              onChange={(e) => setEditingStaff({...editingStaff, staff_id_code: e.target.value.toUpperCase()})}
+                              onChange={(e) => setEditingStaff(prev => ({...(prev || {}), staff_id_code: e.target.value.toUpperCase()}))}
                               className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                               placeholder="e.g. HR001"
                             />
@@ -4665,7 +4685,7 @@ export default function App() {
                             <select 
                               required
                               value={editingStaff?.branch || ''}
-                              onChange={(e) => setEditingStaff({...editingStaff, branch: e.target.value})}
+                              onChange={(e) => setEditingStaff(prev => ({...(prev || {}), branch: e.target.value}))}
                               className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             >
                               <option value="">Select Branch</option>
@@ -4681,7 +4701,7 @@ export default function App() {
                             <input 
                               type="text" 
                               value={editingStaff?.department || ''}
-                              onChange={(e) => setEditingStaff({...editingStaff, department: e.target.value})}
+                              onChange={(e) => setEditingStaff(prev => ({...(prev || {}), department: e.target.value}))}
                               className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             />
                           </div>
@@ -4690,7 +4710,7 @@ export default function App() {
                             <input 
                               type="text" 
                               value={editingStaff?.position || ''}
-                              onChange={(e) => setEditingStaff({...editingStaff, position: e.target.value})}
+                              onChange={(e) => setEditingStaff(prev => ({...(prev || {}), position: e.target.value}))}
                               className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             />
                           </div>
@@ -4700,7 +4720,7 @@ export default function App() {
                             <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Employment</label>
                             <select 
                               value={editingStaff?.employment_status || 'permanent'}
-                              onChange={(e) => setEditingStaff({...editingStaff, employment_status: e.target.value})}
+                              onChange={(e) => setEditingStaff(prev => ({...(prev || {}), employment_status: e.target.value}))}
                               className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             >
                               <option value="permanent">Permanent</option>
@@ -4713,7 +4733,7 @@ export default function App() {
                             <input 
                               type="date" 
                               value={editingStaff?.date_joined || ''}
-                              onChange={(e) => setEditingStaff({...editingStaff, date_joined: e.target.value})}
+                              onChange={(e) => setEditingStaff(prev => ({...(prev || {}), date_joined: e.target.value}))}
                               className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             />
                           </div>
@@ -4723,7 +4743,7 @@ export default function App() {
                           <select 
                             required
                             value={editingStaff?.role || 'staff'}
-                            onChange={(e) => setEditingStaff({...editingStaff, role: e.target.value})}
+                            onChange={(e) => setEditingStaff(prev => ({...(prev || {}), role: e.target.value}))}
                             className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 appearance-none"
                           >
                             <option value="staff">Staff</option>
@@ -4738,7 +4758,7 @@ export default function App() {
                               type="text" 
                               required
                               value={editingStaff?.promo_code || ''}
-                              onChange={(e) => setEditingStaff({...editingStaff, promo_code: e.target.value.toUpperCase()})}
+                              onChange={(e) => setEditingStaff(prev => ({...(prev || {}), promo_code: e.target.value.toUpperCase()}))}
                               className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 font-mono"
                               placeholder="e.g. SMITH10"
                             />
@@ -4747,7 +4767,7 @@ export default function App() {
                               onClick={() => {
                                 const namePart = (editingStaff?.name || 'STAFF').split(' ')[0].toUpperCase();
                                 const randomPart = Math.floor(10 + Math.random() * 90);
-                                setEditingStaff({...editingStaff, promo_code: `${namePart}${randomPart}`});
+                                setEditingStaff(prev => ({...(prev || {}), promo_code: `${namePart}${randomPart}`}));
                               }}
                               className="px-3 bg-zinc-100 text-zinc-600 rounded-xl hover:bg-zinc-200 transition-colors"
                               title="Generate random code"
@@ -4991,7 +5011,7 @@ export default function App() {
                           try {
                             const url = editingBranch?.id ? `${apiBaseUrl}/api/branches/${editingBranch.id}` : `${apiBaseUrl}/api/branches`;
                             const method = editingBranch?.id ? 'PUT' : 'POST';
-                            const { res } = await safeFetch(url, {
+                            const { res, data } = await safeFetch(url, {
                               method,
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify(editingBranch)
@@ -5000,6 +5020,8 @@ export default function App() {
                               alert(`Branch ${editingBranch?.id ? 'updated' : 'created'}!`);
                               setEditingBranch(null);
                               fetchBranches();
+                            } else {
+                              alert(`Failed to save branch: ${data.error || 'Unknown error'}`);
                             }
                           } catch (e) {
                             console.error(e);
@@ -5015,7 +5037,7 @@ export default function App() {
                             type="text" 
                             required
                             value={editingBranch?.name || ''}
-                            onChange={(e) => setEditingBranch({...editingBranch, name: e.target.value})}
+                            onChange={(e) => setEditingBranch(prev => ({...(prev || {}), name: e.target.value}))}
                             className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             placeholder="e.g. Bangi, Kajang"
                           />
@@ -5025,7 +5047,7 @@ export default function App() {
                           <input 
                             type="text" 
                             value={editingBranch?.location || ''}
-                            onChange={(e) => setEditingBranch({...editingBranch, location: e.target.value})}
+                            onChange={(e) => setEditingBranch(prev => ({...(prev || {}), location: e.target.value}))}
                             className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                             placeholder="e.g. Selangor"
                           />
@@ -5064,47 +5086,132 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {branches.map(branch => (
-                            <tr key={branch.id} className="border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors">
-                              <td className="p-4">
-                                <span className="font-bold text-zinc-900">{branch.name}</span>
-                              </td>
-                              <td className="p-4 text-sm text-zinc-500">{branch.location || 'N/A'}</td>
-                              <td className="p-4">
-                                <span className="px-2 py-1 bg-zinc-100 text-zinc-600 rounded-lg text-[10px] font-bold">
-                                  {staffList.filter(s => s.branch === branch.name).length} members
-                                </span>
-                              </td>
-                              <td className="p-4 text-right">
-                                <div className="flex justify-end gap-2">
-                                  <button 
-                                    onClick={async () => {
-                                      const { res, data } = await safeFetch(`${apiBaseUrl}/api/branches/${branch.name}/performance`);
-                                      if (res.ok) setBranchPerformance({ ...data, name: branch.name });
-                                    }}
-                                    className="p-2 text-zinc-400 hover:text-violet-600 transition-colors"
-                                    title="View Performance"
-                                  >
-                                    <TrendingUp size={16} />
-                                  </button>
-                                  <button onClick={() => setEditingBranch(branch)} className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors">
-                                    <Edit2 size={16} />
-                                  </button>
-                                  <button 
-                                    onClick={async () => {
-                                      if (confirm(`Are you sure you want to delete branch "${branch.name}"?`)) {
-                                        const { res } = await safeFetch(`${apiBaseUrl}/api/branches/${branch.id}`, { method: 'DELETE' });
-                                        if (res.ok) fetchBranches();
-                                      }
-                                    }}
-                                    className="p-2 text-zinc-400 hover:text-red-600 transition-colors"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
+                          {branches.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="p-12 text-center">
+                                <div className="flex flex-col items-center gap-2">
+                                  <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center text-zinc-300">
+                                    <MapPin size={24} />
+                                  </div>
+                                  <p className="text-sm font-bold text-zinc-400">No branches found</p>
+                                  {dbError === 'branches' ? (
+                                    <div className="mt-4 p-6 bg-red-50 border border-red-100 rounded-2xl max-w-md">
+                                      <p className="text-xs font-bold text-red-600 uppercase mb-2">Database Setup Required</p>
+                                      <p className="text-xs text-red-500 mb-4">The 'branches' table is missing from your Supabase database. Please run the following SQL in your Supabase SQL Editor:</p>
+                                      <pre className="text-[10px] bg-white p-3 rounded-xl border border-red-100 overflow-x-auto text-left font-mono text-zinc-600 mb-4">
+{`CREATE TABLE IF NOT EXISTS public.branches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  location TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.branch_change_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  staff_id INTEGER REFERENCES public.staff(id) ON DELETE CASCADE,
+  current_branch TEXT,
+  requested_branch TEXT,
+  reason TEXT,
+  status TEXT DEFAULT 'pending',
+  admin_notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Enable security for branches
+ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read" ON public.branches FOR SELECT USING (true);
+CREATE POLICY "Allow public insert" ON public.branches FOR INSERT WITH CHECK (true);
+
+-- Enable security for branch_change_requests
+ALTER TABLE public.branch_change_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow staff to read own requests" ON public.branch_change_requests FOR SELECT USING (true);
+CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests FOR INSERT WITH CHECK (true);`}
+                                      </pre>
+                                      <button 
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(`CREATE TABLE IF NOT EXISTS public.branches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  location TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.branch_change_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  staff_id INTEGER REFERENCES public.staff(id) ON DELETE CASCADE,
+  current_branch TEXT,
+  requested_branch TEXT,
+  reason TEXT,
+  status TEXT DEFAULT 'pending',
+  admin_notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Enable security for branches
+ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read" ON public.branches FOR SELECT USING (true);
+CREATE POLICY "Allow public insert" ON public.branches FOR INSERT WITH CHECK (true);
+
+-- Enable security for branch_change_requests
+ALTER TABLE public.branch_change_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow staff to read own requests" ON public.branch_change_requests FOR SELECT USING (true);
+CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests FOR INSERT WITH CHECK (true);`);
+                                          alert('SQL copied to clipboard!');
+                                        }}
+                                        className="w-full py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition-colors"
+                                      >
+                                        Copy SQL to Clipboard
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <p className="text-[10px] text-zinc-400">Create your first clinic branch to get started.</p>
+                                  )}
                                 </div>
                               </td>
                             </tr>
-                          ))}
+                          ) : (
+                            branches.map(branch => (
+                              <tr key={branch.id} className="border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors">
+                                <td className="p-4">
+                                  <span className="font-bold text-zinc-900">{branch.name}</span>
+                                </td>
+                                <td className="p-4 text-sm text-zinc-500">{branch.location || 'N/A'}</td>
+                                <td className="p-4">
+                                  <span className="px-2 py-1 bg-zinc-100 text-zinc-600 rounded-lg text-[10px] font-bold">
+                                    {staffList.filter(s => s.branch === branch.name).length} members
+                                  </span>
+                                </td>
+                                <td className="p-4 text-right">
+                                  <div className="flex justify-end gap-2">
+                                    <button 
+                                      onClick={async () => {
+                                        const { res, data } = await safeFetch(`${apiBaseUrl}/api/branches/${branch.name}/performance`);
+                                        if (res.ok) setBranchPerformance({ ...data, name: branch.name });
+                                      }}
+                                      className="p-2 text-zinc-400 hover:text-violet-600 transition-colors"
+                                      title="View Performance"
+                                    >
+                                      <TrendingUp size={16} />
+                                    </button>
+                                    <button onClick={() => setEditingBranch(branch)} className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors">
+                                      <Edit2 size={16} />
+                                    </button>
+                                    <button 
+                                      onClick={async () => {
+                                        if (confirm(`Are you sure you want to delete branch "${branch.name}"?`)) {
+                                          const { res } = await safeFetch(`${apiBaseUrl}/api/branches/${branch.id}`, { method: 'DELETE' });
+                                          if (res.ok) fetchBranches();
+                                        }
+                                      }}
+                                      className="p-2 text-zinc-400 hover:text-red-600 transition-colors"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
