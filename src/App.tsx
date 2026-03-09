@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 // Force rebuild - Logo update
 import React, { useState, useEffect } from 'react';
+import Markdown from 'react-markdown';
 import { 
   Users, 
   PlusCircle, 
@@ -199,6 +200,30 @@ const Logo = ({ className = "w-8 h-8" }: { className?: string }) => {
   );
 };
 
+const TERMS_OF_SERVICE = `
+# User Agreement & Privacy Policy
+
+Welcome to AraPower. By using our services, you agree to the following terms and conditions:
+
+## 1. Acceptance of Terms
+By accessing or using AraPower, you agree to be bound by these Terms of Service and all applicable laws and regulations.
+
+## 2. Privacy Policy
+Your privacy is important to us. Our Privacy Policy explains how we collect, use, and protect your personal information. We comply with standard healthcare data protection regulations.
+
+## 3. User Responsibilities
+You are responsible for maintaining the confidentiality of your account and password. You agree to provide accurate and complete information during the registration process.
+
+## 4. Medical Disclaimer
+AraPower is a management tool and does not provide medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition.
+
+## 5. Limitation of Liability
+AraPower shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of the service.
+
+## 6. Changes to Terms
+We reserve the right to modify these terms at any time. Your continued use of the service after such changes constitutes your acceptance of the new terms.
+`;
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState<Staff | null>(() => {
     const saved = localStorage.getItem('currentUser');
@@ -318,6 +343,8 @@ export default function App() {
   const [authName, setAuthName] = useState('');
   const [authBranch, setAuthBranch] = useState('');
   const [authPhone, setAuthPhone] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -618,6 +645,10 @@ export default function App() {
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!agreedToTerms) {
+      setAuthError('You must agree to the User Agreement & Privacy Policy to continue.');
+      return;
+    }
     setAuthError('');
     setIsSubmitting(true);
     try {
@@ -1562,16 +1593,32 @@ export default function App() {
                           </div>
                         </div>
                       </div>
+                    <div className="mt-4 mb-4">
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <div className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${agreedToTerms ? 'bg-brand-accent border-brand-accent' : 'border-zinc-200 group-hover:border-brand-accent'}`}>
+                          <input 
+                            type="checkbox"
+                            className="hidden"
+                            checked={agreedToTerms}
+                            onChange={(e) => setAgreedToTerms(e.target.checked)}
+                          />
+                          {agreedToTerms && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
+                        </div>
+                        <span className="text-xs font-bold text-zinc-500 leading-tight">
+                          I agree to the <button type="button" onClick={() => setShowTermsModal(true)} className="text-brand-accent hover:underline">User Agreement & Privacy Policy</button>
+                        </span>
+                      </label>
                     </div>
+                  </div>
 
-                    <div className="mt-auto space-y-4">
-                      <button 
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="w-full py-4 bg-brand-accent text-white rounded-2xl font-black text-lg shadow-xl shadow-brand-accent/30 hover:shadow-brand-accent/40 transition-all active:scale-[0.98] disabled:opacity-50"
-                      >
-                        {isSubmitting ? 'Creating...' : 'Sign Up'}
-                      </button>
+                  <div className="mt-auto space-y-4">
+                    <button 
+                      type="submit"
+                      disabled={isSubmitting || !agreedToTerms}
+                      className="w-full py-4 bg-brand-accent text-white rounded-2xl font-black text-lg shadow-xl shadow-brand-accent/30 hover:shadow-brand-accent/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? 'Creating...' : 'Sign Up'}
+                    </button>
                       <p className="text-center text-sm font-bold text-zinc-400">
                         Already have an account? <button onClick={() => setAuthMode('login')} className="text-brand-accent hover:underline">Sign in</button>
                       </p>
@@ -1582,6 +1629,53 @@ export default function App() {
             </div>
           </div>
         </div>
+
+        {/* Terms of Service Modal */}
+        <AnimatePresence>
+          {showTermsModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowTermsModal(false)}
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+              >
+                <div className="p-8 border-b border-zinc-100 flex items-center justify-between bg-brand-primary text-white">
+                  <h2 className="text-2xl font-black tracking-tight">User Agreement</h2>
+                  <button 
+                    onClick={() => setShowTermsModal(false)}
+                    className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+                  >
+                    <ArrowRight className="rotate-180" size={20} />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-8 prose prose-zinc max-w-none">
+                  <div className="markdown-body">
+                    <Markdown>{TERMS_OF_SERVICE}</Markdown>
+                  </div>
+                </div>
+                <div className="p-6 bg-zinc-50 border-t border-zinc-100 flex justify-end">
+                  <button
+                    onClick={() => {
+                      setAgreedToTerms(true);
+                      setShowTermsModal(false);
+                    }}
+                    className="px-8 py-3 bg-brand-accent text-white rounded-xl font-bold shadow-lg shadow-brand-accent/20 hover:shadow-brand-accent/30 transition-all active:scale-95"
+                  >
+                    I Agree
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
