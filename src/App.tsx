@@ -1352,7 +1352,7 @@ export default function App() {
           className={`w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-y-auto flex flex-col relative ${welcomeScreenClass}`}
         >
           {/* Topographic Background */}
-          <div className="relative w-full h-[60%] shrink-0 overflow-hidden z-0 bg-brand-primary">
+          <div className="relative w-full h-[60%] shrink-0 overflow-hidden z-0 bg-brand-primary border-b-0 shadow-none">
             <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none">
               <path d="M0,20 Q25,10 50,20 T100,20" fill="none" stroke="white" strokeWidth="0.5" />
               <path d="M0,40 Q25,30 50,40 T100,40" fill="none" stroke="white" strokeWidth="0.5" />
@@ -1360,12 +1360,12 @@ export default function App() {
               <path d="M0,80 Q25,70 50,80 T100,80" fill="none" stroke="white" strokeWidth="0.5" />
               <path d="M0,100 Q25,90 50,100 T100,100" fill="none" stroke="white" strokeWidth="0.5" />
             </svg>
-            <svg className="absolute bottom-0 w-full h-32 text-white fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none">
+            <svg className="absolute bottom-0 w-full h-32 text-white fill-current translate-y-[1px] scale-y-[1.01]" viewBox="0 0 1440 320" preserveAspectRatio="none">
               <path d="M0,160C480,320,960,0,1440,160L1440,320L0,320Z"></path>
             </svg>
           </div>
 
-          <div className="flex-1 flex flex-col px-10 pb-12 relative z-10">
+          <div className="flex-1 flex flex-col px-10 pb-12 relative z-10 border-t-0 shadow-none">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1396,18 +1396,18 @@ export default function App() {
           className={`w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-y-auto flex flex-col relative ${loginScreenClass}`}
         >
           {/* Topographic Background */}
-          <div className="relative w-full h-[45%] shrink-0 overflow-hidden z-0 bg-brand-primary">
+          <div className="relative w-full h-[45%] shrink-0 overflow-hidden z-0 bg-brand-primary border-b-0 shadow-none">
             <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none">
               <path d="M10,10 Q30,0 50,10 T90,10" fill="none" stroke="white" strokeWidth="0.5" />
               <path d="M0,30 Q40,20 80,30 T120,30" fill="none" stroke="white" strokeWidth="0.5" />
               <path d="M-20,50 Q20,40 60,50 T140,50" fill="none" stroke="white" strokeWidth="0.5" />
             </svg>
-            <svg className="absolute bottom-0 w-full h-32 text-white fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none">
+            <svg className="absolute bottom-0 w-full h-32 text-white fill-current translate-y-[1px] scale-y-[1.01]" viewBox="0 0 1440 320" preserveAspectRatio="none">
               <path d="M0,128C480,256,960,0,1440,128L1440,320L0,320Z"></path>
             </svg>
           </div>
 
-          <div className="flex-1 flex flex-col px-8 pb-10 relative z-10">
+          <div className="flex-1 flex flex-col px-8 pb-10 relative z-10 border-t-0 shadow-none">
             <div className="flex-1 flex flex-col justify-center py-4">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
