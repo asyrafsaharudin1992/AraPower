@@ -557,7 +557,7 @@ export default function App() {
     setPromoServices(updatedPromos);
     
     // Save to backend
-    console.log('Saving updated promotions to backend...');
+    console.log('Saving updated promotions to backend...', updatedPromos);
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/promotions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -565,9 +565,9 @@ export default function App() {
     });
 
     if (res.ok) {
-      console.log('Promotions saved successfully');
+      console.log('Promotions saved successfully to backend');
     } else {
-      console.error('Failed to save promotions', data);
+      console.error('Failed to save promotions to backend', data);
     }
 
     setNewPromo({
@@ -601,13 +601,13 @@ export default function App() {
   };
 
   const fetchPromotions = async () => {
-    console.log('Fetching promotions from backend...');
+    console.log('fetchPromotions() called');
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/promotions`);
     if (res.ok) {
-      console.log(`Fetched ${data.length} promotions`);
-      setPromoServices(data);
+      console.log(`Fetched ${data?.length || 0} promotions from backend:`, data);
+      setPromoServices(data || []);
     } else {
-      console.error('Failed to fetch promotions', data);
+      console.error('Failed to fetch promotions from backend', data);
     }
   };
 
@@ -1082,7 +1082,7 @@ export default function App() {
     try {
       const method = editingService.id ? 'PATCH' : 'POST';
       const url = editingService.id ? `/api/services/${editingService.id}` : '/api/services';
-      const res = await fetch(url, {
+      const { res, data } = await safeFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingService)
@@ -4661,8 +4661,7 @@ export default function App() {
                           <button 
                             onClick={async () => {
                               try {
-                                const res = await fetch('/api/debug/supabase');
-                                const data = await res.json();
+                                const { res, data } = await safeFetch('/api/debug/supabase');
                                 alert(`Database Status: ${data.message}\n\nReport:\n${JSON.stringify(data.report, null, 2)}`);
                               } catch (err: any) {
                                 alert(`Failed to check database: ${err.message}`);
@@ -4836,7 +4835,7 @@ export default function App() {
                       onClick={async () => {
                         setIsSavingSetup(true);
                         try {
-                          await fetch(`${apiBaseUrl}/api/settings`, {
+                          await safeFetch(`${apiBaseUrl}/api/settings`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ key: 'clinic', value: clinicProfile })
@@ -4983,7 +4982,7 @@ export default function App() {
                         onClick={async () => {
                           setIsSavingSetup(true);
                           try {
-                            await fetch(`${apiBaseUrl}/api/settings`, {
+                            await safeFetch(`${apiBaseUrl}/api/settings`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ key: 'roles', value: rolesConfig })
@@ -5032,7 +5031,7 @@ export default function App() {
                             const newVal = !authSettings.allowRegistration;
                             setAuthSettings({ ...authSettings, allowRegistration: newVal });
                             try {
-                              const res = await fetch(`${apiBaseUrl}/api/settings`, {
+                              const { res, data } = await safeFetch(`${apiBaseUrl}/api/settings`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ key: 'auth', value: { allowRegistration: newVal } })
@@ -5179,7 +5178,7 @@ export default function App() {
                         onClick={async () => {
                           setIsSavingSetup(true);
                           try {
-                            await fetch(`${apiBaseUrl}/api/settings`, {
+                            await safeFetch(`${apiBaseUrl}/api/settings`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ key: 'booking', value: appSettings })

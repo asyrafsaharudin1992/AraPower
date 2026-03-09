@@ -163,7 +163,8 @@ seedSupabase();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = 3000;
@@ -397,25 +398,32 @@ app.get("/api/settings", async (req, res) => {
 
 app.get("/api/promotions", async (req, res) => {
   console.log('GET /api/promotions');
-  const { data: setting, error } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', 'promotions')
-    .single();
-    
-  if (error) {
-    if (error.code === 'PGRST116') {
-      console.log('No promotions found in settings');
-      return res.json([]); 
+  try {
+    const { data: settings, error } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'promotions');
+      
+    if (error) {
+      console.error('Error fetching promotions:', error);
+      return res.status(500).json({ error: error.message });
     }
-    console.error('Error fetching promotions:', error);
-    return res.status(500).json({ error: error.message });
+    
+    if (!settings || settings.length === 0) {
+      console.log('No promotions found in settings');
+      return res.json([]);
+    }
+    
+    // If multiple rows exist, take the last one (most recent)
+    const setting = settings[settings.length - 1];
+    const promos = JSON.parse(setting.value);
+    console.log(`Returning ${promos.length} promotions from database`);
+    console.log('Raw promotions data:', setting.value.substring(0, 100) + '...');
+    res.json(promos);
+  } catch (err: any) {
+    console.error('Unexpected error in GET /api/promotions:', err);
+    res.status(500).json({ error: err.message });
   }
-  
-  const promos = JSON.parse(setting.value);
-  console.log(`Returning ${promos.length} promotions from database`);
-  console.log('Raw promotions data:', setting.value.substring(0, 100) + '...');
-  res.json(promos);
 });
 
 app.post("/api/promotions", async (req, res) => {
@@ -423,45 +431,30 @@ app.post("/api/promotions", async (req, res) => {
   console.log(`POST /api/promotions - Saving ${promotions.length} promotions`);
   
   try {
-    // Try to find existing promotions setting
-    const { data: existing, error: fetchError } = await supabase
+    // Delete existing ones first to ensure we only have one row for this key
+    const { error: deleteError } = await supabase
       .from('settings')
-      .select('id')
-      .eq('key', 'promotions')
-      .single();
+      .delete()
+      .eq('key', 'promotions');
 
-    let result;
-    if (existing) {
-      console.log(`Updating existing promotions setting (ID: ${existing.id})`);
-      result = await supabase
-        .from('settings')
-        .update({ value: JSON.stringify(promotions) })
-        .eq('key', 'promotions');
-    } else {
-      console.log('Inserting new promotions setting');
-      result = await supabase
-        .from('settings')
-        .insert({ key: 'promotions', value: JSON.stringify(promotions) });
+    if (deleteError) {
+      console.warn('Warning: Error deleting old promotions (may not exist):', deleteError);
     }
 
-    if (result.error) {
-      console.error('Error saving promotions:', result.error);
-      return res.status(500).json({ error: result.error.message });
+    // Insert new one
+    const { error: insertError } = await supabase
+      .from('settings')
+      .insert({ key: 'promotions', value: JSON.stringify(promotions) });
+
+    if (insertError) {
+      console.error('Error inserting promotions:', insertError);
+      return res.status(500).json({ error: insertError.message });
     }
     
-    console.log('Promotions saved successfully');
+    console.log('Promotions saved successfully via delete/insert');
     res.json({ success: true });
   } catch (error: any) {
     console.error('Unexpected error saving promotions:', error);
-    // If single() failed because it didn't exist, we should insert
-    if (error.code === 'PGRST116') {
-      const { error: insertError } = await supabase
-        .from('settings')
-        .insert({ key: 'promotions', value: JSON.stringify(promotions) });
-      
-      if (insertError) return res.status(500).json({ error: insertError.message });
-      return res.json({ success: true });
-    }
     res.status(500).json({ error: error.message });
   }
 });
