@@ -1455,7 +1455,7 @@ export default function App() {
                             required
                             value={authEmail}
                             onChange={(e) => setAuthEmail(e.target.value)}
-                            className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-sm"
+                            className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-base"
                             placeholder="demo@email.com"
                           />
                         </div>
@@ -1469,7 +1469,7 @@ export default function App() {
                             required
                             value={authPassword}
                             onChange={(e) => setAuthPassword(e.target.value)}
-                            className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-sm"
+                            className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-base"
                             placeholder="enter your password"
                           />
                           <button 
@@ -1527,7 +1527,7 @@ export default function App() {
                             required
                             value={authName}
                             onChange={(e) => setAuthName(e.target.value)}
-                            className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-sm"
+                            className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-base"
                             placeholder="John Doe"
                           />
                         </div>
@@ -1541,7 +1541,7 @@ export default function App() {
                             required
                             value={authEmail}
                             onChange={(e) => setAuthEmail(e.target.value)}
-                            className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-sm"
+                            className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-base"
                             placeholder="john@clinic.com"
                           />
                         </div>
@@ -1556,7 +1556,7 @@ export default function App() {
                             minLength={6}
                             value={authPassword}
                             onChange={(e) => setAuthPassword(e.target.value)}
-                            className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-sm"
+                            className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-base"
                             placeholder="Min. 6 characters"
                           />
                         </div>
@@ -1569,7 +1569,7 @@ export default function App() {
                               required
                               value={authBranch}
                               onChange={(e) => setAuthBranch(e.target.value)}
-                              className="w-full bg-transparent focus:outline-none text-zinc-800 appearance-none text-sm"
+                              className="w-full bg-transparent focus:outline-none text-zinc-800 appearance-none text-base"
                             >
                               <option value="">Select</option>
                               <option value="Bangi">Bangi</option>
@@ -1587,7 +1587,7 @@ export default function App() {
                               required
                               value={authPhone}
                               onChange={(e) => setAuthPhone(e.target.value)}
-                              className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-sm"
+                              className="w-full bg-transparent focus:outline-none text-zinc-800 placeholder-zinc-300 text-base"
                               placeholder="6012..."
                             />
                           </div>
