@@ -176,17 +176,26 @@ app.use("/api", (req, res, next) => {
   }
   
   if (!supabase) {
-    return res.status(500).json({ 
+    console.warn(`Database connection not initialized for request: ${req.path}`);
+    return res.status(503).json({ 
       error: "Database connection not initialized.",
-      details: "The server is missing Supabase environment variables. Please ensure VITE_SUPABASE_URL and either SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_ANON_KEY are set in the platform's environment variables/secrets.",
+      details: "The server is missing Supabase environment variables or initialization is in progress.",
       config: {
         url: supabaseUrl ? 'SET' : 'MISSING',
         key: supabaseKey ? 'SET' : 'MISSING'
-      },
-      help: "1. Open the platform's Secret Manager/Environment Variables. 2. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY. 3. Restart the dev server. Fallbacks: SUPABASE_URL, SUPABASE_ANON_KEY."
+      }
     });
   }
   next();
+});
+
+// Global error handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ 
+    error: "Internal Server Error", 
+    message: err.message || "An unexpected error occurred" 
+  });
 });
 
 // API Routes
@@ -971,33 +980,39 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 async function startServer() {
-  // Detect columns before starting
+  console.log('Starting server initialization...');
+  
+  // Detect columns in background
   if (supabase) {
-    try {
-      const { data: refData, error: refError } = await supabase.from('referrals').select().limit(1);
-      if (!refError && refData && refData.length > 0) {
-        referralColumns = new Set(Object.keys(refData[0]));
+    supabase.from('referrals').select().limit(1).then(({ data, error }) => {
+      if (!error && data && data.length > 0) {
+        referralColumns = new Set(Object.keys(data[0]));
         console.log('Detected referral columns:', Array.from(referralColumns));
       }
+    }).catch(err => console.warn('Referral column detection failed:', err));
 
-      const { data: servData, error: servError } = await supabase.from('services').select().limit(1);
-      if (!servError && servData && servData.length > 0) {
-        serviceColumns = new Set(Object.keys(servData[0]));
+    supabase.from('services').select().limit(1).then(({ data, error }) => {
+      if (!error && data && data.length > 0) {
+        serviceColumns = new Set(Object.keys(data[0]));
         console.log('Detected service columns:', Array.from(serviceColumns));
       }
-    } catch (err) {
-      console.warn('Column detection failed:', err);
-    }
+    }).catch(err => console.warn('Service column detection failed:', err));
   }
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
-    const { createServer: createViteServer } = await import("vite");
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+    try {
+      console.log('Initializing Vite middleware...');
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+      console.log('Vite middleware initialized.');
+    } catch (err) {
+      console.error('Failed to initialize Vite middleware:', err);
+    }
   } else {
     app.use(express.static(path.join(__dirname, "dist")));
     app.get("*", (req, res) => {
@@ -1010,6 +1025,9 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error('CRITICAL: Failed to start server:', err);
+  process.exit(1);
+});
 
 export default app;

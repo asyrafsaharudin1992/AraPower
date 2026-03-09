@@ -47,7 +47,8 @@ import {
   ArrowRight,
   Mail,
   Trophy,
-  Star
+  Star,
+  MapPin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -517,6 +518,11 @@ export default function App() {
           setConnectionError(`Database Error: ${data.db}`);
           setConnectionStatus('offline');
         }
+      } else if (res.status === 503) {
+        setConnectionStatus('checking');
+        setConnectionError('Server is initializing database connection...');
+        // Retry after 2 seconds
+        setTimeout(checkConnection, 2000);
       } else {
         setConnectionStatus('offline');
         setConnectionError(data.error || `Server responded with status ${res.status}`);
@@ -4354,16 +4360,17 @@ export default function App() {
                       key={item.id}
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className={`${isMobile ? 'bg-[#1e293b] border-white/10' : 'bg-white border-black/5 shadow-xl'} rounded-[2.5rem] border overflow-hidden flex flex-col group`}
+                      className={`${isMobile ? 'bg-[#1e293b] border-white/10' : 'bg-white border-black/5 shadow-xl'} rounded-[2.5rem] border overflow-hidden flex flex-col group h-full`}
                     >
-                      <div className="relative aspect-[4/5] overflow-hidden">
+                      {/* Top half: Image */}
+                      <div className="relative aspect-video overflow-hidden">
                         <img 
                           src={item.posterImage} 
                           alt={item.title} 
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                           referrerPolicy="no-referrer" 
                         />
-                        <div className="absolute top-6 right-6 flex flex-col gap-2">
+                        <div className="absolute top-4 right-4 flex flex-col gap-2">
                           <span className="px-4 py-2 bg-white/90 backdrop-blur-md rounded-2xl text-[10px] font-black uppercase tracking-widest text-brand-primary shadow-sm">
                             {item.type}
                           </span>
@@ -4388,36 +4395,57 @@ export default function App() {
                             </button>
                           )}
                         </div>
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-8 text-white">
-                          <h3 className="text-2xl font-black mb-2 leading-tight">{item.title}</h3>
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-full bg-brand-accent flex items-center justify-center">
-                                <DollarSign size={16} className="text-white" />
-                              </div>
-                              <p className="text-xl font-black text-brand-accent">
-                                {clinicProfile.currency}{item.incentiveAmount} <span className="text-xs font-bold text-white/60 uppercase tracking-widest ml-1">Incentive</span>
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-3 text-xs font-bold">
-                              <span className="line-through opacity-60">Price: {clinicProfile.currency}{item.servicePrice}</span>
-                              {item.promoPrice && <span className="text-brand-accent">Now: {clinicProfile.currency}{item.promoPrice}</span>}
-                            </div>
-                            {item.branches.length > 0 && (
-                              <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Available at: {item.branches.join(', ')}</p>
-                            )}
+                      </div>
+
+                      {/* Bottom half: Details */}
+                      <div className={`p-8 flex flex-col flex-grow ${isMobile ? 'bg-[#1e293b]' : 'bg-white'}`}>
+                        <div className="flex justify-between items-start gap-4 mb-6">
+                          <h3 className={`text-2xl font-black leading-tight ${isMobile ? 'text-white' : 'text-zinc-900'}`}>
+                            {item.title}
+                          </h3>
+                          <div className={`${isMobile ? 'bg-brand-accent/20 border-brand-accent/30' : 'bg-brand-accent/10 border-brand-accent/20'} px-4 py-2 rounded-2xl border shrink-0`}>
+                            <p className="text-sm font-black text-brand-accent">
+                              {clinicProfile.currency}{item.incentiveAmount} 
+                              <span className={`text-[10px] uppercase tracking-widest ml-1 opacity-70 ${isMobile ? 'text-white' : 'text-zinc-900'}`}>Incentive</span>
+                            </p>
                           </div>
                         </div>
-                      </div>
-                      <div className={`p-6 ${isMobile ? 'bg-[#0f172a]' : 'bg-zinc-50'}`}>
-                        <a 
-                          href={item.posterImage} 
-                          download={`poster-${item.id}.png`}
-                          className={`w-full py-5 ${isMobile ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white'} rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg active:scale-[0.98] transition-all`}
-                        >
-                          <Download size={18} />
-                          Download Poster
-                        </a>
+
+                        <div className="space-y-4 mb-8">
+                          {/* Pricing */}
+                          <div className="flex items-baseline gap-3">
+                            <span className={`line-through text-sm font-bold ${isMobile ? 'text-white/40' : 'text-zinc-400'}`}>
+                              {clinicProfile.currency}{item.servicePrice}
+                            </span>
+                            {item.promoPrice && (
+                              <span className={`text-3xl font-black ${isMobile ? 'text-brand-accent' : 'text-zinc-900'}`}>
+                                {clinicProfile.currency}{item.promoPrice}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Details */}
+                          {item.branches.length > 0 && (
+                            <div className={`flex items-start gap-2 ${isMobile ? 'text-white/60' : 'text-zinc-500'}`}>
+                              <MapPin size={14} className="mt-0.5 shrink-0" />
+                              <p className="text-xs font-bold leading-relaxed">
+                                Available at: {item.branches.join(', ')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* CTA */}
+                        <div className="mt-auto">
+                          <a 
+                            href={item.posterImage} 
+                            download={`poster-${item.id}.png`}
+                            className={`w-full py-5 ${isMobile ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white'} rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg active:scale-[0.98] transition-all hover:opacity-90`}
+                          >
+                            <Download size={18} />
+                            Download Poster
+                          </a>
+                        </div>
                       </div>
                     </motion.div>
                   ))}
@@ -4928,7 +4956,7 @@ export default function App() {
 
                       <button 
                         onClick={() => {
-                          fetch(`${apiBaseUrl}/api/settings`, {
+                          safeFetch(`${apiBaseUrl}/api/settings`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ key: 'referral', value: referralSettings })
