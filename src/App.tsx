@@ -2408,65 +2408,57 @@ export default function App() {
                         </div>
                       </div>
 
-                      <AnimatePresence>
-                        {expandedReferralIds.includes(ref.id) && (
-                          <motion.div 
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.4, ease: [0.04, 0.62, 0.23, 0.98] }}
-                            className="bg-[#1e3a8a] border-t border-white/10 overflow-hidden"
-                          >
-                            <div className="p-6 space-y-6">
-                              <div className="grid grid-cols-2 gap-6">
-                                <div>
-                                  <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Service</p>
-                                  <p className="text-xs font-bold text-[#f5f5dc] leading-tight">{ref.service_name}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Branch</p>
-                                  <p className="text-xs font-bold text-[#f5f5dc]">{ref.branch}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Patient IC</p>
-                                  <p className="text-xs font-bold text-[#f5f5dc]">{ref.patient_ic || 'N/A'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Incentive</p>
-                                  <p className="text-xs font-bold text-brand-accent">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
-                                </div>
-                              </div>
-                              
+                      <div className={`grid transition-grid ${expandedReferralIds.includes(ref.id) ? 'grid-rows-1 opacity-100' : 'grid-rows-0 opacity-0'}`}>
+                        <div className="overflow-hidden bg-[#1e3a8a] border-t border-white/10">
+                          <div className="p-6 space-y-6">
+                            <div className="grid grid-cols-2 gap-6">
                               <div>
-                                <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Patient Address</p>
-                                <p className="text-xs font-bold text-[#f5f5dc] leading-relaxed">{ref.patient_address || 'N/A'}</p>
+                                <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Service</p>
+                                <p className="text-xs font-bold text-[#f5f5dc] leading-tight">{ref.service_name}</p>
                               </div>
-
-                              <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-[10px] font-black text-[#f5f5dc]/60">
-                                    {ref.staff_name.charAt(0)}
-                                  </div>
-                                  <p className="text-xs font-bold text-[#f5f5dc]/80">{ref.staff_name}</p>
-                                </div>
-                                {ref.patient_phone && (
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const text = `Hi ${ref.patient_name}! This is ${ref.staff_name} from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`;
-                                      window.open(`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
-                                    }}
-                                    className="flex items-center gap-2 px-4 py-2 bg-green-500/20 text-green-400 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform border border-green-500/30"
-                                  >
-                                    <MessageCircle size={14} />
-                                    Follow Up
-                                  </button>
-                                )}
+                              <div>
+                                <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Branch</p>
+                                <p className="text-xs font-bold text-[#f5f5dc]">{ref.branch}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Patient IC</p>
+                                <p className="text-xs font-bold text-[#f5f5dc]">{ref.patient_ic || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Incentive</p>
+                                <p className="text-xs font-bold text-brand-accent">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
                               </div>
                             </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                            
+                            <div>
+                              <p className="text-[10px] font-black text-[#f5f5dc]/60 uppercase tracking-widest mb-1">Patient Address</p>
+                              <p className="text-xs font-bold text-[#f5f5dc] leading-relaxed">{ref.patient_address || 'N/A'}</p>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-[10px] font-black text-[#f5f5dc]/60">
+                                  {ref.staff_name.charAt(0)}
+                                </div>
+                                <p className="text-xs font-bold text-[#f5f5dc]/80">{ref.staff_name}</p>
+                              </div>
+                              {ref.patient_phone && (
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const text = `Hi ${ref.patient_name}! This is ${ref.staff_name} from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`;
+                                    window.open(`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+                                  }}
+                                  className="flex items-center gap-2 px-4 py-2 bg-green-500/20 text-green-400 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform border border-green-500/30"
+                                >
+                                  <MessageCircle size={14} />
+                                  Follow Up
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

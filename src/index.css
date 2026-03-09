@@ -31,3 +31,15 @@
   --color-brand-peach: #F2994A;
   --color-brand-pink: #F2994A;
 }
+
+@utility grid-rows-0 {
+  grid-template-rows: 0fr;
+}
+
+@utility grid-rows-1 {
+  grid-template-rows: 1fr;
+}
+
+@utility transition-grid {
+  transition: grid-template-rows 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
