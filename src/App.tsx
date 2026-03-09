@@ -101,7 +101,7 @@ interface Service {
   name: string;
   base_price: number;
   commission_rate: number;
-  aracoins_perk: number;
+  aracoins_perk?: number;
   allowances: { [tier: string]: number };
 }
 
@@ -3283,7 +3283,7 @@ export default function App() {
                         >
                           <option value="">Select a service</option>
                           {services.map(s => (
-                            <option key={s.id} value={s.id}>{s.name} ({clinicProfile.currency}{s.commission_rate} incentive {s.aracoins_perk > 0 ? `+ ${s.aracoins_perk} Coins` : ''})</option>
+                            <option key={s.id} value={s.id}>{s.name} ({clinicProfile.currency}{s.commission_rate} incentive {(s.aracoins_perk || 0) > 0 ? `+ ${s.aracoins_perk} Coins` : ''})</option>
                           ))}
                         </select>
                         <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
@@ -4065,7 +4065,7 @@ export default function App() {
                               </td>
                               <td className="p-4">
                                 <div className="flex flex-wrap gap-1">
-                                  {service.aracoins_perk > 0 && (
+                                  {(service.aracoins_perk || 0) > 0 && (
                                     <span className="px-1.5 py-0.5 bg-yellow-50 text-yellow-700 rounded text-[9px] font-bold uppercase flex items-center gap-1">
                                       <Coins size={8} /> {service.aracoins_perk}
                                     </span>

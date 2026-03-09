@@ -29,6 +29,8 @@ else if (process.env.VITE_SUPABASE_ANON_KEY) console.log('Using: Anon Key');
 console.log('------------------------------');
 
 let supabase: any = null;
+let referralColumns: Set<string> = new Set();
+let serviceColumns: Set<string> = new Set();
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('CRITICAL ERROR: Supabase environment variables are missing!');
@@ -137,7 +139,13 @@ async function seedSupabase() {
         { name: "Basic Health Screening", base_price: 80, commission_rate: 5, aracoins_perk: 10 },
         { name: "Comprehensive Screening", base_price: 150, commission_rate: 5, aracoins_perk: 20 },
         { name: "Vaccination Package", base_price: 120, commission_rate: 5, aracoins_perk: 15 }
-      ];
+      ].map(s => {
+        const service: any = { ...s };
+        if (!serviceColumns.has('aracoins_perk')) {
+          delete service.aracoins_perk;
+        }
+        return service;
+      });
 
       const { error: serviceInsertError } = await supabase.from('services').insert(initialServices);
       if (serviceInsertError) console.error('Error seeding services:', serviceInsertError);
@@ -656,15 +664,21 @@ app.get("/api/services", async (req, res) => {
 
 app.post("/api/services", async (req, res) => {
   const { name, base_price, commission_rate, aracoins_perk, allowances } = req.body;
+  
+  const insertData: any = {
+    name,
+    base_price,
+    commission_rate,
+    allowances_json: JSON.stringify(allowances || {})
+  };
+
+  if (serviceColumns.has('aracoins_perk')) {
+    insertData.aracoins_perk = aracoins_perk || 0;
+  }
+
   const { data, error } = await supabase
     .from('services')
-    .insert({
-      name,
-      base_price,
-      commission_rate,
-      aracoins_perk: aracoins_perk || 0,
-      allowances_json: JSON.stringify(allowances || {})
-    })
+    .insert(insertData)
     .select()
     .single();
     
@@ -676,15 +690,20 @@ app.patch("/api/services/:id", async (req, res) => {
   const { id } = req.params;
   const { name, base_price, commission_rate, aracoins_perk, allowances } = req.body;
   
+  const updateData: any = {
+    name,
+    base_price,
+    commission_rate,
+    allowances_json: JSON.stringify(allowances || {})
+  };
+
+  if (serviceColumns.has('aracoins_perk')) {
+    updateData.aracoins_perk = aracoins_perk || 0;
+  }
+
   const { error } = await supabase
     .from('services')
-    .update({
-      name,
-      base_price,
-      commission_rate,
-      aracoins_perk: aracoins_perk || 0,
-      allowances_json: JSON.stringify(allowances || {})
-    })
+    .update(updateData)
     .eq('id', id);
     
   if (error) return res.status(500).json({ error: error.message });
@@ -771,26 +790,32 @@ app.post("/api/referrals", async (req, res) => {
     
   if (serviceError || !service) return res.status(400).json({ error: "Service not found" });
 
+  const insertData: any = {
+    staff_id,
+    service_id,
+    patient_name,
+    patient_phone: patient_phone || null,
+    patient_ic: patient_ic || null,
+    patient_address: patient_address || null,
+    patient_type: patient_type || 'new',
+    appointment_date: appointment_date || null,
+    booking_time: booking_time || null,
+    date,
+    status: 'entered',
+    commission_amount: service.commission_rate,
+    fraud_flags: JSON.stringify(fraudFlags),
+    created_by: created_by || null,
+    branch: branch || staff.branch
+  };
+
+  // Only include aracoins_perk if the column exists in the database
+  if (referralColumns.has('aracoins_perk')) {
+    insertData.aracoins_perk = service.aracoins_perk || 0;
+  }
+
   const { data: referral, error: insertError } = await supabase
     .from('referrals')
-    .insert({
-      staff_id,
-      service_id,
-      patient_name,
-      patient_phone: patient_phone || null,
-      patient_ic: patient_ic || null,
-      patient_address: patient_address || null,
-      patient_type: patient_type || 'new',
-      appointment_date: appointment_date || null,
-      booking_time: booking_time || null,
-      date,
-      status: 'entered',
-      commission_amount: service.commission_rate,
-      aracoins_perk: service.aracoins_perk || 0,
-      fraud_flags: JSON.stringify(fraudFlags),
-      created_by: created_by || null,
-      branch: branch || staff.branch
-    })
+    .insert(insertData)
     .select()
     .single();
 
@@ -836,14 +861,20 @@ app.patch("/api/referrals/:id", async (req, res) => {
   if (!staff) return res.json({ success: true });
 
   if (status === 'approved' && referral.status !== 'approved') {
+    const staffUpdate: any = { 
+      pending_earnings: (staff.pending_earnings || 0) - referral.commission_amount,
+      approved_earnings: (staff.approved_earnings || 0) + referral.commission_amount,
+      lifetime_earnings: (staff.lifetime_earnings || 0) + referral.commission_amount
+    };
+    
+    // Only update aracoins if the column existed in the referral record
+    if (referral.aracoins_perk !== undefined) {
+      staffUpdate.aracoins = (staff.aracoins || 0) + (referral.aracoins_perk || 0);
+    }
+
     await supabase
       .from('staff')
-      .update({ 
-        pending_earnings: (staff.pending_earnings || 0) - referral.commission_amount,
-        approved_earnings: (staff.approved_earnings || 0) + referral.commission_amount,
-        lifetime_earnings: (staff.lifetime_earnings || 0) + referral.commission_amount,
-        aracoins: (staff.aracoins || 0) + (referral.aracoins_perk || 0)
-      })
+      .update(staffUpdate)
       .eq('id', referral.staff_id);
   } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
     await supabase
@@ -876,6 +907,25 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 async function startServer() {
+  // Detect columns before starting
+  if (supabase) {
+    try {
+      const { data: refData, error: refError } = await supabase.from('referrals').select().limit(1);
+      if (!refError && refData && refData.length > 0) {
+        referralColumns = new Set(Object.keys(refData[0]));
+        console.log('Detected referral columns:', Array.from(referralColumns));
+      }
+
+      const { data: servData, error: servError } = await supabase.from('services').select().limit(1);
+      if (!servError && servData && servData.length > 0) {
+        serviceColumns = new Set(Object.keys(servData[0]));
+        console.log('Detected service columns:', Array.from(serviceColumns));
+      }
+    } catch (err) {
+      console.warn('Column detection failed:', err);
+    }
+  }
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
