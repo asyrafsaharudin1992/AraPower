@@ -1,7 +1,5 @@
 
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-dotenv.config();
 
 console.log('ENV:', Object.keys(process.env).filter(k => k.includes('SUPABASE')));
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';

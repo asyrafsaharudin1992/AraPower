@@ -243,27 +243,7 @@ export default function App() {
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [promoServices, setPromoServices] = useState<PromoService[]>([
-    {
-      id: 1,
-      type: 'Promotion',
-      title: 'Ramadan Special 2026',
-      incentiveAmount: 50,
-      posterImage: 'https://picsum.photos/seed/ramadan/800/600',
-      servicePrice: 250,
-      promoPrice: 200,
-      branches: ['Main Branch', 'Bangi']
-    },
-    {
-      id: 2,
-      type: 'Service',
-      title: 'Teeth Whitening',
-      incentiveAmount: 30,
-      posterImage: 'https://picsum.photos/seed/teeth/800/600',
-      servicePrice: 300,
-      branches: ['Shah Alam', 'Damansara']
-    }
-  ]);
+  const [promoServices, setPromoServices] = useState<PromoService[]>([]);
 
   const [newPromo, setNewPromo] = useState({
     title: '',
@@ -275,7 +255,7 @@ export default function App() {
     branches: [] as string[]
   });
 
-  const [branches, setBranches] = useState<string[]>(['Main Branch', 'Bangi', 'Shah Alam', 'Damansara']);
+  const [branches, setBranches] = useState<string[]>(['HQ', 'Bangi', 'Kajang', 'Shah Alam', 'Damansara']);
 
   const [promotions, setPromotions] = useState<Promotion[]>([
     {
@@ -563,13 +543,33 @@ export default function App() {
     }
   };
 
-  const publishPromo = () => {
-    if (!newPromo.title || !newPromo.posterImage) return;
+  const publishPromo = async () => {
+    console.log('Publishing new promotion...', newPromo);
+    if (!newPromo.title || !newPromo.posterImage) {
+      console.warn('Missing title or poster image');
+      return;
+    }
     const item: PromoService = {
       id: Date.now(),
       ...newPromo
     };
-    setPromoServices(prev => [item, ...prev]);
+    const updatedPromos = [item, ...promoServices];
+    setPromoServices(updatedPromos);
+    
+    // Save to backend
+    console.log('Saving updated promotions to backend...');
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/promotions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedPromos)
+    });
+
+    if (res.ok) {
+      console.log('Promotions saved successfully');
+    } else {
+      console.error('Failed to save promotions', data);
+    }
+
     setNewPromo({
       title: '',
       type: 'Promotion',
@@ -600,9 +600,22 @@ export default function App() {
     }
   };
 
+  const fetchPromotions = async () => {
+    console.log('Fetching promotions from backend...');
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/promotions`);
+    if (res.ok) {
+      console.log(`Fetched ${data.length} promotions`);
+      setPromoServices(data);
+    } else {
+      console.error('Failed to fetch promotions', data);
+    }
+  };
+
   useEffect(() => {
     if (currentUser) {
+      console.log('Current user detected:', currentUser.email, currentUser.role, currentUser.branch);
       fetchReferrals();
+      fetchPromotions();
     }
   }, [currentUser, branchFilter]);
 
@@ -4004,36 +4017,37 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className={`mx-auto space-y-8 px-4 pb-32 ${currentUser.role === 'admin' ? 'max-w-6xl' : 'max-w-md'}`}
             >
-              <div className="mb-8">
-                <h2 className="text-4xl font-black tracking-tighter text-zinc-900 mb-2">Promotions & Services</h2>
-                <p className="text-zinc-500 text-sm font-medium">Download posters to share with your network</p>
+              <div className={`mb-8 ${isMobile ? 'bg-brand-primary p-8 rounded-[2.5rem] shadow-2xl shadow-brand-primary/20 relative overflow-hidden' : ''}`}>
+                {isMobile && <div className="absolute top-0 right-0 w-32 h-32 bg-brand-peach/10 rounded-full blur-3xl -mr-16 -mt-16" />}
+                <h2 className={`text-4xl font-black tracking-tighter mb-2 ${isMobile ? 'text-white relative z-10' : 'text-zinc-900'}`}>Promotions & Services</h2>
+                <p className={`${isMobile ? 'text-white/70 relative z-10' : 'text-zinc-500'} text-sm font-medium`}>Download posters to share with your network</p>
               </div>
 
               {currentUser.role === 'admin' && (
                 <div className="space-y-12">
-                  <div className="flex items-center gap-4 border-b border-zinc-100 pb-4">
+                  <div className={`flex items-center gap-4 border-b pb-4 ${isMobile ? 'border-white/10' : 'border-zinc-100'}`}>
                     <button 
                       onClick={() => setPromoSubTab('ads')}
-                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${promoSubTab === 'ads' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${promoSubTab === 'ads' ? (isMobile ? 'bg-brand-accent text-white' : 'bg-zinc-900 text-white') : (isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-500 hover:bg-zinc-50')}`}
                     >
                       Manage Ads
                     </button>
                     <button 
                       onClick={() => setPromoSubTab('services')}
-                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${promoSubTab === 'services' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${promoSubTab === 'services' ? (isMobile ? 'bg-brand-accent text-white' : 'bg-zinc-900 text-white') : (isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-500 hover:bg-zinc-50')}`}
                     >
                       Service Setup
                     </button>
                   </div>
 
                   {promoSubTab === 'ads' ? (
-                    <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+                    <div className={`${isMobile ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border`}>
                       <div className="flex items-center justify-between mb-8">
                         <div>
-                          <h3 className="text-2xl font-black tracking-tighter text-zinc-900">Manage Promotions & Services</h3>
-                          <p className="text-sm text-zinc-500 font-medium">Create and publish new advertising materials</p>
+                          <h3 className={`text-2xl font-black tracking-tighter ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>Manage Promotions & Services</h3>
+                          <p className={`text-sm font-medium ${isMobile ? 'text-[#f5f5dc]/60' : 'text-zinc-500'}`}>Create and publish new advertising materials</p>
                         </div>
-                        <div className="w-12 h-12 bg-orange-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/20">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${isMobile ? 'bg-brand-accent text-white shadow-brand-accent/20' : 'bg-orange-500 text-white shadow-orange-500/20'}`}>
                           <Zap size={24} />
                         </div>
                       </div>
@@ -4047,7 +4061,7 @@ export default function App() {
                               type="text"
                               value={newPromo.title}
                               onChange={(e) => setNewPromo(prev => ({ ...prev, title: e.target.value }))}
-                              className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10 focus:border-brand-accent/50' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'}`}
                               placeholder="e.g. Summer Dental Fest"
                             />
                           </div>
@@ -4058,7 +4072,7 @@ export default function App() {
                               <select 
                                 value={newPromo.type}
                                 onChange={(e) => setNewPromo(prev => ({ ...prev, type: e.target.value as 'Service' | 'Promotion' }))}
-                                className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium appearance-none"
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10 focus:border-brand-accent/50' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'}`}
                               >
                                 <option value="Promotion">Promotion</option>
                                 <option value="Service">Service</option>
@@ -4070,7 +4084,7 @@ export default function App() {
                                 type="number"
                                 value={newPromo.incentiveAmount}
                                 onChange={(e) => setNewPromo(prev => ({ ...prev, incentiveAmount: Number(e.target.value) }))}
-                                className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10 focus:border-brand-accent/50' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'}`}
                                 placeholder="0.00"
                               />
                             </div>
@@ -4083,7 +4097,7 @@ export default function App() {
                                 type="number"
                                 value={newPromo.servicePrice}
                                 onChange={(e) => setNewPromo(prev => ({ ...prev, servicePrice: Number(e.target.value) }))}
-                                className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10 focus:border-brand-accent/50' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'}`}
                                 placeholder="0.00"
                               />
                             </div>
@@ -4093,7 +4107,7 @@ export default function App() {
                                 type="number"
                                 value={newPromo.promoPrice || ''}
                                 onChange={(e) => setNewPromo(prev => ({ ...prev, promoPrice: e.target.value ? Number(e.target.value) : undefined }))}
-                                className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10 focus:border-brand-accent/50' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'}`}
                                 placeholder="0.00"
                               />
                             </div>
@@ -4115,8 +4129,8 @@ export default function App() {
                                   }}
                                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                                     newPromo.branches.includes(branch)
-                                      ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20'
-                                      : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
+                                      ? (isMobile ? 'bg-brand-accent text-white shadow-lg shadow-brand-accent/20' : 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20')
+                                      : (isMobile ? 'bg-[#0f172a] text-[#f5f5dc]/40' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200')
                                   }`}
                                 >
                                   {branch}
@@ -4134,11 +4148,11 @@ export default function App() {
                                 onChange={handlePosterUpload}
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                               />
-                              <div className="w-full py-12 border-2 border-dashed border-zinc-200 rounded-2xl flex flex-col items-center justify-center gap-3 bg-zinc-50 group-hover:bg-zinc-100 group-hover:border-violet-300 transition-all">
-                                <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-zinc-400 shadow-sm">
+                              <div className={`w-full py-12 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 transition-all ${isMobile ? 'bg-[#0f172a] border-white/10 group-hover:bg-[#1e293b] group-hover:border-brand-accent' : 'bg-zinc-50 border-zinc-200 group-hover:bg-zinc-100 group-hover:border-violet-300'}`}>
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm ${isMobile ? 'bg-[#1e293b] text-[#f5f5dc]/40' : 'bg-white text-zinc-400'}`}>
                                   <Plus size={24} />
                                 </div>
-                                <p className="text-xs font-bold text-zinc-500">Click to upload poster image</p>
+                                <p className={`text-xs font-bold ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-500'}`}>Click to upload poster image</p>
                               </div>
                             </div>
                           </div>
@@ -4146,9 +4160,9 @@ export default function App() {
                           <button 
                             onClick={publishPromo}
                             disabled={!newPromo.title || !newPromo.posterImage}
-                            className="w-full py-5 bg-zinc-900 text-white rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/20 active:scale-[0.98] disabled:opacity-50"
+                            className={`w-full py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50 shadow-xl ${isMobile ? 'bg-brand-accent text-white shadow-brand-accent/20 hover:opacity-90' : 'bg-zinc-900 text-white shadow-zinc-900/20 hover:bg-zinc-800'}`}
                           >
-                            Publish Now
+                            Publish Promotion
                           </button>
                         </div>
 
@@ -4186,8 +4200,8 @@ export default function App() {
                   ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                       <div className="lg:col-span-1">
-                        <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm sticky top-8">
-                          <h3 className="font-semibold mb-6">{editingService?.id ? 'Edit Service' : 'Add New Service'}</h3>
+                        <div className={`${isMobile ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} p-6 rounded-3xl border sticky top-8`}>
+                          <h3 className={`font-semibold mb-6 ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{editingService?.id ? 'Edit Service' : 'Add New Service'}</h3>
                           <form onSubmit={handleSaveService} className="space-y-4">
                             <div>
                               <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Service Name</label>
@@ -4196,7 +4210,7 @@ export default function App() {
                                 required
                                 value={editingService?.name || ''}
                                 onChange={(e) => setEditingService({...editingService, name: e.target.value})}
-                                className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                                className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 focus:ring-violet-500/20'}`}
                                 placeholder="e.g. Dental Cleaning"
                               />
                             </div>
@@ -4208,7 +4222,7 @@ export default function App() {
                                   required
                                   value={editingService?.base_price || ''}
                                   onChange={(e) => setEditingService({...editingService, base_price: parseFloat(e.target.value)})}
-                                  className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                                  className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 focus:ring-violet-500/20'}`}
                                 />
                               </div>
                               <div>
@@ -4218,7 +4232,7 @@ export default function App() {
                                   required
                                   value={editingService?.commission_rate || ''}
                                   onChange={(e) => setEditingService({...editingService, commission_rate: parseFloat(e.target.value)})}
-                                  className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                                  className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 focus:ring-violet-500/20'}`}
                                 />
                               </div>
                             </div>
@@ -4228,7 +4242,7 @@ export default function App() {
                                 type="number" 
                                 value={editingService?.aracoins_perk || ''}
                                 onChange={(e) => setEditingService({...editingService, aracoins_perk: parseInt(e.target.value)})}
-                                className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                                className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 focus:ring-violet-500/20'}`}
                                 placeholder="Coins per referral"
                               />
                             </div>
@@ -4244,7 +4258,7 @@ export default function App() {
                                       ...editingService, 
                                       allowances: { ...editingService?.allowances, [tier.name]: parseFloat(e.target.value) }
                                     })}
-                                    className="flex-1 px-3 py-2 rounded-lg bg-zinc-50 border border-zinc-100 text-xs"
+                                    className={`flex-1 px-3 py-2 rounded-lg text-xs border ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc]' : 'bg-zinc-50 border-zinc-100'}`}
                                     placeholder="0.00"
                                   />
                                 </div>
@@ -4254,7 +4268,7 @@ export default function App() {
                               <button 
                                 type="submit"
                                 disabled={isSavingSetup}
-                                className="flex-1 bg-zinc-900 text-white py-3 rounded-xl font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                                className={`flex-1 py-3 rounded-xl font-medium transition-all disabled:opacity-50 ${isMobile ? 'bg-brand-accent text-white shadow-lg shadow-brand-accent/20 hover:opacity-90' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
                               >
                                 {isSavingSetup ? 'Saving...' : 'Save Service'}
                               </button>
@@ -4262,7 +4276,7 @@ export default function App() {
                                 <button 
                                   type="button"
                                   onClick={() => setEditingService(null)}
-                                  className="px-4 bg-zinc-100 text-zinc-600 py-3 rounded-xl font-medium hover:bg-zinc-200 transition-colors"
+                                  className={`px-4 py-3 rounded-xl font-medium transition-all ${isMobile ? 'bg-[#0f172a] text-[#f5f5dc]/40 hover:text-[#f5f5dc]' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
                                 >
                                   Cancel
                                 </button>
@@ -4272,45 +4286,45 @@ export default function App() {
                         </div>
                       </div>
                       <div className="lg:col-span-2">
-                        <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                        <div className={`${isMobile ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} rounded-3xl border overflow-hidden`}>
                           <table className="w-full text-left border-collapse">
                             <thead>
-                              <tr className="bg-zinc-50 border-b border-zinc-100">
-                                <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Service</th>
-                                <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Price/Inc</th>
-                                <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Perks</th>
-                                <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400 text-right">Actions</th>
+                              <tr className={`${isMobile ? 'bg-[#0f172a] border-white/10' : 'bg-zinc-50 border-zinc-100'} border-b`}>
+                                <th className={`p-4 text-[10px] font-bold uppercase tracking-wider ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Service</th>
+                                <th className={`p-4 text-[10px] font-bold uppercase tracking-wider ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Price/Inc</th>
+                                <th className={`p-4 text-[10px] font-bold uppercase tracking-wider ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Perks</th>
+                                <th className={`p-4 text-[10px] font-bold uppercase tracking-wider text-right ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Actions</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-zinc-50">
+                            <tbody className={`divide-y ${isMobile ? 'divide-white/5' : 'divide-zinc-50'}`}>
                               {services.map(service => (
-                                <tr key={service.id} className="hover:bg-zinc-50/50 transition-colors">
+                                <tr key={service.id} className={`transition-colors ${isMobile ? 'hover:bg-white/5' : 'hover:bg-zinc-50/50'}`}>
                                   <td className="p-4">
-                                    <p className="text-sm font-medium">{service.name}</p>
+                                    <p className={`text-sm font-medium ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{service.name}</p>
                                   </td>
                                   <td className="p-4">
-                                    <p className="text-xs text-zinc-500">${service.base_price} / <span className="text-violet-600 font-bold">${service.commission_rate}</span></p>
+                                    <p className={`text-xs ${isMobile ? 'text-[#f5f5dc]/60' : 'text-zinc-500'}`}>{clinicProfile.currency}{service.base_price} / <span className={`${isMobile ? 'text-brand-accent' : 'text-violet-600'} font-bold`}>{clinicProfile.currency}{service.commission_rate}</span></p>
                                   </td>
                                   <td className="p-4">
                                     <div className="flex flex-wrap gap-1">
                                       {(service.aracoins_perk || 0) > 0 && (
-                                        <span className="px-1.5 py-0.5 bg-yellow-50 text-yellow-700 rounded text-[9px] font-bold uppercase flex items-center gap-1">
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase flex items-center gap-1 ${isMobile ? 'bg-brand-accent/20 text-brand-accent' : 'bg-yellow-50 text-yellow-700'}`}>
                                           <Coins size={8} /> {service.aracoins_perk}
                                         </span>
                                       )}
                                       {Object.entries(service.allowances || {}).map(([tier, amt]) => (
-                                        <span key={tier} className="px-1.5 py-0.5 bg-zinc-50 text-zinc-500 rounded text-[9px] font-bold uppercase">
-                                          {tier[0]}: ${amt}
+                                        <span key={tier} className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isMobile ? 'bg-white/5 text-[#f5f5dc]/40' : 'bg-zinc-50 text-zinc-500'}`}>
+                                          {tier[0]}: {clinicProfile.currency}{amt}
                                         </span>
                                       ))}
                                     </div>
                                   </td>
                                   <td className="p-4 text-right">
                                     <div className="flex justify-end gap-2">
-                                      <button onClick={() => setEditingService(service)} className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors">
+                                      <button onClick={() => setEditingService(service)} className={`p-2 transition-colors ${isMobile ? 'text-[#f5f5dc]/40 hover:text-brand-accent' : 'text-zinc-400 hover:text-zinc-900'}`}>
                                         <Edit2 size={14} />
                                       </button>
-                                      <button onClick={() => handleDeleteService(service.id)} className="p-2 text-zinc-400 hover:text-red-600 transition-colors">
+                                      <button onClick={() => handleDeleteService(service.id)} className={`p-2 transition-colors ${isMobile ? 'text-[#f5f5dc]/40 hover:text-red-400' : 'text-zinc-400 hover:text-red-600'}`}>
                                         <Trash2 size={14} />
                                       </button>
                                     </div>
@@ -4327,68 +4341,94 @@ export default function App() {
               )}
 
               <div className={`grid grid-cols-1 gap-8 ${currentUser.role === 'admin' ? 'md:grid-cols-2 lg:grid-cols-3' : ''}`}>
-                {promoServices.map((item) => (
-                  <motion.div 
-                    key={item.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-white rounded-[2.5rem] border border-black/5 shadow-xl overflow-hidden flex flex-col group"
-                  >
-                    <div className="relative aspect-[4/5] overflow-hidden">
-                      <img 
-                        src={item.posterImage} 
-                        alt={item.title} 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                        referrerPolicy="no-referrer" 
-                      />
-                      <div className="absolute top-6 right-6 flex flex-col gap-2">
-                        <span className="px-4 py-2 bg-white/90 backdrop-blur-md rounded-2xl text-[10px] font-black uppercase tracking-widest text-brand-primary shadow-sm">
-                          {item.type}
-                        </span>
-                        {currentUser.role === 'admin' && (
-                          <button 
-                            onClick={() => setPromoServices(prev => prev.filter(p => p.id !== item.id))}
-                            className="w-10 h-10 bg-red-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all active:scale-90"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        )}
-                      </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-8 text-white">
-                        <h3 className="text-2xl font-black mb-2 leading-tight">{item.title}</h3>
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-brand-accent flex items-center justify-center">
-                              <DollarSign size={16} className="text-white" />
-                            </div>
-                            <p className="text-xl font-black text-brand-accent">
-                              {clinicProfile.currency}{item.incentiveAmount} <span className="text-xs font-bold text-white/60 uppercase tracking-widest ml-1">Incentive</span>
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3 text-xs font-bold">
-                            <span className="line-through opacity-60">Price: {clinicProfile.currency}{item.servicePrice}</span>
-                            {item.promoPrice && <span className="text-brand-accent">Now: {clinicProfile.currency}{item.promoPrice}</span>}
-                          </div>
-                          {item.branches.length > 0 && (
-                            <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Available at: {item.branches.join(', ')}</p>
+                {promoServices
+                  .filter(item => 
+                    currentUser.role === 'admin' || 
+                    !item.branches ||
+                    item.branches.length === 0 || 
+                    !currentUser.branch ||
+                    item.branches.includes(currentUser.branch)
+                  )
+                  .map((item) => (
+                    <motion.div 
+                      key={item.id}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className={`${isMobile ? 'bg-[#1e293b] border-white/10' : 'bg-white border-black/5 shadow-xl'} rounded-[2.5rem] border overflow-hidden flex flex-col group`}
+                    >
+                      <div className="relative aspect-[4/5] overflow-hidden">
+                        <img 
+                          src={item.posterImage} 
+                          alt={item.title} 
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                          referrerPolicy="no-referrer" 
+                        />
+                        <div className="absolute top-6 right-6 flex flex-col gap-2">
+                          <span className="px-4 py-2 bg-white/90 backdrop-blur-md rounded-2xl text-[10px] font-black uppercase tracking-widest text-brand-primary shadow-sm">
+                            {item.type}
+                          </span>
+                          {currentUser.role === 'admin' && (
+                            <button 
+                              onClick={async () => {
+                                const updatedPromos = promoServices.filter(p => p.id !== item.id);
+                                setPromoServices(updatedPromos);
+                                const { res, data } = await safeFetch(`${apiBaseUrl}/api/promotions`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify(updatedPromos)
+                                });
+                                if (!res.ok) {
+                                  console.error('Failed to delete promotion', data);
+                                  fetchPromotions();
+                                }
+                              }}
+                              className="w-10 h-10 bg-red-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all active:scale-90"
+                            >
+                              <Trash2 size={18} />
+                            </button>
                           )}
                         </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-8 text-white">
+                          <h3 className="text-2xl font-black mb-2 leading-tight">{item.title}</h3>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-brand-accent flex items-center justify-center">
+                                <DollarSign size={16} className="text-white" />
+                              </div>
+                              <p className="text-xl font-black text-brand-accent">
+                                {clinicProfile.currency}{item.incentiveAmount} <span className="text-xs font-bold text-white/60 uppercase tracking-widest ml-1">Incentive</span>
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs font-bold">
+                              <span className="line-through opacity-60">Price: {clinicProfile.currency}{item.servicePrice}</span>
+                              {item.promoPrice && <span className="text-brand-accent">Now: {clinicProfile.currency}{item.promoPrice}</span>}
+                            </div>
+                            {item.branches.length > 0 && (
+                              <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Available at: {item.branches.join(', ')}</p>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="p-6 bg-zinc-50">
-                      <a 
-                        href={item.posterImage} 
-                        download={`poster-${item.id}.png`}
-                        className="w-full py-5 bg-brand-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg shadow-brand-primary/20 active:scale-[0.98] transition-all"
-                      >
-                        <Download size={18} />
-                        Download Poster
-                      </a>
-                    </div>
-                  </motion.div>
-                ))}
+                      <div className={`p-6 ${isMobile ? 'bg-[#0f172a]' : 'bg-zinc-50'}`}>
+                        <a 
+                          href={item.posterImage} 
+                          download={`poster-${item.id}.png`}
+                          className={`w-full py-5 ${isMobile ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white'} rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg active:scale-[0.98] transition-all`}
+                        >
+                          <Download size={18} />
+                          Download Poster
+                        </a>
+                      </div>
+                    </motion.div>
+                  ))}
 
-                {promoServices.length === 0 && (
+                {promoServices.filter(item => 
+                  currentUser.role === 'admin' || 
+                  !item.branches ||
+                  item.branches.length === 0 || 
+                  !currentUser.branch ||
+                  item.branches.includes(currentUser.branch)
+                ).length === 0 && (
                   <div className="col-span-full text-center py-20">
                     <div className={`w-20 h-20 ${isMobile ? 'bg-[#1e293b]' : 'bg-zinc-100'} rounded-[2rem] flex items-center justify-center mx-auto mb-6`}>
                       <Zap size={32} className="text-zinc-400" />
