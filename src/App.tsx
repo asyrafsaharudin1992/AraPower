@@ -444,6 +444,7 @@ export default function App() {
   const [apiBaseUrl, setApiBaseUrl] = useState('');
   const [payoutUserFilter, setPayoutUserFilter] = useState<string>('all');
   const [payoutBranchFilter, setPayoutBranchFilter] = useState<string>('all');
+  const [payoutSubTab, setPayoutSubTab] = useState<'history' | 'bulk'>('history');
   const [branchChangeRequests, setBranchChangeRequests] = useState<any[]>([]);
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [editingBranch, setEditingBranch] = useState<any>(null);
@@ -3271,7 +3272,14 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'payouts' && rolesConfig[currentUser.role]?.canViewAnalytics && (
+          {activeTab === 'payouts' && rolesConfig[currentUser.role]?.canViewAnalytics && (() => {
+            const filteredStaffForBulk = staffPerformance
+              .filter(s => s.approved_earnings > 0)
+              .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+              .filter(s => payoutBranchFilter === 'all' ? true : s.branch === payoutBranchFilter)
+              .filter(s => payoutUserFilter === 'all' ? true : s.id.toString() === payoutUserFilter);
+
+            return (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -3307,15 +3315,33 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Sub-tabs */}
+              <div className="flex gap-2 p-1 bg-zinc-100 rounded-2xl w-fit">
+                <button 
+                  onClick={() => setPayoutSubTab('history')}
+                  className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${payoutSubTab === 'history' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                >
+                  Referral History
+                </button>
+                <button 
+                  onClick={() => setPayoutSubTab('bulk')}
+                  className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${payoutSubTab === 'bulk' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                >
+                  Bulk Payouts
+                </button>
+              </div>
+
               {/* Filters */}
               <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm flex flex-wrap gap-4 items-end">
                 <div className="flex-1 min-w-[200px]">
-                  <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Search Patient</label>
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">
+                    {payoutSubTab === 'history' ? 'Search Patient' : 'Search Staff'}
+                  </label>
                   <div className="relative">
                     <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
                     <input 
                       type="text"
-                      placeholder="Search patient name..."
+                      placeholder={payoutSubTab === 'history' ? "Search patient name..." : "Search staff name..."}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-all"
@@ -3360,85 +3386,194 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Payout Table */}
-              <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-zinc-50/50 border-b border-zinc-100">
-                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Date</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Staff</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Patient</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Amount</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Status</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-50">
-                      {referrals
-                        .filter(r => r.status === 'approved' || r.status === 'payout_processed')
-                        .filter(r => r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()))
-                        .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
-                        .filter(r => payoutUserFilter === 'all' ? true : r.staff_id.toString() === payoutUserFilter)
-                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                        .map((ref) => (
-                          <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
-                            <td className="px-6 py-4">
-                              <p className="text-sm font-medium text-zinc-900">{new Date(ref.date).toLocaleDateString()}</p>
-                              <p className="text-[10px] text-zinc-400 font-bold uppercase">{ref.branch}</p>
-                            </td>
-                            <td className="px-6 py-4">
-                              <p className="text-sm font-bold text-zinc-900">{ref.staff_name}</p>
-                              <p className="text-[10px] text-zinc-400 font-bold uppercase">Code: {ref.promo_code}</p>
-                            </td>
-                            <td className="px-6 py-4">
-                              <p className="text-sm font-medium text-zinc-900">{ref.patient_name}</p>
-                              <p className="text-[10px] text-zinc-400 font-bold uppercase">{ref.service_name}</p>
-                            </td>
-                            <td className="px-6 py-4">
-                              <p className="text-sm font-black text-zinc-900">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                ref.status === 'payout_processed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                              }`}>
-                                {ref.status === 'payout_processed' ? 'Paid' : 'Pending'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              {ref.status === 'approved' && (
-                                <button 
-                                  onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
-                                  className="px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 transition-all active:scale-95"
-                                >
-                                  Process Payout
-                                </button>
-                              )}
-                              {ref.status === 'payout_processed' && (
-                                <div className="flex items-center justify-end gap-1 text-green-600">
-                                  <CheckCircle2 size={14} />
-                                  <span className="text-xs font-bold">Processed</span>
-                                </div>
-                              )}
-                            </td>
+              {payoutSubTab === 'history' ? (
+                <>
+                  {/* Payout Table */}
+                  <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-zinc-50/50 border-b border-zinc-100">
+                            <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Date</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Staff</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Patient</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Amount</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Status</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Action</th>
                           </tr>
-                        ))}
-                      {referrals.filter(r => r.status === 'approved' || r.status === 'payout_processed').length === 0 && (
-                        <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center">
-                            <div className="w-12 h-12 bg-zinc-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                              <DollarSign className="text-zinc-400" size={24} />
-                            </div>
-                            <p className="text-zinc-500 text-xs font-black uppercase tracking-widest">No payout records found</p>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-50">
+                          {referrals
+                            .filter(r => r.status === 'approved' || r.status === 'payout_processed')
+                            .filter(r => r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                            .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
+                            .filter(r => payoutUserFilter === 'all' ? true : r.staff_id.toString() === payoutUserFilter)
+                            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                            .map((ref) => (
+                              <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
+                                <td className="px-6 py-4">
+                                  <p className="text-sm font-medium text-zinc-900">{new Date(ref.date).toLocaleDateString()}</p>
+                                  <p className="text-[10px] text-zinc-400 font-bold uppercase">{ref.branch}</p>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <p className="text-sm font-bold text-zinc-900">{ref.staff_name}</p>
+                                  <p className="text-[10px] text-zinc-400 font-bold uppercase">Code: {ref.promo_code}</p>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <p className="text-sm font-medium text-zinc-900">{ref.patient_name}</p>
+                                  <p className="text-[10px] text-zinc-400 font-bold uppercase">{ref.service_name}</p>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <p className="text-sm font-black text-zinc-900">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                    ref.status === 'payout_processed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                                  }`}>
+                                    {ref.status === 'payout_processed' ? 'Paid' : 'Pending'}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  {ref.status === 'approved' && (
+                                    <button 
+                                      onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
+                                      className="px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 transition-all active:scale-95"
+                                    >
+                                      Process Payout
+                                    </button>
+                                  )}
+                                  {ref.status === 'payout_processed' && (
+                                    <div className="flex items-center justify-end gap-1 text-green-600">
+                                      <CheckCircle2 size={14} />
+                                      <span className="text-xs font-bold">Processed</span>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          {referrals.filter(r => r.status === 'approved' || r.status === 'payout_processed').length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="px-6 py-12 text-center">
+                                <div className="w-12 h-12 bg-zinc-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                  <DollarSign className="text-zinc-400" size={24} />
+                                </div>
+                                <p className="text-zinc-500 text-xs font-black uppercase tracking-widest">No payout records found</p>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Bulk Payout Section */}
+                  <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                    <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h3 className="font-semibold">Bulk Payout Management</h3>
+                        <p className="text-xs text-zinc-400 font-medium">Generate bulk payment files for banking software</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => setShowPayoutModal(true)}
+                          disabled={selectedPayoutStaff.length === 0}
+                          className="flex items-center gap-2 text-xs font-bold bg-violet-600 text-white px-4 py-2 rounded-xl transition-all hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500/20"
+                        >
+                          <Download size={14} />
+                          Generate Bulk CSV
+                        </button>
+                        <button 
+                          onClick={processPayouts}
+                          disabled={selectedPayoutStaff.length === 0}
+                          className="flex items-center gap-2 text-xs font-bold bg-zinc-900 text-white px-4 py-2 rounded-xl transition-all hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-zinc-900/20"
+                        >
+                          <CheckCircle2 size={14} />
+                          Mark as Paid
+                        </button>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-zinc-50 border-b border-zinc-100">
+                            <th className="p-4 w-10">
+                              <input 
+                                type="checkbox"
+                                className="rounded border-zinc-300 text-violet-600 focus:ring-violet-500"
+                                checked={filteredStaffForBulk.length > 0 && filteredStaffForBulk.every(s => selectedPayoutStaff.includes(s.id))}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    const newSelected = Array.from(new Set([...selectedPayoutStaff, ...filteredStaffForBulk.map(s => s.id)]));
+                                    setSelectedPayoutStaff(newSelected);
+                                  } else {
+                                    const filteredOut = selectedPayoutStaff.filter(id => !filteredStaffForBulk.some(s => s.id === id));
+                                    setSelectedPayoutStaff(filteredOut);
+                                  }
+                                }}
+                              />
+                            </th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Staff Member</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Bank Details</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400 text-right">Approved Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-50">
+                          {filteredStaffForBulk.map((staff) => (
+                            <tr key={staff.id} className="hover:bg-zinc-50/50 transition-colors">
+                              <td className="p-4">
+                                <input 
+                                  type="checkbox"
+                                  className="rounded border-zinc-300 text-violet-600 focus:ring-violet-500"
+                                  checked={selectedPayoutStaff.includes(staff.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedPayoutStaff([...selectedPayoutStaff, staff.id]);
+                                    } else {
+                                      setSelectedPayoutStaff(selectedPayoutStaff.filter(id => id !== staff.id));
+                                    }
+                                  }}
+                                />
+                              </td>
+                              <td className="p-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-600">
+                                    {staff.name.charAt(0)}
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-medium">{staff.name}</span>
+                                    <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{staff.branch}</span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-4">
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-bold text-zinc-700">{staff.bank_name || 'MISSING BANK'}</span>
+                                  <span className="text-[10px] text-zinc-400 font-medium tracking-wider">{staff.bank_account_number || 'MISSING ACCOUNT'}</span>
+                                </div>
+                              </td>
+                              <td className="p-4 text-sm font-bold text-right text-violet-600">
+                                {clinicProfile.currency}{staff.approved_earnings.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                          {filteredStaffForBulk.length === 0 && (
+                            <tr>
+                              <td colSpan={4} className="p-8 text-center text-zinc-400 text-sm italic">
+                                No approved earnings matching your filters.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
             </motion.div>
-          )}
+            );
+          })()}
 
           {activeTab === 'receptionist' && (currentUser.role === 'receptionist' || currentUser.role === 'dispensary' || currentUser.role === 'admin') && (
             <motion.div 
