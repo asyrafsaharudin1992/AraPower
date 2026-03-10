@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 // Force rebuild - Logo update
+import { GoogleGenAI } from "@google/genai";
 import React, { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import { 
@@ -48,6 +49,7 @@ import {
   Mail,
   Trophy,
   Star,
+  Sparkles,
   MapPin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -206,9 +208,24 @@ const safeFetch = async (url: string, options?: RequestInit) => {
 };
 
 // Reusable Logo Component with Fallback
-const Logo = ({ className = "w-8 h-8" }: { className?: string }) => {
+const Logo = ({ className = "w-8 h-8", logoUrl }: { className?: string, logoUrl?: string }) => {
+  const [error, setError] = useState(false);
   const size = parseInt(className.match(/\d+/)?.[0] || "24");
   
+  if (logoUrl && !error) {
+    return (
+      <div className={`${className} flex items-center justify-center bg-white rounded-xl shadow-inner overflow-hidden`}>
+        <img 
+          src={logoUrl} 
+          alt="Logo" 
+          className="w-full h-full object-cover" 
+          referrerPolicy="no-referrer"
+          onError={() => setError(true)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={`${className} flex items-center justify-center bg-violet-600 rounded-xl shadow-inner overflow-hidden`}>
       <Activity className="text-white" size={size * 0.7} strokeWidth={2.5} />
@@ -283,11 +300,11 @@ export default function App() {
       created_at: new Date().toISOString()
     }
   ]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'kit' | 'promotions'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'kit' | 'promotions' | 'payouts'>('dashboard');
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   
   // Setup Tab State
-  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches'>('staff');
+  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash'>('staff');
   const [promoSubTab, setPromoSubTab] = useState<'ads' | 'services'>('ads');
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
   const [editingStaff, setEditingStaff] = useState<Partial<Staff> | null>(null);
@@ -299,8 +316,50 @@ export default function App() {
     address: '',
     phone: '',
     email: '',
-    currency: 'RM'
+    currency: 'RM',
+    logoUrl: '' // Resetting broken URL, user can upload or provide a new one
   });
+  const [isGeneratingIcon, setIsGeneratingIcon] = useState(false);
+
+  const handleGenerateIcon = async () => {
+    const aistudio = (window as any).aistudio;
+    if (!aistudio) {
+      alert('AI Studio environment not detected.');
+      return;
+    }
+
+    if (!(await aistudio.hasSelectedApiKey())) {
+      await aistudio.openSelectKey();
+      return;
+    }
+
+    setIsGeneratingIcon(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateImages({
+        model: 'imagen-4.0-generate-001',
+        prompt: 'A modern, minimalist healthcare app icon featuring a stylized medical medical cross, clean lines, professional blue and white color palette, high resolution, 3D render style with soft shadows, white background.',
+        config: {
+          numberOfImages: 1,
+          outputMimeType: 'image/jpeg',
+          aspectRatio: '1:1',
+        },
+      });
+
+      const base64EncodeString = response.generatedImages[0].image.imageBytes;
+      const imageUrl = `data:image/jpeg;base64,${base64EncodeString}`;
+      setClinicProfile(prev => ({ ...prev, logoUrl: imageUrl }));
+    } catch (error: any) {
+      console.error('Error generating icon:', error);
+      if (error.message?.includes("Requested entity was not found")) {
+        await aistudio.openSelectKey();
+      } else {
+        alert('Failed to generate icon. Please ensure you have a valid API key selected (ai.google.dev/gemini-api/docs/billing).');
+      }
+    } finally {
+      setIsGeneratingIcon(false);
+    }
+  };
   const [rolesConfig, setRolesConfig] = useState<RolesConfig>({
     admin: { canApprove: true, canEditServices: true, canEditStaff: true, canViewAnalytics: true, canManagePayouts: true, canManageSettings: true },
     receptionist: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: false, canManageSettings: false },
@@ -383,6 +442,8 @@ export default function App() {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState('');
+  const [payoutUserFilter, setPayoutUserFilter] = useState<string>('all');
+  const [payoutBranchFilter, setPayoutBranchFilter] = useState<string>('all');
   const [branchChangeRequests, setBranchChangeRequests] = useState<any[]>([]);
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [editingBranch, setEditingBranch] = useState<any>(null);
@@ -1182,12 +1243,32 @@ export default function App() {
   };
 
   const handleDeleteStaff = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this staff member? This will permanently remove their record.')) return;
+    if (!confirm('Are you sure you want to move this staff member to the trash bin?')) return;
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}`, { method: 'DELETE' });
     if (res.ok) {
       fetchStaff();
     } else {
       alert(data.error || 'Delete failed');
+    }
+  };
+
+  const handleRestoreStaff = async (id: number) => {
+    if (!confirm('Are you sure you want to restore this staff member?')) return;
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/restore`, { method: 'POST' });
+    if (res.ok) {
+      fetchStaff();
+    } else {
+      alert(data.error || 'Restore failed');
+    }
+  };
+
+  const handlePermanentDeleteStaff = async (id: number) => {
+    if (!confirm('Are you sure you want to PERMANENTLY delete this staff member? This action cannot be undone.')) return;
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/permanent`, { method: 'DELETE' });
+    if (res.ok) {
+      fetchStaff();
+    } else {
+      alert(data.error || 'Permanent delete failed');
     }
   };
 
@@ -1362,7 +1443,7 @@ export default function App() {
             <>
               <div className="flex items-center gap-3 mb-8">
                 <div className="bg-white p-1 rounded-xl border border-zinc-100 shadow-sm">
-                  <Logo className="w-8 h-8" />
+                  <Logo className="w-8 h-8" logoUrl={clinicProfile.logoUrl} />
                 </div>
                 <h1 className="text-2xl font-semibold text-zinc-900 tracking-tight">Clinic Booking</h1>
               </div>
@@ -1509,6 +1590,9 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
+              <div className="mb-6">
+                <Logo className="w-16 h-16" logoUrl={clinicProfile.logoUrl} />
+              </div>
               <h1 className="text-5xl font-black text-brand-primary mb-2 tracking-tight leading-tight">Welcome to AraPower</h1>
               <p id="welcome-quote" className="text-zinc-500 italic mb-12 animate-fade-in opacity-0 fill-mode-forwards">
                 {welcomeQuote}
@@ -1553,6 +1637,9 @@ export default function App() {
                 transition={{ delay: 0.2, duration: 0.6 }}
                 className="mb-8"
               >
+                <div className="mb-4">
+                  <Logo className="w-12 h-12" logoUrl={clinicProfile.logoUrl} />
+                </div>
                 <h1 className="text-4xl font-black text-brand-primary mb-1">
                   {authMode === 'login' ? 'Sign in' : 'Sign up'}
                 </h1>
@@ -1930,8 +2017,11 @@ export default function App() {
     return [...TIERS].reverse().find(t => count >= t.min) || TIERS[0];
   };
 
+  const activeStaffList = staffList.filter(s => s.employment_status !== 'deleted');
+  const deletedStaffList = staffList.filter(s => s.employment_status === 'deleted');
+
   // Analytics calculation
-  const staffPerformance = staffList.map(staff => {
+  const staffPerformance = activeStaffList.map(staff => {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
     const staffRefs = referrals.filter(r => r.staff_id === staff.id);
     const monthlySuccessfulRefs = staffRefs.filter(r => 
@@ -2122,7 +2212,7 @@ export default function App() {
           <nav className="fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-zinc-100 p-6 flex flex-col">
             <div className="flex items-center gap-3 mb-10 px-2">
               <div className="w-10 h-10 bg-white border border-zinc-100 rounded-2xl flex items-center justify-center shadow-sm overflow-hidden">
-                <Logo className="w-8 h-8" />
+                <Logo className="w-8 h-8" logoUrl={clinicProfile.logoUrl} />
               </div>
               <div>
                 <h1 className="font-bold text-xl tracking-tight text-zinc-900">{clinicProfile.name}</h1>
@@ -2180,6 +2270,15 @@ export default function App() {
                 >
                   <Users size={18} />
                   <span className="text-sm font-medium">Admin Panel</span>
+                </button>
+              )}
+              {rolesConfig[currentUser.role]?.canViewAnalytics && (
+                <button 
+                  onClick={() => setActiveTab('payouts')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'payouts' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  <DollarSign size={18} />
+                  <span className="text-sm font-medium">Payouts</span>
                 </button>
               )}
             </div>
@@ -2857,13 +2956,13 @@ export default function App() {
                   <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Staff Approvals</p>
                     <p className="text-3xl font-bold tracking-tight text-blue-500">
-                      {staffList.filter(s => !s.is_approved && s.employment_status !== 'rejected').length}
+                      {activeStaffList.filter(s => !s.is_approved && s.employment_status !== 'rejected').length}
                     </p>
                   </div>
                 </div>
 
               {/* Staff Approvals Section */}
-              {staffList.filter(s => !s.is_approved && s.employment_status !== 'rejected').length > 0 && (
+              {activeStaffList.filter(s => !s.is_approved && s.employment_status !== 'rejected').length > 0 && (
                 <div className="bg-blue-50/50 rounded-[2.5rem] border border-blue-100 p-8">
                   <div className="flex items-center justify-between mb-6">
                     <div>
@@ -2875,7 +2974,7 @@ export default function App() {
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {staffList.filter(s => !s.is_approved && s.employment_status !== 'rejected').map(staff => (
+                    {activeStaffList.filter(s => !s.is_approved && s.employment_status !== 'rejected').map(staff => (
                       <div key={staff.id} className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm hover:shadow-md transition-all">
                         <div className="flex items-center gap-4 mb-4">
                           <div className="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center text-lg font-black text-zinc-400">
@@ -3162,6 +3261,175 @@ export default function App() {
                         <tr>
                           <td colSpan={4} className="p-8 text-center text-zinc-400 text-sm italic">
                             No approved earnings ready for payout.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'payouts' && rolesConfig[currentUser.role]?.canViewAnalytics && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-zinc-900 tracking-tight">Payout Management</h2>
+                  <p className="text-zinc-500 text-sm">Manage and track staff commissions and payouts.</p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <div className="bg-white p-4 rounded-2xl border border-black/5 shadow-sm min-w-[150px]">
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Total Pending</p>
+                    <p className="text-xl font-black text-violet-600">
+                      {clinicProfile.currency}{referrals
+                        .filter(r => r.status === 'approved')
+                        .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
+                        .filter(r => payoutUserFilter === 'all' ? true : r.staff_id.toString() === payoutUserFilter)
+                        .reduce((sum, r) => sum + r.commission_amount, 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-black/5 shadow-sm min-w-[150px]">
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Total Processed</p>
+                    <p className="text-xl font-black text-zinc-900">
+                      {clinicProfile.currency}{referrals
+                        .filter(r => r.status === 'payout_processed')
+                        .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
+                        .filter(r => payoutUserFilter === 'all' ? true : r.staff_id.toString() === payoutUserFilter)
+                        .reduce((sum, r) => sum + r.commission_amount, 0).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Search Patient</label>
+                  <div className="relative">
+                    <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+                    <input 
+                      type="text"
+                      placeholder="Search patient name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-all"
+                    />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Filter by Staff</label>
+                  <select 
+                    value={payoutUserFilter}
+                    onChange={(e) => setPayoutUserFilter(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-all"
+                  >
+                    <option value="all">All Staff</option>
+                    {staffList.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.branch})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Filter by Branch</label>
+                  <select 
+                    value={payoutBranchFilter}
+                    onChange={(e) => setPayoutBranchFilter(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-all"
+                  >
+                    <option value="all">All Branches</option>
+                    {branches.map(b => (
+                      <option key={b.id} value={b.name}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <button 
+                  onClick={() => {
+                    setPayoutUserFilter('all');
+                    setPayoutBranchFilter('all');
+                    setSearchQuery('');
+                  }}
+                  className="px-4 py-2.5 text-zinc-500 hover:text-zinc-900 text-sm font-bold transition-colors"
+                >
+                  Reset
+                </button>
+              </div>
+
+              {/* Payout Table */}
+              <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-zinc-50/50 border-b border-zinc-100">
+                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Date</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Staff</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Patient</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Amount</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Status</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-50">
+                      {referrals
+                        .filter(r => r.status === 'approved' || r.status === 'payout_processed')
+                        .filter(r => r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
+                        .filter(r => payoutUserFilter === 'all' ? true : r.staff_id.toString() === payoutUserFilter)
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                        .map((ref) => (
+                          <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
+                            <td className="px-6 py-4">
+                              <p className="text-sm font-medium text-zinc-900">{new Date(ref.date).toLocaleDateString()}</p>
+                              <p className="text-[10px] text-zinc-400 font-bold uppercase">{ref.branch}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm font-bold text-zinc-900">{ref.staff_name}</p>
+                              <p className="text-[10px] text-zinc-400 font-bold uppercase">Code: {ref.promo_code}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm font-medium text-zinc-900">{ref.patient_name}</p>
+                              <p className="text-[10px] text-zinc-400 font-bold uppercase">{ref.service_name}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm font-black text-zinc-900">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                ref.status === 'payout_processed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {ref.status === 'payout_processed' ? 'Paid' : 'Pending'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              {ref.status === 'approved' && (
+                                <button 
+                                  onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
+                                  className="px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 transition-all active:scale-95"
+                                >
+                                  Process Payout
+                                </button>
+                              )}
+                              {ref.status === 'payout_processed' && (
+                                <div className="flex items-center justify-end gap-1 text-green-600">
+                                  <CheckCircle2 size={14} />
+                                  <span className="text-xs font-bold">Processed</span>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      {referrals.filter(r => r.status === 'approved' || r.status === 'payout_processed').length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-12 text-center">
+                            <div className="w-12 h-12 bg-zinc-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                              <DollarSign className="text-zinc-400" size={24} />
+                            </div>
+                            <p className="text-zinc-500 text-xs font-black uppercase tracking-widest">No payout records found</p>
                           </td>
                         </tr>
                       )}
@@ -4630,6 +4898,12 @@ export default function App() {
                 >
                   Branch Management
                 </button>
+                <button 
+                  onClick={() => setSetupSubTab('trash')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'trash' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  Trash Bin
+                </button>
               </div>
 
               {setupSubTab === 'staff' ? (
@@ -4923,10 +5197,118 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+              ) : setupSubTab === 'trash' ? (
+                <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                  <div className="flex items-center justify-between p-4 border-b border-zinc-100 bg-zinc-50/50">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Trash Bin (Deleted Staff)</h3>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={fetchStaff}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-[10px] font-bold text-zinc-600 hover:bg-zinc-50 transition-colors shadow-sm"
+                      >
+                        <RefreshCw size={12} />
+                        Refresh
+                      </button>
+                    </div>
+                  </div>
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-zinc-50 border-b border-zinc-100">
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Staff Member</th>
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Role & Details</th>
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {deletedStaffList.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="p-12 text-center text-zinc-500">
+                            No deleted staff found in the trash bin.
+                          </td>
+                        </tr>
+                      ) : (
+                        deletedStaffList.map(staff => (
+                          <tr key={staff.id} className="border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors">
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-500 font-bold overflow-hidden">
+                                  {staff.profile_picture ? (
+                                    <img src={staff.profile_picture} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                  ) : (
+                                    staff.name.charAt(0)
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium">{staff.nickname || staff.name}</p>
+                                  {staff.nickname && <p className="text-[10px] text-zinc-400">Real Name: {staff.name}</p>}
+                                  <p className="text-[10px] text-zinc-400">{staff.email} • <span className="font-bold text-violet-600">{staff.promo_code}</span></p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-col gap-1">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-zinc-100 text-zinc-600 w-fit">
+                                  {staff.role}
+                                </span>
+                                <p className="text-xs font-medium text-zinc-600">{staff.staff_id_code || 'N/A'}</p>
+                                <p className="text-[10px] text-zinc-400">{staff.branch} • {staff.department}</p>
+                              </div>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex justify-end gap-2">
+                                <button onClick={() => handleRestoreStaff(staff.id)} title="Restore Staff" className="flex items-center gap-1 px-3 py-1.5 bg-violet-50 text-violet-600 hover:bg-violet-100 rounded-lg text-xs font-bold transition-colors">
+                                  <RefreshCw size={14} />
+                                  Restore
+                                </button>
+                                <button onClick={() => handlePermanentDeleteStaff(staff.id)} title="Permanently Delete" className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-bold transition-colors">
+                                  <Trash2 size={14} />
+                                  Delete Permanently
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               ) : setupSubTab === 'clinic' ? (
                 <div className="max-w-2xl mx-auto bg-white p-8 rounded-3xl border border-black/5 shadow-sm">
                   <h3 className="font-semibold mb-6">Clinic Profile</h3>
                   <div className="space-y-6">
+                    <div className="flex items-center gap-6 mb-8">
+                      <div className="w-24 h-24 rounded-3xl bg-zinc-50 border-2 border-dashed border-zinc-200 flex items-center justify-center overflow-hidden relative group">
+                        <Logo className="w-full h-full" logoUrl={clinicProfile.logoUrl} />
+                        {isGeneratingIcon && (
+                          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
+                            <RefreshCw size={24} className="text-violet-500 animate-spin" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-bold text-zinc-900 mb-1">Clinic Logo</h4>
+                        <p className="text-xs text-zinc-400 mb-3">Generate a professional healthcare-themed icon using AI.</p>
+                        <div className="flex flex-wrap gap-2">
+                          <button 
+                            onClick={handleGenerateIcon}
+                            disabled={isGeneratingIcon}
+                            className="flex items-center gap-2 px-4 py-2 bg-violet-50 text-violet-600 rounded-xl text-xs font-bold hover:bg-violet-100 transition-all disabled:opacity-50"
+                          >
+                            <Sparkles size={14} />
+                            {isGeneratingIcon ? 'Generating...' : 'Generate AI Icon'}
+                          </button>
+                          <div className="flex-1 min-w-[200px]">
+                            <input 
+                              type="text"
+                              placeholder="Or paste logo URL here..."
+                              value={clinicProfile.logoUrl || ''}
+                              onChange={(e) => setClinicProfile(prev => ({ ...prev, logoUrl: e.target.value }))}
+                              className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Clinic Name</label>
@@ -5178,7 +5560,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                                 <td className="p-4 text-sm text-zinc-500">{branch.location || 'N/A'}</td>
                                 <td className="p-4">
                                   <span className="px-2 py-1 bg-zinc-100 text-zinc-600 rounded-lg text-[10px] font-bold">
-                                    {staffList.filter(s => s.branch === branch.name).length} members
+                                    {activeStaffList.filter(s => s.branch === branch.name).length} members
                                   </span>
                                 </td>
                                 <td className="p-4 text-right">
@@ -5251,7 +5633,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                         <div className="mt-8 pt-8 border-t border-white/10">
                           <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-4">Branch Members</h5>
                           <div className="flex flex-wrap gap-2">
-                            {staffList.filter(s => s.branch === branchPerformance.name).map(member => (
+                            {activeStaffList.filter(s => s.branch === branchPerformance.name).map(member => (
                               <div key={member.id} className="px-3 py-1.5 bg-white/5 rounded-xl border border-white/10 flex items-center gap-2">
                                 <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center text-[8px] font-bold">
                                   {member.name.charAt(0)}
@@ -5313,7 +5695,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-200">
-                              {staffList.map(staff => (
+                              {activeStaffList.map(staff => (
                                 <tr key={staff.id}>
                                   <td className="p-3 font-bold">{staff.name}</td>
                                   <td className="p-3">
@@ -5920,7 +6302,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                           className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium appearance-none"
                         >
                           <option value="">Unassigned</option>
-                          {staffList.map(staff => (
+                          {activeStaffList.map(staff => (
                             <option key={staff.id} value={staff.id}>{staff.name}</option>
                           ))}
                         </select>

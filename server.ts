@@ -929,6 +929,20 @@ app.patch("/api/staff/:id/profile", async (req, res) => {
 
 app.delete("/api/staff/:id", async (req, res) => {
   const { id } = req.params;
+  const { error } = await supabase.from('staff').update({ employment_status: 'deleted' }).eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+app.post("/api/staff/:id/restore", async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase.from('staff').update({ employment_status: 'permanent' }).eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+app.delete("/api/staff/:id/permanent", async (req, res) => {
+  const { id } = req.params;
   const { error } = await supabase.from('staff').delete().eq('id', id);
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
