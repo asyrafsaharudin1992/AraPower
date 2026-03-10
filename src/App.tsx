@@ -107,6 +107,11 @@ interface Service {
   commission_rate: number;
   aracoins_perk?: number;
   allowances: { [tier: string]: number };
+  description?: string;
+  posters?: string[];
+  promo_price?: number;
+  type?: 'Service' | 'Promotion';
+  branches?: string[];
 }
 
 interface Referral {
@@ -149,15 +154,61 @@ interface ClinicProfile {
   logoUrl?: string;
 }
 
+const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, isMobile: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: number) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
+  return (
+    <div className={`p-6 rounded-3xl border transition-all ${isMobile ? 'bg-[#0f172a] border-white/5' : 'bg-white border-zinc-100 shadow-sm hover:border-violet-200'}`}>
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h4 className={`font-bold ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{item.name}</h4>
+            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${item.type === 'Promotion' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+              {item.type || 'Service'}
+            </span>
+          </div>
+          <p className="text-[10px] text-zinc-400 font-medium line-clamp-2">{item.description || 'No description provided'}</p>
+        </div>
+        {currentUser.role === 'admin' && (
+          <div className="flex gap-1">
+            <button onClick={() => setEditingService(item)} className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors">
+              <Edit2 size={14} />
+            </button>
+            <button onClick={() => handleDeleteService(item.id)} className="p-2 text-zinc-400 hover:text-red-500 transition-colors">
+              <Trash2 size={14} />
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="space-y-2">
+        <div className="flex justify-between text-xs font-bold text-zinc-500">
+          <span>Base Price</span>
+          <span className={isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}>{clinicProfile.currency}{item.base_price.toFixed(2)}</span>
+        </div>
+        {item.promo_price && (
+          <div className="flex justify-between text-xs font-bold text-orange-500">
+            <span>Promo Price</span>
+            <span>{clinicProfile.currency}{item.promo_price.toFixed(2)}</span>
+          </div>
+        )}
+      </div>
+      {item.posters && item.posters.length > 0 && (
+        <div className="mt-4">
+          <img src={item.posters[0]} alt={item.name} className="w-full h-32 object-cover rounded-xl" />
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface PromoService {
   id: number;
   type: 'Service' | 'Promotion';
   title: string;
   incentiveAmount: number;
-  posterImage: string;
+  posterImages: string[];
   servicePrice: number;
   promoPrice?: number;
   branches: string[];
+  description?: string;
 }
 
 interface RolePermissions {
@@ -271,10 +322,11 @@ export default function App() {
     title: '',
     type: 'Promotion' as 'Service' | 'Promotion',
     incentiveAmount: 0,
-    posterImage: '',
+    posterImages: [] as string[],
     servicePrice: 0,
     promoPrice: undefined as number | undefined,
-    branches: [] as string[]
+    branches: [] as string[],
+    description: ''
   });
 
   const [branches, setBranches] = useState<any[]>([]);
@@ -305,7 +357,7 @@ export default function App() {
   
   // Setup Tab State
   const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash'>('staff');
-  const [promoSubTab, setPromoSubTab] = useState<'ads' | 'services'>('ads');
+  const [promoSubTab, setPromoSubTab] = useState<'manage'>('manage');
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
   const [editingStaff, setEditingStaff] = useState<Partial<Staff> | null>(null);
   const [isSavingSetup, setIsSavingSetup] = useState(false);
@@ -610,20 +662,25 @@ export default function App() {
   };
 
   const handlePosterUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewPromo(prev => ({ ...prev, posterImage: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setNewPromo(prev => ({ 
+            ...prev, 
+            posterImages: [...prev.posterImages, reader.result as string] 
+          }));
+        };
+        reader.readAsDataURL(file);
+      });
     }
   };
 
   const publishPromo = async () => {
     console.log('Publishing new promotion...', newPromo);
-    if (!newPromo.title || !newPromo.posterImage) {
-      console.warn('Missing title or poster image');
+    if (!newPromo.title || newPromo.posterImages.length === 0) {
+      console.warn('Missing title or poster images');
       return;
     }
     const item: PromoService = {
@@ -651,10 +708,11 @@ export default function App() {
       title: '',
       type: 'Promotion',
       incentiveAmount: 0,
-      posterImage: '',
+      posterImages: [],
       servicePrice: 0,
       promoPrice: undefined,
-      branches: []
+      branches: [],
+      description: ''
     });
   };
 
@@ -4546,322 +4604,281 @@ export default function App() {
                 <div className="space-y-12">
                   <div className={`flex items-center gap-4 border-b pb-4 ${isMobile ? 'border-white/10' : 'border-zinc-100'}`}>
                     <button 
-                      onClick={() => setPromoSubTab('ads')}
-                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${promoSubTab === 'ads' ? (isMobile ? 'bg-brand-accent text-white' : 'bg-zinc-900 text-white') : (isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-500 hover:bg-zinc-50')}`}
+                      onClick={() => setPromoSubTab('manage')}
+                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${promoSubTab === 'manage' ? (isMobile ? 'bg-brand-accent text-white' : 'bg-zinc-900 text-white') : (isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-500 hover:bg-zinc-50')}`}
                     >
-                      Manage Ads
-                    </button>
-                    <button 
-                      onClick={() => setPromoSubTab('services')}
-                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${promoSubTab === 'services' ? (isMobile ? 'bg-brand-accent text-white' : 'bg-zinc-900 text-white') : (isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-500 hover:bg-zinc-50')}`}
-                    >
-                      Service Setup
+                      Manage Services & Promotions
                     </button>
                   </div>
 
-                  {promoSubTab === 'ads' ? (
-                    <div className={`${isMobile ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border`}>
-                      <div className="flex items-center justify-between mb-8">
-                        <div>
-                          <h3 className={`text-2xl font-black tracking-tighter ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>Manage Promotions & Services</h3>
-                          <p className={`text-sm font-medium ${isMobile ? 'text-[#f5f5dc]/60' : 'text-zinc-500'}`}>Create and publish new advertising materials</p>
+                  <div className={`${isMobile ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border`}>
+                    <div className="flex items-center justify-between mb-8">
+                      <div>
+                        <h3 className={`text-2xl font-black tracking-tighter ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{editingService?.id ? 'Edit Service / Promotion' : 'Add New Service / Promotion'}</h3>
+                        <p className={`text-sm font-medium ${isMobile ? 'text-[#f5f5dc]/60' : 'text-zinc-500'}`}>Configure service details, incentives, and marketing materials</p>
+                      </div>
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${isMobile ? 'bg-brand-accent text-white shadow-brand-accent/20' : 'bg-orange-500 text-white shadow-orange-500/20'}`}>
+                        <Zap size={24} />
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleSaveService} className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                      {/* Form Section */}
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Name / Title</label>
+                            <input 
+                              type="text"
+                              required
+                              value={editingService?.name || ''}
+                              onChange={(e) => setEditingService(prev => ({ ...prev, name: e.target.value }))}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                              placeholder="e.g. Dental Cleaning"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Type</label>
+                            <select 
+                              value={editingService?.type || 'Service'}
+                              onChange={(e) => setEditingService(prev => ({ ...prev, type: e.target.value as 'Service' | 'Promotion' }))}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                            >
+                              <option value="Service">Service</option>
+                              <option value="Promotion">Promotion</option>
+                            </select>
+                          </div>
                         </div>
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${isMobile ? 'bg-brand-accent text-white shadow-brand-accent/20' : 'bg-orange-500 text-white shadow-orange-500/20'}`}>
-                          <Zap size={24} />
+
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Description</label>
+                          <textarea 
+                            value={editingService?.description || ''}
+                            onChange={(e) => setEditingService(prev => ({ ...prev, description: e.target.value }))}
+                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 min-h-[100px] ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                            placeholder="Add more details regarding the service..."
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Base Price ({clinicProfile.currency})</label>
+                            <input 
+                              type="number"
+                              required
+                              value={editingService?.base_price || ''}
+                              onChange={(e) => setEditingService(prev => ({ ...prev, base_price: Number(e.target.value) }))}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Promo Price (Optional)</label>
+                            <input 
+                              type="number"
+                              value={editingService?.promo_price || ''}
+                              onChange={(e) => setEditingService(prev => ({ ...prev, promo_price: e.target.value ? Number(e.target.value) : undefined }))}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Incentive ({clinicProfile.currency})</label>
+                            <input 
+                              type="number"
+                              required
+                              value={editingService?.commission_rate || ''}
+                              onChange={(e) => setEditingService(prev => ({ ...prev, commission_rate: Number(e.target.value) }))}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">AraCoins Perk</label>
+                            <input 
+                              type="number"
+                              value={editingService?.aracoins_perk || ''}
+                              onChange={(e) => setEditingService(prev => ({ ...prev, aracoins_perk: Number(e.target.value) }))}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Tier Allowances ({clinicProfile.currency})</label>
+                          <div className="grid grid-cols-2 gap-3">
+                            {TIERS.map(tier => (
+                              <div key={tier.name} className="flex items-center gap-3">
+                                <span className={`w-16 text-[10px] font-bold uppercase ${tier.color}`}>{tier.name}</span>
+                                <input 
+                                  type="number" 
+                                  value={editingService?.allowances?.[tier.name] || ''}
+                                  onChange={(e) => setEditingService(prev => ({
+                                    ...prev, 
+                                    allowances: { ...prev?.allowances, [tier.name]: parseFloat(e.target.value) }
+                                  }))}
+                                  className={`flex-1 px-3 py-2 rounded-lg text-xs border ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc]' : 'bg-zinc-50 border-zinc-100'}`}
+                                  placeholder="0.00"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Branch Availability</label>
+                          <div className="flex flex-wrap gap-2">
+                            {branches.map(branchObj => (
+                              <button
+                                key={branchObj.id}
+                                type="button"
+                                onClick={() => {
+                                  const branchName = branchObj.name;
+                                  setEditingService(prev => ({
+                                    ...prev,
+                                    branches: (prev?.branches || []).includes(branchName) 
+                                      ? (prev?.branches || []).filter(b => b !== branchName)
+                                      : [...(prev?.branches || []), branchName]
+                                  }));
+                                }}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                  (editingService?.branches || []).includes(branchObj.name)
+                                    ? (isMobile ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white')
+                                    : (isMobile ? 'bg-[#0f172a] text-[#f5f5dc]/40' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200')
+                                }`}
+                              >
+                                {branchObj.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Marketing Posters</label>
+                          <div className="relative group">
+                            <input 
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={(e) => {
+                                const files = e.target.files;
+                                if (files) {
+                                  Array.from(files).forEach(file => {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      setEditingService(prev => ({ 
+                                        ...prev, 
+                                        posters: [...(prev?.posters || []), reader.result as string] 
+                                      }));
+                                    };
+                                    reader.readAsDataURL(file);
+                                  });
+                                }
+                              }}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            />
+                            <div className={`w-full py-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${isMobile ? 'bg-[#0f172a] border-white/10 group-hover:border-brand-accent' : 'bg-zinc-50 border-zinc-200 group-hover:border-violet-300'}`}>
+                              <Plus size={20} className="text-zinc-400" />
+                              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Add Posters (Multiple)</p>
+                            </div>
+                          </div>
+                          {editingService?.posters && editingService.posters.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-4">
+                              {editingService.posters.map((img, idx) => (
+                                <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-zinc-100 group">
+                                  <img src={img} alt="Poster" className="w-full h-full object-cover" />
+                                  <button 
+                                    type="button"
+                                    onClick={() => setEditingService(prev => ({ ...prev, posters: prev?.posters?.filter((_, i) => i !== idx) }))}
+                                    className="absolute inset-0 bg-red-500/80 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex gap-3 pt-4">
+                          <button 
+                            type="submit"
+                            disabled={isSavingSetup}
+                            className={`flex-1 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50 shadow-xl ${isMobile ? 'bg-brand-accent text-white shadow-brand-accent/20' : 'bg-zinc-900 text-white shadow-zinc-900/20'}`}
+                          >
+                            {isSavingSetup ? 'Saving...' : (editingService?.id ? 'Update Service' : 'Publish Service')}
+                          </button>
+                          {editingService && (
+                            <button 
+                              type="button"
+                              onClick={() => setEditingService(null)}
+                              className={`px-8 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all ${isMobile ? 'bg-[#0f172a] text-[#f5f5dc]/40' : 'bg-zinc-100 text-zinc-500'}`}
+                            >
+                              Cancel
+                            </button>
+                          )}
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                        {/* Creation Form */}
-                        <div className="space-y-6">
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Title</label>
-                            <input 
-                              type="text"
-                              value={newPromo.title}
-                              onChange={(e) => setNewPromo(prev => ({ ...prev, title: e.target.value }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10 focus:border-brand-accent/50' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'}`}
-                              placeholder="e.g. Summer Dental Fest"
-                            />
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Type</label>
-                              <select 
-                                value={newPromo.type}
-                                onChange={(e) => setNewPromo(prev => ({ ...prev, type: e.target.value as 'Service' | 'Promotion' }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10 focus:border-brand-accent/50' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'}`}
-                              >
-                                <option value="Promotion">Promotion</option>
-                                <option value="Service">Service</option>
-                              </select>
-                            </div>
-                            <div className="space-y-2">
-                              <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Incentive ({clinicProfile.currency})</label>
-                              <input 
-                                type="number"
-                                value={newPromo.incentiveAmount}
-                                onChange={(e) => setNewPromo(prev => ({ ...prev, incentiveAmount: Number(e.target.value) }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10 focus:border-brand-accent/50' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'}`}
-                                placeholder="0.00"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Service Price ({clinicProfile.currency})</label>
-                              <input 
-                                type="number"
-                                value={newPromo.servicePrice}
-                                onChange={(e) => setNewPromo(prev => ({ ...prev, servicePrice: Number(e.target.value) }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10 focus:border-brand-accent/50' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'}`}
-                                placeholder="0.00"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Promo Price (Optional)</label>
-                              <input 
-                                type="number"
-                                value={newPromo.promoPrice || ''}
-                                onChange={(e) => setNewPromo(prev => ({ ...prev, promoPrice: e.target.value ? Number(e.target.value) : undefined }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10 focus:border-brand-accent/50' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'}`}
-                                placeholder="0.00"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Branch Availability</label>
-                            <div className="flex flex-wrap gap-2">
-                              {branches.map(branchObj => (
-                                <button
-                                  key={branchObj.id}
-                                  onClick={() => {
-                                    const branchName = branchObj.name;
-                                    setNewPromo(prev => ({
-                                      ...prev,
-                                      branches: prev.branches.includes(branchName) 
-                                        ? prev.branches.filter(b => b !== branchName)
-                                        : [...prev.branches, branchName]
-                                    }));
-                                  }}
-                                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                    newPromo.branches.includes(branchObj.name)
-                                      ? (isMobile ? 'bg-brand-accent text-white shadow-lg shadow-brand-accent/20' : 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20')
-                                      : (isMobile ? 'bg-[#0f172a] text-[#f5f5dc]/40' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200')
-                                  }`}
-                                >
-                                  {branchObj.name}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Poster Upload</label>
-                            <div className="relative group">
-                              <input 
-                                type="file"
-                                accept="image/*"
-                                onChange={handlePosterUpload}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                              />
-                              <div className={`w-full py-12 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 transition-all ${isMobile ? 'bg-[#0f172a] border-white/10 group-hover:bg-[#1e293b] group-hover:border-brand-accent' : 'bg-zinc-50 border-zinc-200 group-hover:bg-zinc-100 group-hover:border-violet-300'}`}>
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm ${isMobile ? 'bg-[#1e293b] text-[#f5f5dc]/40' : 'bg-white text-zinc-400'}`}>
-                                  <Plus size={24} />
-                                </div>
-                                <p className={`text-xs font-bold ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-500'}`}>Click to upload poster image</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          <button 
-                            onClick={publishPromo}
-                            disabled={!newPromo.title || !newPromo.posterImage}
-                            className={`w-full py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50 shadow-xl ${isMobile ? 'bg-brand-accent text-white shadow-brand-accent/20 hover:opacity-90' : 'bg-zinc-900 text-white shadow-zinc-900/20 hover:bg-zinc-800'}`}
-                          >
-                            Publish Promotion
-                          </button>
-                        </div>
-
-                        {/* Preview */}
-                        <div className="space-y-4">
-                          <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Live Preview</label>
-                          {newPromo.posterImage ? (
-                            <div className="relative rounded-[2.5rem] overflow-hidden border border-black/5 shadow-2xl aspect-[4/5] bg-zinc-100">
-                              <img src={newPromo.posterImage} alt="Preview" className="w-full h-full object-cover" />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-8 text-white">
-                                <span className="px-3 py-1 bg-brand-accent rounded-full text-[10px] font-black uppercase tracking-widest self-start mb-3">
-                                  {newPromo.type}
-                                </span>
-                                <h4 className="text-2xl font-black mb-1">{newPromo.title || 'Untitled Item'}</h4>
-                                <div className="space-y-1">
-                                  <p className="text-brand-accent font-black text-lg">Incentive: {clinicProfile.currency}{newPromo.incentiveAmount}</p>
-                                  <div className="flex items-center gap-3 text-xs font-bold">
-                                    <span className="line-through opacity-60">Price: {clinicProfile.currency}{newPromo.servicePrice}</span>
-                                    {newPromo.promoPrice && <span className="text-white">Now: {clinicProfile.currency}{newPromo.promoPrice}</span>}
+                      {/* List Section */}
+                      <div className="space-y-6">
+                        <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Existing Services & Promotions</label>
+                        <div className="space-y-4 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
+                          {services.map(service => (
+                            <div key={service.id} className={`p-6 rounded-3xl border transition-all ${isMobile ? 'bg-[#0f172a] border-white/5' : 'bg-zinc-50 border-zinc-100 hover:border-violet-200'}`}>
+                              <div className="flex justify-between items-start mb-4">
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h4 className={`font-bold ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{service.name}</h4>
+                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${service.type === 'Promotion' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                                      {service.type || 'Service'}
+                                    </span>
                                   </div>
-                                  {newPromo.branches.length > 0 && (
-                                    <p className="text-[10px] font-bold opacity-80">Available at: {newPromo.branches.join(', ')}</p>
-                                  )}
+                                  <p className="text-[10px] text-zinc-400 font-medium line-clamp-1">{service.description || 'No description provided'}</p>
+                                </div>
+                                <div className="flex gap-1">
+                                  <button onClick={() => setEditingService(service)} className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors">
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button onClick={() => handleDeleteService(service.id)} className="p-2 text-zinc-400 hover:text-red-600 transition-colors">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                  <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Price</p>
+                                  <p className="text-xs font-bold">{clinicProfile.currency}{service.base_price}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Incentive</p>
+                                  <p className="text-xs font-bold text-violet-600">{clinicProfile.currency}{service.commission_rate}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Posters</p>
+                                  <p className="text-xs font-bold">{(service.posters || []).length}</p>
                                 </div>
                               </div>
                             </div>
-                          ) : (
-                            <div className="aspect-[4/5] rounded-[2.5rem] border-2 border-dashed border-zinc-100 flex items-center justify-center bg-zinc-50/50">
-                              <p className="text-zinc-400 text-sm font-medium italic">Upload an image to see preview</p>
+                          ))}
+                          {services.length === 0 && (
+                            <div className="text-center py-12 border-2 border-dashed border-zinc-100 rounded-3xl">
+                              <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest">No services configured</p>
                             </div>
                           )}
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      <div className="lg:col-span-1">
-                        <div className={`${isMobile ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} p-6 rounded-3xl border sticky top-8`}>
-                          <h3 className={`font-semibold mb-6 ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{editingService?.id ? 'Edit Service' : 'Add New Service'}</h3>
-                          <form onSubmit={handleSaveService} className="space-y-4">
-                            <div>
-                              <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Service Name</label>
-                              <input 
-                                type="text" 
-                                required
-                                value={editingService?.name || ''}
-                                onChange={(e) => setEditingService({...editingService, name: e.target.value})}
-                                className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 focus:ring-violet-500/20'}`}
-                                placeholder="e.g. Dental Cleaning"
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Base Price ($)</label>
-                                <input 
-                                  type="number" 
-                                  required
-                                  value={editingService?.base_price || ''}
-                                  onChange={(e) => setEditingService({...editingService, base_price: parseFloat(e.target.value)})}
-                                  className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 focus:ring-violet-500/20'}`}
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Incentive ($)</label>
-                                <input 
-                                  type="number" 
-                                  required
-                                  value={editingService?.commission_rate || ''}
-                                  onChange={(e) => setEditingService({...editingService, commission_rate: parseFloat(e.target.value)})}
-                                  className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 focus:ring-violet-500/20'}`}
-                                />
-                              </div>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">AraCoins Perk</label>
-                              <input 
-                                type="number" 
-                                value={editingService?.aracoins_perk || ''}
-                                onChange={(e) => setEditingService({...editingService, aracoins_perk: parseInt(e.target.value)})}
-                                className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 focus:ring-violet-500/20'}`}
-                                placeholder="Coins per referral"
-                              />
-                            </div>
-                            <div className="space-y-3">
-                              <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Tier Allowances ($)</label>
-                              {TIERS.map(tier => (
-                                <div key={tier.name} className="flex items-center gap-3">
-                                  <span className={`w-16 text-[10px] font-bold uppercase ${tier.color}`}>{tier.name}</span>
-                                  <input 
-                                    type="number" 
-                                    value={editingService?.allowances?.[tier.name] || ''}
-                                    onChange={(e) => setEditingService({
-                                      ...editingService, 
-                                      allowances: { ...editingService?.allowances, [tier.name]: parseFloat(e.target.value) }
-                                    })}
-                                    className={`flex-1 px-3 py-2 rounded-lg text-xs border ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc]' : 'bg-zinc-50 border-zinc-100'}`}
-                                    placeholder="0.00"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                            <div className="flex gap-2 pt-4">
-                              <button 
-                                type="submit"
-                                disabled={isSavingSetup}
-                                className={`flex-1 py-3 rounded-xl font-medium transition-all disabled:opacity-50 ${isMobile ? 'bg-brand-accent text-white shadow-lg shadow-brand-accent/20 hover:opacity-90' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
-                              >
-                                {isSavingSetup ? 'Saving...' : 'Save Service'}
-                              </button>
-                              {editingService && (
-                                <button 
-                                  type="button"
-                                  onClick={() => setEditingService(null)}
-                                  className={`px-4 py-3 rounded-xl font-medium transition-all ${isMobile ? 'bg-[#0f172a] text-[#f5f5dc]/40 hover:text-[#f5f5dc]' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
-                                >
-                                  Cancel
-                                </button>
-                              )}
-                            </div>
-                          </form>
-                        </div>
-                      </div>
-                      <div className="lg:col-span-2">
-                        <div className={`${isMobile ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} rounded-3xl border overflow-hidden`}>
-                          <table className="w-full text-left border-collapse">
-                            <thead>
-                              <tr className={`${isMobile ? 'bg-[#0f172a] border-white/10' : 'bg-zinc-50 border-zinc-100'} border-b`}>
-                                <th className={`p-4 text-[10px] font-bold uppercase tracking-wider ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Service</th>
-                                <th className={`p-4 text-[10px] font-bold uppercase tracking-wider ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Price/Inc</th>
-                                <th className={`p-4 text-[10px] font-bold uppercase tracking-wider ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Perks</th>
-                                <th className={`p-4 text-[10px] font-bold uppercase tracking-wider text-right ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody className={`divide-y ${isMobile ? 'divide-white/5' : 'divide-zinc-50'}`}>
-                              {services.map(service => (
-                                <tr key={service.id} className={`transition-colors ${isMobile ? 'hover:bg-white/5' : 'hover:bg-zinc-50/50'}`}>
-                                  <td className="p-4">
-                                    <p className={`text-sm font-medium ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{service.name}</p>
-                                  </td>
-                                  <td className="p-4">
-                                    <p className={`text-xs ${isMobile ? 'text-[#f5f5dc]/60' : 'text-zinc-500'}`}>{clinicProfile.currency}{service.base_price} / <span className={`${isMobile ? 'text-brand-accent' : 'text-violet-600'} font-bold`}>{clinicProfile.currency}{service.commission_rate}</span></p>
-                                  </td>
-                                  <td className="p-4">
-                                    <div className="flex flex-wrap gap-1">
-                                      {(service.aracoins_perk || 0) > 0 && (
-                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase flex items-center gap-1 ${isMobile ? 'bg-brand-accent/20 text-brand-accent' : 'bg-yellow-50 text-yellow-700'}`}>
-                                          <Coins size={8} /> {service.aracoins_perk}
-                                        </span>
-                                      )}
-                                      {Object.entries(service.allowances || {}).map(([tier, amt]) => (
-                                        <span key={tier} className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isMobile ? 'bg-white/5 text-[#f5f5dc]/40' : 'bg-zinc-50 text-zinc-500'}`}>
-                                          {tier[0]}: {clinicProfile.currency}{amt}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </td>
-                                  <td className="p-4 text-right">
-                                    <div className="flex justify-end gap-2">
-                                      <button onClick={() => setEditingService(service)} className={`p-2 transition-colors ${isMobile ? 'text-[#f5f5dc]/40 hover:text-brand-accent' : 'text-zinc-400 hover:text-zinc-900'}`}>
-                                        <Edit2 size={14} />
-                                      </button>
-                                      <button onClick={() => handleDeleteService(service.id)} className={`p-2 transition-colors ${isMobile ? 'text-[#f5f5dc]/40 hover:text-red-400' : 'text-zinc-400 hover:text-red-600'}`}>
-                                        <Trash2 size={14} />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                    </form>
+                  </div>
                 </div>
               )}
 
               <div className={`grid grid-cols-1 gap-8 ${currentUser.role === 'admin' ? 'md:grid-cols-2 lg:grid-cols-3' : ''}`}>
-                {promoServices
+                {services
                   .filter(item => 
                     currentUser.role === 'admin' || 
                     !item.branches ||
@@ -4870,98 +4887,7 @@ export default function App() {
                     item.branches.includes(currentUser.branch)
                   )
                   .map((item) => (
-                    <motion.div 
-                      key={item.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className={`${isMobile ? 'bg-[#1e293b] border-white/10' : 'bg-white border-black/5 shadow-xl'} rounded-[2.5rem] border overflow-hidden flex flex-col group h-full`}
-                    >
-                      {/* Top half: Image */}
-                      <div className="relative aspect-video overflow-hidden">
-                        <img 
-                          src={item.posterImage} 
-                          alt={item.title} 
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                          referrerPolicy="no-referrer" 
-                        />
-                        <div className="absolute top-4 right-4 flex flex-col gap-2">
-                          <span className="px-4 py-2 bg-white/90 backdrop-blur-md rounded-2xl text-[10px] font-black uppercase tracking-widest text-brand-primary shadow-sm">
-                            {item.type}
-                          </span>
-                          {currentUser.role === 'admin' && (
-                            <button 
-                              onClick={async () => {
-                                const updatedPromos = promoServices.filter(p => p.id !== item.id);
-                                setPromoServices(updatedPromos);
-                                const { res, data } = await safeFetch(`${apiBaseUrl}/api/promotions`, {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify(updatedPromos)
-                                });
-                                if (!res.ok) {
-                                  console.error('Failed to delete promotion', data);
-                                  fetchPromotions();
-                                }
-                              }}
-                              className="w-10 h-10 bg-red-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all active:scale-90"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Bottom half: Details */}
-                      <div className={`p-8 flex flex-col flex-grow ${isMobile ? 'bg-[#1e293b]' : 'bg-white'}`}>
-                        <div className="flex justify-between items-start gap-4 mb-6">
-                          <h3 className={`text-2xl font-black leading-tight ${isMobile ? 'text-white' : 'text-zinc-900'}`}>
-                            {item.title}
-                          </h3>
-                          <div className={`${isMobile ? 'bg-brand-accent/20 border-brand-accent/30' : 'bg-brand-accent/10 border-brand-accent/20'} px-4 py-2 rounded-2xl border shrink-0`}>
-                            <p className="text-sm font-black text-brand-accent">
-                              {clinicProfile.currency}{item.incentiveAmount} 
-                              <span className={`text-[10px] uppercase tracking-widest ml-1 opacity-70 ${isMobile ? 'text-white' : 'text-zinc-900'}`}>Incentive</span>
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="space-y-4 mb-8">
-                          {/* Pricing */}
-                          <div className="flex items-baseline gap-3">
-                            <span className={`line-through text-sm font-bold ${isMobile ? 'text-white/40' : 'text-zinc-400'}`}>
-                              {clinicProfile.currency}{item.servicePrice}
-                            </span>
-                            {item.promoPrice && (
-                              <span className={`text-3xl font-black ${isMobile ? 'text-brand-accent' : 'text-zinc-900'}`}>
-                                {clinicProfile.currency}{item.promoPrice}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Details */}
-                          {item.branches.length > 0 && (
-                            <div className={`flex items-start gap-2 ${isMobile ? 'text-white/60' : 'text-zinc-500'}`}>
-                              <MapPin size={14} className="mt-0.5 shrink-0" />
-                              <p className="text-xs font-bold leading-relaxed">
-                                Available at: {item.branches.join(', ')}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* CTA */}
-                        <div className="mt-auto">
-                          <a 
-                            href={item.posterImage} 
-                            download={`poster-${item.id}.png`}
-                            className={`w-full py-5 ${isMobile ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white'} rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg active:scale-[0.98] transition-all hover:opacity-90`}
-                          >
-                            <Download size={18} />
-                            Download Poster
-                          </a>
-                        </div>
-                      </div>
-                    </motion.div>
+                    <PromotionCard key={item.id} item={item} isMobile={isMobile} clinicProfile={clinicProfile} currentUser={currentUser} handleDeleteService={handleDeleteService} setEditingService={setEditingService} />
                   ))}
 
                 {promoServices.filter(item => 
