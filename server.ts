@@ -498,8 +498,8 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.post("/api/auth/register", async (req, res) => {
   if (!checkSupabase(res)) return;
-  const { name, email, branch, phone, password } = req.body;
-  console.log(`Registration attempt for: ${email}`, { name, branch, phone });
+  const { name, email, branch, phone, password, auth_id } = req.body;
+  console.log(`Registration attempt for: ${email}`, { name, branch, phone, auth_id });
   
   try {
     // Check if registration is allowed
@@ -547,19 +547,22 @@ app.post("/api/auth/register", async (req, res) => {
     }
 
     console.log(`Inserting new staff member: ${email} with promo code ${promo_code}`);
+    const insertData: any = {
+      name,
+      email,
+      role: 'staff',
+      promo_code,
+      branch,
+      phone: phone || null,
+      date_joined: new Date().toISOString(),
+      is_approved: 0,
+      password: password || 'password123'
+    };
+    if (auth_id) insertData.auth_id = auth_id;
+
     const { data: newStaff, error: insertError } = await supabase
       .from('staff')
-      .insert({
-        name,
-        email,
-        role: 'staff',
-        promo_code,
-        branch,
-        phone: phone || null,
-        date_joined: new Date().toISOString(),
-        is_approved: 0,
-        password: password || 'password123'
-      })
+      .insert(insertData)
       .select()
       .single();
     
@@ -737,7 +740,7 @@ app.delete("/api/tasks/:id", async (req, res) => {
 
 app.get("/api/staff/email", async (req, res) => {
   if (!checkSupabase(res)) return;
-  const { email } = req.query;
+  const { email, auth_id } = req.query;
   if (!email) return res.status(400).json({ error: "Email is required" });
   
   const { data: staff, error } = await supabase
@@ -745,6 +748,20 @@ app.get("/api/staff/email", async (req, res) => {
     .select('*')
     .eq('email', email)
     .single();
+    
+  if (staff && auth_id && !staff.auth_id) {
+    // Update the staff record with the new auth_id
+    const { data: updatedStaff } = await supabase
+      .from('staff')
+      .update({ auth_id })
+      .eq('id', staff.id)
+      .select()
+      .single();
+      
+    if (updatedStaff) {
+      return res.json(updatedStaff);
+    }
+  }
     
   res.json(staff || null);
 });

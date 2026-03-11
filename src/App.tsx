@@ -580,7 +580,8 @@ export default function App() {
 
   const fetchStaffByEmail = async (email: string, user?: any) => {
     try {
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${email}`);
+      const authIdQuery = user?.id ? `&auth_id=${user.id}` : '';
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${email}${authIdQuery}`);
       if (res.ok && data) {
         localStorage.setItem('currentUser', JSON.stringify(data));
         setCurrentUser(data);
@@ -597,7 +598,8 @@ export default function App() {
             email: email,
             branch: metadata.branch || 'HQ',
             phone: metadata.phone || '',
-            password: 'password123' // Default password since we can't get it from Supabase
+            password: 'password123', // Default password since we can't get it from Supabase
+            auth_id: user.id
           })
         });
         if (regRes.ok && regData) {
@@ -916,9 +918,10 @@ export default function App() {
       const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
                                   import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder-project.supabase.co';
 
+      let authId = null;
       if (isSupabaseConfigured) {
         try {
-          const { error: authError } = await supabase.auth.signUp({
+          const { data: authData, error: authError } = await supabase.auth.signUp({
             email: authEmail,
             password: authPassword,
             options: {
@@ -929,6 +932,9 @@ export default function App() {
             }
           });
           if (authError) console.warn('Supabase registration warning:', authError.message);
+          if (authData?.user) {
+            authId = authData.user.id;
+          }
         } catch (err) {
           console.warn('Supabase registration error (skipping):', err);
         }
@@ -943,7 +949,8 @@ export default function App() {
           email: authEmail, 
           branch: authBranch, 
           phone: authPhone,
-          password: authPassword
+          password: authPassword,
+          auth_id: authId
         })
       });
 
@@ -4690,12 +4697,16 @@ export default function App() {
                                   
                                   setIsUploading(true);
                                   try {
+                                    const { data: { user } } = await supabase.auth.getUser();
+                                    if (!user) throw new Error("You must be logged in to upload files.");
+                                    const authUid = user.id;
+
                                     const newPosters = [];
                                     for (const file of Array.from(files)) {
                                       const fileExt = file.name.split('.').pop();
                                       const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
-                                      // The RLS policy requires the user ID to be the first part of the path
-                                      const filePath = `${currentUser?.id || 'public'}/posters/${fileName}`;
+                                      // The RLS policy requires the Supabase Auth UUID to be the first part of the path
+                                      const filePath = `${authUid}/posters/${fileName}`;
                                       
                                       const { data, error } = await supabase.storage
                                         .from('clinic-assets')
@@ -4839,12 +4850,16 @@ export default function App() {
                                 
                                 setIsUploading(true);
                                 try {
+                                  const { data: { user } } = await supabase.auth.getUser();
+                                  if (!user) throw new Error("You must be logged in to upload files.");
+                                  const authUid = user.id;
+
                                   const newPosters = [];
                                   for (const file of Array.from(files)) {
                                     const fileExt = file.name.split('.').pop();
                                     const fileName = `${currentUser.id}-${Date.now()}-${Math.random()}.${fileExt}`;
-                                    // The RLS policy requires the user ID to be the first part of the path
-                                    const filePath = `${currentUser.id}/posters/${fileName}`;
+                                    // The RLS policy requires the Supabase Auth UUID to be the first part of the path
+                                    const filePath = `${authUid}/posters/${fileName}`;
                                     
                                     const { data: buckets } = await supabase.storage.listBuckets();
                                     const bucketNames = ['clinic-assets', 'CLINIC-ASSETS', ...buckets.map(b => b.name)];
