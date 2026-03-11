@@ -4776,7 +4776,8 @@ export default function App() {
                                     const fileName = `${currentUser.id}-${Date.now()}-${Math.random()}.${fileExt}`;
                                     const filePath = `posters/${fileName}`;
                                     
-                                    const bucketNames = ['clinic-assets', 'CLINIC-ASSETS'];
+                                    const { data: buckets } = await supabase.storage.listBuckets();
+                                    const bucketNames = ['clinic-assets', 'CLINIC-ASSETS', ...buckets.map(b => b.name)];
                                     let uploadError = null;
                                     let successfulBucket = '';
                                     
@@ -4791,7 +4792,9 @@ export default function App() {
                                       uploadError = error;
                                     }
                                     
-                                    if (uploadError) throw uploadError;
+                                    if (uploadError) {
+                                      throw new Error(`Failed to upload to any bucket. Last error: ${uploadError.message}. Available buckets: ${JSON.stringify(buckets)}`);
+                                    }
                                     
                                     const { data: { publicUrl } } = supabase.storage
                                       .from(successfulBucket)
