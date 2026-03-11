@@ -954,7 +954,9 @@ app.get("/api/services", async (req, res) => {
   
   res.json(services.map((s: any) => ({
     ...s,
-    allowances: JSON.parse(s.allowances_json || '{}')
+    allowances: JSON.parse(s.allowances_json || '{}'),
+    posters: JSON.parse(s.posters || '[]'),
+    branches: JSON.parse(s.branches || '[]')
   })));
 });
 

@@ -1248,6 +1248,7 @@ export default function App() {
   const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingService?.name) return;
+    console.log('Saving service, editingService:', JSON.stringify(editingService, null, 2));
     setIsSavingSetup(true);
     try {
       const method = editingService.id ? 'PATCH' : 'POST';
@@ -4658,6 +4659,73 @@ export default function App() {
                             className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 min-h-[100px] ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                             placeholder="Add more details regarding the service..."
                           />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Marketing Posters</label>
+                          <div className="grid grid-cols-3 gap-4">
+                            {(editingService?.posters || []).map((poster, idx) => (
+                              <div key={idx} className="relative group">
+                                <img src={poster} alt={`Poster ${idx}`} className="w-full h-24 object-cover rounded-xl" />
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingService(prev => ({
+                                    ...prev,
+                                    posters: prev?.posters?.filter((_, i) => i !== idx)
+                                  }))}
+                                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            ))}
+                            <div className="relative w-full h-24 border-2 border-dashed border-zinc-200 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-violet-300 transition-colors">
+                              <input 
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={async (e) => {
+                                  const files = e.target.files;
+                                  if (!files) return;
+                                  
+                                  setIsUploading(true);
+                                  try {
+                                    const newPosters = [];
+                                    for (const file of Array.from(files)) {
+                                      const fileExt = file.name.split('.').pop();
+                                      const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
+                                      const filePath = `posters/${fileName}`;
+                                      
+                                      const { data, error } = await supabase.storage
+                                        .from('clinic-assets')
+                                        .upload(filePath, file);
+                                      
+                                      if (error) throw error;
+                                      
+                                      const { data: { publicUrl } } = supabase.storage
+                                        .from('clinic-assets')
+                                        .getPublicUrl(filePath);
+                                        
+                                      newPosters.push(publicUrl);
+                                    }
+                                    
+                                    setEditingService(prev => ({
+                                      ...prev,
+                                      posters: [...(prev?.posters || []), ...newPosters]
+                                    }));
+                                  } catch (error: any) {
+                                    console.error('Error uploading posters:', error);
+                                    alert('Failed to upload posters: ' + error.message);
+                                  } finally {
+                                    setIsUploading(false);
+                                  }
+                                }}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                              />
+                              <Plus size={20} className="text-zinc-400" />
+                              <span className="text-[10px] font-bold text-zinc-400 uppercase">Add</span>
+                            </div>
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
