@@ -985,7 +985,10 @@ app.post("/api/services", async (req, res) => {
     .select()
     .single();
     
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('Supabase insert error:', error);
+    return res.status(500).json({ error: error.message, details: error.details, hint: error.hint });
+  }
   res.json({ id: data.id });
 });
 
