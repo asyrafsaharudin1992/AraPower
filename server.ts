@@ -959,13 +959,18 @@ app.get("/api/services", async (req, res) => {
 });
 
 app.post("/api/services", async (req, res) => {
-  const { name, base_price, commission_rate, aracoins_perk, allowances } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, posters, promo_price, type, branches } = req.body;
   
   const insertData: any = {
     name,
     base_price,
     commission_rate,
-    allowances_json: JSON.stringify(allowances || {})
+    allowances_json: JSON.stringify(allowances || {}),
+    description,
+    posters: JSON.stringify(posters || []),
+    promo_price,
+    type,
+    branches: JSON.stringify(branches || [])
   };
 
   if (serviceColumns.has('aracoins_perk')) {
@@ -984,13 +989,18 @@ app.post("/api/services", async (req, res) => {
 
 app.patch("/api/services/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, base_price, commission_rate, aracoins_perk, allowances } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, posters, promo_price, type, branches } = req.body;
   
   const updateData: any = {
     name,
     base_price,
     commission_rate,
-    allowances_json: JSON.stringify(allowances || {})
+    allowances_json: JSON.stringify(allowances || {}),
+    description,
+    posters: JSON.stringify(posters || []),
+    promo_price,
+    type,
+    branches: JSON.stringify(branches || [])
   };
 
   if (serviceColumns.has('aracoins_perk')) {
