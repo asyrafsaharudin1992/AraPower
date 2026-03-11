@@ -4694,7 +4694,8 @@ export default function App() {
                                     for (const file of Array.from(files)) {
                                       const fileExt = file.name.split('.').pop();
                                       const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
-                                      const filePath = `posters/${fileName}`;
+                                      // The RLS policy requires the user ID to be the first part of the path
+                                      const filePath = `${currentUser?.id || 'public'}/posters/${fileName}`;
                                       
                                       const { data, error } = await supabase.storage
                                         .from('clinic-assets')
@@ -4842,7 +4843,8 @@ export default function App() {
                                   for (const file of Array.from(files)) {
                                     const fileExt = file.name.split('.').pop();
                                     const fileName = `${currentUser.id}-${Date.now()}-${Math.random()}.${fileExt}`;
-                                    const filePath = `posters/${fileName}`;
+                                    // The RLS policy requires the user ID to be the first part of the path
+                                    const filePath = `${currentUser.id}/posters/${fileName}`;
                                     
                                     const { data: buckets } = await supabase.storage.listBuckets();
                                     const bucketNames = ['clinic-assets', 'CLINIC-ASSETS', ...buckets.map(b => b.name)];

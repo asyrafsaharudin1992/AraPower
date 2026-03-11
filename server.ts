@@ -1017,7 +1017,10 @@ app.patch("/api/services/:id", async (req, res) => {
     .update(updateData)
     .eq('id', id);
     
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('Supabase update error:', error);
+    return res.status(500).json({ error: error.message, details: error.details, hint: error.hint });
+  }
   res.json({ success: true });
 });
 
