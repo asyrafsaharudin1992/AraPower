@@ -4764,19 +4764,51 @@ export default function App() {
                               type="file"
                               accept="image/*"
                               multiple
-                              onChange={(e) => {
+                              onChange={async (e) => {
                                 const files = e.target.files;
-                                if (files) {
-                                  Array.from(files).forEach(file => {
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => {
-                                      setEditingService(prev => ({ 
-                                        ...prev, 
-                                        posters: [...(prev?.posters || []), reader.result as string] 
-                                      }));
-                                    };
-                                    reader.readAsDataURL(file);
-                                  });
+                                if (!files || !currentUser) return;
+                                
+                                setIsUploading(true);
+                                try {
+                                  const newPosters = [];
+                                  for (const file of Array.from(files)) {
+                                    const fileExt = file.name.split('.').pop();
+                                    const fileName = `${currentUser.id}-${Date.now()}-${Math.random()}.${fileExt}`;
+                                    const filePath = `posters/${fileName}`;
+                                    
+                                    const bucketNames = ['clinic-assets', 'CLINIC-ASSETS'];
+                                    let uploadError = null;
+                                    let successfulBucket = '';
+                                    
+                                    for (const bucket of bucketNames) {
+                                      const { error } = await supabase.storage
+                                        .from(bucket)
+                                        .upload(filePath, file);
+                                      if (!error) {
+                                        successfulBucket = bucket;
+                                        break;
+                                      }
+                                      uploadError = error;
+                                    }
+                                    
+                                    if (uploadError) throw uploadError;
+                                    
+                                    const { data: { publicUrl } } = supabase.storage
+                                      .from(successfulBucket)
+                                      .getPublicUrl(filePath);
+                                      
+                                    newPosters.push(publicUrl);
+                                  }
+                                  
+                                  setEditingService(prev => ({
+                                    ...prev,
+                                    posters: [...(prev?.posters || []), ...newPosters]
+                                  }));
+                                } catch (error: any) {
+                                  console.error('Error uploading posters:', error);
+                                  alert('Failed to upload posters: ' + error.message);
+                                } finally {
+                                  setIsUploading(false);
                                 }
                               }}
                               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
