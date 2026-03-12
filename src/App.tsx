@@ -52,7 +52,9 @@ import {
   Sparkles,
   MapPin,
   Tag,
-  Palette
+  Palette,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -162,7 +164,7 @@ interface ClinicProfile {
   customDomain?: string;
 }
 
-const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, isMobile: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: number) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
+const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, darkMode: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: number) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
   const handleDownloadPoster = async (url: string, fileName: string) => {
     try {
       const response = await fetch(url);
@@ -295,11 +297,11 @@ const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDelet
   const countdown = getCountdown();
 
   return (
-    <div className={`p-6 rounded-[2.5rem] border transition-all ${isMobile ? 'bg-[#0f172a] border-white/5' : 'bg-white border-zinc-100 shadow-sm hover:border-violet-200'}`}>
+    <div className={`p-6 rounded-[2.5rem] border transition-all ${darkMode ? 'bg-[#0f172a] border-white/5' : 'bg-white border-zinc-100 shadow-sm hover:border-violet-200'}`}>
       <div className="flex justify-between items-start mb-6">
         <div className="flex-1">
           <div className="flex items-center flex-wrap gap-2 mb-2">
-            <h4 className={`text-xl font-black tracking-tight ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{item.name}</h4>
+            <h4 className={`text-xl font-black tracking-tight ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{item.name}</h4>
             {item.is_featured && <Star size={14} className="text-brand-accent" fill="currentColor" />}
             <div className="flex gap-1.5">
               <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${item.type === 'Promotion' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
@@ -314,10 +316,10 @@ const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDelet
               </span>
             </div>
           </div>
-          <p className={`text-xs font-medium leading-relaxed mb-4 ${isMobile ? 'text-[#f5f5dc]/60' : 'text-zinc-500'} line-clamp-2`}>{item.description || 'No description provided'}</p>
+          <p className={`text-xs font-medium leading-relaxed mb-4 ${darkMode ? 'text-[#f5f5dc]/60' : 'text-zinc-500'} line-clamp-2`}>{item.description || 'No description provided'}</p>
           
           {(item.start_date || item.end_date || item.start_time || item.end_time) && (
-            <div className={`flex flex-col gap-1.5 px-4 py-3 rounded-2xl w-fit mt-4 border ${isMobile ? 'bg-brand-accent/10 border-brand-accent/20 text-brand-accent' : 'bg-violet-50 border-violet-100 text-violet-600'}`}>
+            <div className={`flex flex-col gap-1.5 px-4 py-3 rounded-2xl w-fit mt-4 border ${darkMode ? 'bg-brand-accent/10 border-brand-accent/20 text-brand-accent' : 'bg-violet-50 border-violet-100 text-violet-600'}`}>
               <div className="flex items-center gap-2">
                 <Calendar size={14} className="shrink-0" />
                 <span className="text-xs font-black uppercase tracking-widest">
@@ -347,26 +349,26 @@ const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDelet
         </div>
         {currentUser.role === 'admin' && (
           <div className="flex gap-2 ml-4">
-            <button onClick={() => setEditingService(item)} className={`p-2 rounded-xl transition-all ${isMobile ? 'bg-white/5 text-[#f5f5dc]/60 hover:text-white' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50'}`}>
+            <button onClick={() => setEditingService(item)} className={`p-2 rounded-xl transition-all ${darkMode ? 'bg-white/5 text-[#f5f5dc]/60 hover:text-white' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50'}`}>
               <Edit2 size={16} />
             </button>
-            <button onClick={() => handleDeleteService(item.id)} className={`p-2 rounded-xl transition-all ${isMobile ? 'bg-white/5 text-[#f5f5dc]/60 hover:text-red-400' : 'text-zinc-400 hover:text-red-600 hover:bg-red-50'}`}>
+            <button onClick={() => handleDeleteService(item.id)} className={`p-2 rounded-xl transition-all ${darkMode ? 'bg-white/5 text-[#f5f5dc]/60 hover:text-red-400' : 'text-zinc-400 hover:text-red-600 hover:bg-red-50'}`}>
               <Trash2 size={16} />
             </button>
           </div>
         )}
       </div>
 
-      <div className={`grid grid-cols-3 gap-2 mb-6 p-4 rounded-2xl ${isMobile ? 'bg-white/5' : 'bg-zinc-50'}`}>
+      <div className={`grid grid-cols-3 gap-2 mb-6 p-4 rounded-2xl ${darkMode ? 'bg-white/5' : 'bg-zinc-50'}`}>
         <div>
           <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Base Price</p>
-          <p className={`text-xs font-black ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{clinicProfile.currency}{item.base_price.toFixed(0)}</p>
+          <p className={`text-xs font-black ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{clinicProfile.currency}{item.base_price.toFixed(0)}</p>
         </div>
         <div>
           <p className="text-[8px] font-black text-orange-400 uppercase tracking-widest mb-1">Promo Price</p>
           <p className="text-xs font-black text-orange-500">{item.promo_price ? `${clinicProfile.currency}${item.promo_price.toFixed(0)}` : '-'}</p>
         </div>
-        <div className={`border-l pl-2 ${isMobile ? 'border-white/10' : 'border-zinc-200'}`}>
+        <div className={`border-l pl-2 ${darkMode ? 'border-white/10' : 'border-zinc-200'}`}>
           <p className="text-[8px] font-black text-brand-accent uppercase tracking-widest mb-1">Incentive</p>
           <p className="text-xs font-black text-brand-accent">{clinicProfile.currency}{item.commission_rate.toFixed(2)}</p>
         </div>
@@ -381,7 +383,7 @@ const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDelet
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <button 
                   onClick={() => handleDownloadPoster(poster, `${item.name}-poster-${idx + 1}.jpg`)}
-                  className={`absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2.5 bg-white text-zinc-900 rounded-2xl shadow-2xl shadow-black/20 transition-all hover:scale-105 active:scale-95 ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                  className={`absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2.5 bg-white text-zinc-900 rounded-2xl shadow-2xl shadow-black/20 transition-all hover:scale-105 active:scale-95 ${darkMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                 >
                   <Download size={16} className="text-brand-accent" />
                   <span className="text-[10px] font-black uppercase tracking-widest">Download</span>
@@ -776,6 +778,11 @@ export default function App() {
     pink: { accent: '#DB2777', surface: '#FDF2F8', name: 'Soft Pink' },
   };
   const [selectedTheme, setSelectedTheme] = useState<string>(localStorage.getItem('app-theme') || 'pastel');
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('dark-mode');
+    if (saved !== null) return saved === 'true';
+    return window.innerWidth < 768;
+  });
 
   useEffect(() => {
     const theme = THEMES[selectedTheme] || THEMES.pastel;
@@ -783,6 +790,15 @@ export default function App() {
     document.documentElement.style.setProperty('--brand-surface', theme.surface);
     localStorage.setItem('app-theme', selectedTheme);
   }, [selectedTheme]);
+
+  useEffect(() => {
+    localStorage.setItem('dark-mode', darkMode.toString());
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
 
   const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
     setNotification({ type, message });
@@ -2581,7 +2597,7 @@ export default function App() {
     }
 
     return (
-      <div className={`min-h-screen w-full overflow-x-hidden font-sans transition-colors duration-500 ${isMobile ? 'bg-zinc-50 text-zinc-900' : 'bg-zinc-50 text-zinc-900'} relative`}>
+      <div className={`min-h-screen w-full overflow-x-hidden font-sans transition-colors duration-500 ${darkMode ? 'bg-[#0f172a] text-[#f5f5dc]' : 'bg-zinc-50 text-zinc-900'} relative`}>
         {/* Background elements for translucency visibility */}
         <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
           <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-violet-500/5 rounded-full blur-[120px]" />
@@ -2592,7 +2608,7 @@ export default function App() {
         {/* Mobile Navigation (Floating Glass Dock - iOS 26 style) */}
         {isMobile && (
           <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
-            <nav className={`max-w-md mx-auto ${reduceTranslucency ? 'bg-white' : 'bg-white/80 backdrop-blur-2xl'} border border-zinc-200 px-4 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto`}>
+            <nav className={`max-w-md mx-auto ${reduceTranslucency ? (darkMode ? 'bg-[#1e293b]' : 'bg-white') : (darkMode ? 'bg-[#1e293b]/80' : 'bg-white/80') + ' backdrop-blur-2xl'} border ${darkMode ? 'border-white/10' : 'border-zinc-200'} px-4 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto`}>
               <div className="flex flex-1 justify-around items-center">
                 <button 
                   onClick={() => setActiveTab('dashboard')}
@@ -2646,7 +2662,7 @@ export default function App() {
 
         {/* Desktop Sidebar (Admin Only) */}
         {!isMobile && (
-          <nav className={`fixed left-0 top-0 bottom-0 w-64 ${reduceTranslucency ? 'bg-white' : 'bg-white/70 backdrop-blur-xl'} border-r border-zinc-100 p-6 flex flex-col z-40`}>
+          <nav className={`fixed left-0 top-0 bottom-0 w-64 ${reduceTranslucency ? (darkMode ? 'bg-[#1e293b]' : 'bg-white') : (darkMode ? 'bg-[#1e293b]/70' : 'bg-white/70') + ' backdrop-blur-xl'} border-r ${darkMode ? 'border-white/10' : 'border-zinc-100'} p-6 flex flex-col z-40`}>
             <div className="flex items-center gap-3 mb-10 px-2">
               <div className="w-10 h-10 bg-white border border-zinc-100 rounded-2xl flex items-center justify-center shadow-sm overflow-hidden">
                 <Logo className="w-8 h-8" logoUrl={clinicProfile.logoUrl} />
@@ -2747,7 +2763,7 @@ export default function App() {
         )}
 
         {/* Main Content */}
-        <main className={`${!isMobile ? `ml-64 ${reduceTranslucency ? 'bg-[#FBFBFD]' : 'bg-[#FBFBFD]/80 backdrop-blur-sm'}` : 'pb-32 min-h-screen bg-zinc-50'} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
+        <main className={`${!isMobile ? `ml-64 ${reduceTranslucency ? (darkMode ? 'bg-[#0f172a]' : 'bg-[#FBFBFD]') : (darkMode ? 'bg-[#0f172a]/80' : 'bg-[#FBFBFD]/80') + ' backdrop-blur-sm'}` : `pb-32 min-h-screen ${darkMode ? 'bg-[#0f172a]' : 'bg-zinc-50'}`} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
           {isMobile && (
             <>
               <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-brand-primary/20 to-transparent -z-10" />
@@ -2806,12 +2822,12 @@ export default function App() {
             </motion.div>
           ) : (
             <>
-              <header className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-[100] ${isMobile ? 'sticky top-0 bg-zinc-50/80 backdrop-blur-xl py-4 -mx-4 px-4 border-b border-zinc-200/50 mb-6' : 'mb-8 relative'}`}>
+              <header className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-[100] ${isMobile ? `sticky top-0 ${darkMode ? 'bg-[#0f172a]/80' : 'bg-zinc-50/80'} backdrop-blur-xl py-4 -mx-4 px-4 border-b ${darkMode ? 'border-white/10' : 'border-zinc-200/50'} mb-6` : 'mb-8 relative'}`}>
                 <div className={isMobile ? '' : ''}>
-                  <h2 className={`text-3xl sm:text-3xl font-black tracking-tighter capitalize ${isMobile ? 'text-zinc-900' : 'text-zinc-900'}`}>
+                  <h2 className={`text-3xl sm:text-3xl font-black tracking-tighter capitalize ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>
                     {activeTab === 'guide' ? 'User Guide' : activeTab === 'profile' ? 'My Profile' : activeTab === 'kit' ? 'Referral Kit' : activeTab}
                   </h2>
-                  {!isMobile && <p className={`${isMobile ? 'text-zinc-600' : 'text-zinc-500'} text-sm font-medium`}>Welcome back, {currentUser.name}</p>}
+                  {!isMobile && <p className={`${darkMode ? 'text-[#f5f5dc]/60' : 'text-zinc-500'} text-sm font-medium`}>Welcome back, {currentUser.name}</p>}
                 </div>
                 
                 {activeTab === 'dashboard' && currentUser.role !== 'admin' && !isMobile && (
@@ -3228,11 +3244,11 @@ export default function App() {
               key="referrals"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`${isMobile ? 'bg-[#1e293b] border-white/10' : 'bg-white border-black/5 shadow-sm'} rounded-3xl border overflow-hidden`}
+              className={`${darkMode ? 'bg-[#1e293b] border-white/10' : 'bg-white border-black/5 shadow-sm'} rounded-3xl border overflow-hidden`}
             >
-              <div className={`p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${isMobile ? 'border-white/10' : 'border-zinc-100'}`}>
+              <div className={`p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${darkMode ? 'border-white/10' : 'border-zinc-100'}`}>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <h3 className={`font-semibold ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>Referral History</h3>
+                  <h3 className={`font-semibold ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>Referral History</h3>
                   <div className="flex flex-wrap gap-2">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
@@ -3241,13 +3257,13 @@ export default function App() {
                         placeholder="Search patient, staff, or service..."
                         value={referralSearch}
                         onChange={(e) => setReferralSearch(e.target.value)}
-                        className={`pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 w-full sm:w-64 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
+                        className={`pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 w-full sm:w-64 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
                       />
                     </div>
                     <select 
                       value={referralBranchFilter}
                       onChange={(e) => setReferralBranchFilter(e.target.value)}
-                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
+                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
                     >
                       <option value="all">All Branches</option>
                       {branches.map(b => (
@@ -3257,7 +3273,7 @@ export default function App() {
                     <select 
                       value={referralStatusFilter}
                       onChange={(e) => setReferralStatusFilter(e.target.value)}
-                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
+                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/20'}`}
                     >
                       <option value="all">All Statuses</option>
                       <option value="entered">Entered</option>
@@ -3272,7 +3288,7 @@ export default function App() {
                 </div>
                 <button 
                   onClick={exportToCSV}
-                  className={`flex items-center gap-2 text-xs font-bold transition-colors self-start sm:self-auto px-3 py-2 rounded-xl ${isMobile ? 'text-brand-accent hover:bg-[#0f172a]' : 'text-violet-600 hover:bg-violet-50'}`}
+                  className={`flex items-center gap-2 text-xs font-bold transition-colors self-start sm:self-auto px-3 py-2 rounded-xl ${darkMode ? 'text-brand-accent hover:bg-[#0f172a]' : 'text-violet-600 hover:bg-violet-50'}`}
                 >
                   <Download size={14} />
                   Export CSV
@@ -4349,24 +4365,24 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               className="max-w-2xl mx-auto space-y-8"
             >
-              <div className={`p-8 rounded-[2.5rem] relative overflow-hidden ${isMobile ? 'bg-gradient-to-br from-brand-primary via-brand-surface to-brand-bg text-white' : 'bg-gradient-to-br from-violet-600 via-violet-700 to-fuchsia-700 text-white'}`}>
-                <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-[80px] -mr-32 -mt-32 ${isMobile ? 'bg-brand-peach/20' : 'bg-fuchsia-500/20'}`} />
+              <div className={`p-8 rounded-[2.5rem] relative overflow-hidden ${darkMode ? 'bg-gradient-to-br from-brand-primary via-brand-surface to-brand-bg text-white' : 'bg-gradient-to-br from-violet-600 via-violet-700 to-fuchsia-700 text-white'}`}>
+                <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-[80px] -mr-32 -mt-32 ${darkMode ? 'bg-brand-peach/20' : 'bg-fuchsia-500/20'}`} />
                 <div className="relative z-10">
                   <h3 className="text-2xl font-black tracking-tighter mb-2">Referral Kit</h3>
-                  <p className={`${isMobile ? 'text-white/80' : 'text-white/70'} text-sm font-medium max-w-md`}>Everything you need to refer patients and earn rewards.</p>
+                  <p className={`${darkMode ? 'text-white/80' : 'text-white/70'} text-sm font-medium max-w-md`}>Everything you need to refer patients and earn rewards.</p>
                 </div>
               </div>
 
-              <div className={`${isMobile ? 'bg-white border-zinc-200 rotate-[1deg]' : 'bg-white border-black/5'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
+              <div className={`${darkMode ? 'bg-white border-zinc-200 rotate-[1deg]' : 'bg-white border-black/5'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
                 <div className="flex items-center gap-2 mb-8">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${isMobile ? 'bg-brand-peach text-brand-primary shadow-brand-peach/20 rotate-[-5deg]' : 'bg-blue-500 text-white shadow-blue-500/20'}`}>
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${darkMode ? 'bg-brand-peach text-brand-primary shadow-brand-peach/20 rotate-[-5deg]' : 'bg-blue-500 text-white shadow-blue-500/20'}`}>
                     <QrCode size={20} />
                   </div>
-                  <h3 className={`font-bold ${isMobile ? 'text-zinc-900' : 'text-zinc-900'}`}>Your Toolkit</h3>
+                  <h3 className={`font-bold ${darkMode ? 'text-zinc-900' : 'text-zinc-900'}`}>Your Toolkit</h3>
                 </div>
                 
                 <div className="space-y-8">
-                  <div className={`flex flex-col items-center p-8 rounded-[2.5rem] border ${isMobile ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
+                  <div className={`flex flex-col items-center p-8 rounded-[2.5rem] border ${darkMode ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
                     <div className={`p-6 rounded-[2rem] shadow-sm mb-6 bg-white`}>
                       <QRCodeCanvas 
                         value={`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`}
@@ -4377,21 +4393,21 @@ export default function App() {
                       />
                     </div>
                     <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Personal QR Code</p>
-                    <p className={`text-xs mt-2 text-center max-w-[200px] ${isMobile ? 'text-zinc-600' : 'text-zinc-500'}`}>Patients can scan this to book directly with your referral code.</p>
+                    <p className={`text-xs mt-2 text-center max-w-[200px] ${darkMode ? 'text-zinc-600' : 'text-zinc-500'}`}>Patients can scan this to book directly with your referral code.</p>
                   </div>
 
                   <div className="space-y-4">
-                    <div className={`p-6 rounded-2xl border flex items-center justify-between ${isMobile ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
+                    <div className={`p-6 rounded-2xl border flex items-center justify-between ${darkMode ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
                       <div>
-                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Referral Code</p>
-                        <p className={`text-2xl font-black tracking-tighter ${isMobile ? 'text-zinc-900' : 'text-zinc-900'}`}>{currentUser.promo_code}</p>
+                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Referral Code</p>
+                        <p className={`text-2xl font-black tracking-tighter ${darkMode ? 'text-zinc-900' : 'text-zinc-900'}`}>{currentUser.promo_code}</p>
                       </div>
                       <button 
                         onClick={() => {
                           navigator.clipboard.writeText(currentUser.promo_code);
                           alert('Code copied!');
                         }}
-                        className={`p-4 rounded-xl border transition-all active:scale-90 ${isMobile ? 'bg-white border-zinc-200 text-brand-primary hover:bg-zinc-50' : 'bg-white border-zinc-100 text-zinc-400 hover:text-violet-500'}`}
+                        className={`p-4 rounded-xl border transition-all active:scale-90 ${darkMode ? 'bg-white border-zinc-200 text-brand-primary hover:bg-zinc-50' : 'bg-white border-zinc-100 text-zinc-400 hover:text-violet-500'}`}
                       >
                         <Copy size={20} />
                       </button>
@@ -4404,7 +4420,7 @@ export default function App() {
                           const text = `Hi! Book your appointment at our clinic using my referral link: ${url}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                         }}
-                        className={`flex items-center justify-center gap-3 p-5 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg ${isMobile ? 'bg-brand-peach text-brand-primary shadow-brand-peach/10 hover:bg-brand-peach/90' : 'bg-gradient-to-r from-orange-400 to-rose-400 text-white shadow-orange-500/10 hover:from-orange-500 hover:to-rose-500'}`}
+                        className={`flex items-center justify-center gap-3 p-5 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg ${darkMode ? 'bg-brand-peach text-brand-primary shadow-brand-peach/10 hover:bg-brand-peach/90' : 'bg-gradient-to-r from-orange-400 to-rose-400 text-white shadow-orange-500/10 hover:from-orange-500 hover:to-rose-500'}`}
                       >
                         <MessageCircle size={18} />
                         Share on WhatsApp
@@ -4415,7 +4431,7 @@ export default function App() {
                           navigator.clipboard.writeText(url);
                           alert('Link copied!');
                         }}
-                        className={`flex items-center justify-center gap-3 p-5 border rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-sm ${isMobile ? 'bg-white text-zinc-900 border-zinc-200 hover:bg-zinc-50' : 'bg-white text-zinc-900 border-zinc-100 hover:bg-zinc-50'}`}
+                        className={`flex items-center justify-center gap-3 p-5 border rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-sm ${darkMode ? 'bg-white text-zinc-900 border-zinc-200 hover:bg-zinc-50' : 'bg-white text-zinc-900 border-zinc-100 hover:bg-zinc-50'}`}
                       >
                         <Share2 size={18} />
                         Copy Referral Link
@@ -4427,12 +4443,12 @@ export default function App() {
 
               {/* Log New Referral (Staff Only) */}
               {currentUser.role === 'staff' && !isMobile && (
-                <div className={`${isMobile ? 'bg-white border-zinc-200 rotate-[-1deg]' : 'bg-violet-50 border-violet-100'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.02)]`}>
+                <div className={`${darkMode ? 'bg-white border-zinc-200 rotate-[-1deg]' : 'bg-violet-50 border-violet-100'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.02)]`}>
                   <div className="flex items-center gap-2 mb-6">
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${isMobile ? 'bg-brand-peach text-brand-primary shadow-brand-peach/20 rotate-[5deg]' : 'bg-violet-500 text-white shadow-violet-500/20'}`}>
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${darkMode ? 'bg-brand-peach text-brand-primary shadow-brand-peach/20 rotate-[5deg]' : 'bg-violet-500 text-white shadow-violet-500/20'}`}>
                       <PlusCircle size={20} />
                     </div>
-                    <h3 className={`font-bold ${isMobile ? 'text-zinc-900' : 'text-violet-900'}`}>Log New Referral</h3>
+                    <h3 className={`font-bold ${darkMode ? 'text-zinc-900' : 'text-violet-900'}`}>Log New Referral</h3>
                   </div>
                   <form onSubmit={handleSubmitReferral} className="space-y-4">
                     <div>
@@ -4442,7 +4458,7 @@ export default function App() {
                         required
                         value={patientName}
                         onChange={(e) => setPatientName(e.target.value)}
-                        className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                        className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         placeholder="Enter patient name"
                       />
                     </div>
@@ -4454,7 +4470,7 @@ export default function App() {
                           required
                           value={patientPhone}
                           onChange={(e) => setPatientPhone(e.target.value)}
-                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                           placeholder="e.g. +60123456789"
                         />
                       </div>
@@ -4465,7 +4481,7 @@ export default function App() {
                           required
                           value={patientIC}
                           onChange={(e) => setPatientIC(e.target.value)}
-                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                           placeholder="IC Number"
                         />
                       </div>
@@ -4476,7 +4492,7 @@ export default function App() {
                         required
                         value={patientType}
                         onChange={(e) => setPatientType(e.target.value as 'new' | 'existing')}
-                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                       >
                         <option value="new">New Patient</option>
                         <option value="existing">Existing Patient</option>
@@ -4488,7 +4504,7 @@ export default function App() {
                         required
                         value={patientAddress}
                         onChange={(e) => setPatientAddress(e.target.value)}
-                        className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium h-20 resize-none focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                        className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium h-20 resize-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         placeholder="Enter patient address"
                       />
                     </div>
@@ -4498,7 +4514,7 @@ export default function App() {
                         required
                         value={selectedBranch}
                         onChange={(e) => setSelectedBranch(e.target.value)}
-                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                       >
                         <option value="">Select Branch</option>
                         {branches.map(b => (
@@ -4513,7 +4529,7 @@ export default function App() {
                           required
                           value={selectedService}
                           onChange={(e) => setSelectedService(e.target.value)}
-                          className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium pr-12 focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium pr-12 focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         >
                           <option value="">Select a service</option>
                           {services.map(s => (
@@ -4534,7 +4550,7 @@ export default function App() {
                           min={new Date().toISOString().split('T')[0]}
                           value={appointmentDate}
                           onChange={(e) => setAppointmentDate(e.target.value)}
-                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         />
                       </div>
                       <div>
@@ -4543,7 +4559,7 @@ export default function App() {
                           required
                           value={bookingTime}
                           onChange={(e) => setBookingTime(e.target.value)}
-                          className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
+                          className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-peach/10 focus:border-brand-peach/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500/10 focus:border-violet-500/50 text-zinc-900'}`}
                         >
                           <option value="">Select time</option>
                           {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(time => (
@@ -4555,7 +4571,7 @@ export default function App() {
                     <button 
                       type="submit" 
                       disabled={isSubmitting}
-                      className={`w-full py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] shadow-xl disabled:opacity-50 mt-2 flex items-center justify-center gap-2 ${isMobile ? 'bg-brand-peach text-brand-primary shadow-brand-peach/20 hover:bg-brand-peach/90' : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-violet-900/10 hover:from-violet-700 hover:to-fuchsia-700'}`}
+                      className={`w-full py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] shadow-xl disabled:opacity-50 mt-2 flex items-center justify-center gap-2 ${darkMode ? 'bg-brand-peach text-brand-primary shadow-brand-peach/20 hover:bg-brand-peach/90' : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-violet-900/10 hover:from-violet-700 hover:to-fuchsia-700'}`}
                     >
                       {isSubmitting ? (
                         <>
@@ -4750,16 +4766,16 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               className="max-w-2xl mx-auto space-y-8"
             >
-              <div className={`${isMobile ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border relative overflow-hidden`}>
-                <div className={`absolute top-0 right-0 w-32 h-32 ${isMobile ? 'bg-brand-accent/10' : 'bg-violet-50'} rounded-full blur-3xl -mr-16 -mt-16`} />
+              <div className={`${darkMode ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border relative overflow-hidden`}>
+                <div className={`absolute top-0 right-0 w-32 h-32 ${darkMode ? 'bg-brand-accent/10' : 'bg-violet-50'} rounded-full blur-3xl -mr-16 -mt-16`} />
                 
                 <div className="flex flex-col items-center text-center mb-10 relative z-10">
                   <div className="relative group mb-6 flex flex-col items-center">
-                    <div className={`w-32 h-32 rounded-[2.5rem] ${isMobile ? 'bg-[#0f172a] border-white/10' : 'bg-zinc-100 border-white'} border-4 shadow-xl overflow-hidden flex items-center justify-center relative`}>
+                    <div className={`w-32 h-32 rounded-[2.5rem] ${darkMode ? 'bg-[#0f172a] border-white/10' : 'bg-zinc-100 border-white'} border-4 shadow-xl overflow-hidden flex items-center justify-center relative`}>
                       {currentUser.profile_picture ? (
                         <img src={currentUser.profile_picture} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
-                        <UserCircle size={64} className={isMobile ? 'text-[#f5f5dc]/20' : 'text-zinc-300'} />
+                        <UserCircle size={64} className={darkMode ? 'text-[#f5f5dc]/20' : 'text-zinc-300'} />
                       )}
                       {isUploading && (
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
@@ -4768,7 +4784,7 @@ export default function App() {
                       )}
                     </div>
                     <div className="mt-4 flex gap-2">
-                      <label className={`cursor-pointer ${isMobile ? 'bg-brand-accent text-white' : 'bg-zinc-900 text-white'} px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2`}>
+                      <label className={`cursor-pointer ${darkMode ? 'bg-brand-accent text-white' : 'bg-zinc-900 text-white'} px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2`}>
                         <PlusCircle size={14} />
                         Choose Image
                         <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
@@ -4777,7 +4793,7 @@ export default function App() {
                         <button 
                           type="button"
                           onClick={() => handleUpdateProfile({ profile_picture: '' })}
-                          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${isMobile ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
+                          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${darkMode ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
                         >
                           <Trash2 size={14} />
                           Remove
@@ -4785,8 +4801,8 @@ export default function App() {
                       )}
                     </div>
                   </div>
-                  <h3 className={`text-2xl font-black tracking-tighter ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{currentUser.nickname || currentUser.name}</h3>
-                  <p className={`text-sm font-medium uppercase tracking-widest ${isMobile ? 'text-[#f5f5dc]/60' : 'text-zinc-400'}`}>{currentUser.role}</p>
+                  <h3 className={`text-2xl font-black tracking-tighter ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{currentUser.nickname || currentUser.name}</h3>
+                  <p className={`text-sm font-medium uppercase tracking-widest ${darkMode ? 'text-[#f5f5dc]/60' : 'text-zinc-400'}`}>{currentUser.role}</p>
                 </div>
 
                 <form 
@@ -4805,13 +4821,13 @@ export default function App() {
                 >
                   <div className="grid grid-cols-1 gap-6">
                     <div className="space-y-2">
-                      <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Nickname</label>
+                      <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Nickname</label>
                       <input 
                         name="nickname"
                         type="text"
                         defaultValue={currentUser.nickname || ''}
                         className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
-                          isMobile 
+                          darkMode 
                             ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-brand-accent/20 focus:border-brand-accent' 
                             : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'
                         }`}
@@ -4820,24 +4836,24 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className={`pt-6 border-t ${isMobile ? 'border-white/5' : 'border-zinc-100'}`}>
-                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
-                      <MapPin size={14} className={isMobile ? 'text-brand-accent' : 'text-brand-accent'} />
+                  <div className={`pt-6 border-t ${darkMode ? 'border-white/5' : 'border-zinc-100'}`}>
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
+                      <MapPin size={14} className={darkMode ? 'text-brand-accent' : 'text-brand-accent'} />
                       Branch Assignment
                     </h4>
                     <div className="space-y-4">
-                      <div className={`p-4 rounded-2xl border ${isMobile ? 'bg-[#0f172a] border-white/5' : 'bg-zinc-50 border-zinc-100'}`}>
-                        <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Current Branch</p>
-                        <p className={`text-sm font-bold ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{currentUser.branch || 'Not Assigned'}</p>
+                      <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-[#0f172a] border-white/5' : 'bg-zinc-50 border-zinc-100'}`}>
+                        <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Current Branch</p>
+                        <p className={`text-sm font-bold ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{currentUser.branch || 'Not Assigned'}</p>
                       </div>
                       
                       <div className="space-y-2">
-                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Request Branch Change</label>
+                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Request Branch Change</label>
                         <div className="flex gap-2">
                           <select 
                             id="requestedBranch"
                             className={`flex-1 px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
-                              isMobile 
+                              darkMode 
                                 ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-brand-accent/20 focus:border-brand-accent' 
                                 : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'
                             }`}
@@ -4871,7 +4887,7 @@ export default function App() {
                                 alert('Branch change request submitted!');
                               }
                             }}
-                            className={`px-6 py-4 rounded-2xl font-bold text-sm transition-all ${isMobile ? 'bg-brand-accent text-white' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
+                            className={`px-6 py-4 rounded-2xl font-bold text-sm transition-all ${darkMode ? 'bg-brand-accent text-white' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
                           >
                             Apply
                           </button>
@@ -4880,20 +4896,20 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className={`pt-6 border-t ${isMobile ? 'border-white/5' : 'border-zinc-100'}`}>
-                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
-                      <DollarSign size={14} className={isMobile ? 'text-brand-accent' : 'text-brand-accent'} />
+                  <div className={`pt-6 border-t ${darkMode ? 'border-white/5' : 'border-zinc-100'}`}>
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
+                      <DollarSign size={14} className={darkMode ? 'text-brand-accent' : 'text-brand-accent'} />
                       Bank Account Details
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Bank Name</label>
+                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Bank Name</label>
                         <input 
                           name="bank_name"
                           type="text"
                           defaultValue={currentUser.bank_name || ''}
                           className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
-                            isMobile 
+                            darkMode 
                               ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-brand-accent/20 focus:border-brand-accent' 
                               : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'
                           }`}
@@ -4901,13 +4917,13 @@ export default function App() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Account Number</label>
+                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Account Number</label>
                         <input 
                           name="bank_account_number"
                           type="text"
                           defaultValue={currentUser.bank_account_number || ''}
                           className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
-                            isMobile 
+                            darkMode 
                               ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-brand-accent/20 focus:border-brand-accent' 
                               : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'
                           }`}
@@ -4915,12 +4931,12 @@ export default function App() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>ID Type</label>
+                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>ID Type</label>
                         <select 
                           name="id_type"
                           defaultValue={currentUser.id_type || 'NRIC'}
                           className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
-                            isMobile 
+                            darkMode 
                               ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-brand-accent/20 focus:border-brand-accent' 
                               : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'
                           }`}
@@ -4931,13 +4947,13 @@ export default function App() {
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>ID Number</label>
+                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>ID Number</label>
                         <input 
                           name="id_number"
                           type="text"
                           defaultValue={currentUser.id_number || ''}
                           className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
-                            isMobile 
+                            darkMode 
                               ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-brand-accent/20 focus:border-brand-accent' 
                               : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'
                           }`}
@@ -4947,71 +4963,143 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className={`pt-6 border-t ${isMobile ? 'border-white/5' : 'border-zinc-100'}`}>
-                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
-                      <Palette size={14} className={isMobile ? 'text-brand-accent' : 'text-brand-accent'} />
+                  <div className={`pt-6 border-t ${darkMode ? 'border-white/5' : 'border-zinc-100'}`}>
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
+                      <Palette size={14} className={darkMode ? 'text-brand-accent' : 'text-brand-accent'} />
                       Appearance & Theme
                     </h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      {Object.entries(THEMES).map(([key, theme]) => (
+                    
+                    <div className="mb-8">
+                      <label className={`block text-[10px] font-black uppercase tracking-widest mb-4 ml-1 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Color Theme</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {Object.entries(THEMES).map(([key, theme]) => (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setSelectedTheme(key)}
+                            className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
+                              selectedTheme === key 
+                                ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-50')
+                                : (darkMode ? 'border-white/5 bg-[#0f172a]' : 'border-zinc-100 bg-zinc-50 hover:border-zinc-200')
+                            }`}
+                          >
+                            <div 
+                              className="w-8 h-8 rounded-full shadow-inner"
+                              style={{ backgroundColor: theme.accent }}
+                            />
+                            <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                              selectedTheme === key 
+                                ? (darkMode ? 'text-brand-accent' : 'text-violet-700')
+                                : (darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400')
+                            }`}>
+                              {theme.name}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mb-8">
+                      <label className={`block text-[10px] font-black uppercase tracking-widest mb-4 ml-1 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>Display Mode</label>
+                      <div className="grid grid-cols-2 gap-4">
                         <button
-                          key={key}
                           type="button"
-                          onClick={() => setSelectedTheme(key)}
-                          className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
-                            selectedTheme === key 
-                              ? (isMobile ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-50')
-                              : (isMobile ? 'border-white/5 bg-[#0f172a]' : 'border-zinc-100 bg-zinc-50 hover:border-zinc-200')
+                          onClick={() => setDarkMode(false)}
+                          className={`flex items-center justify-center gap-3 p-4 rounded-2xl border-2 transition-all ${
+                            !darkMode 
+                              ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-50')
+                              : (darkMode ? 'border-white/5 bg-[#0f172a]' : 'border-zinc-100 bg-zinc-50 hover:border-zinc-200')
                           }`}
                         >
-                          <div 
-                            className="w-8 h-8 rounded-full shadow-inner"
-                            style={{ backgroundColor: theme.accent }}
-                          />
+                          <Sun size={18} className={!darkMode ? 'text-amber-500' : 'text-zinc-400'} />
                           <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                            selectedTheme === key 
-                              ? (isMobile ? 'text-brand-accent' : 'text-violet-700')
-                              : (isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400')
+                            !darkMode 
+                              ? (darkMode ? 'text-brand-accent' : 'text-violet-700')
+                              : (darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400')
                           }`}>
-                            {theme.name}
+                            Light Mode
                           </span>
                         </button>
-                      ))}
+                        <button
+                          type="button"
+                          onClick={() => setDarkMode(true)}
+                          className={`flex items-center justify-center gap-3 p-4 rounded-2xl border-2 transition-all ${
+                            darkMode 
+                              ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-50')
+                              : (darkMode ? 'border-white/5 bg-[#0f172a]' : 'border-zinc-100 bg-zinc-50 hover:border-zinc-200')
+                          }`}
+                        >
+                          <Moon size={18} className={darkMode ? 'text-violet-400' : 'text-zinc-400'} />
+                          <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                            darkMode 
+                              ? (darkMode ? 'text-brand-accent' : 'text-violet-700')
+                              : (darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400')
+                          }`}>
+                            Dark Mode
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mb-8">
+                      <label className={`block text-[10px] font-black uppercase tracking-widest mb-4 ml-1 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>App Appearance</label>
+                      <button
+                        type="button"
+                        onClick={() => setReduceTranslucency(!reduceTranslucency)}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
+                          reduceTranslucency 
+                            ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-50')
+                            : (darkMode ? 'border-white/5 bg-[#0f172a]' : 'border-zinc-100 bg-zinc-50 hover:border-zinc-200')
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-5 rounded-full relative transition-colors ${reduceTranslucency ? 'bg-brand-accent' : 'bg-zinc-200'}`}>
+                            <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${reduceTranslucency ? 'left-6' : 'left-1'}`} />
+                          </div>
+                          <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                            reduceTranslucency 
+                              ? (darkMode ? 'text-brand-accent' : 'text-violet-700')
+                              : (darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400')
+                          }`}>
+                            Reduce deck translucent
+                          </span>
+                        </div>
+                      </button>
                     </div>
                   </div>
 
-                  <div className={`pt-6 border-t ${isMobile ? 'border-white/5' : 'border-zinc-100'}`}>
-                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
-                      <BookOpen size={14} className={isMobile ? 'text-brand-accent' : 'text-brand-accent'} />
+                  <div className={`pt-6 border-t ${darkMode ? 'border-white/5' : 'border-zinc-100'}`}>
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
+                      <BookOpen size={14} className={darkMode ? 'text-brand-accent' : 'text-brand-accent'} />
                       Resources
                     </h4>
                     <button 
                       type="button"
                       onClick={() => setActiveTab('guide')}
                       className={`w-full px-6 py-4 rounded-2xl text-sm font-bold transition-all flex items-center justify-between group mb-4 ${
-                        isMobile 
+                        darkMode 
                           ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] hover:bg-brand-accent/10' 
                           : 'bg-brand-surface border-brand-accent/10 text-brand-accent hover:bg-brand-accent/5'
                       }`}
                     >
                       <span>View User Guide & FAQ</span>
-                      <ChevronRight size={16} className={`${isMobile ? 'text-[#f5f5dc]/40' : 'text-brand-accent/60'} group-hover:text-brand-accent transition-colors`} />
+                      <ChevronRight size={16} className={`${darkMode ? 'text-[#f5f5dc]/40' : 'text-brand-accent/60'} group-hover:text-brand-accent transition-colors`} />
                     </button>
-                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
-                      <Lock size={14} className={isMobile ? 'text-[#f5f5dc]/20' : 'text-zinc-400'} />
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
+                      <Lock size={14} className={darkMode ? 'text-[#f5f5dc]/20' : 'text-zinc-400'} />
                       Security
                     </h4>
                     <button 
                       type="button"
                       onClick={() => setShowPasswordModal(true)}
                       className={`w-full px-6 py-4 rounded-2xl text-sm font-bold transition-all flex items-center justify-between group ${
-                        isMobile 
+                        darkMode 
                           ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc]/60 hover:bg-brand-accent/10' 
                           : 'bg-zinc-50 border-zinc-100 text-zinc-600 hover:bg-zinc-100'
                       }`}
                     >
                       <span>Change Account Password</span>
-                      <ChevronRight size={16} className={`${isMobile ? 'text-[#f5f5dc]/20' : 'text-zinc-300'} group-hover:text-brand-accent transition-colors`} />
+                      <ChevronRight size={16} className={`${darkMode ? 'text-[#f5f5dc]/20' : 'text-zinc-300'} group-hover:text-brand-accent transition-colors`} />
                     </button>
                   </div>
 
@@ -5019,7 +5107,7 @@ export default function App() {
                     <button 
                       type="submit"
                       className={`flex-1 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-[0.98] ${
-                        isMobile 
+                        darkMode 
                           ? 'bg-brand-accent text-white shadow-brand-accent/20 hover:opacity-90' 
                           : 'bg-zinc-900 text-white shadow-zinc-900/20 hover:bg-zinc-800'
                       }`}
@@ -5030,7 +5118,7 @@ export default function App() {
                       type="button"
                       onClick={handleLogout}
                       className={`px-8 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all border active:scale-[0.98] flex items-center gap-2 ${
-                        isMobile 
+                        darkMode 
                           ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' 
                           : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
                       }`}
@@ -5179,30 +5267,30 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className={`mx-auto space-y-8 px-4 pb-32 ${currentUser.role === 'admin' ? 'max-w-6xl' : 'max-w-md'}`}
             >
-              <div className={`mb-8 ${isMobile ? 'bg-brand-primary p-8 rounded-[2.5rem] shadow-2xl shadow-brand-primary/20 relative overflow-hidden' : ''}`}>
-                {isMobile && <div className="absolute top-0 right-0 w-32 h-32 bg-brand-peach/10 rounded-full blur-3xl -mr-16 -mt-16" />}
-                <h2 className={`text-4xl font-black tracking-tighter mb-2 ${isMobile ? 'text-white relative z-10' : 'text-zinc-900'}`}>Promotions & Services</h2>
-                <p className={`${isMobile ? 'text-white/70 relative z-10' : 'text-zinc-500'} text-sm font-medium`}>Download posters to share with your network</p>
+              <div className={`mb-8 ${darkMode ? 'bg-brand-primary p-8 rounded-[2.5rem] shadow-2xl shadow-brand-primary/20 relative overflow-hidden' : ''}`}>
+                {darkMode && <div className="absolute top-0 right-0 w-32 h-32 bg-brand-peach/10 rounded-full blur-3xl -mr-16 -mt-16" />}
+                <h2 className={`text-4xl font-black tracking-tighter mb-2 ${darkMode ? 'text-white relative z-10' : 'text-zinc-900'}`}>Promotions & Services</h2>
+                <p className={`${darkMode ? 'text-white/70 relative z-10' : 'text-zinc-500'} text-sm font-medium`}>Download posters to share with your network</p>
               </div>
 
               {currentUser.role === 'admin' && (
                 <div className="space-y-12">
-                  <div className={`flex items-center gap-4 border-b pb-4 ${isMobile ? 'border-white/10' : 'border-zinc-100'}`}>
+                  <div className={`flex items-center gap-4 border-b pb-4 ${darkMode ? 'border-white/10' : 'border-zinc-100'}`}>
                     <button 
                       onClick={() => setPromoSubTab('manage')}
-                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${promoSubTab === 'manage' ? (isMobile ? 'bg-brand-accent text-white' : 'bg-zinc-900 text-white') : (isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-500 hover:bg-zinc-50')}`}
+                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${promoSubTab === 'manage' ? (darkMode ? 'bg-brand-accent text-white' : 'bg-zinc-900 text-white') : (darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-500 hover:bg-zinc-50')}`}
                     >
                       Manage Services & Promotions
                     </button>
                   </div>
 
-                  <div className={`${isMobile ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border`}>
+                  <div className={`${darkMode ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border`}>
                     <div className="flex items-center justify-between mb-8">
                       <div>
-                        <h3 className={`text-2xl font-black tracking-tighter ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{editingService?.id ? 'Edit Service / Promotion' : 'Add New Service / Promotion'}</h3>
-                        <p className={`text-sm font-medium ${isMobile ? 'text-[#f5f5dc]/60' : 'text-zinc-500'}`}>Configure service details, incentives, and marketing materials</p>
+                        <h3 className={`text-2xl font-black tracking-tighter ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{editingService?.id ? 'Edit Service / Promotion' : 'Add New Service / Promotion'}</h3>
+                        <p className={`text-sm font-medium ${darkMode ? 'text-[#f5f5dc]/60' : 'text-zinc-500'}`}>Configure service details, incentives, and marketing materials</p>
                       </div>
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${isMobile ? 'bg-brand-accent text-white shadow-brand-accent/20' : 'bg-orange-500 text-white shadow-orange-500/20'}`}>
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${darkMode ? 'bg-brand-accent text-white shadow-brand-accent/20' : 'bg-orange-500 text-white shadow-orange-500/20'}`}>
                         <Zap size={24} />
                       </div>
                     </div>
@@ -5218,7 +5306,7 @@ export default function App() {
                               required
                               value={editingService?.name || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, name: e.target.value }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                               placeholder="e.g. Dental Cleaning"
                             />
                           </div>
@@ -5228,7 +5316,7 @@ export default function App() {
                               <select 
                                 value={editingService?.type || 'Service'}
                                 onChange={(e) => setEditingService(prev => ({ ...prev, type: e.target.value as 'Service' | 'Promotion' }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                               >
                                 <option value="Service">Service</option>
                                 <option value="Promotion">Promotion</option>
@@ -5239,7 +5327,7 @@ export default function App() {
                                 className={`flex items-center justify-center gap-2 px-4 py-2 rounded-2xl border transition-all text-[10px] font-black uppercase tracking-widest ${
                                   editingService?.is_featured 
                                     ? 'bg-brand-accent text-white border-brand-accent shadow-lg shadow-brand-accent/20' 
-                                    : isMobile ? 'bg-[#0f172a] border-white/10 text-zinc-500' : 'bg-zinc-50 border-zinc-100 text-zinc-400'
+                                    : darkMode ? 'bg-[#0f172a] border-white/10 text-zinc-500' : 'bg-zinc-50 border-zinc-100 text-zinc-400'
                                 }`}
                               >
                                 {editingService?.is_featured ? <Star size={14} fill="currentColor" /> : <Star size={14} />}
@@ -5272,7 +5360,7 @@ export default function App() {
                                   const d = date.getDate().toString().padStart(2, '0');
                                   setEditingService(prev => ({ ...prev, start_date: `${y}-${m}-${d}` }));
                                 }}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                                 placeholderText="Select start date"
                                 dateFormat="dd/MM/yyyy"
                               />
@@ -5301,7 +5389,7 @@ export default function App() {
                                   const d = date.getDate().toString().padStart(2, '0');
                                   setEditingService(prev => ({ ...prev, end_date: `${y}-${m}-${d}` }));
                                 }}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                                 placeholderText="Select end date"
                                 dateFormat="dd/MM/yyyy"
                               />
@@ -5318,7 +5406,7 @@ export default function App() {
                                 type="time"
                                 value={editingService?.start_time || ''}
                                 onChange={(e) => setEditingService(prev => ({ ...prev, start_time: e.target.value }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                               />
                               <Clock className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
                             </div>
@@ -5330,7 +5418,7 @@ export default function App() {
                                 type="time"
                                 value={editingService?.end_time || ''}
                                 onChange={(e) => setEditingService(prev => ({ ...prev, end_time: e.target.value }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                               />
                               <Clock className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
                             </div>
@@ -5342,7 +5430,7 @@ export default function App() {
                           <textarea 
                             value={editingService?.description || ''}
                             onChange={(e) => setEditingService(prev => ({ ...prev, description: e.target.value }))}
-                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 min-h-[100px] ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 min-h-[100px] ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                             placeholder="Add more details regarding the service..."
                           />
                         </div>
@@ -5357,7 +5445,7 @@ export default function App() {
                               required
                               value={editingService?.base_price || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, base_price: Number(e.target.value) }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                               placeholder="0.00"
                             />
                           </div>
@@ -5367,7 +5455,7 @@ export default function App() {
                               type="number"
                               value={editingService?.promo_price || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, promo_price: e.target.value ? Number(e.target.value) : undefined }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                               placeholder="0.00"
                             />
                           </div>
@@ -5381,7 +5469,7 @@ export default function App() {
                               required
                               value={editingService?.commission_rate || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, commission_rate: Number(e.target.value) }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                               placeholder="0.00"
                             />
                           </div>
@@ -5391,7 +5479,7 @@ export default function App() {
                               type="number"
                               value={editingService?.aracoins_perk || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, aracoins_perk: Number(e.target.value) }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                               placeholder="0"
                             />
                           </div>
@@ -5410,7 +5498,7 @@ export default function App() {
                                     ...prev, 
                                     allowances: { ...prev?.allowances, [tier.name]: parseFloat(e.target.value) }
                                   }))}
-                                  className={`flex-1 px-3 py-2 rounded-lg text-xs border ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc]' : 'bg-zinc-50 border-zinc-100'}`}
+                                  className={`flex-1 px-3 py-2 rounded-lg text-xs border ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc]' : 'bg-zinc-50 border-zinc-100'}`}
                                   placeholder="0.00"
                                 />
                               </div>
@@ -5436,8 +5524,8 @@ export default function App() {
                                 }}
                                 className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                                   (editingService?.branches || []).includes(branchObj.name)
-                                    ? (isMobile ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white')
-                                    : (isMobile ? 'bg-[#0f172a] text-[#f5f5dc]/40' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200')
+                                    ? (darkMode ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white')
+                                    : (darkMode ? 'bg-[#0f172a] text-[#f5f5dc]/40' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200')
                                 }`}
                               >
                                 {branchObj.name}
@@ -5495,7 +5583,7 @@ export default function App() {
                               }}
                               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 disabled:cursor-not-allowed"
                             />
-                            <div className={`w-full py-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${isMobile ? 'bg-[#0f172a] border-white/10 group-hover:border-brand-accent' : 'bg-zinc-50 border-zinc-200 group-hover:border-violet-300'}`}>
+                            <div className={`w-full py-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${darkMode ? 'bg-[#0f172a] border-white/10 group-hover:border-brand-accent' : 'bg-zinc-50 border-zinc-200 group-hover:border-violet-300'}`}>
                               {isUploading ? (
                                 <>
                                   <RefreshCw size={24} className="text-brand-accent animate-spin" />
@@ -5531,7 +5619,7 @@ export default function App() {
                           <button 
                             type="submit"
                             disabled={isSavingSetup}
-                            className={`flex-1 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50 shadow-xl ${isMobile ? 'bg-brand-accent text-white shadow-brand-accent/20' : 'bg-zinc-900 text-white shadow-zinc-900/20'}`}
+                            className={`flex-1 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50 shadow-xl ${darkMode ? 'bg-brand-accent text-white shadow-brand-accent/20' : 'bg-zinc-900 text-white shadow-zinc-900/20'}`}
                           >
                             {isSavingSetup ? 'Saving...' : (editingService?.id ? 'Update Service' : 'Publish Service')}
                           </button>
@@ -5539,7 +5627,7 @@ export default function App() {
                             <button 
                               type="button"
                               onClick={() => setEditingService(null)}
-                              className={`px-8 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all ${isMobile ? 'bg-[#0f172a] text-[#f5f5dc]/40' : 'bg-zinc-100 text-zinc-500'}`}
+                              className={`px-8 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all ${darkMode ? 'bg-[#0f172a] text-[#f5f5dc]/40' : 'bg-zinc-100 text-zinc-500'}`}
                             >
                               Cancel
                             </button>
@@ -5552,11 +5640,11 @@ export default function App() {
                         <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Existing Services & Promotions</label>
                         <div className="space-y-4 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
                           {services.map(service => (
-                            <div key={service.id} className={`p-6 rounded-3xl border transition-all ${isMobile ? 'bg-[#0f172a] border-white/5' : 'bg-zinc-50 border-zinc-100 hover:border-violet-200'}`}>
+                            <div key={service.id} className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-[#0f172a] border-white/5' : 'bg-zinc-50 border-zinc-100 hover:border-violet-200'}`}>
                               <div className="flex justify-between items-start mb-4">
                                 <div>
                                   <div className="flex items-center gap-2 mb-1">
-                                    <h4 className={`font-bold ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{service.name}</h4>
+                                    <h4 className={`font-bold ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{service.name}</h4>
                                     {service.is_featured && <Star size={10} className="text-brand-accent" fill="currentColor" />}
                                     <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${service.type === 'Promotion' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
                                       {service.type || 'Service'}
@@ -5639,7 +5727,7 @@ export default function App() {
                     item.branches.includes(currentUser.branch)
                   )
                   .map((item) => (
-                    <PromotionCard key={item.id} item={item} isMobile={isMobile} clinicProfile={clinicProfile} currentUser={currentUser} handleDeleteService={handleDeleteService} setEditingService={setEditingService} />
+                    <PromotionCard key={item.id} item={item} darkMode={darkMode} clinicProfile={clinicProfile} currentUser={currentUser} handleDeleteService={handleDeleteService} setEditingService={setEditingService} />
                   ))}
 
                 {services.filter(item => 
@@ -5650,10 +5738,10 @@ export default function App() {
                   item.branches.includes(currentUser.branch)
                 ).length === 0 && (
                   <div className="col-span-full text-center py-20">
-                    <div className={`w-20 h-20 ${isMobile ? 'bg-[#1e293b]' : 'bg-zinc-100'} rounded-[2rem] flex items-center justify-center mx-auto mb-6`}>
+                    <div className={`w-20 h-20 ${darkMode ? 'bg-[#1e293b]' : 'bg-zinc-100'} rounded-[2rem] flex items-center justify-center mx-auto mb-6`}>
                       <Zap size={32} className="text-zinc-400" />
                     </div>
-                    <h3 className={`text-xl font-black tracking-tight mb-2 ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>No active promotions</h3>
+                    <h3 className={`text-xl font-black tracking-tight mb-2 ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>No active promotions</h3>
                     <p className="text-zinc-500 text-sm font-medium">Check back later for exciting new offers!</p>
                   </div>
                 )}
@@ -6162,16 +6250,11 @@ export default function App() {
                         />
                       </div>
                       <div className="flex flex-col justify-center">
-                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">App Appearance</label>
-                        <button
-                          onClick={() => setReduceTranslucency(!reduceTranslucency)}
-                          className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 hover:border-violet-200 transition-all group"
-                        >
-                          <div className={`w-10 h-5 rounded-full relative transition-colors ${reduceTranslucency ? 'bg-violet-600' : 'bg-zinc-200'}`}>
-                            <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${reduceTranslucency ? 'left-6' : 'left-1'}`} />
-                          </div>
-                          <span className="text-sm font-medium text-zinc-700">Reduce deck translucent</span>
-                        </button>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Clinic Status</label>
+                        <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100">
+                          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="text-sm font-medium text-zinc-700">Active & Verified</span>
+                        </div>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
