@@ -29,10 +29,10 @@ else if (process.env.VITE_SUPABASE_ANON_KEY) console.log('Using: Anon Key');
 console.log('------------------------------');
 
 let supabase: any = null;
-let referralColumns: Set<string> = new Set();
-let serviceColumns: Set<string> = new Set();
-let staffColumns: Set<string> = new Set();
-let taskColumns: Set<string> = new Set();
+let referralColumns: Set<string> = new Set(['id', 'staff_id', 'staff_name', 'promo_code', 'service_id', 'service_name', 'patient_name', 'patient_phone', 'patient_ic', 'patient_address', 'appointment_date', 'booking_time', 'visit_date', 'date', 'status', 'payment_status', 'commission_amount', 'fraud_flags', 'rejection_reason', 'branch', 'patient_type', 'aracoins_perk']);
+let serviceColumns: Set<string> = new Set(['name', 'base_price', 'commission_rate', 'allowances_json', 'description', 'posters', 'promo_price', 'type', 'branches', 'start_date', 'end_date', 'start_time', 'end_time', 'is_featured', 'aracoins_perk']);
+let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'password', 'role', 'promo_code', 'staff_id_code', 'branch', 'department', 'position', 'employment_status', 'date_joined', 'pending_earnings', 'approved_earnings', 'paid_earnings', 'lifetime_earnings', 'last_payout_date', 'referrer_type', 'phone', 'aracoins', 'is_approved', 'nickname', 'profile_picture', 'bank_name', 'bank_account_number', 'id_type', 'id_number']);
+let taskColumns: Set<string> = new Set(['id', 'title', 'description', 'status', 'priority', 'due_date', 'created_at', 'assigned_to', 'created_by']);
 
 const logError = (context: string, error: any) => {
   console.error(`[${context}] Error:`, error);
@@ -176,9 +176,9 @@ async function seedSupabase() {
       if (staffInsertError) logError('Seed Staff', staffInsertError);
 
       const initialServices = [
-        { name: "Basic Health Screening", base_price: 80, commission_rate: 5, aracoins_perk: 10 },
-        { name: "Comprehensive Screening", base_price: 150, commission_rate: 5, aracoins_perk: 20 },
-        { name: "Vaccination Package", base_price: 120, commission_rate: 5, aracoins_perk: 15 }
+        { name: "Basic Health Screening", base_price: 80, commission_rate: 5, aracoins_perk: 10, is_featured: false },
+        { name: "Comprehensive Screening", base_price: 150, commission_rate: 5, aracoins_perk: 20, is_featured: true },
+        { name: "Vaccination Package", base_price: 120, commission_rate: 5, aracoins_perk: 15, is_featured: false }
       ].map(s => {
         const service: any = { ...s };
         if (!serviceColumns.has('aracoins_perk')) {
@@ -1041,7 +1041,7 @@ app.post("/api/services", async (req, res) => {
   if (serviceColumns.has('end_date')) insertData.end_date = end_date || null;
   if (serviceColumns.has('start_time')) insertData.start_time = start_time || null;
   if (serviceColumns.has('end_time')) insertData.end_time = end_time || null;
-  if (is_featured !== undefined && serviceColumns.has('is_featured')) insertData.is_featured = is_featured;
+  if (is_featured !== undefined) insertData.is_featured = is_featured;
   if (serviceColumns.has('aracoins_perk')) {
     insertData.aracoins_perk = aracoins_perk || 0;
   }
@@ -1084,7 +1084,7 @@ app.patch("/api/services/:id", async (req, res) => {
   if (serviceColumns.has('end_date')) updateData.end_date = end_date || null;
   if (serviceColumns.has('start_time')) updateData.start_time = start_time || null;
   if (serviceColumns.has('end_time')) updateData.end_time = end_time || null;
-  if (is_featured !== undefined && serviceColumns.has('is_featured')) updateData.is_featured = is_featured;
+  if (is_featured !== undefined) updateData.is_featured = is_featured;
   if (serviceColumns.has('aracoins_perk')) {
     updateData.aracoins_perk = aracoins_perk || 0;
   }

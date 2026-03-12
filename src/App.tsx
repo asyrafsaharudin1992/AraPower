@@ -641,6 +641,7 @@ export default function App() {
 
   useEffect(() => {
     const featured = services.filter(s => s.is_featured);
+    setFeaturedIndex(0);
     if (featured.length <= 1) return;
 
     const timer = setInterval(() => {
@@ -836,6 +837,7 @@ export default function App() {
     fetchServices();
     fetchSettings();
     fetchTasks();
+    fetchBranches();
   }, []);
 
   const checkConnection = async () => {
@@ -2738,7 +2740,7 @@ export default function App() {
               {/* Left Column: Form & Toolkit */}
               <div className="lg:col-span-1 space-y-6">
                 {/* Mobile Stats Grid - ios26v style */}
-                {isMobile && currentUser.role === 'staff' && (
+                {isMobile && (currentUser.role === 'staff' || currentUser.role === 'admin') && (
                   <div className="space-y-4">
                     {/* Latest Promotion Slideshow */}
                     {services.filter(s => s.is_featured).length > 0 && (
@@ -5378,6 +5380,7 @@ export default function App() {
                                 <div>
                                   <div className="flex items-center gap-2 mb-1">
                                     <h4 className={`font-bold ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{service.name}</h4>
+                                    {service.is_featured && <Star size={10} className="text-brand-accent" fill="currentColor" />}
                                     <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${service.type === 'Promotion' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
                                       {service.type || 'Service'}
                                     </span>
@@ -7077,7 +7080,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                     <div className="bg-zinc-50 p-6 rounded-3xl border border-zinc-100 flex flex-col items-center text-center">
                       <div className="p-3 bg-white rounded-2xl shadow-sm mb-4">
                         <QRCodeCanvas 
-                          value={`${window.location.origin}/refer?staff=${currentUser.id}`}
+                          value={`${window.location.origin}?ref=${currentUser.promo_code}`}
                           size={120}
                           level="H"
                           includeMargin={false}
