@@ -1607,7 +1607,8 @@ export default function App() {
         setEditingService(null);
         fetchServices();
       } else {
-        alert(data?.error || 'Failed to save service');
+        const errorMsg = data?.message || data?.error || 'Failed to save service';
+        showNotification('error', errorMsg);
       }
     } catch (error) {
       console.error(error);
@@ -1647,7 +1648,8 @@ export default function App() {
         setEditingStaff(null);
         fetchStaff();
       } else {
-        alert(data.error || 'Failed to save staff');
+        const errorMsg = data?.message || data?.error || 'Failed to save staff';
+        showNotification('error', errorMsg);
       }
     } catch (error) {
       console.error(error);

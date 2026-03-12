@@ -84,8 +84,17 @@ if (!supabaseUrl || !supabaseKey) {
   console.error('SUPABASE_SERVICE_ROLE_KEY/VITE_SUPABASE_ANON_KEY:', supabaseKey ? 'SET' : 'MISSING');
 } else {
   try {
-    supabase = createClient(supabaseUrl, supabaseKey);
+    supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      }
+    });
     console.log('Supabase client initialized successfully.');
+    if (supabaseKey.length < 100) {
+      console.warn('WARNING: The Supabase Key seems too short. Ensure you are using the full Service Role or Anon key.');
+    }
   } catch (err: any) {
     console.error('Failed to initialize Supabase client:', err.message);
   }
@@ -1087,6 +1096,13 @@ app.post("/api/services", async (req, res) => {
     
   if (error) {
     console.error('Supabase insert error:', error);
+    if (error.message?.includes('row-level security')) {
+      return res.status(403).json({ 
+        error: "Database Permission Error (RLS)", 
+        message: "The database is blocking this operation. Please run the SQL commands in SUPABASE_FIX.sql in your Supabase SQL Editor.",
+        details: error.message 
+      });
+    }
     return res.status(500).json({ error: error.message, details: error.details, hint: error.hint });
   }
   
@@ -1129,6 +1145,13 @@ app.patch("/api/services/:id", async (req, res) => {
     
   if (error) {
     console.error('Supabase update error:', error);
+    if (error.message?.includes('row-level security')) {
+      return res.status(403).json({ 
+        error: "Database Permission Error (RLS)", 
+        message: "The database is blocking this operation. Please run the SQL commands in SUPABASE_FIX.sql in your Supabase SQL Editor.",
+        details: error.message 
+      });
+    }
     return res.status(500).json({ error: error.message, details: error.details, hint: error.hint });
   }
   res.json({ success: true });
