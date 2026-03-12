@@ -198,22 +198,78 @@ const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDelet
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return null;
-    return new Date(dateStr).toLocaleDateString('en-GB', {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${d} ${months[m-1]} ${y}`;
+    }
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return null;
+    return date.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'short',
       year: 'numeric'
     });
   };
 
+  const getStatus = () => {
+    if (!item.start_date && !item.end_date) return 'active';
+    const now = new Date();
+    
+    const parseDate = (d: string) => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        const [y, m, day] = d.split('-').map(Number);
+        return new Date(y, m - 1, day);
+      }
+      return new Date(d);
+    };
+
+    const start = item.start_date ? parseDate(item.start_date) : null;
+    const end = item.end_date ? parseDate(item.end_date) : null;
+    
+    if (start) {
+      if (item.start_time) {
+        const [h, m] = item.start_time.split(':').map(Number);
+        start.setHours(h, m, 0, 0);
+      } else {
+        start.setHours(0, 0, 0, 0);
+      }
+      if (now < start) return 'upcoming';
+    }
+    
+    if (end) {
+      if (item.end_time) {
+        const [h, m] = item.end_time.split(':').map(Number);
+        end.setHours(h, m, 59, 999);
+      } else {
+        end.setHours(23, 59, 59, 999);
+      }
+      if (now > end) return 'expired';
+    }
+    
+    return 'active';
+  };
+
+  const status = getStatus();
+
   return (
     <div className={`p-6 rounded-[2.5rem] border transition-all ${isMobile ? 'bg-[#0f172a] border-white/5' : 'bg-white border-zinc-100 shadow-sm hover:border-violet-200'}`}>
       <div className="flex justify-between items-start mb-6">
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center flex-wrap gap-2 mb-2">
             <h4 className={`text-xl font-black tracking-tight ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{item.name}</h4>
-            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${item.type === 'Promotion' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
-              {item.type || 'Service'}
-            </span>
+            <div className="flex gap-1.5">
+              <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${item.type === 'Promotion' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                {item.type || 'Service'}
+              </span>
+              <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                status === 'active' ? 'bg-emerald-100 text-emerald-600' : 
+                status === 'upcoming' ? 'bg-amber-100 text-amber-600' : 
+                'bg-rose-100 text-rose-600'
+              }`}>
+                {status}
+              </span>
+            </div>
           </div>
           <p className={`text-xs font-medium leading-relaxed mb-4 ${isMobile ? 'text-[#f5f5dc]/60' : 'text-zinc-500'} line-clamp-2`}>{item.description || 'No description provided'}</p>
           
@@ -250,17 +306,19 @@ const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDelet
         )}
       </div>
 
-      <div className={`grid grid-cols-2 gap-4 mb-6 p-4 rounded-2xl ${isMobile ? 'bg-white/5' : 'bg-zinc-50'}`}>
+      <div className={`grid grid-cols-3 gap-2 mb-6 p-4 rounded-2xl ${isMobile ? 'bg-white/5' : 'bg-zinc-50'}`}>
         <div>
-          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Base Price</p>
-          <p className={`text-sm font-black ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{clinicProfile.currency}{item.base_price.toFixed(2)}</p>
+          <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Base Price</p>
+          <p className={`text-xs font-black ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{clinicProfile.currency}{item.base_price.toFixed(0)}</p>
         </div>
-        {item.promo_price && (
-          <div>
-            <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Promo Price</p>
-            <p className="text-sm font-black text-orange-500">{clinicProfile.currency}{item.promo_price.toFixed(2)}</p>
-          </div>
-        )}
+        <div>
+          <p className="text-[8px] font-black text-orange-400 uppercase tracking-widest mb-1">Promo Price</p>
+          <p className="text-xs font-black text-orange-500">{item.promo_price ? `${clinicProfile.currency}${item.promo_price.toFixed(0)}` : '-'}</p>
+        </div>
+        <div className={`border-l pl-2 ${isMobile ? 'border-white/10' : 'border-zinc-200'}`}>
+          <p className="text-[8px] font-black text-brand-accent uppercase tracking-widest mb-1">Incentive</p>
+          <p className="text-xs font-black text-brand-accent">{clinicProfile.currency}{item.commission_rate.toFixed(2)}</p>
+        </div>
       </div>
 
       {item.posters && item.posters.length > 0 && (
@@ -4875,8 +4933,24 @@ export default function App() {
                             <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Start Date</label>
                             <div className="relative">
                               <DatePicker
-                                selected={editingService?.start_date ? new Date(editingService.start_date) : null}
-                                onChange={(date: Date | null) => setEditingService(prev => ({ ...prev, start_date: date?.toISOString() }))}
+                                selected={editingService?.start_date ? (() => {
+                                  const d = editingService.start_date;
+                                  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+                                    const [y, m, day] = d.split('-').map(Number);
+                                    return new Date(y, m - 1, day);
+                                  }
+                                  return new Date(d);
+                                })() : null}
+                                onChange={(date: Date | null) => {
+                                  if (!date) {
+                                    setEditingService(prev => ({ ...prev, start_date: undefined }));
+                                    return;
+                                  }
+                                  const y = date.getFullYear();
+                                  const m = (date.getMonth() + 1).toString().padStart(2, '0');
+                                  const d = date.getDate().toString().padStart(2, '0');
+                                  setEditingService(prev => ({ ...prev, start_date: `${y}-${m}-${d}` }));
+                                }}
                                 className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                                 placeholderText="Select start date"
                                 dateFormat="dd/MM/yyyy"
@@ -4888,8 +4962,24 @@ export default function App() {
                             <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">End Date</label>
                             <div className="relative">
                               <DatePicker
-                                selected={editingService?.end_date ? new Date(editingService.end_date) : null}
-                                onChange={(date: Date | null) => setEditingService(prev => ({ ...prev, end_date: date?.toISOString() }))}
+                                selected={editingService?.end_date ? (() => {
+                                  const d = editingService.end_date;
+                                  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+                                    const [y, m, day] = d.split('-').map(Number);
+                                    return new Date(y, m - 1, day);
+                                  }
+                                  return new Date(d);
+                                })() : null}
+                                onChange={(date: Date | null) => {
+                                  if (!date) {
+                                    setEditingService(prev => ({ ...prev, end_date: undefined }));
+                                    return;
+                                  }
+                                  const y = date.getFullYear();
+                                  const m = (date.getMonth() + 1).toString().padStart(2, '0');
+                                  const d = date.getDate().toString().padStart(2, '0');
+                                  setEditingService(prev => ({ ...prev, end_date: `${y}-${m}-${d}` }));
+                                }}
                                 className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
                                 placeholderText="Select end date"
                                 dateFormat="dd/MM/yyyy"
@@ -5213,9 +5303,27 @@ export default function App() {
                                     <div className="flex items-center gap-1 mt-1 text-[8px] font-bold text-zinc-500">
                                       <Clock size={8} />
                                       <span>
-                                        {service.start_date ? new Date(service.start_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Start'} 
+                                        {(() => {
+                                          const d = service.start_date;
+                                          if (!d) return 'Start';
+                                          if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+                                            const [y, m, day] = d.split('-').map(Number);
+                                            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                            return `${day} ${months[m-1]} ${y}`;
+                                          }
+                                          return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                                        })()} 
                                         {' - '} 
-                                        {service.end_date ? new Date(service.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'End'}
+                                        {(() => {
+                                          const d = service.end_date;
+                                          if (!d) return 'End';
+                                          if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+                                            const [y, m, day] = d.split('-').map(Number);
+                                            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                            return `${day} ${months[m-1]} ${y}`;
+                                          }
+                                          return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                                        })()}
                                       </span>
                                     </div>
                                   )}
