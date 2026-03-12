@@ -158,6 +158,7 @@ interface ClinicProfile {
   email: string;
   currency: string;
   logoUrl?: string;
+  customDomain?: string;
 }
 
 const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, isMobile: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: number) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
@@ -467,6 +468,26 @@ AraPower shall not be liable for any indirect, incidental, special, consequentia
 ## 6. Changes to Terms
 We reserve the right to modify these terms at any time. Your continued use of the service after such changes constitutes your acceptance of the new terms.
 `;
+
+const getShareUrl = (customDomain?: string) => {
+  if (customDomain) {
+    let domain = customDomain.trim();
+    if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+      domain = 'https://' + domain;
+    }
+    if (domain.endsWith('/')) {
+      domain = domain.slice(0, -1);
+    }
+    return domain;
+  }
+  const origin = window.location.origin;
+  // If we're in the dev environment, replace 'ais-dev-' with 'ais-pre-' to get the public share URL
+  // This allows the QR code to be scanned from a mobile device that isn't logged into AI Studio
+  if (origin.includes('ais-dev-')) {
+    return origin.replace('ais-dev-', 'ais-pre-');
+  }
+  return origin;
+};
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<Staff | null>(() => {
@@ -4197,7 +4218,7 @@ export default function App() {
                   <div className={`flex flex-col items-center p-8 rounded-[2.5rem] border ${isMobile ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
                     <div className={`p-6 rounded-[2rem] shadow-sm mb-6 bg-white`}>
                       <QRCodeCanvas 
-                        value={`${window.location.origin}?ref=${currentUser.promo_code}`}
+                        value={`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`}
                         size={180}
                         level="H"
                         includeMargin={false}
@@ -4228,7 +4249,7 @@ export default function App() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <button 
                         onClick={() => {
-                          const url = `${window.location.origin}?ref=${currentUser.promo_code}`;
+                          const url = `${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`;
                           const text = `Hi! Book your appointment at our clinic using my referral link: ${url}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                         }}
@@ -4239,7 +4260,7 @@ export default function App() {
                       </button>
                       <button 
                         onClick={() => {
-                          const url = `${window.location.origin}?ref=${currentUser.promo_code}`;
+                          const url = `${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`;
                           navigator.clipboard.writeText(url);
                           alert('Link copied!');
                         }}
@@ -5994,6 +6015,17 @@ export default function App() {
                         />
                       </div>
                     </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Custom Domain (Optional)</label>
+                      <input 
+                        type="text"
+                        value={clinicProfile.customDomain || ''}
+                        onChange={(e) => setClinicProfile({ ...clinicProfile, customDomain: e.target.value })}
+                        className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
+                        placeholder="e.g., refer.myclinic.com"
+                      />
+                      <p className="text-[10px] text-zinc-400 mt-1.5 ml-1">If set, this domain will be used for QR codes and referral links.</p>
+                    </div>
                     <button 
                       onClick={async () => {
                         setIsSavingSetup(true);
@@ -7080,7 +7112,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                     <div className="bg-zinc-50 p-6 rounded-3xl border border-zinc-100 flex flex-col items-center text-center">
                       <div className="p-3 bg-white rounded-2xl shadow-sm mb-4">
                         <QRCodeCanvas 
-                          value={`${window.location.origin}?ref=${currentUser.promo_code}`}
+                          value={`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`}
                           size={120}
                           level="H"
                           includeMargin={false}
