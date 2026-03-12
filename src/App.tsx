@@ -694,6 +694,7 @@ export default function App() {
   const [selectedService, setSelectedService] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [featuredIndex, setFeaturedIndex] = useState(0);
+  const [serviceSlideshowIndex, setServiceSlideshowIndex] = useState(0);
 
   useEffect(() => {
     const featured = services.filter(s => s.is_featured);
@@ -703,6 +704,16 @@ export default function App() {
     const timer = setInterval(() => {
       setFeaturedIndex(prev => (prev + 1) % featured.length);
     }, 5000);
+
+    return () => clearInterval(timer);
+  }, [services]);
+
+  useEffect(() => {
+    if (services.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setServiceSlideshowIndex(prev => (prev + 1) % services.length);
+    }, 6000);
 
     return () => clearInterval(timer);
   }, [services]);
@@ -2810,11 +2821,11 @@ export default function App() {
             >
               {/* Left Column: Form & Toolkit */}
               <div className="lg:col-span-1 space-y-6">
-                {/* Mobile Stats Grid - ios26v style */}
-                {isMobile && (currentUser.role === 'staff' || currentUser.role === 'admin') && (
-                  <div className="space-y-4">
-                    {/* Latest Promotion Slideshow */}
-                    {services.filter(s => s.is_featured).length > 0 && (
+                {/* Stats & Services Column */}
+                {(currentUser.role === 'staff' || currentUser.role === 'admin') && (
+                  <div className="space-y-6">
+                    {/* Latest Promotion Slideshow (Mobile Only) */}
+                    {isMobile && services.filter(s => s.is_featured).length > 0 && (
                       <div className="relative overflow-hidden bg-brand-surface p-8 rounded-[2.5rem] border border-white/10 shadow-sm min-h-[200px] flex flex-col justify-center">
                         <div className="absolute top-8 left-8 flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-brand-accent animate-pulse" />
@@ -2889,6 +2900,82 @@ export default function App() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Service Catalog Slideshow Widget */}
+                    {services.length > 0 && (
+                      <button 
+                        onClick={() => setActiveTab('promotions')}
+                        className="w-full text-left bg-zinc-900 rounded-[2.5rem] p-8 relative overflow-hidden shadow-2xl shadow-zinc-900/20 group active:scale-[0.98] transition-all"
+                      >
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-accent/10 rounded-full blur-[100px] -mr-32 -mt-32" />
+                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-brand-accent/5 rounded-full blur-[80px] -ml-24 -mb-24" />
+                        
+                        <div className="relative z-10">
+                          <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-2xl bg-brand-accent/20 flex items-center justify-center">
+                                <Stethoscope className="text-brand-accent" size={20} />
+                              </div>
+                              <div>
+                                <h3 className="text-white font-black text-lg tracking-tight">Service Catalog</h3>
+                                <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Explore our offerings</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-1">
+                              {services.map((_, idx) => (
+                                <div
+                                  key={idx}
+                                  className={`h-1 rounded-full transition-all duration-500 ${idx === serviceSlideshowIndex ? 'w-6 bg-brand-accent' : 'w-2 bg-white/10'}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+
+                          <AnimatePresence mode="wait">
+                            <motion.div
+                              key={serviceSlideshowIndex}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              className="space-y-4"
+                            >
+                              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-accent/10 border border-brand-accent/20">
+                                <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
+                                <span className="text-brand-accent text-[10px] font-black uppercase tracking-widest">
+                                  {services[serviceSlideshowIndex].type || 'General Service'}
+                                </span>
+                              </div>
+                              <h2 className="text-2xl font-black text-white tracking-tighter leading-tight">
+                                {services[serviceSlideshowIndex].name}
+                              </h2>
+                              <p className="text-zinc-400 text-xs leading-relaxed line-clamp-2">
+                                {services[serviceSlideshowIndex].description || 'High-quality healthcare service provided by our expert medical team.'}
+                              </p>
+                              <div className="flex items-center justify-between pt-2">
+                                <div className="flex items-center gap-4">
+                                  <div>
+                                    <p className="text-zinc-500 text-[8px] font-bold uppercase tracking-widest mb-0.5">Price</p>
+                                    <p className="text-white text-sm font-black">
+                                      {clinicProfile.currency}{services[serviceSlideshowIndex].base_price.toFixed(0)}
+                                    </p>
+                                  </div>
+                                  <div className="w-px h-6 bg-white/10" />
+                                  <div>
+                                    <p className="text-zinc-500 text-[8px] font-bold uppercase tracking-widest mb-0.5">Incentive</p>
+                                    <p className="text-brand-accent text-sm font-black">
+                                      {clinicProfile.currency}{services[serviceSlideshowIndex].commission_rate.toFixed(0)}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-white group-hover:bg-brand-accent group-hover:text-white transition-colors">
+                                  <ArrowRight size={16} />
+                                </div>
+                              </div>
+                            </motion.div>
+                          </AnimatePresence>
+                        </div>
+                      </button>
+                    )}
 
                     {/* Service Performance - Approved Commissions */}
                     <div className="pt-4">
