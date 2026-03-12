@@ -51,7 +51,8 @@ import {
   Star,
   Sparkles,
   MapPin,
-  Tag
+  Tag,
+  Palette
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -255,6 +256,44 @@ const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDelet
 
   const status = getStatus();
 
+  const getCountdown = () => {
+    if (!item.end_date) return null;
+    const now = new Date();
+    
+    const parseDate = (d: string) => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        const [y, m, day] = d.split('-').map(Number);
+        return new Date(y, m - 1, day);
+      }
+      return new Date(d);
+    };
+
+    const end = parseDate(item.end_date);
+    if (item.end_time) {
+      const [h, m] = item.end_time.split(':').map(Number);
+      end.setHours(h, m, 59, 999);
+    } else {
+      end.setHours(23, 59, 59, 999);
+    }
+
+    const diffTime = end.getTime() - now.getTime();
+    if (diffTime <= 0) return null; // Expired
+
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays <= 7) {
+      if (diffDays === 1) {
+        const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
+        if (diffHours < 24) {
+          return `Ends in ${diffHours} hour${diffHours > 1 ? 's' : ''}`;
+        }
+      }
+      return `Ends in ${diffDays} day${diffDays > 1 ? 's' : ''}`;
+    }
+    return null;
+  };
+
+  const countdown = getCountdown();
+
   return (
     <div className={`p-6 rounded-[2.5rem] border transition-all ${isMobile ? 'bg-[#0f172a] border-white/5' : 'bg-white border-zinc-100 shadow-sm hover:border-violet-200'}`}>
       <div className="flex justify-between items-start mb-6">
@@ -295,6 +334,14 @@ const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDelet
                   </span>
                 </div>
               )}
+              {countdown && status === 'active' && (
+                <div className="flex items-center gap-2 mt-1 pt-1.5 border-t border-current/10 text-orange-500">
+                  <Clock size={12} className="shrink-0" />
+                  <span className="text-[10px] font-black uppercase tracking-widest animate-pulse">
+                    {countdown}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -327,33 +374,21 @@ const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDelet
 
       {item.posters && item.posters.length > 0 && (
         <div className="space-y-4">
-          <div className="relative group overflow-hidden rounded-[2rem]">
-            <img src={item.posters[0]} alt={item.name} className="w-full aspect-[4/3] object-cover transition-transform duration-500 group-hover:scale-110" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <button 
-              onClick={() => handleDownloadPoster(item.posters![0], `${item.name}-poster.jpg`)}
-              className={`absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2.5 bg-white text-zinc-900 rounded-2xl shadow-2xl shadow-black/20 transition-all hover:scale-105 active:scale-95 ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-            >
-              <Download size={16} className="text-brand-accent" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Download Poster</span>
-            </button>
+          <div className="flex overflow-x-auto gap-4 pb-4 custom-scrollbar snap-x">
+            {item.posters.map((poster, idx) => (
+              <div key={idx} className={`relative group overflow-hidden rounded-[2rem] shrink-0 ${item.posters!.length > 1 ? 'w-[85%]' : 'w-full'} snap-center`}>
+                <img src={poster} alt={`${item.name} ${idx + 1}`} className="w-full aspect-[4/3] object-cover transition-transform duration-500 group-hover:scale-110" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <button 
+                  onClick={() => handleDownloadPoster(poster, `${item.name}-poster-${idx + 1}.jpg`)}
+                  className={`absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2.5 bg-white text-zinc-900 rounded-2xl shadow-2xl shadow-black/20 transition-all hover:scale-105 active:scale-95 ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                >
+                  <Download size={16} className="text-brand-accent" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Download</span>
+                </button>
+              </div>
+            ))}
           </div>
-          
-          {item.posters.length > 1 && (
-            <div className="grid grid-cols-3 gap-3">
-              {item.posters.slice(1).map((poster, idx) => (
-                <div key={idx} className="relative group overflow-hidden rounded-2xl aspect-square">
-                  <img src={poster} alt={`${item.name} ${idx + 2}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                  <button 
-                    onClick={() => handleDownloadPoster(poster, `${item.name}-poster-${idx + 2}.jpg`)}
-                    className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Download size={16} className="text-white" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -714,6 +749,22 @@ export default function App() {
     message: '',
     onConfirm: () => {}
   });
+
+  // Theme state
+  const THEMES: Record<string, { accent: string, surface: string, name: string }> = {
+    pastel: { accent: '#F2994A', surface: '#FFF5E9', name: 'Pastel Orange' },
+    red: { accent: '#E11D48', surface: '#FFF1F2', name: 'Vibrant Red' },
+    blue: { accent: '#2563EB', surface: '#EFF6FF', name: 'Classic Blue' },
+    pink: { accent: '#DB2777', surface: '#FDF2F8', name: 'Soft Pink' },
+  };
+  const [selectedTheme, setSelectedTheme] = useState<string>(localStorage.getItem('app-theme') || 'pastel');
+
+  useEffect(() => {
+    const theme = THEMES[selectedTheme] || THEMES.pastel;
+    document.documentElement.style.setProperty('--brand-accent', theme.accent);
+    document.documentElement.style.setProperty('--brand-surface', theme.surface);
+    localStorage.setItem('app-theme', selectedTheme);
+  }, [selectedTheme]);
 
   const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
     setNotification({ type, message });
@@ -2274,20 +2325,19 @@ export default function App() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative items-center justify-center"
+          className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative"
         >
           {/* Wavy Top Background - Same as Login */}
-          <div className="absolute top-0 left-0 right-0 h-[45%] overflow-hidden z-0">
-            <div className="absolute inset-0 bg-brand-primary" />
+          <div className="relative w-full h-[45%] shrink-0 overflow-hidden z-0 bg-brand-primary">
             <svg className="absolute bottom-0 w-full h-40 text-white/10 fill-current translate-y-4" viewBox="0 0 1440 320" preserveAspectRatio="none">
               <path d="M0,160C320,300,640,0,1440,160L1440,320L0,320Z"></path>
             </svg>
-            <svg className="absolute bottom-0 w-full h-32 text-white fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none">
+            <svg className="absolute bottom-0 w-full h-32 text-white fill-current translate-y-[1px] scale-y-[1.01]" viewBox="0 0 1440 320" preserveAspectRatio="none">
               <path d="M0,224C480,350,960,100,1440,224L1440,320L0,320Z"></path>
             </svg>
           </div>
 
-          <div className="relative z-10 text-center px-8">
+          <div className="flex-1 flex flex-col justify-center relative z-10 text-center px-8 pb-10">
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -4558,6 +4608,35 @@ export default function App() {
                     <p className="text-sm font-bold text-zinc-900">Can I refer patients to any branch?</p>
                     <p className="text-xs text-zinc-500 leading-relaxed">Yes! Patients can select their preferred branch during booking, and you will still receive the referral credit regardless of the location.</p>
                   </div>
+                  <div className="space-y-2 md:col-span-2 pt-4 border-t border-zinc-50">
+                    <p className="text-sm font-bold text-zinc-900">What do the referral statuses mean?</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                      <div>
+                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Entered</p>
+                        <p className="text-xs text-zinc-500">Referral is logged (e.g., patient booked an appointment).</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Completed</p>
+                        <p className="text-xs text-zinc-500">Patient has attended the appointment.</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Buffer</p>
+                        <p className="text-xs text-zinc-500">7-day safety period after payment to finalize the transaction.</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Approved</p>
+                        <p className="text-xs text-zinc-500">Incentive is verified and ready for the next payout cycle.</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-brand-accent uppercase tracking-widest mb-1">Payout Processed</p>
+                        <p className="text-xs text-zinc-500">The incentive has been successfully paid out to you.</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Rejected</p>
+                        <p className="text-xs text-zinc-500">Referral invalidated (e.g., no-show or duplicate entry).</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -4642,7 +4721,7 @@ export default function App() {
 
                   <div className={`pt-6 border-t ${isMobile ? 'border-white/5' : 'border-zinc-100'}`}>
                     <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
-                      <MapPin size={14} className={isMobile ? 'text-brand-accent' : 'text-violet-500'} />
+                      <MapPin size={14} className={isMobile ? 'text-brand-accent' : 'text-brand-accent'} />
                       Branch Assignment
                     </h4>
                     <div className="space-y-4">
@@ -4702,7 +4781,7 @@ export default function App() {
 
                   <div className={`pt-6 border-t ${isMobile ? 'border-white/5' : 'border-zinc-100'}`}>
                     <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
-                      <DollarSign size={14} className={isMobile ? 'text-brand-accent' : 'text-violet-500'} />
+                      <DollarSign size={14} className={isMobile ? 'text-brand-accent' : 'text-brand-accent'} />
                       Bank Account Details
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -4769,7 +4848,40 @@ export default function App() {
 
                   <div className={`pt-6 border-t ${isMobile ? 'border-white/5' : 'border-zinc-100'}`}>
                     <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
-                      <BookOpen size={14} className={isMobile ? 'text-brand-accent' : 'text-violet-500'} />
+                      <Palette size={14} className={isMobile ? 'text-brand-accent' : 'text-brand-accent'} />
+                      Appearance & Theme
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {Object.entries(THEMES).map(([key, theme]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setSelectedTheme(key)}
+                          className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
+                            selectedTheme === key 
+                              ? (isMobile ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-50')
+                              : (isMobile ? 'border-white/5 bg-[#0f172a]' : 'border-zinc-100 bg-zinc-50 hover:border-zinc-200')
+                          }`}
+                        >
+                          <div 
+                            className="w-8 h-8 rounded-full shadow-inner"
+                            style={{ backgroundColor: theme.accent }}
+                          />
+                          <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                            selectedTheme === key 
+                              ? (isMobile ? 'text-brand-accent' : 'text-violet-700')
+                              : (isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400')
+                          }`}>
+                            {theme.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className={`pt-6 border-t ${isMobile ? 'border-white/5' : 'border-zinc-100'}`}>
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
+                      <BookOpen size={14} className={isMobile ? 'text-brand-accent' : 'text-brand-accent'} />
                       Resources
                     </h4>
                     <button 
@@ -4778,11 +4890,11 @@ export default function App() {
                       className={`w-full px-6 py-4 rounded-2xl text-sm font-bold transition-all flex items-center justify-between group mb-4 ${
                         isMobile 
                           ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] hover:bg-brand-accent/10' 
-                          : 'bg-violet-50 border-violet-100 text-violet-700 hover:bg-violet-100'
+                          : 'bg-brand-surface border-brand-accent/10 text-brand-accent hover:bg-brand-accent/5'
                       }`}
                     >
                       <span>View User Guide & FAQ</span>
-                      <ChevronRight size={16} className={`${isMobile ? 'text-[#f5f5dc]/40' : 'text-violet-400'} group-hover:text-brand-accent transition-colors`} />
+                      <ChevronRight size={16} className={`${isMobile ? 'text-[#f5f5dc]/40' : 'text-brand-accent/60'} group-hover:text-brand-accent transition-colors`} />
                     </button>
                     <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isMobile ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
                       <Lock size={14} className={isMobile ? 'text-[#f5f5dc]/20' : 'text-zinc-400'} />
@@ -4829,14 +4941,15 @@ export default function App() {
                 </form>
               </div>
 
-              <div className={`${isMobile ? 'bg-brand-accent/10 border-brand-accent/20' : 'bg-violet-50 border-violet-100'} p-8 rounded-[2.5rem] border`}>
-                <div className="flex items-start gap-4">
-                  <div className={`w-10 h-10 ${isMobile ? 'bg-brand-accent' : 'bg-violet-500'} text-white rounded-2xl flex items-center justify-center shrink-0`}>
+              <div className="bg-zinc-900 text-white p-8 rounded-[2.5rem] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-brand-accent/10 rounded-full blur-3xl -mr-16 -mt-16" />
+                <div className="flex items-start gap-4 relative z-10">
+                  <div className="w-10 h-10 bg-brand-accent text-white rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-brand-accent/20">
                     <Zap size={20} />
                   </div>
                   <div>
-                    <h4 className={`font-bold mb-1 ${isMobile ? 'text-brand-accent' : 'text-violet-900'}`}>Security Tip</h4>
-                    <p className={`text-xs leading-relaxed ${isMobile ? 'text-[#f5f5dc]/70' : 'text-violet-700'}`}>Keep your bank details updated to ensure smooth incentive payouts. Your information is encrypted and only visible to the clinic administrator.</p>
+                    <h4 className="font-bold mb-1 text-brand-accent">Security Tip</h4>
+                    <p className="text-xs leading-relaxed text-zinc-300">Keep your bank details updated to ensure smooth incentive payouts. Your information is encrypted and only visible to the clinic administrator.</p>
                   </div>
                 </div>
               </div>
@@ -5133,75 +5246,7 @@ export default function App() {
                           />
                         </div>
 
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Marketing Posters</label>
-                          <div className="grid grid-cols-3 gap-4">
-                            {(editingService?.posters || []).map((poster, idx) => (
-                              <div key={idx} className="relative group">
-                                <img src={poster} alt={`Poster ${idx}`} className="w-full h-24 object-cover rounded-xl" />
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingService(prev => ({
-                                    ...prev,
-                                    posters: prev?.posters?.filter((_, i) => i !== idx)
-                                  }))}
-                                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
-                            ))}
-                            <div className="relative w-full h-24 border-2 border-dashed border-zinc-200 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-violet-300 transition-colors">
-                              <input 
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                onChange={async (e) => {
-                                  const files = e.target.files;
-                                  if (!files || !currentUser) return;
-                                  
-                                  setIsUploading(true);
-                                  try {
-                                    const authUid = currentUser.id;
 
-                                    const newPosters = [];
-                                    for (const file of Array.from(files)) {
-                                      const fileExt = file.name.split('.').pop();
-                                      const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
-                                      // The RLS policy requires the Supabase Auth UUID to be the first part of the path
-                                      const filePath = `${authUid}/posters/${fileName}`;
-                                      
-                                      const { data, error } = await supabase.storage
-                                        .from('clinic-assets')
-                                        .upload(filePath, file);
-                                      
-                                      if (error) throw error;
-                                      
-                                      const { data: { publicUrl } } = supabase.storage
-                                        .from('clinic-assets')
-                                        .getPublicUrl(filePath);
-                                        
-                                      newPosters.push(publicUrl);
-                                    }
-                                    
-                                    setEditingService(prev => ({
-                                      ...prev,
-                                      posters: [...(prev?.posters || []), ...newPosters]
-                                    }));
-                                  } catch (error: any) {
-                                    console.error('Error uploading posters:', error);
-                                    alert('Failed to upload posters: ' + error.message);
-                                  } finally {
-                                    setIsUploading(false);
-                                  }
-                                }}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                              />
-                              <Plus size={20} className="text-zinc-400" />
-                              <span className="text-[10px] font-bold text-zinc-400 uppercase">Add</span>
-                            </div>
-                          </div>
-                        </div>
 
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
@@ -5307,6 +5352,7 @@ export default function App() {
                               type="file"
                               accept="image/*"
                               multiple
+                              disabled={isUploading}
                               onChange={async (e) => {
                                 const files = e.target.files;
                                 if (!files || !currentUser) return;
@@ -5346,24 +5392,33 @@ export default function App() {
                                   setIsUploading(false);
                                 }
                               }}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 disabled:cursor-not-allowed"
                             />
                             <div className={`w-full py-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${isMobile ? 'bg-[#0f172a] border-white/10 group-hover:border-brand-accent' : 'bg-zinc-50 border-zinc-200 group-hover:border-violet-300'}`}>
-                              <Plus size={20} className="text-zinc-400" />
-                              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Add Posters (Multiple)</p>
+                              {isUploading ? (
+                                <>
+                                  <RefreshCw size={24} className="text-brand-accent animate-spin" />
+                                  <p className="text-[10px] font-bold text-brand-accent uppercase tracking-widest">Uploading...</p>
+                                </>
+                              ) : (
+                                <>
+                                  <Plus size={24} className="text-zinc-400" />
+                                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Add Posters (Multiple)</p>
+                                </>
+                              )}
                             </div>
                           </div>
                           {editingService?.posters && editingService.posters.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-4">
+                            <div className="flex overflow-x-auto gap-4 mt-6 pb-4 custom-scrollbar snap-x">
                               {editingService.posters.map((img, idx) => (
-                                <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-zinc-100 group">
+                                <div key={idx} className="relative w-32 h-32 shrink-0 rounded-2xl overflow-hidden border border-zinc-100 group shadow-sm snap-start">
                                   <img src={img} alt="Poster" className="w-full h-full object-cover" />
                                   <button 
                                     type="button"
                                     onClick={() => setEditingService(prev => ({ ...prev, posters: prev?.posters?.filter((_, i) => i !== idx) }))}
                                     className="absolute inset-0 bg-red-500/80 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
                                   >
-                                    <Trash2 size={12} />
+                                    <Trash2 size={20} />
                                   </button>
                                 </div>
                               ))}

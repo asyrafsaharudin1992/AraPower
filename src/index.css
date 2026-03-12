@@ -25,15 +25,20 @@
   }
 }
 
+:root {
+  --brand-accent: #F2994A;
+  --brand-surface: #FFF5E9;
+}
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --color-brand-primary: #1A3D4C;
-  --color-brand-secondary: #F2994A;
-  --color-brand-accent: #F2994A;
+  --color-brand-secondary: var(--brand-accent);
+  --color-brand-accent: var(--brand-accent);
   --color-brand-bg: #FFFFFF;
-  --color-brand-surface: #FFF5E9;
-  --color-brand-peach: #F2994A;
-  --color-brand-pink: #F2994A;
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-peach: var(--brand-accent);
+  --color-brand-pink: var(--brand-accent);
 }
 
 @utility grid-rows-0 {
