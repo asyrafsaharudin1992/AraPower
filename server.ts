@@ -984,17 +984,15 @@ app.post("/api/services", async (req, res) => {
     name,
     base_price,
     commission_rate,
-    allowances_json: JSON.stringify(allowances || {}),
-    description,
-    posters: JSON.stringify(posters || []),
-    promo_price,
-    type,
-    branches: JSON.stringify(branches || [])
+    allowances_json: JSON.stringify(allowances || {})
   };
 
-  if (serviceColumns.has('aracoins_perk')) {
-    insertData.aracoins_perk = aracoins_perk || 0;
-  }
+  if (serviceColumns.has('description')) insertData.description = description;
+  if (serviceColumns.has('posters')) insertData.posters = JSON.stringify(posters || []);
+  if (serviceColumns.has('promo_price')) insertData.promo_price = promo_price;
+  if (serviceColumns.has('type')) insertData.type = type;
+  if (serviceColumns.has('branches')) insertData.branches = JSON.stringify(branches || []);
+  if (serviceColumns.has('aracoins_perk')) insertData.aracoins_perk = aracoins_perk || 0;
 
   const { data, error } = await supabase
     .from('services')
@@ -1017,17 +1015,15 @@ app.patch("/api/services/:id", async (req, res) => {
     name,
     base_price,
     commission_rate,
-    allowances_json: JSON.stringify(allowances || {}),
-    description,
-    posters: JSON.stringify(posters || []),
-    promo_price,
-    type,
-    branches: JSON.stringify(branches || [])
+    allowances_json: JSON.stringify(allowances || {})
   };
 
-  if (serviceColumns.has('aracoins_perk')) {
-    updateData.aracoins_perk = aracoins_perk || 0;
-  }
+  if (serviceColumns.has('description')) updateData.description = description;
+  if (serviceColumns.has('posters')) updateData.posters = JSON.stringify(posters || []);
+  if (serviceColumns.has('promo_price')) updateData.promo_price = promo_price;
+  if (serviceColumns.has('type')) updateData.type = type;
+  if (serviceColumns.has('branches')) updateData.branches = JSON.stringify(branches || []);
+  if (serviceColumns.has('aracoins_perk')) updateData.aracoins_perk = aracoins_perk || 0;
 
   const { error } = await supabase
     .from('services')
