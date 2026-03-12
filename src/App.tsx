@@ -508,6 +508,35 @@ export default function App() {
   const [branchPerformance, setBranchPerformance] = useState<any>(null);
   const [authSettings, setAuthSettings] = useState({ allowRegistration: true });
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
+  const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmDialog({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
   
   // Task State
   const [tasks, setTasks] = useState<any[]>([]);
@@ -1061,24 +1090,30 @@ export default function App() {
   };
 
   const processPayouts = async () => {
-    if (!confirm('Are you sure you want to mark these payouts as processed? This will update the status of all approved referrals for the selected staff.')) return;
+    if (selectedPayoutStaff.length === 0) return;
     
-    const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && s.approved_earnings > 0);
-    
-    for (const staff of staffToPay) {
-      const approvedRefs = referrals.filter(r => r.staff_id === staff.id && r.status === 'approved');
-      for (const ref of approvedRefs) {
-        await safeFetch(`${apiBaseUrl}/api/referrals/${ref.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'payout_processed' })
-        });
+    showConfirm(
+      'Process Payouts',
+      'Are you sure you want to mark these payouts as processed? This will update the status of all approved referrals for the selected staff.',
+      async () => {
+        const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && s.approved_earnings > 0);
+        
+        for (const staff of staffToPay) {
+          const approvedRefs = referrals.filter(r => r.staff_id === staff.id && r.status === 'approved');
+          for (const ref of approvedRefs) {
+            await safeFetch(`${apiBaseUrl}/api/referrals/${ref.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'payout_processed' })
+            });
+          }
+        }
+        
+        fetchReferrals();
+        setSelectedPayoutStaff([]);
+        showNotification('success', 'Payouts processed successfully.');
       }
-    }
-    
-    fetchReferrals();
-    setSelectedPayoutStaff([]);
-    alert('Payouts processed successfully.');
+    );
   };
 
   const checkPromoCode = async (code: string) => {
@@ -1167,17 +1202,21 @@ export default function App() {
   };
 
   const handleDeleteReferral = async (id: number) => {
-    if (confirm('Are you sure you want to delete this referral? This action cannot be undone.')) {
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
-        method: 'DELETE'
-      });
-      if (res.ok) {
-        fetchReferrals();
-        fetchStaff();
-      } else {
-        alert(data.error || 'Delete failed');
+    showConfirm(
+      'Delete Referral',
+      'Are you sure you want to delete this referral? This action cannot be undone.',
+      async () => {
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          fetchReferrals();
+          fetchStaff();
+        } else {
+          showNotification('error', data.error || 'Delete failed');
+        }
       }
-    }
+    );
   };
 
   const handleUpdateProfile = async (profileData: Partial<Staff>) => {
@@ -1298,13 +1337,18 @@ export default function App() {
   };
 
   const handleDeleteService = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this service?')) return;
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/services/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      fetchServices();
-    } else {
-      alert(data?.error || 'Failed to delete service. It may be referenced by existing referrals.');
-    }
+    showConfirm(
+      'Delete Service',
+      'Are you sure you want to delete this service?',
+      async () => {
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/services/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          fetchServices();
+        } else {
+          showNotification('error', data?.error || 'Failed to delete service. It may be referenced by existing referrals.');
+        }
+      }
+    );
   };
 
   const handleSaveStaff = async (e: React.FormEvent) => {
@@ -1333,55 +1377,83 @@ export default function App() {
   };
 
   const handleDeleteStaff = async (id: number) => {
-    if (!confirm('Are you sure you want to move this staff member to the trash bin?')) return;
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      fetchStaff();
-    } else {
-      alert(data.error || 'Delete failed');
-    }
+    showConfirm(
+      'Trash Staff',
+      'Are you sure you want to move this staff member to the trash bin?',
+      async () => {
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          fetchStaff();
+        } else {
+          showNotification('error', data.error || 'Delete failed');
+        }
+      }
+    );
   };
 
   const handleRestoreStaff = async (id: number) => {
-    if (!confirm('Are you sure you want to restore this staff member?')) return;
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/restore`, { method: 'POST' });
-    if (res.ok) {
-      fetchStaff();
-    } else {
-      alert(data.error || 'Restore failed');
-    }
+    showConfirm(
+      'Restore Staff',
+      'Are you sure you want to restore this staff member?',
+      async () => {
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/restore`, { method: 'POST' });
+        if (res.ok) {
+          fetchStaff();
+        } else {
+          showNotification('error', data.error || 'Restore failed');
+        }
+      }
+    );
   };
 
   const handlePermanentDeleteStaff = async (id: number) => {
-    if (!confirm('Are you sure you want to PERMANENTLY delete this staff member? This action cannot be undone.')) return;
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/permanent`, { method: 'DELETE' });
-    if (res.ok) {
-      fetchStaff();
-    } else {
-      alert(data.error || 'Permanent delete failed');
-    }
+    showConfirm(
+      'Permanent Delete',
+      'Are you sure you want to PERMANENTLY delete this staff member? This action cannot be undone.',
+      async () => {
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/permanent`, { method: 'DELETE' });
+        if (res.ok) {
+          fetchStaff();
+        } else {
+          showNotification('error', data.error || 'Permanent delete failed');
+        }
+      }
+    );
   };
 
   const handleRejectStaff = async (id: number) => {
-    if (!confirm('Reject this application? The user will not be able to access the portal.')) return;
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employment_status: 'rejected', is_approved: 0 })
-    });
-    if (res.ok) {
-      fetchStaff();
-    } else {
-      alert(data.error || 'Rejection failed');
-    }
+    showConfirm(
+      'Reject Staff',
+      'Reject this application? The user will not be able to access the portal.',
+      async () => {
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employment_status: 'rejected', is_approved: 0 })
+        });
+        if (res.ok) {
+          fetchStaff();
+          showNotification('success', 'Staff application rejected');
+        } else {
+          showNotification('error', data.error || 'Rejection failed');
+        }
+      }
+    );
   };
 
   const handleResetPassword = async (id: number) => {
-    if (!confirm('Reset password to default "password123"?')) return;
-    const { res } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/reset-password`, { method: 'POST' });
-    if (res.ok) {
-      alert('Password reset successfully');
-    }
+    showConfirm(
+      'Reset Password',
+      'Reset password to default "password123"?',
+      async () => {
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/reset-password`, { method: 'POST' });
+        if (res.ok) {
+          showNotification('success', 'Password reset successfully');
+        } else {
+          showNotification('error', data.error || 'Reset failed');
+        }
+      }
+    );
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -1411,7 +1483,7 @@ export default function App() {
       });
 
       if (res.ok) {
-        alert('Password changed successfully');
+        showNotification('success', 'Password changed successfully');
         setShowPasswordModal(false);
         setPasswordForm({ current: '', new: '', confirm: '' });
       } else {
@@ -1451,10 +1523,15 @@ export default function App() {
   };
 
   const handleDeleteTask = async (id: number) => {
-    if (!confirm('Delete this task?')) return;
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks/${id}`, { method: 'DELETE' });
-    if (res.ok) fetchTasks();
-    else alert(data.error || 'Delete failed');
+    showConfirm(
+      'Delete Task',
+      'Delete this task?',
+      async () => {
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks/${id}`, { method: 'DELETE' });
+        if (res.ok) fetchTasks();
+        else showNotification('error', data.error || 'Delete failed');
+      }
+    );
   };
 
   const handleUpdateTaskStatus = async (id: number, status: string) => {
@@ -5778,11 +5855,15 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                                       <Edit2 size={16} />
                                     </button>
                                     <button 
-                                      onClick={async () => {
-                                        if (confirm(`Are you sure you want to delete branch "${branch.name}"?`)) {
-                                          const { res } = await safeFetch(`${apiBaseUrl}/api/branches/${branch.id}`, { method: 'DELETE' });
-                                          if (res.ok) fetchBranches();
-                                        }
+                                      onClick={() => {
+                                        showConfirm(
+                                          'Delete Branch',
+                                          `Are you sure you want to delete branch "${branch.name}"?`,
+                                          async () => {
+                                            const { res } = await safeFetch(`${apiBaseUrl}/api/branches/${branch.id}`, { method: 'DELETE' });
+                                            if (res.ok) fetchBranches();
+                                          }
+                                        );
                                       }}
                                       className="p-2 text-zinc-400 hover:text-red-600 transition-colors"
                                     >
@@ -6747,6 +6828,76 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                       {isSubmitting ? 'Submitting...' : 'Submit Referral'}
                     </button>
                   </form>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {notification && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="fixed bottom-8 right-8 z-[200]"
+            >
+              <div className={`px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border ${
+                notification.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
+                notification.type === 'error' ? 'bg-red-50 border-red-100 text-red-600' :
+                'bg-blue-50 border-blue-100 text-blue-600'
+              }`}>
+                <div className={`w-2 h-2 rounded-full animate-pulse ${
+                  notification.type === 'success' ? 'bg-emerald-500' :
+                  notification.type === 'error' ? 'bg-red-500' :
+                  'bg-blue-500'
+                }`} />
+                <span className="text-sm font-black tracking-tight">{notification.message}</span>
+                <button onClick={() => setNotification(null)} className="ml-2 opacity-50 hover:opacity-100 transition-opacity">
+                  <PlusCircle size={16} className="rotate-45" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {confirmDialog.isOpen && (
+            <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+              >
+                <div className="p-8 text-center">
+                  <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Trash2 size={32} />
+                  </div>
+                  <h3 className="text-2xl font-black tracking-tighter mb-2">{confirmDialog.title}</h3>
+                  <p className="text-zinc-500 text-sm font-medium leading-relaxed mb-8">
+                    {confirmDialog.message}
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button 
+                      onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+                      className="py-4 rounded-2xl bg-zinc-100 text-zinc-600 font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={confirmDialog.onConfirm}
+                      className="py-4 rounded-2xl bg-red-600 text-white font-black text-xs uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
+                    >
+                      Confirm
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </div>
