@@ -112,6 +112,10 @@ interface Service {
   promo_price?: number;
   type?: 'Service' | 'Promotion';
   branches?: string[];
+  start_date?: string;
+  end_date?: string;
+  start_time?: string;
+  end_time?: string;
 }
 
 interface Referral {
@@ -155,44 +159,139 @@ interface ClinicProfile {
 }
 
 const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, isMobile: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: number) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
+  const handleDownloadPoster = async (url: string, fileName: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const file = new File([blob], fileName, { type: blob.type });
+
+      // Try Web Share API first (better for mobile gallery saving)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: fileName,
+            text: `Poster for ${item.name}`,
+          });
+          return;
+        } catch (shareError) {
+          // If user cancelled or share failed, fall back to download
+          if ((shareError as Error).name !== 'AbortError') {
+            console.error('Share failed:', shareError);
+          }
+        }
+      }
+
+      // Fallback to standard download
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName || 'poster.jpg';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return null;
+    return new Date(dateStr).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
   return (
-    <div className={`p-6 rounded-3xl border transition-all ${isMobile ? 'bg-[#0f172a] border-white/5' : 'bg-white border-zinc-100 shadow-sm hover:border-violet-200'}`}>
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className={`font-bold ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{item.name}</h4>
-            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${item.type === 'Promotion' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+    <div className={`p-6 rounded-[2.5rem] border transition-all ${isMobile ? 'bg-[#0f172a] border-white/5' : 'bg-white border-zinc-100 shadow-sm hover:border-violet-200'}`}>
+      <div className="flex justify-between items-start mb-6">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <h4 className={`text-xl font-black tracking-tight ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{item.name}</h4>
+            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${item.type === 'Promotion' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
               {item.type || 'Service'}
             </span>
           </div>
-          <p className="text-[10px] text-zinc-400 font-medium line-clamp-2">{item.description || 'No description provided'}</p>
+          <p className={`text-xs font-medium leading-relaxed mb-4 ${isMobile ? 'text-[#f5f5dc]/60' : 'text-zinc-500'} line-clamp-2`}>{item.description || 'No description provided'}</p>
+          
+          {(item.start_date || item.end_date || item.start_time || item.end_time) && (
+            <div className={`flex flex-col gap-1 px-3 py-1.5 rounded-xl w-fit ${isMobile ? 'bg-white/5 text-brand-accent' : 'bg-zinc-50 text-zinc-600'}`}>
+              <div className="flex items-center gap-2">
+                <Calendar size={12} className="shrink-0" />
+                <span className="text-[10px] font-black uppercase tracking-widest">
+                  {item.start_date ? formatDate(item.start_date) : 'Start'} 
+                  {' - '} 
+                  {item.end_date ? formatDate(item.end_date) : 'End'}
+                </span>
+              </div>
+              {(item.start_time || item.end_time) && (
+                <div className="flex items-center gap-2">
+                  <Clock size={12} className="shrink-0" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">
+                    {item.start_time || '00:00'} - {item.end_time || '23:59'}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         {currentUser.role === 'admin' && (
-          <div className="flex gap-1">
-            <button onClick={() => setEditingService(item)} className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors">
-              <Edit2 size={14} />
+          <div className="flex gap-2 ml-4">
+            <button onClick={() => setEditingService(item)} className={`p-2 rounded-xl transition-all ${isMobile ? 'bg-white/5 text-[#f5f5dc]/60 hover:text-white' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50'}`}>
+              <Edit2 size={16} />
             </button>
-            <button onClick={() => handleDeleteService(item.id)} className="p-2 text-zinc-400 hover:text-red-500 transition-colors">
-              <Trash2 size={14} />
+            <button onClick={() => handleDeleteService(item.id)} className={`p-2 rounded-xl transition-all ${isMobile ? 'bg-white/5 text-[#f5f5dc]/60 hover:text-red-400' : 'text-zinc-400 hover:text-red-600 hover:bg-red-50'}`}>
+              <Trash2 size={16} />
             </button>
           </div>
         )}
       </div>
-      <div className="space-y-2">
-        <div className="flex justify-between text-xs font-bold text-zinc-500">
-          <span>Base Price</span>
-          <span className={isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}>{clinicProfile.currency}{item.base_price.toFixed(2)}</span>
+
+      <div className={`grid grid-cols-2 gap-4 mb-6 p-4 rounded-2xl ${isMobile ? 'bg-white/5' : 'bg-zinc-50'}`}>
+        <div>
+          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Base Price</p>
+          <p className={`text-sm font-black ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{clinicProfile.currency}{item.base_price.toFixed(2)}</p>
         </div>
         {item.promo_price && (
-          <div className="flex justify-between text-xs font-bold text-orange-500">
-            <span>Promo Price</span>
-            <span>{clinicProfile.currency}{item.promo_price.toFixed(2)}</span>
+          <div>
+            <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Promo Price</p>
+            <p className="text-sm font-black text-orange-500">{clinicProfile.currency}{item.promo_price.toFixed(2)}</p>
           </div>
         )}
       </div>
+
       {item.posters && item.posters.length > 0 && (
-        <div className="mt-4">
-          <img src={item.posters[0]} alt={item.name} className="w-full h-32 object-cover rounded-xl" />
+        <div className="space-y-4">
+          <div className="relative group overflow-hidden rounded-[2rem]">
+            <img src={item.posters[0]} alt={item.name} className="w-full aspect-[4/3] object-cover transition-transform duration-500 group-hover:scale-110" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <button 
+              onClick={() => handleDownloadPoster(item.posters![0], `${item.name}-poster.jpg`)}
+              className={`absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2.5 bg-white text-zinc-900 rounded-2xl shadow-2xl shadow-black/20 transition-all hover:scale-105 active:scale-95 ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+            >
+              <Download size={16} className="text-brand-accent" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Download Poster</span>
+            </button>
+          </div>
+          
+          {item.posters.length > 1 && (
+            <div className="grid grid-cols-3 gap-3">
+              {item.posters.slice(1).map((poster, idx) => (
+                <div key={idx} className="relative group overflow-hidden rounded-2xl aspect-square">
+                  <img src={poster} alt={`${item.name} ${idx + 2}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                  <button 
+                    onClick={() => handleDownloadPoster(poster, `${item.name}-poster-${idx + 2}.jpg`)}
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Download size={16} className="text-white" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -4771,6 +4870,62 @@ export default function App() {
                           </div>
                         </div>
 
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Start Date</label>
+                            <div className="relative">
+                              <DatePicker
+                                selected={editingService?.start_date ? new Date(editingService.start_date) : null}
+                                onChange={(date: Date | null) => setEditingService(prev => ({ ...prev, start_date: date?.toISOString() }))}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                                placeholderText="Select start date"
+                                dateFormat="dd/MM/yyyy"
+                              />
+                              <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">End Date</label>
+                            <div className="relative">
+                              <DatePicker
+                                selected={editingService?.end_date ? new Date(editingService.end_date) : null}
+                                onChange={(date: Date | null) => setEditingService(prev => ({ ...prev, end_date: date?.toISOString() }))}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                                placeholderText="Select end date"
+                                dateFormat="dd/MM/yyyy"
+                              />
+                              <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Start Time</label>
+                            <div className="relative">
+                              <input 
+                                type="time"
+                                value={editingService?.start_time || ''}
+                                onChange={(e) => setEditingService(prev => ({ ...prev, start_time: e.target.value }))}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                              />
+                              <Clock className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">End Time</label>
+                            <div className="relative">
+                              <input 
+                                type="time"
+                                value={editingService?.end_time || ''}
+                                onChange={(e) => setEditingService(prev => ({ ...prev, end_time: e.target.value }))}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                              />
+                              <Clock className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
+                            </div>
+                          </div>
+                        </div>
+
                         <div className="space-y-2">
                           <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Description</label>
                           <textarea 
@@ -5054,6 +5209,16 @@ export default function App() {
                                     </span>
                                   </div>
                                   <p className="text-[10px] text-zinc-400 font-medium line-clamp-1">{service.description || 'No description provided'}</p>
+                                  {(service.start_date || service.end_date) && (
+                                    <div className="flex items-center gap-1 mt-1 text-[8px] font-bold text-zinc-500">
+                                      <Clock size={8} />
+                                      <span>
+                                        {service.start_date ? new Date(service.start_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Start'} 
+                                        {' - '} 
+                                        {service.end_date ? new Date(service.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'End'}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="flex gap-1">
                                   <button onClick={() => setEditingService(service)} className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors">

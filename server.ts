@@ -1023,7 +1023,7 @@ app.get("/api/services", async (req, res) => {
 });
 
 app.post("/api/services", async (req, res) => {
-  const { name, base_price, commission_rate, aracoins_perk, allowances, description, posters, promo_price, type, branches } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, posters, promo_price, type, branches, start_date, end_date, start_time, end_time } = req.body;
   
   const insertData: any = {
     name,
@@ -1037,6 +1037,10 @@ app.post("/api/services", async (req, res) => {
   if (serviceColumns.has('promo_price')) insertData.promo_price = promo_price === undefined ? null : promo_price;
   if (type !== undefined && serviceColumns.has('type')) insertData.type = type;
   if (serviceColumns.has('branches')) insertData.branches = JSON.stringify(branches || []);
+  if (serviceColumns.has('start_date')) insertData.start_date = start_date || null;
+  if (serviceColumns.has('end_date')) insertData.end_date = end_date || null;
+  if (serviceColumns.has('start_time')) insertData.start_time = start_time || null;
+  if (serviceColumns.has('end_time')) insertData.end_time = end_time || null;
   if (serviceColumns.has('aracoins_perk')) {
     insertData.aracoins_perk = aracoins_perk || 0;
   }
@@ -1061,7 +1065,7 @@ app.post("/api/services", async (req, res) => {
 
 app.patch("/api/services/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, base_price, commission_rate, aracoins_perk, allowances, description, posters, promo_price, type, branches } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, posters, promo_price, type, branches, start_date, end_date, start_time, end_time } = req.body;
   
   const updateData: any = {
     name,
@@ -1075,6 +1079,10 @@ app.patch("/api/services/:id", async (req, res) => {
   if (serviceColumns.has('promo_price')) updateData.promo_price = promo_price === undefined ? null : promo_price;
   if (type !== undefined && serviceColumns.has('type')) updateData.type = type;
   if (serviceColumns.has('branches')) updateData.branches = JSON.stringify(branches || []);
+  if (serviceColumns.has('start_date')) updateData.start_date = start_date || null;
+  if (serviceColumns.has('end_date')) updateData.end_date = end_date || null;
+  if (serviceColumns.has('start_time')) updateData.start_time = start_time || null;
+  if (serviceColumns.has('end_time')) updateData.end_time = end_time || null;
   if (serviceColumns.has('aracoins_perk')) {
     updateData.aracoins_perk = aracoins_perk || 0;
   }
