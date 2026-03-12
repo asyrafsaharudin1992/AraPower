@@ -29,10 +29,34 @@ else if (process.env.VITE_SUPABASE_ANON_KEY) console.log('Using: Anon Key');
 console.log('------------------------------');
 
 let supabase: any = null;
-let referralColumns: Set<string> = new Set(['id', 'staff_id', 'staff_name', 'promo_code', 'service_id', 'service_name', 'patient_name', 'patient_phone', 'patient_ic', 'patient_address', 'appointment_date', 'booking_time', 'visit_date', 'date', 'status', 'payment_status', 'commission_amount', 'fraud_flags', 'rejection_reason', 'branch', 'patient_type', 'aracoins_perk']);
-let serviceColumns: Set<string> = new Set(['name', 'base_price', 'commission_rate', 'allowances_json', 'description', 'posters', 'promo_price', 'type', 'branches', 'start_date', 'end_date', 'start_time', 'end_time', 'is_featured', 'aracoins_perk']);
-let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'password', 'role', 'promo_code', 'staff_id_code', 'branch', 'department', 'position', 'employment_status', 'date_joined', 'pending_earnings', 'approved_earnings', 'paid_earnings', 'lifetime_earnings', 'last_payout_date', 'referrer_type', 'phone', 'aracoins', 'is_approved', 'nickname', 'profile_picture', 'bank_name', 'bank_account_number', 'id_type', 'id_number']);
-let taskColumns: Set<string> = new Set(['id', 'title', 'description', 'status', 'priority', 'due_date', 'created_at', 'assigned_to', 'created_by']);
+let referralColumns: Set<string> = new Set(['id', 'staff_id', 'service_id', 'patient_name', 'status']);
+let serviceColumns: Set<string> = new Set(['name', 'base_price', 'commission_rate', 'allowances_json']);
+let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'promo_code']);
+let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
+
+async function discoverColumns() {
+  if (!supabase) return;
+  const tables = [
+    { name: 'services', set: serviceColumns },
+    { name: 'referrals', set: referralColumns },
+    { name: 'staff', set: staffColumns },
+    { name: 'tasks', set: taskColumns }
+  ];
+
+  for (const table of tables) {
+    try {
+      const { data, error } = await supabase.from(table.name).select('*').limit(1);
+      if (!error && data && data.length > 0) {
+        Object.keys(data[0]).forEach(key => table.set.add(key));
+        console.log(`[Discovery] Found columns for ${table.name}:`, Array.from(table.set));
+      } else if (error) {
+        console.warn(`[Discovery] Could not fetch columns for ${table.name}:`, error.message);
+      }
+    } catch (e) {
+      console.error(`[Discovery] Error discovering columns for ${table.name}:`, e);
+    }
+  }
+}
 
 const logError = (context: string, error: any) => {
   console.error(`[${context}] Error:`, error);
@@ -199,7 +223,7 @@ async function seedSupabase() {
   }
 }
 
-seedSupabase();
+seedSupabase().then(() => discoverColumns());
 
 const app = express();
 app.use(cors());
@@ -704,6 +728,10 @@ app.get("/api/tasks", async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
   
+  if (tasks && tasks.length > 0) {
+    Object.keys(tasks[0]).forEach(key => taskColumns.add(key));
+  }
+
   const formattedTasks = tasks.map(t => ({
     ...t,
     assigned_to_name: t.staff?.name
@@ -805,6 +833,11 @@ app.get("/api/staff", async (req, res) => {
   
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
+
+  if (data && data.length > 0) {
+    Object.keys(data[0]).forEach(key => staffColumns.add(key));
+  }
+
   res.json(data);
 });
 
@@ -1041,7 +1074,7 @@ app.post("/api/services", async (req, res) => {
   if (serviceColumns.has('end_date')) insertData.end_date = end_date || null;
   if (serviceColumns.has('start_time')) insertData.start_time = start_time || null;
   if (serviceColumns.has('end_time')) insertData.end_time = end_time || null;
-  if (is_featured !== undefined) insertData.is_featured = is_featured;
+  if (is_featured !== undefined && serviceColumns.has('is_featured')) insertData.is_featured = is_featured;
   if (serviceColumns.has('aracoins_perk')) {
     insertData.aracoins_perk = aracoins_perk || 0;
   }
@@ -1084,7 +1117,7 @@ app.patch("/api/services/:id", async (req, res) => {
   if (serviceColumns.has('end_date')) updateData.end_date = end_date || null;
   if (serviceColumns.has('start_time')) updateData.start_time = start_time || null;
   if (serviceColumns.has('end_time')) updateData.end_time = end_time || null;
-  if (is_featured !== undefined) updateData.is_featured = is_featured;
+  if (is_featured !== undefined && serviceColumns.has('is_featured')) updateData.is_featured = is_featured;
   if (serviceColumns.has('aracoins_perk')) {
     updateData.aracoins_perk = aracoins_perk || 0;
   }
@@ -1146,6 +1179,10 @@ app.get("/api/referrals", async (req, res) => {
   const { data: referrals, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
   
+  if (referrals && referrals.length > 0) {
+    Object.keys(referrals[0]).forEach(key => referralColumns.add(key));
+  }
+
   const formattedReferrals = referrals.map(r => ({
     ...r,
     staff_name: r.staff?.name,
