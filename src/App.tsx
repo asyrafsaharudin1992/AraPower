@@ -50,7 +50,8 @@ import {
   Trophy,
   Star,
   Sparkles,
-  MapPin
+  MapPin,
+  Tag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -116,6 +117,7 @@ interface Service {
   end_date?: string;
   start_time?: string;
   end_time?: string;
+  is_featured?: boolean;
 }
 
 interface Referral {
@@ -258,6 +260,7 @@ const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDelet
         <div className="flex-1">
           <div className="flex items-center flex-wrap gap-2 mb-2">
             <h4 className={`text-xl font-black tracking-tight ${isMobile ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{item.name}</h4>
+            {item.is_featured && <Star size={14} className="text-brand-accent" fill="currentColor" />}
             <div className="flex gap-1.5">
               <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${item.type === 'Promotion' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
                 {item.type || 'Service'}
@@ -274,17 +277,17 @@ const PromotionCard = ({ item, isMobile, clinicProfile, currentUser, handleDelet
           <p className={`text-xs font-medium leading-relaxed mb-4 ${isMobile ? 'text-[#f5f5dc]/60' : 'text-zinc-500'} line-clamp-2`}>{item.description || 'No description provided'}</p>
           
           {(item.start_date || item.end_date || item.start_time || item.end_time) && (
-            <div className={`flex flex-col gap-1 px-3 py-1.5 rounded-xl w-fit ${isMobile ? 'bg-white/5 text-brand-accent' : 'bg-zinc-50 text-zinc-600'}`}>
+            <div className={`flex flex-col gap-1.5 px-4 py-3 rounded-2xl w-fit mt-4 border ${isMobile ? 'bg-brand-accent/10 border-brand-accent/20 text-brand-accent' : 'bg-violet-50 border-violet-100 text-violet-600'}`}>
               <div className="flex items-center gap-2">
-                <Calendar size={12} className="shrink-0" />
-                <span className="text-[10px] font-black uppercase tracking-widest">
+                <Calendar size={14} className="shrink-0" />
+                <span className="text-xs font-black uppercase tracking-widest">
                   {item.start_date ? formatDate(item.start_date) : 'Start'} 
-                  {' - '} 
+                  {' — '} 
                   {item.end_date ? formatDate(item.end_date) : 'End'}
                 </span>
               </div>
               {(item.start_time || item.end_time) && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 opacity-80">
                   <Clock size={12} className="shrink-0" />
                   <span className="text-[10px] font-black uppercase tracking-widest">
                     {item.start_time || '00:00'} - {item.end_time || '23:59'}
@@ -634,6 +637,18 @@ export default function App() {
   const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [selectedService, setSelectedService] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [featuredIndex, setFeaturedIndex] = useState(0);
+
+  useEffect(() => {
+    const featured = services.filter(s => s.is_featured);
+    if (featured.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setFeaturedIndex(prev => (prev + 1) % featured.length);
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [services]);
 
   // Auth States
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -2725,6 +2740,61 @@ export default function App() {
                 {/* Mobile Stats Grid - ios26v style */}
                 {isMobile && currentUser.role === 'staff' && (
                   <div className="space-y-4">
+                    {/* Latest Promotion Slideshow */}
+                    {services.filter(s => s.is_featured).length > 0 && (
+                      <div className="relative overflow-hidden bg-brand-surface p-8 rounded-[2.5rem] border border-white/10 shadow-sm min-h-[200px] flex flex-col justify-center">
+                        <div className="absolute top-8 left-8 flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-brand-accent animate-pulse" />
+                          <p className="text-brand-accent text-[10px] font-black uppercase tracking-widest">Latest Promotion</p>
+                        </div>
+                        
+                        <AnimatePresence mode="wait">
+                          <motion.div
+                            key={featuredIndex}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            className="mt-4"
+                          >
+                            {(() => {
+                              const featured = services.filter(s => s.is_featured);
+                              const item = featured[featuredIndex];
+                              if (!item) return null;
+                              return (
+                                <>
+                                  <h3 className="text-[#f5f5dc] text-2xl font-black leading-tight mb-2 line-clamp-2">
+                                    {item.name}
+                                  </h3>
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                                      <Tag size={10} />
+                                      {item.type || 'Service'}
+                                    </div>
+                                    {item.promo_price && (
+                                      <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-brand-peach">
+                                        <Zap size={10} />
+                                        Special Offer
+                                      </div>
+                                    )}
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </motion.div>
+                        </AnimatePresence>
+                        
+                        {/* Indicators */}
+                        <div className="absolute bottom-8 left-8 flex gap-1.5">
+                          {services.filter(s => s.is_featured).map((_, idx) => (
+                            <div 
+                              key={idx}
+                              className={`h-1 rounded-full transition-all duration-500 ${idx === featuredIndex ? 'w-6 bg-brand-accent' : 'w-1.5 bg-white/10'}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Main Card: Earnings Breakdown - Dark Design */}
                     <div className="relative overflow-hidden bg-brand-primary p-8 rounded-[2.5rem] shadow-2xl shadow-brand-primary/20">
                       <div className="relative flex items-center justify-between">
@@ -4917,14 +4987,28 @@ export default function App() {
                           </div>
                           <div className="space-y-2">
                             <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Type</label>
-                            <select 
-                              value={editingService?.type || 'Service'}
-                              onChange={(e) => setEditingService(prev => ({ ...prev, type: e.target.value as 'Service' | 'Promotion' }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
-                            >
-                              <option value="Service">Service</option>
-                              <option value="Promotion">Promotion</option>
-                            </select>
+                            <div className="grid grid-cols-2 gap-2">
+                              <select 
+                                value={editingService?.type || 'Service'}
+                                onChange={(e) => setEditingService(prev => ({ ...prev, type: e.target.value as 'Service' | 'Promotion' }))}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${isMobile ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                              >
+                                <option value="Service">Service</option>
+                                <option value="Promotion">Promotion</option>
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => setEditingService(prev => ({ ...prev, is_featured: !prev?.is_featured }))}
+                                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-2xl border transition-all text-[10px] font-black uppercase tracking-widest ${
+                                  editingService?.is_featured 
+                                    ? 'bg-brand-accent text-white border-brand-accent shadow-lg shadow-brand-accent/20' 
+                                    : isMobile ? 'bg-[#0f172a] border-white/10 text-zinc-500' : 'bg-zinc-50 border-zinc-100 text-zinc-400'
+                                }`}
+                              >
+                                {editingService?.is_featured ? <Star size={14} fill="currentColor" /> : <Star size={14} />}
+                                {editingService?.is_featured ? 'Featured' : 'Normal'}
+                              </button>
+                            </div>
                           </div>
                         </div>
 
