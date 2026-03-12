@@ -695,6 +695,13 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [serviceSlideshowIndex, setServiceSlideshowIndex] = useState(0);
+  const [reduceTranslucency, setReduceTranslucency] = useState(() => {
+    return localStorage.getItem('reduceTranslucency') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('reduceTranslucency', reduceTranslucency.toString());
+  }, [reduceTranslucency]);
 
   useEffect(() => {
     const featured = services.filter(s => s.is_featured);
@@ -2574,11 +2581,18 @@ export default function App() {
     }
 
     return (
-      <div className={`min-h-screen w-full overflow-x-hidden font-sans transition-colors duration-500 ${isMobile ? 'bg-zinc-50 text-zinc-900' : 'bg-zinc-50 text-zinc-900'}`}>
+      <div className={`min-h-screen w-full overflow-x-hidden font-sans transition-colors duration-500 ${isMobile ? 'bg-zinc-50 text-zinc-900' : 'bg-zinc-50 text-zinc-900'} relative`}>
+        {/* Background elements for translucency visibility */}
+        <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-violet-500/5 rounded-full blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-fuchsia-500/5 rounded-full blur-[150px]" />
+          <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-blue-500/5 rounded-full blur-[100px]" />
+        </div>
+
         {/* Mobile Navigation (Floating Glass Dock - iOS 26 style) */}
         {isMobile && (
           <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
-            <nav className="max-w-md mx-auto bg-white/90 backdrop-blur-2xl border border-zinc-200 px-4 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto">
+            <nav className={`max-w-md mx-auto ${reduceTranslucency ? 'bg-white' : 'bg-white/80 backdrop-blur-2xl'} border border-zinc-200 px-4 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto`}>
               <div className="flex flex-1 justify-around items-center">
                 <button 
                   onClick={() => setActiveTab('dashboard')}
@@ -2632,7 +2646,7 @@ export default function App() {
 
         {/* Desktop Sidebar (Admin Only) */}
         {!isMobile && (
-          <nav className="fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-zinc-100 p-6 flex flex-col">
+          <nav className={`fixed left-0 top-0 bottom-0 w-64 ${reduceTranslucency ? 'bg-white' : 'bg-white/70 backdrop-blur-xl'} border-r border-zinc-100 p-6 flex flex-col z-40`}>
             <div className="flex items-center gap-3 mb-10 px-2">
               <div className="w-10 h-10 bg-white border border-zinc-100 rounded-2xl flex items-center justify-center shadow-sm overflow-hidden">
                 <Logo className="w-8 h-8" logoUrl={clinicProfile.logoUrl} />
@@ -2733,7 +2747,7 @@ export default function App() {
         )}
 
         {/* Main Content */}
-        <main className={`${!isMobile ? 'ml-64 bg-[#FBFBFD]' : 'pb-32 min-h-screen bg-zinc-50'} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
+        <main className={`${!isMobile ? `ml-64 ${reduceTranslucency ? 'bg-[#FBFBFD]' : 'bg-[#FBFBFD]/80 backdrop-blur-sm'}` : 'pb-32 min-h-screen bg-zinc-50'} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
           {isMobile && (
             <>
               <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-brand-primary/20 to-transparent -z-10" />
@@ -6147,6 +6161,20 @@ export default function App() {
                           className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         />
                       </div>
+                      <div className="flex flex-col justify-center">
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">App Appearance</label>
+                        <button
+                          onClick={() => setReduceTranslucency(!reduceTranslucency)}
+                          className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 hover:border-violet-200 transition-all group"
+                        >
+                          <div className={`w-10 h-5 rounded-full relative transition-colors ${reduceTranslucency ? 'bg-violet-600' : 'bg-zinc-200'}`}>
+                            <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${reduceTranslucency ? 'left-6' : 'left-1'}`} />
+                          </div>
+                          <span className="text-sm font-medium text-zinc-700">Reduce deck translucent</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Email Address</label>
                         <input 
@@ -6156,17 +6184,17 @@ export default function App() {
                           className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
                         />
                       </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Custom Domain (Optional)</label>
-                      <input 
-                        type="text"
-                        value={clinicProfile.customDomain || ''}
-                        onChange={(e) => setClinicProfile({ ...clinicProfile, customDomain: e.target.value })}
-                        className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
-                        placeholder="e.g., refer.myclinic.com"
-                      />
-                      <p className="text-[10px] text-zinc-400 mt-1.5 ml-1">If set, this domain will be used for QR codes and referral links.</p>
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">Custom Domain (Optional)</label>
+                        <input 
+                          type="text"
+                          value={clinicProfile.customDomain || ''}
+                          onChange={(e) => setClinicProfile({ ...clinicProfile, customDomain: e.target.value })}
+                          className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all text-sm font-medium"
+                          placeholder="e.g., refer.myclinic.com"
+                        />
+                        <p className="text-[10px] text-zinc-400 mt-1.5 ml-1">If set, this domain will be used for QR codes and referral links.</p>
+                      </div>
                     </div>
                     <button 
                       onClick={async () => {
