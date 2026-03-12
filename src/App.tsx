@@ -311,7 +311,12 @@ We reserve the right to modify these terms at any time. Your continued use of th
 export default function App() {
   const [currentUser, setCurrentUser] = useState<Staff | null>(() => {
     const saved = localStorage.getItem('currentUser');
-    return saved ? JSON.parse(saved) : null;
+    if (!saved) return null;
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      return null;
+    }
   });
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -660,7 +665,7 @@ export default function App() {
 
   const fetchTasks = async () => {
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks`);
-    if (res.ok) setTasks(data);
+    if (res.ok && Array.isArray(data)) setTasks(data);
   };
 
   const handlePosterUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -740,7 +745,7 @@ export default function App() {
   const fetchPromotions = async () => {
     console.log('fetchPromotions() called');
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/promotions`);
-    if (res.ok) {
+    if (res.ok && Array.isArray(data)) {
       console.log(`Fetched ${data?.length || 0} promotions from backend:`, data);
       setPromoServices(data || []);
     } else {
@@ -778,7 +783,7 @@ export default function App() {
 
   const fetchStaff = async () => {
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff`);
-    if (res.ok) {
+    if (res.ok && Array.isArray(data)) {
       setStaffList(data);
       if (currentUser) {
         const updatedMe = data.find((s: Staff) => s.id === currentUser.id);
@@ -791,7 +796,7 @@ export default function App() {
 
   const fetchServices = async () => {
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/services`);
-    if (res.ok) setServices(data);
+    if (res.ok && Array.isArray(data)) setServices(data);
   };
 
   const fetchBranches = async () => {
@@ -830,7 +835,7 @@ export default function App() {
     }
 
     const { res, data } = await safeFetch(url);
-    if (res.ok) setReferrals(data);
+    if (res.ok && Array.isArray(data)) setReferrals(data);
   };
 
   const handleGetStarted = () => {
@@ -1161,6 +1166,20 @@ export default function App() {
     }
   };
 
+  const handleDeleteReferral = async (id: number) => {
+    if (confirm('Are you sure you want to delete this referral? This action cannot be undone.')) {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        fetchReferrals();
+        fetchStaff();
+      } else {
+        alert(data.error || 'Delete failed');
+      }
+    }
+  };
+
   const handleUpdateProfile = async (profileData: Partial<Staff>) => {
     if (!currentUser) return;
     try {
@@ -1259,7 +1278,7 @@ export default function App() {
     setIsSavingSetup(true);
     try {
       const method = editingService.id ? 'PATCH' : 'POST';
-      const url = editingService.id ? `/api/services/${editingService.id}` : '/api/services';
+      const url = editingService.id ? `${apiBaseUrl}/api/services/${editingService.id}` : `${apiBaseUrl}/api/services`;
       const { res, data } = await safeFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -1268,6 +1287,8 @@ export default function App() {
       if (res.ok) {
         setEditingService(null);
         fetchServices();
+      } else {
+        alert(data?.error || 'Failed to save service');
       }
     } catch (error) {
       console.error(error);
@@ -1278,9 +1299,11 @@ export default function App() {
 
   const handleDeleteService = async (id: number) => {
     if (!confirm('Are you sure you want to delete this service?')) return;
-    const { res } = await safeFetch(`/api/services/${id}`, { method: 'DELETE' });
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/services/${id}`, { method: 'DELETE' });
     if (res.ok) {
       fetchServices();
+    } else {
+      alert(data?.error || 'Failed to delete service. It may be referenced by existing referrals.');
     }
   };
 
@@ -3192,11 +3215,17 @@ export default function App() {
                               </span>
                               {ref.fraud_flags && (
                                 <div className="mt-1 flex gap-1">
-                                  {JSON.parse(ref.fraud_flags).map((flag: string) => (
-                                    <span key={flag} className="px-1 py-0.5 bg-red-50 text-red-600 rounded text-[8px] font-bold uppercase border border-red-100">
-                                      {flag}
-                                    </span>
-                                  ))}
+                                  {(() => {
+                                    try {
+                                      return JSON.parse(ref.fraud_flags).map((flag: string) => (
+                                        <span key={flag} className="px-1 py-0.5 bg-red-50 text-red-600 rounded text-[8px] font-bold uppercase border border-red-100">
+                                          {flag}
+                                        </span>
+                                      ));
+                                    } catch (e) {
+                                      return null;
+                                    }
+                                  })()}
                                 </div>
                               )}
                             </td>
@@ -3226,6 +3255,13 @@ export default function App() {
                                     Pay
                                   </button>
                                 )}
+                                <button 
+                                  onClick={() => handleDeleteReferral(ref.id)}
+                                  className="p-2 text-zinc-400 hover:text-red-600 transition-colors"
+                                  title="Delete Referral"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -4857,28 +4893,14 @@ export default function App() {
                                     // The RLS policy requires the Supabase Auth UUID to be the first part of the path
                                     const filePath = `${authUid}/posters/${fileName}`;
                                     
-                                    const { data: buckets } = await supabase.storage.listBuckets();
-                                    const bucketNames = ['clinic-assets', 'CLINIC-ASSETS', ...buckets.map(b => b.name)];
-                                    let uploadError = null;
-                                    let successfulBucket = '';
+                                    const { data, error } = await supabase.storage
+                                      .from('clinic-assets')
+                                      .upload(filePath, file);
                                     
-                                    for (const bucket of bucketNames) {
-                                      const { error } = await supabase.storage
-                                        .from(bucket)
-                                        .upload(filePath, file);
-                                      if (!error) {
-                                        successfulBucket = bucket;
-                                        break;
-                                      }
-                                      uploadError = error;
-                                    }
-                                    
-                                    if (uploadError) {
-                                      throw new Error(`Failed to upload to any bucket. Last error: ${uploadError.message}. Available buckets: ${JSON.stringify(buckets)}`);
-                                    }
+                                    if (error) throw error;
                                     
                                     const { data: { publicUrl } } = supabase.storage
-                                      .from(successfulBucket)
+                                      .from('clinic-assets')
                                       .getPublicUrl(filePath);
                                       
                                     newPosters.push(publicUrl);
@@ -5006,7 +5028,7 @@ export default function App() {
                     <PromotionCard key={item.id} item={item} isMobile={isMobile} clinicProfile={clinicProfile} currentUser={currentUser} handleDeleteService={handleDeleteService} setEditingService={setEditingService} />
                   ))}
 
-                {promoServices.filter(item => 
+                {services.filter(item => 
                   currentUser.role === 'admin' || 
                   !item.branches ||
                   item.branches.length === 0 || 

@@ -31,6 +31,8 @@ console.log('------------------------------');
 let supabase: any = null;
 let referralColumns: Set<string> = new Set();
 let serviceColumns: Set<string> = new Set();
+let staffColumns: Set<string> = new Set();
+let taskColumns: Set<string> = new Set();
 
 const logError = (context: string, error: any) => {
   console.error(`[${context}] Error:`, error);
@@ -201,8 +203,8 @@ seedSupabase();
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = 3000;
@@ -514,7 +516,14 @@ app.post("/api/auth/register", async (req, res) => {
       logError('Registration Settings Check', settingsError);
     }
     
-    const settings = authSetting ? JSON.parse(authSetting.value) : { allowRegistration: true };
+    let settings = { allowRegistration: true };
+    if (authSetting && authSetting.value) {
+      try {
+        settings = JSON.parse(authSetting.value);
+      } catch (e) {
+        console.error('Error parsing auth settings:', e);
+      }
+    }
     
     if (!settings.allowRegistration) {
       console.log(`Registration blocked: self-registration disabled for ${email}`);
@@ -595,7 +604,12 @@ app.get("/api/settings", async (req, res) => {
   
   const result: any = {};
   settings.forEach((s: any) => {
-    result[s.key] = JSON.parse(s.value);
+    try {
+      result[s.key] = s.value ? JSON.parse(s.value) : null;
+    } catch (e) {
+      console.error(`Error parsing setting ${s.key}:`, e);
+      result[s.key] = s.value;
+    }
   });
   res.json(result);
 });
@@ -620,9 +634,14 @@ app.get("/api/promotions", async (req, res) => {
     
     // If multiple rows exist, take the last one (most recent)
     const setting = settings[settings.length - 1];
-    const promos = JSON.parse(setting.value);
-    console.log(`Returning ${promos.length} promotions from database`);
-    console.log('Raw promotions data:', setting.value.substring(0, 100) + '...');
+    let promos = [];
+    try {
+      promos = setting.value ? JSON.parse(setting.value) : [];
+    } catch (e) {
+      console.error('Error parsing promotions:', e);
+      promos = setting.value || [];
+    }
+    console.log(`Returning ${promos.length || 0} promotions from database`);
     res.json(promos);
   } catch (err: any) {
     console.error('Unexpected error in GET /api/promotions:', err);
@@ -631,10 +650,10 @@ app.get("/api/promotions", async (req, res) => {
 });
 
 app.post("/api/promotions", async (req, res) => {
-  const promotions = req.body;
-  console.log(`POST /api/promotions - Saving ${promotions.length} promotions`);
-  
   try {
+    const promotions = req.body || [];
+    console.log(`POST /api/promotions - Saving ${promotions.length || 0} promotions`);
+    
     // Delete existing ones first to ensure we only have one row for this key
     const { error: deleteError } = await supabase
       .from('settings')
@@ -695,15 +714,18 @@ app.get("/api/tasks", async (req, res) => {
 
 app.post("/api/tasks", async (req, res) => {
   const { title, description, due_date, assigned_to } = req.body;
+  const insertData: any = {
+    title,
+    created_at: new Date().toISOString()
+  };
+
+  if (taskColumns.has('description')) insertData.description = description;
+  if (taskColumns.has('due_date')) insertData.due_date = due_date;
+  if (taskColumns.has('assigned_to')) insertData.assigned_to = assigned_to || null;
+
   const { data, error } = await supabase
     .from('tasks')
-    .insert({
-      title,
-      description,
-      due_date,
-      assigned_to: assigned_to || null,
-      created_at: new Date().toISOString()
-    })
+    .insert(insertData)
     .select()
     .single();
 
@@ -716,11 +738,11 @@ app.patch("/api/tasks/:id", async (req, res) => {
   const { status, title, description, due_date, assigned_to } = req.body;
   
   const updateData: any = {};
-  if (status) updateData.status = status;
-  if (title) updateData.title = title;
-  if (description) updateData.description = description;
-  if (due_date) updateData.due_date = due_date;
-  if (assigned_to !== undefined) updateData.assigned_to = assigned_to;
+  if (status && taskColumns.has('status')) updateData.status = status;
+  if (title && taskColumns.has('title')) updateData.title = title;
+  if (description && taskColumns.has('description')) updateData.description = description;
+  if (due_date && taskColumns.has('due_date')) updateData.due_date = due_date;
+  if (assigned_to !== undefined && taskColumns.has('assigned_to')) updateData.assigned_to = assigned_to;
 
   const { error } = await supabase
     .from('tasks')
@@ -805,15 +827,25 @@ app.post("/api/staff", async (req, res) => {
   }
 
   try {
+    const insertData: any = {
+      name,
+      email,
+      role,
+      password: password || 'password123'
+    };
+
+    if (staffColumns.has('promo_code')) insertData.promo_code = final_promo_code;
+    if (staffColumns.has('staff_id_code')) insertData.staff_id_code = staff_id_code;
+    if (staffColumns.has('branch')) insertData.branch = branch;
+    if (staffColumns.has('department')) insertData.department = department;
+    if (staffColumns.has('position')) insertData.position = position;
+    if (staffColumns.has('date_joined')) insertData.date_joined = date_joined || new Date().toISOString();
+    if (staffColumns.has('phone')) insertData.phone = phone || null;
+    if (staffColumns.has('is_approved')) insertData.is_approved = 1;
+
     const { data, error } = await supabase
       .from('staff')
-      .insert({
-        name, email, role, promo_code: final_promo_code, staff_id_code, branch, department, position, 
-        date_joined: date_joined || new Date().toISOString(), 
-        phone: phone || null, 
-        password: password || 'password123',
-        is_approved: 1 // Manual creation by admin is auto-approved
-      })
+      .insert(insertData)
       .select()
       .single();
       
@@ -841,7 +873,7 @@ app.patch("/api/staff/:id", async (req, res) => {
 
   const updateData: any = {};
   Object.keys(body).forEach(key => {
-    if (allowedFields.includes(key)) {
+    if (allowedFields.includes(key) && staffColumns.has(key)) {
       updateData[key] = body[key];
     }
   });
@@ -915,8 +947,9 @@ app.post("/api/staff/:id/approve", async (req, res) => {
   const { id } = req.params;
   const { is_approved } = req.body;
   
-  const updateData: any = { is_approved: is_approved ? 1 : 0 };
-  if (is_approved) {
+  const updateData: any = {};
+  if (staffColumns.has('is_approved')) updateData.is_approved = is_approved ? 1 : 0;
+  if (is_approved && staffColumns.has('employment_status')) {
     updateData.employment_status = 'active';
   }
   
@@ -966,15 +999,27 @@ app.delete("/api/staff/:id/permanent", async (req, res) => {
 });
 
 app.get("/api/services", async (req, res) => {
-  const { data: services, error } = await supabase.from('services').select('*');
+  let query = supabase.from('services').select('*');
+  if (serviceColumns.has('type')) {
+    query = query.or('type.neq.Deleted,type.is.null');
+  }
+  const { data: services, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
   
-  res.json(services.map((s: any) => ({
-    ...s,
-    allowances: JSON.parse(s.allowances_json || '{}'),
-    posters: JSON.parse(s.posters || '[]'),
-    branches: JSON.parse(s.branches || '[]')
-  })));
+  res.json(services.map((s: any) => {
+    let allowances = {};
+    let posters = [];
+    let branches = [];
+    try { allowances = s.allowances_json ? JSON.parse(s.allowances_json) : {}; } catch (e) {}
+    try { posters = s.posters ? JSON.parse(s.posters) : []; } catch (e) {}
+    try { branches = s.branches ? JSON.parse(s.branches) : []; } catch (e) {}
+    return {
+      ...s,
+      allowances,
+      posters,
+      branches
+    };
+  }));
 });
 
 app.post("/api/services", async (req, res) => {
@@ -987,12 +1032,14 @@ app.post("/api/services", async (req, res) => {
     allowances_json: JSON.stringify(allowances || {})
   };
 
-  if (serviceColumns.has('description')) insertData.description = description;
+  if (description !== undefined && serviceColumns.has('description')) insertData.description = description;
   if (serviceColumns.has('posters')) insertData.posters = JSON.stringify(posters || []);
-  if (serviceColumns.has('promo_price')) insertData.promo_price = promo_price;
-  if (serviceColumns.has('type')) insertData.type = type;
+  if (serviceColumns.has('promo_price')) insertData.promo_price = promo_price === undefined ? null : promo_price;
+  if (type !== undefined && serviceColumns.has('type')) insertData.type = type;
   if (serviceColumns.has('branches')) insertData.branches = JSON.stringify(branches || []);
-  if (serviceColumns.has('aracoins_perk')) insertData.aracoins_perk = aracoins_perk || 0;
+  if (serviceColumns.has('aracoins_perk')) {
+    insertData.aracoins_perk = aracoins_perk || 0;
+  }
 
   const { data, error } = await supabase
     .from('services')
@@ -1004,6 +1051,11 @@ app.post("/api/services", async (req, res) => {
     console.error('Supabase insert error:', error);
     return res.status(500).json({ error: error.message, details: error.details, hint: error.hint });
   }
+  
+  if (data) {
+    Object.keys(data).forEach(key => serviceColumns.add(key));
+  }
+  
   res.json({ id: data.id });
 });
 
@@ -1018,12 +1070,14 @@ app.patch("/api/services/:id", async (req, res) => {
     allowances_json: JSON.stringify(allowances || {})
   };
 
-  if (serviceColumns.has('description')) updateData.description = description;
+  if (description !== undefined && serviceColumns.has('description')) updateData.description = description;
   if (serviceColumns.has('posters')) updateData.posters = JSON.stringify(posters || []);
-  if (serviceColumns.has('promo_price')) updateData.promo_price = promo_price;
-  if (serviceColumns.has('type')) updateData.type = type;
+  if (serviceColumns.has('promo_price')) updateData.promo_price = promo_price === undefined ? null : promo_price;
+  if (type !== undefined && serviceColumns.has('type')) updateData.type = type;
   if (serviceColumns.has('branches')) updateData.branches = JSON.stringify(branches || []);
-  if (serviceColumns.has('aracoins_perk')) updateData.aracoins_perk = aracoins_perk || 0;
+  if (serviceColumns.has('aracoins_perk')) {
+    updateData.aracoins_perk = aracoins_perk || 0;
+  }
 
   const { error } = await supabase
     .from('services')
@@ -1040,8 +1094,20 @@ app.patch("/api/services/:id", async (req, res) => {
 app.delete("/api/services/:id", async (req, res) => {
   const { id } = req.params;
   const { error } = await supabase.from('services').delete().eq('id', id);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    // If delete fails (likely due to foreign key constraints), soft delete by changing type
+    if (serviceColumns.has('type')) {
+      const { error: updateError } = await supabase.from('services').update({ type: 'Deleted' }).eq('id', id);
+      if (updateError) return res.status(500).json({ error: updateError.message });
+    } else {
+      return res.status(500).json({ error: "Cannot delete service because it is referenced by existing referrals. Soft delete failed because 'type' column is missing." });
+    }
+  }
   res.json({ success: true });
+});
+
+app.get("/api/schema", (req, res) => {
+  res.json({ serviceColumns: Array.from(serviceColumns) });
 });
 
 app.get("/api/referrals", async (req, res) => {
@@ -1125,19 +1191,20 @@ app.post("/api/referrals", async (req, res) => {
     staff_id,
     service_id,
     patient_name,
-    patient_phone: patient_phone || null,
-    patient_ic: patient_ic || null,
-    patient_address: patient_address || null,
-    patient_type: patient_type || 'new',
-    appointment_date: appointment_date || null,
-    booking_time: booking_time || null,
     date,
     status: 'entered',
-    commission_amount: service.commission_rate,
-    fraud_flags: JSON.stringify(fraudFlags),
-    created_by: created_by || null,
-    branch: staff.branch // Referral will go to the assigned branch only
+    commission_amount: service.commission_rate
   };
+
+  if (referralColumns.has('patient_phone')) insertData.patient_phone = patient_phone || null;
+  if (referralColumns.has('patient_ic')) insertData.patient_ic = patient_ic || null;
+  if (referralColumns.has('patient_address')) insertData.patient_address = patient_address || null;
+  if (referralColumns.has('patient_type')) insertData.patient_type = patient_type || 'new';
+  if (referralColumns.has('appointment_date')) insertData.appointment_date = appointment_date || null;
+  if (referralColumns.has('booking_time')) insertData.booking_time = booking_time || null;
+  if (referralColumns.has('fraud_flags')) insertData.fraud_flags = JSON.stringify(fraudFlags);
+  if (referralColumns.has('created_by')) insertData.created_by = created_by || null;
+  if (referralColumns.has('branch')) insertData.branch = staff.branch;
 
   // Only include aracoins_perk if the column exists in the database
   if (referralColumns.has('aracoins_perk')) {
@@ -1174,11 +1241,11 @@ app.patch("/api/referrals/:id", async (req, res) => {
   if (fetchError || !referral) return res.status(404).json({ error: "Referral not found" });
 
   const updateData: any = {};
-  if (status) updateData.status = status;
-  if (payment_status) updateData.payment_status = payment_status;
-  if (visit_date) updateData.visit_date = visit_date;
-  if (verified_by) updateData.verified_by = verified_by;
-  if (rejection_reason) updateData.rejection_reason = rejection_reason;
+  if (status && referralColumns.has('status')) updateData.status = status;
+  if (payment_status && referralColumns.has('payment_status')) updateData.payment_status = payment_status;
+  if (visit_date && referralColumns.has('visit_date')) updateData.visit_date = visit_date;
+  if (verified_by && referralColumns.has('verified_by')) updateData.verified_by = verified_by;
+  if (rejection_reason && referralColumns.has('rejection_reason')) updateData.rejection_reason = rejection_reason;
 
   const { error: updateError } = await supabase
     .from('referrals')
@@ -1192,40 +1259,58 @@ app.patch("/api/referrals/:id", async (req, res) => {
   if (!staff) return res.json({ success: true });
 
   if (status === 'approved' && referral.status !== 'approved') {
-    const staffUpdate: any = { 
-      pending_earnings: (staff.pending_earnings || 0) - referral.commission_amount,
-      approved_earnings: (staff.approved_earnings || 0) + referral.commission_amount,
-      lifetime_earnings: (staff.lifetime_earnings || 0) + referral.commission_amount
-    };
+    const staffUpdate: any = {};
+    if (staffColumns.has('pending_earnings')) staffUpdate.pending_earnings = (staff.pending_earnings || 0) - referral.commission_amount;
+    if (staffColumns.has('approved_earnings')) staffUpdate.approved_earnings = (staff.approved_earnings || 0) + referral.commission_amount;
+    if (staffColumns.has('lifetime_earnings')) staffUpdate.lifetime_earnings = (staff.lifetime_earnings || 0) + referral.commission_amount;
     
-    // Only update aracoins if the column existed in the referral record
-    if (referral.aracoins_perk !== undefined) {
+    // Only update aracoins if the column existed in the referral record and staff table
+    if (referral.aracoins_perk !== undefined && staffColumns.has('aracoins')) {
       staffUpdate.aracoins = (staff.aracoins || 0) + (referral.aracoins_perk || 0);
     }
 
-    await supabase
-      .from('staff')
-      .update(staffUpdate)
-      .eq('id', referral.staff_id);
-  } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
-    await supabase
-      .from('staff')
-      .update({ 
-        approved_earnings: (staff.approved_earnings || 0) - referral.commission_amount,
-        paid_earnings: (staff.paid_earnings || 0) + referral.commission_amount,
-        last_payout_date: new Date().toISOString()
-      })
-      .eq('id', referral.staff_id);
-  } else if (status === 'rejected' && referral.status !== 'rejected') {
-    if (['entered', 'completed', 'paid_completed', 'buffer'].includes(referral.status)) {
+    if (Object.keys(staffUpdate).length > 0) {
       await supabase
         .from('staff')
-        .update({ pending_earnings: (staff.pending_earnings || 0) - referral.commission_amount })
+        .update(staffUpdate)
         .eq('id', referral.staff_id);
+    }
+  } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
+    const staffUpdate: any = {};
+    if (staffColumns.has('approved_earnings')) staffUpdate.approved_earnings = (staff.approved_earnings || 0) - referral.commission_amount;
+    if (staffColumns.has('paid_earnings')) staffUpdate.paid_earnings = (staff.paid_earnings || 0) + referral.commission_amount;
+    if (staffColumns.has('last_payout_date')) staffUpdate.last_payout_date = new Date().toISOString();
+
+    if (Object.keys(staffUpdate).length > 0) {
+      await supabase
+        .from('staff')
+        .update(staffUpdate)
+        .eq('id', referral.staff_id);
+    }
+  } else if (status === 'rejected' && referral.status !== 'rejected') {
+    if (['entered', 'completed', 'paid_completed', 'buffer'].includes(referral.status)) {
+      if (staffColumns.has('pending_earnings')) {
+        await supabase
+          .from('staff')
+          .update({ pending_earnings: (staff.pending_earnings || 0) - referral.commission_amount })
+          .eq('id', referral.staff_id);
+      }
     }
   }
   
   res.json({ success: true });
+});
+
+app.delete("/api/referrals/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase.from('referrals').delete().eq('id', id);
+    if (error) throw error;
+    res.json({ success: true, message: "Referral deleted successfully" });
+  } catch (error: any) {
+    console.error("Error deleting referral:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Global Error Handler
@@ -1255,6 +1340,20 @@ async function startServer() {
         console.log('Detected service columns:', Array.from(serviceColumns));
       }
     }).catch(err => console.warn('Service column detection failed:', err));
+
+    supabase.from('staff').select().limit(1).then(({ data, error }) => {
+      if (!error && data && data.length > 0) {
+        staffColumns = new Set(Object.keys(data[0]));
+        console.log('Detected staff columns:', Array.from(staffColumns));
+      }
+    }).catch(err => console.warn('Staff column detection failed:', err));
+
+    supabase.from('tasks').select().limit(1).then(({ data, error }) => {
+      if (!error && data && data.length > 0) {
+        taskColumns = new Set(Object.keys(data[0]));
+        console.log('Detected task columns:', Array.from(taskColumns));
+      }
+    }).catch(err => console.warn('Task column detection failed:', err));
   }
 
   // Vite middleware for development
