@@ -4693,13 +4693,11 @@ export default function App() {
                                 multiple
                                 onChange={async (e) => {
                                   const files = e.target.files;
-                                  if (!files) return;
+                                  if (!files || !currentUser) return;
                                   
                                   setIsUploading(true);
                                   try {
-                                    const { data: { user } } = await supabase.auth.getUser();
-                                    if (!user) throw new Error("You must be logged in to upload files.");
-                                    const authUid = user.id;
+                                    const authUid = currentUser.id;
 
                                     const newPosters = [];
                                     for (const file of Array.from(files)) {
@@ -4850,9 +4848,7 @@ export default function App() {
                                 
                                 setIsUploading(true);
                                 try {
-                                  const { data: { user } } = await supabase.auth.getUser();
-                                  if (!user) throw new Error("You must be logged in to upload files.");
-                                  const authUid = user.id;
+                                  const authUid = currentUser.id;
 
                                   const newPosters = [];
                                   for (const file of Array.from(files)) {
