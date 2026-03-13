@@ -61,6 +61,17 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
 import DatePicker from 'react-datepicker';
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  AreaChart,
+  Area
+} from 'recharts';
 import { supabase } from './supabase';
 
 interface Promotion {
@@ -2867,14 +2878,45 @@ export default function App() {
                   {!isMobile && <p className={`${darkMode ? 'text-[#f5f5dc]/60' : 'text-zinc-500'} text-sm font-medium`}>Welcome back, {currentUser.name}</p>}
                 </div>
                 
-                {activeTab === 'dashboard' && currentUser.role !== 'admin' && !isMobile && (
-                  <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-black/5 shadow-sm">
-                    <Clock size={16} className="text-zinc-400" />
-                    <span className="text-xs font-bold text-zinc-500">
-                      {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center gap-4">
+                  {activeTab === 'dashboard' && currentUser.role !== 'admin' && !isMobile && (
+                    <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-black/5 shadow-sm">
+                      <Clock size={16} className="text-zinc-400" />
+                      <span className="text-xs font-bold text-zinc-500">
+                        {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* User Profile Quick Access */}
+                  {activeTab === 'dashboard' && (
+                    <button 
+                      onClick={() => setActiveTab('profile')}
+                      className={`flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all active:scale-95 ${
+                        darkMode 
+                          ? 'bg-white/5 hover:bg-white/10 border-white/10' 
+                          : 'bg-white hover:bg-zinc-50 border-black/5 shadow-sm'
+                      } border`}
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-black shadow-lg shadow-violet-500/20 overflow-hidden">
+                        {currentUser.profile_picture ? (
+                          <img 
+                            src={currentUser.profile_picture} 
+                            alt={currentUser.name} 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          currentUser.name.charAt(0)
+                        )}
+                      </div>
+                      <div className="text-left">
+                        <p className={`text-xs font-black tracking-tight ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{currentUser.name}</p>
+                        <p className={`text-[9px] font-bold uppercase tracking-widest ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>{currentUser.role}</p>
+                      </div>
+                    </button>
+                  )}
+                </div>
               </header>
 
         <AnimatePresence mode="wait">
@@ -3104,22 +3146,128 @@ export default function App() {
 
                 {/* Desktop Admin/Receptionist/Dispensary Stats */}
                 {!isMobile && (currentUser.role === 'admin' || currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-6">
                     {currentUser.role === 'admin' ? (
-                      <>
-                        <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
-                          <p className="text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">Total Payout</p>
-                          <p className="text-2xl font-bold text-zinc-900">${adminStats.totalPayout.toFixed(2)}</p>
-                          <p className="text-[10px] text-zinc-400 mt-1">Pending: ${adminStats.pendingPayout.toFixed(2)}</p>
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-3 gap-6">
+                          <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+                            <div className="relative z-10">
+                              <div className="w-10 h-10 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mb-4">
+                                <ClipboardList size={20} />
+                              </div>
+                              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 font-black mb-1">Total Referrals</p>
+                              <p className="text-3xl font-black text-zinc-900 tracking-tighter">{adminStats.totalReferrals}</p>
+                              <div className="mt-4 flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-lg">Active System</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+                            <div className="relative z-10">
+                              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
+                                <DollarSign size={20} />
+                              </div>
+                              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 font-black mb-1">Total Payouts</p>
+                              <p className="text-3xl font-black text-zinc-900 tracking-tighter">{clinicProfile.currency}{adminStats.totalPayout.toFixed(0)}</p>
+                              <div className="mt-4 flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-zinc-400">Pending: {clinicProfile.currency}{adminStats.pendingPayout.toFixed(0)}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+                            <div className="relative z-10">
+                              <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
+                                <Users size={20} />
+                              </div>
+                              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 font-black mb-1">Active Staff</p>
+                              <p className="text-3xl font-black text-zinc-900 tracking-tighter">{activeStaffList.length}</p>
+                              <div className="mt-4 flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-zinc-400">{staffList.length} Total Registered</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
-                          <p className="text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">Active Staff</p>
-                          <p className="text-2xl font-bold text-zinc-900">{adminStats.activeStaff}</p>
-                          <p className="text-[10px] text-zinc-400 mt-1">Total Referrals: {adminStats.totalReferrals}</p>
+
+                        {/* Dedicated Analytics Chart */}
+                        <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+                          <div className="flex items-center justify-between mb-8">
+                            <div>
+                              <h3 className="text-xl font-black tracking-tighter text-zinc-900">Referral Analytics</h3>
+                              <p className="text-xs text-zinc-400 font-medium">Performance overview for the last 7 days</p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full bg-violet-500" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Referrals</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="h-[300px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart
+                                data={(() => {
+                                  const last7Days = [...Array(7)].map((_, i) => {
+                                    const d = new Date();
+                                    d.setDate(d.getDate() - (6 - i));
+                                    return d.toISOString().split('T')[0];
+                                  });
+                                  
+                                  return last7Days.map(date => ({
+                                    name: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
+                                    count: referrals.filter(r => r.date === date).length
+                                  }));
+                                })()}
+                                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                              >
+                                <defs>
+                                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
+                                <XAxis 
+                                  dataKey="name" 
+                                  axisLine={false} 
+                                  tickLine={false} 
+                                  tick={{ fontSize: 10, fontWeight: 600, fill: '#a1a1aa' }}
+                                  dy={10}
+                                />
+                                <YAxis 
+                                  axisLine={false} 
+                                  tickLine={false} 
+                                  tick={{ fontSize: 10, fontWeight: 600, fill: '#a1a1aa' }}
+                                />
+                                <Tooltip 
+                                  contentStyle={{ 
+                                    borderRadius: '16px', 
+                                    border: 'none', 
+                                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+                                    fontSize: '12px',
+                                    fontWeight: 'bold'
+                                  }}
+                                />
+                                <Area 
+                                  type="monotone" 
+                                  dataKey="count" 
+                                  stroke="#8b5cf6" 
+                                  strokeWidth={4}
+                                  fillOpacity={1} 
+                                  fill="url(#colorCount)" 
+                                />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
                         </div>
-                      </>
+                      </div>
                     ) : (
-                      <>
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
                           <p className="text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">
                             {currentUser.role === 'receptionist' ? 'Arrived Today' : 'Paid Today'}
@@ -3142,7 +3290,7 @@ export default function App() {
                             {currentUser.role === 'receptionist' ? 'Waiting for check-in' : 'Waiting for payment'}
                           </p>
                         </div>
-                      </>
+                      </div>
                     )}
                   </div>
                 )}
