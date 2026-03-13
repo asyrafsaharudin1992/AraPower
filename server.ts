@@ -825,6 +825,60 @@ app.get("/api/staff/email", async (req, res) => {
   res.json(staff || null);
 });
 
+// Notifications API
+app.get("/api/notifications/:userId", async (req, res) => {
+  const { userId } = req.params;
+  // Fetch notifications for specific user OR global ones (user_id is null)
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .or(`user_id.eq.${userId},user_id.is.null`)
+    .order('created_at', { ascending: false });
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post("/api/notifications", async (req, res) => {
+  const { user_id, title, message, type } = req.body;
+  const { data, error } = await supabase
+    .from('notifications')
+    .insert({ 
+      user_id: user_id || null, 
+      title, 
+      message, 
+      type: type || 'announcement',
+      created_at: new Date().toISOString()
+    })
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.patch("/api/notifications/:id/read", async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase
+    .from('notifications')
+    .update({ is_read: true })
+    .eq('id', id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+app.delete("/api/notifications/:id", async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('id', id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
 app.get("/api/staff", async (req, res) => {
   const { promoCode, id } = req.query;
   

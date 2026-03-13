@@ -81,3 +81,23 @@ BEGIN
         CREATE POLICY "Enable all for app" ON feedback FOR ALL USING (true) WITH CHECK (true);
     END IF;
 END $$;
+
+-- 5. Create notifications table
+CREATE TABLE IF NOT EXISTS notifications (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES staff(id), -- recipient, null for "all"
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT false,
+    type TEXT DEFAULT 'announcement',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS and add policy for notifications
+ALTER TABLE IF EXISTS notifications ENABLE ROW LEVEL SECURITY;
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'notifications' AND policyname = 'Enable all for app') THEN
+        CREATE POLICY "Enable all for app" ON notifications FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+END $$;

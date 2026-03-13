@@ -56,7 +56,8 @@ import {
   Sun,
   Moon,
   MessageSquare,
-  Send
+  Send,
+  ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -588,7 +589,7 @@ export default function App() {
       created_at: new Date().toISOString()
     }
   ]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'kit' | 'promotions' | 'payouts'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'kit' | 'promotions' | 'payouts' | 'inbox'>('dashboard');
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   
   // Setup Tab State
@@ -679,6 +680,80 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [referralSearch, setReferralSearch] = useState('');
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [notificationForm, setNotificationForm] = useState({
+    user_id: 'all',
+    title: '',
+    message: '',
+    type: 'announcement'
+  });
+
+  const sendNotification = async () => {
+    if (!notificationForm.title || !notificationForm.message) return;
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...notificationForm,
+          user_id: notificationForm.user_id === 'all' ? null : parseInt(notificationForm.user_id)
+        })
+      });
+
+      if (response.ok) {
+        setShowNotificationModal(false);
+        setNotificationForm({ user_id: 'all', title: '', message: '', type: 'announcement' });
+      }
+    } catch (error) {
+      console.error('Error sending notification:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetchNotifications();
+    }
+  }, [currentUser?.id]);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await fetch(`/api/notifications/${currentUser.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data);
+        setUnreadNotificationsCount(data.filter((n: any) => !n.is_read).length);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  const markNotificationAsRead = async (id: number) => {
+    try {
+      const response = await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' });
+      if (response.ok) {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+        setUnreadNotificationsCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+      await Promise.all(unreadIds.map(id => 
+        fetch(`/api/notifications/${id}/read`, { method: 'PATCH' })
+      ));
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setUnreadNotificationsCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
   const [referralStatusFilter, setReferralStatusFilter] = useState<string>('all');
   const [referralBranchFilter, setReferralBranchFilter] = useState<string>('all');
   const [adminSearch, setAdminSearch] = useState('');
@@ -2870,7 +2945,7 @@ export default function App() {
             </motion.div>
           ) : (
             <>
-              <header className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-[100] ${isMobile ? `sticky top-0 ${darkMode ? 'bg-[#0f172a]/80' : 'bg-zinc-50/80'} backdrop-blur-xl py-4 -mx-4 px-4 border-b ${darkMode ? 'border-white/10' : 'border-zinc-200/50'} mb-6` : 'mb-8 relative'}`}>
+              <header className={`flex flex-row items-center justify-between gap-4 z-[100] ${isMobile ? `sticky top-0 ${darkMode ? 'bg-[#0f172a]/80' : 'bg-zinc-50/80'} backdrop-blur-xl py-4 -mx-4 px-4 border-b ${darkMode ? 'border-white/10' : 'border-zinc-200/50'} mb-6` : 'mb-8 relative'}`}>
                 <div className={isMobile ? '' : ''}>
                   <h2 className={`text-3xl sm:text-3xl font-black tracking-tighter capitalize ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>
                     {activeTab === 'guide' ? 'User Guide' : activeTab === 'profile' ? 'My Profile' : activeTab === 'kit' ? 'Referral Kit' : activeTab}
@@ -2898,7 +2973,7 @@ export default function App() {
                           : 'bg-white hover:bg-zinc-50 border-black/5 shadow-sm'
                       } border`}
                     >
-                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-black shadow-lg shadow-violet-500/20 overflow-hidden">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-black shadow-lg shadow-violet-500/20 overflow-hidden relative">
                         {currentUser.profile_picture ? (
                           <img 
                             src={currentUser.profile_picture} 
@@ -2909,11 +2984,26 @@ export default function App() {
                         ) : (
                           currentUser.name.charAt(0)
                         )}
+                        {unreadNotificationsCount > 0 && (
+                          <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full" />
+                        )}
                       </div>
                       <div className="text-left">
                         <p className={`text-xs font-black tracking-tight ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{currentUser.name}</p>
                         <p className={`text-[9px] font-bold uppercase tracking-widest ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>{currentUser.role}</p>
                       </div>
+                    </button>
+                  )}
+
+                  {activeTab === 'profile' && (
+                    <button 
+                      onClick={() => setActiveTab('inbox')}
+                      className={`p-3 rounded-2xl transition-all relative ${darkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-white hover:bg-zinc-50 text-zinc-600 border border-black/5 shadow-sm'}`}
+                    >
+                      <Mail size={20} />
+                      {unreadNotificationsCount > 0 && (
+                        <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+                      )}
                     </button>
                   )}
                 </div>
@@ -3424,6 +3514,107 @@ export default function App() {
             </motion.div>
           )}
 
+          {activeTab === 'inbox' && (
+            <motion.div 
+              key="inbox"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="max-w-4xl mx-auto space-y-6"
+            >
+              <button 
+                onClick={() => setActiveTab('profile')}
+                className="flex items-center gap-2 text-zinc-500 hover:text-zinc-900 transition-colors mb-4"
+              >
+                <ArrowLeft size={20} />
+                <span className="text-sm font-bold">Back to Profile</span>
+              </button>
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h2 className="text-3xl font-black text-zinc-900 tracking-tight">Notification Inbox</h2>
+                  <p className="text-zinc-500">Stay updated with the latest messages from admin.</p>
+                </div>
+                {notifications.some(n => !n.is_read) && (
+                  <button 
+                    onClick={markAllAsRead}
+                    className="flex items-center gap-2 px-6 py-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+                  >
+                    <CheckCircle2 size={16} />
+                    Mark all as read
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {notifications.map((notif) => (
+                  <motion.div 
+                    key={notif.id}
+                    layout
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className={`relative p-6 rounded-[2rem] border transition-all ${
+                      notif.is_read 
+                        ? 'bg-white border-zinc-100 opacity-75' 
+                        : 'bg-white border-violet-100 shadow-xl shadow-violet-500/5 ring-1 ring-violet-500/10'
+                    }`}
+                  >
+                    {!notif.is_read && (
+                      <div className="absolute top-6 right-6 w-3 h-3 bg-violet-600 rounded-full animate-pulse shadow-lg shadow-violet-500/50" />
+                    )}
+                    
+                    <div className="flex gap-6">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
+                        notif.is_read ? 'bg-zinc-50 text-zinc-400' : 'bg-violet-50 text-violet-600'
+                      }`}>
+                        <Mail size={24} />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <h4 className={`text-lg font-black tracking-tight truncate ${
+                            notif.is_read ? 'text-zinc-500' : 'text-zinc-900'
+                          }`}>
+                            {notif.title}
+                          </h4>
+                          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                            {new Date(notif.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className={`text-sm leading-relaxed mb-4 ${
+                          notif.is_read ? 'text-zinc-400' : 'text-zinc-600'
+                        }`}>
+                          {notif.message}
+                        </p>
+                        
+                        {!notif.is_read && (
+                          <button 
+                            onClick={() => markNotificationAsRead(notif.id)}
+                            className="text-[10px] font-black uppercase tracking-widest text-violet-600 hover:text-violet-700 flex items-center gap-1.5 group"
+                          >
+                            <CheckCircle2 size={14} className="group-hover:scale-110 transition-transform" />
+                            Mark as read
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+
+                {notifications.length === 0 && (
+                  <div className="bg-zinc-50 rounded-[3rem] p-20 text-center border-2 border-dashed border-zinc-200">
+                    <div className="w-20 h-20 bg-zinc-100 rounded-3xl flex items-center justify-center mx-auto mb-6 text-zinc-300">
+                      <Mail size={40} />
+                    </div>
+                    <h3 className="text-xl font-black text-zinc-900 mb-2">No notifications yet</h3>
+                    <p className="text-zinc-500 max-w-xs mx-auto text-sm">
+                      Your inbox is empty. We'll notify you when there's something new!
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
           {activeTab === 'referrals' && (
             <motion.div 
               key="referrals"
@@ -3704,6 +3895,20 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-8"
             >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-black text-zinc-900 tracking-tight">Admin Panel</h2>
+                  <p className="text-zinc-500 text-sm">Manage clinic operations and staff.</p>
+                </div>
+                <button 
+                  onClick={() => setShowNotificationModal(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-violet-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg shadow-violet-500/20 active:scale-95 transition-all"
+                >
+                  <Mail size={18} />
+                  Send Notification
+                </button>
+              </div>
+
               {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
@@ -7705,6 +7910,93 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                       {isSubmitting ? 'Submitting...' : 'Submit Referral'}
                     </button>
                   </form>
+                </div>
+              </motion.div>
+            </div>
+          )}
+
+          {showNotificationModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowNotificationModal(false)}
+                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-black/5"
+              >
+                <div className="p-8">
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <h3 className="text-2xl font-black text-zinc-900 tracking-tight">Send Notification</h3>
+                      <p className="text-zinc-500 text-sm">Send a message to staff members.</p>
+                    </div>
+                    <button 
+                      onClick={() => setShowNotificationModal(false)}
+                      className="p-2 hover:bg-zinc-100 rounded-xl transition-colors"
+                    >
+                      <PlusCircle size={24} className="rotate-45 text-zinc-400" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest ml-1">Recipient</label>
+                      <select 
+                        value={notificationForm.user_id}
+                        onChange={(e) => setNotificationForm({...notificationForm, user_id: e.target.value})}
+                        className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all"
+                      >
+                        <option value="all">All Staff Members</option>
+                        {staffList.map(s => (
+                          <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest ml-1">Title</label>
+                      <input 
+                        type="text"
+                        placeholder="Notification Title"
+                        value={notificationForm.title}
+                        onChange={(e) => setNotificationForm({...notificationForm, title: e.target.value})}
+                        className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest ml-1">Message</label>
+                      <textarea 
+                        placeholder="Write your message here..."
+                        rows={4}
+                        value={notificationForm.message}
+                        onChange={(e) => setNotificationForm({...notificationForm, message: e.target.value})}
+                        className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all resize-none"
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <button 
+                        onClick={() => setShowNotificationModal(false)}
+                        className="flex-1 px-6 py-4 rounded-2xl text-sm font-black uppercase tracking-widest text-zinc-400 hover:bg-zinc-50 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={sendNotification}
+                        disabled={!notificationForm.title || !notificationForm.message}
+                        className="flex-1 px-6 py-4 rounded-2xl text-sm font-black uppercase tracking-widest bg-violet-600 text-white shadow-lg shadow-violet-500/20 hover:bg-violet-700 disabled:opacity-50 disabled:shadow-none transition-all"
+                      >
+                        Send Now
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             </div>
