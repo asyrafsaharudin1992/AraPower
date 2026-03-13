@@ -4116,13 +4116,13 @@ export default function App() {
               <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm flex flex-wrap gap-4 items-end">
                 <div className="flex-1 min-w-[200px]">
                   <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 ml-1 tracking-widest">
-                    {payoutSubTab === 'history' ? 'Search Patient' : 'Search Staff'}
+                    {payoutSubTab === 'history' ? 'Search Referrals' : 'Search Staff'}
                   </label>
                   <div className="relative">
                     <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
                     <input 
                       type="text"
-                      placeholder={payoutSubTab === 'history' ? "Search patient name..." : "Search staff name..."}
+                      placeholder={payoutSubTab === 'history' ? "Search patient, staff, or service..." : "Search staff name..."}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-all"
@@ -4186,7 +4186,11 @@ export default function App() {
                         <tbody className="divide-y divide-zinc-50">
                           {referrals
                             .filter(r => r.status === 'approved' || r.status === 'payout_processed')
-                            .filter(r => r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                            .filter(r => 
+                              r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              r.staff_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              (r.service_name && r.service_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                            )
                             .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
                             .filter(r => payoutUserFilter === 'all' ? true : r.staff_id.toString() === payoutUserFilter)
                             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
