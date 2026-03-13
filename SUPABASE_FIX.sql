@@ -62,3 +62,22 @@ BEGIN
         ALTER TABLE services ADD COLUMN is_featured BOOLEAN DEFAULT false;
     END IF;
 END $$;
+
+-- 4. Create feedback table
+CREATE TABLE IF NOT EXISTS feedback (
+    id BIGSERIAL PRIMARY KEY,
+    staff_id BIGINT REFERENCES staff(id),
+    staff_name TEXT,
+    staff_email TEXT,
+    message TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS and add policy for feedback
+ALTER TABLE IF EXISTS feedback ENABLE ROW LEVEL SECURITY;
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'feedback' AND policyname = 'Enable all for app') THEN
+        CREATE POLICY "Enable all for app" ON feedback FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+END $$;

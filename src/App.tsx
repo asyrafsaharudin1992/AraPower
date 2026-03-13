@@ -54,7 +54,9 @@ import {
   Tag,
   Palette,
   Sun,
-  Moon
+  Moon,
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -824,6 +826,8 @@ export default function App() {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [taskDueDate, setTaskDueDate] = useState<Date | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [isSendingFeedback, setIsSendingFeedback] = useState(false);
   const [referralSettings, setReferralSettings] = useState({
     types: ['Staff', 'Patient', 'Public'],
     defaultCommission: 5,
@@ -1655,6 +1659,37 @@ export default function App() {
       console.error(error);
     } finally {
       setIsSavingSetup(false);
+    }
+  };
+
+  const handleSendFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackMessage.trim() || !currentUser) return;
+    
+    setIsSendingFeedback(true);
+    try {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          staff_id: currentUser.id,
+          staff_name: currentUser.name,
+          staff_email: currentUser.email,
+          message: feedbackMessage
+        })
+      });
+
+      if (res.ok) {
+        showNotification('success', 'Feedback sent successfully! Thank you.');
+        setFeedbackMessage('');
+      } else {
+        showNotification('error', data?.error || 'Failed to send feedback');
+      }
+    } catch (error) {
+      console.error(error);
+      showNotification('error', 'An error occurred while sending feedback');
+    } finally {
+      setIsSendingFeedback(false);
     }
   };
 
@@ -5103,6 +5138,49 @@ export default function App() {
                       <span>Change Account Password</span>
                       <ChevronRight size={16} className={`${darkMode ? 'text-[#f5f5dc]/20' : 'text-zinc-300'} group-hover:text-brand-accent transition-colors`} />
                     </button>
+                  </div>
+
+                  <div className={`pt-6 border-t ${darkMode ? 'border-white/5' : 'border-zinc-100'}`}>
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${darkMode ? 'text-[#f5f5dc]/40' : 'text-zinc-400'}`}>
+                      <MessageSquare size={14} className={darkMode ? 'text-brand-accent' : 'text-brand-accent'} />
+                      Developer Feedback
+                    </h4>
+                    <div className="space-y-4">
+                      <p className={`text-xs font-medium ${darkMode ? 'text-[#f5f5dc]/60' : 'text-zinc-500'}`}>
+                        Have a suggestion or found a bug? Send a message directly to the developer.
+                      </p>
+                      <textarea 
+                        value={feedbackMessage}
+                        onChange={(e) => setFeedbackMessage(e.target.value)}
+                        className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium min-h-[120px] resize-none ${
+                          darkMode 
+                            ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-brand-accent/20 focus:border-brand-accent' 
+                            : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10 focus:border-violet-500'
+                        }`}
+                        placeholder="Type your feedback here..."
+                      />
+                      <button 
+                        type="button"
+                        onClick={handleSendFeedback}
+                        disabled={isSendingFeedback || !feedbackMessage.trim()}
+                        className={`w-full py-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                          isSendingFeedback 
+                            ? 'opacity-50 cursor-not-allowed' 
+                            : ''
+                        } ${
+                          darkMode 
+                            ? 'bg-brand-accent/10 text-brand-accent hover:bg-brand-accent/20' 
+                            : 'bg-violet-50 text-violet-600 hover:bg-violet-100'
+                        }`}
+                      >
+                        {isSendingFeedback ? (
+                          <RefreshCw size={16} className="animate-spin" />
+                        ) : (
+                          <Send size={16} />
+                        )}
+                        {isSendingFeedback ? 'Sending...' : 'Send Feedback'}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex gap-4 pt-6">

@@ -1426,6 +1426,34 @@ async function startServer() {
     }).catch(err => console.warn('Task column detection failed:', err));
   }
 
+  app.post("/api/feedback", async (req, res) => {
+    if (!checkSupabase(res)) return;
+    const { staff_id, staff_name, staff_email, message } = req.body;
+    
+    if (!message) {
+      return res.status(400).json({ error: "Message is required" });
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('feedback')
+        .insert({
+          staff_id,
+          staff_name,
+          staff_email,
+          message
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      res.json({ success: true, data });
+    } catch (error: any) {
+      logError('POST /api/feedback', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     try {
