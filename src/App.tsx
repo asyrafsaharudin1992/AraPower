@@ -61,6 +61,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
+import PullToRefresh from 'react-simple-pull-to-refresh';
 import DatePicker from 'react-datepicker';
 import { 
   LineChart, 
@@ -722,6 +723,13 @@ const getShareUrl = (customDomain?: string) => {
     return origin.replace('ais-dev-', 'ais-pre-');
   }
   return origin;
+};
+
+const MobilePullToRefreshWrapper = ({ isMobile, onRefresh, children }: { isMobile: boolean, onRefresh: () => Promise<any>, children: React.ReactNode }) => {
+  if (isMobile) {
+    return <PullToRefresh onRefresh={onRefresh} pullDownThreshold={60} maxPullDownDistance={90}>{children as React.ReactElement}</PullToRefresh>;
+  }
+  return <>{children}</>;
 };
 
 export default function App() {
@@ -1446,6 +1454,21 @@ export default function App() {
 
     const { res, data } = await safeFetch(url);
     if (res.ok && Array.isArray(data)) setReferrals(data);
+  };
+
+  const handleRefresh = async () => {
+    if (!currentUser) return;
+    const promises = [
+      fetchReferrals(),
+      fetchPromotions(),
+      fetchServices(),
+      fetchTasks(),
+      fetchNotifications()
+    ];
+    if (currentUser.role === 'admin') {
+      promises.push(fetchStaff(), fetchSettings(), fetchBranches(), fetchBranchChangeRequests());
+    }
+    await Promise.all(promises);
   };
 
   const handleGetStarted = () => {
@@ -3106,7 +3129,8 @@ export default function App() {
         )}
 
         {/* Main Content */}
-        <main className={`${!isMobile ? `ml-64 ${reduceTranslucency ? (darkMode ? 'bg-[#0f172a]' : 'bg-[#FBFBFD]') : (darkMode ? 'bg-[#0f172a]/80' : 'bg-[#FBFBFD]/80') + ' backdrop-blur-sm'}` : `pb-32 min-h-screen ${darkMode ? 'bg-[#0f172a]' : 'bg-zinc-50'}`} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
+        <MobilePullToRefreshWrapper isMobile={isMobile} onRefresh={handleRefresh}>
+          <main className={`${!isMobile ? `ml-64 ${reduceTranslucency ? (darkMode ? 'bg-[#0f172a]' : 'bg-[#FBFBFD]') : (darkMode ? 'bg-[#0f172a]/80' : 'bg-[#FBFBFD]/80') + ' backdrop-blur-sm'}` : `pb-32 min-h-screen ${darkMode ? 'bg-[#0f172a]' : 'bg-zinc-50'}`} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
           {isMobile && (
             <>
               <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-brand-primary/20 to-transparent -z-10" />
@@ -8438,6 +8462,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
       </>
     )}
       </main>
+      </MobilePullToRefreshWrapper>
     </div>
   );
   }
