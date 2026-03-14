@@ -40,7 +40,8 @@ async function discoverColumns() {
     { name: 'services', set: serviceColumns },
     { name: 'referrals', set: referralColumns },
     { name: 'staff', set: staffColumns },
-    { name: 'tasks', set: taskColumns }
+    { name: 'tasks', set: taskColumns },
+    { name: 'notifications', set: new Set(['id', 'user_id', 'title', 'message', 'type', 'is_read', 'created_at']) }
   ];
 
   for (const table of tables) {
@@ -827,56 +828,132 @@ app.get("/api/staff/email", async (req, res) => {
 
 // Notifications API
 app.get("/api/notifications/:userId", async (req, res) => {
-  const { userId } = req.params;
-  // Fetch notifications for specific user OR global ones (user_id is null)
-  const { data, error } = await supabase
-    .from('notifications')
-    .select('*')
-    .or(`user_id.eq.${userId},user_id.is.null`)
-    .order('created_at', { ascending: false });
+  try {
+    if (!supabase) {
+      return res.status(500).json({ error: 'Supabase client not initialized' });
+    }
+    const { userId } = req.params;
+    // Fetch notifications for specific user OR global ones (user_id is null)
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .or(`user_id.eq.${userId},user_id.is.null`)
+      .order('created_at', { ascending: false });
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/check-env", (req, res) => {
+  res.json({ url: process.env.VITE_SUPABASE_URL });
+});
+
+app.get("/api/check-tables", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase client not initialized' });
+  const { data: staff, error: e1 } = await supabase.from('staff').select('*').limit(1);
+  const { data: notifications, error: e2 } = await supabase.from('notifications').select('*').limit(1);
+  res.json({ staff: !!staff, notifications: !!notifications, e1, e2 });
 });
 
 app.post("/api/notifications", async (req, res) => {
-  const { user_id, title, message, type } = req.body;
-  const { data, error } = await supabase
-    .from('notifications')
-    .insert({ 
-      user_id: user_id || null, 
-      title, 
-      message, 
-      type: type || 'announcement',
-      created_at: new Date().toISOString()
-    })
-    .select()
-    .single();
+  try {
+    if (!supabase) {
+      return res.status(500).json({ error: 'Supabase client not initialized' });
+    }
+    const { user_id, user_ids, title, message, type } = req.body;
+    
+    // Support both single user_id (legacy) and user_ids array (bulk)
+    const targetIds = user_ids || (user_id ? [user_id] : []);
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+    if (targetIds.length === 0) {
+      // Global notification
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert({ 
+          user_id: null, 
+          title, 
+          message, 
+          type: type || 'announcement',
+          is_read: false
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[Notification Error] Global Insert:', error.message, error);
+        return res.status(500).json({ error: error.message || 'Unknown database error', details: error });
+      }
+      return res.json(data);
+    } else {
+      // Bulk or single targeted notification
+      const inserts = targetIds
+        .filter((id: any) => id !== 'all') // Extra safety
+        .map((id: any) => {
+          const userId = (id === null || isNaN(Number(id))) ? null : Number(id);
+          return {
+            user_id: userId,
+            title,
+            message,
+            type: type || 'announcement',
+            is_read: false
+          };
+        });
+
+      console.log('[Notification Debug] Inserts Count:', inserts.length);
+
+      if (inserts.length === 0) {
+        return res.status(400).json({ error: 'No valid recipients selected' });
+      }
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert(inserts);
+
+      if (error) {
+        console.error('[Notification Error] Bulk Insert:', error.message, error);
+        return res.status(500).json({ error: error.message || 'Unknown database error', details: error });
+      }
+      return res.json({ success: true, count: inserts.length });
+    }
+  } catch (err: any) {
+    console.error('[Notification Error] Unexpected:', err);
+    return res.status(500).json({ error: err.message || 'An unexpected error occurred' });
+  }
 });
 
 app.patch("/api/notifications/:id/read", async (req, res) => {
-  const { id } = req.params;
-  const { error } = await supabase
-    .from('notifications')
-    .update({ is_read: true })
-    .eq('id', id);
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase client not initialized' });
+    const { id } = req.params;
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', id);
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.delete("/api/notifications/:id", async (req, res) => {
-  const { id } = req.params;
-  const { error } = await supabase
-    .from('notifications')
-    .delete()
-    .eq('id', id);
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase client not initialized' });
+    const { id } = req.params;
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', id);
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get("/api/staff", async (req, res) => {

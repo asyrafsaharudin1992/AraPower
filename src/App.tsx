@@ -73,7 +73,7 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import { supabase } from './supabase';
+import { supabase, isPlaceholder } from './supabase';
 
 interface Promotion {
   id: number;
@@ -430,6 +430,7 @@ interface RolePermissions {
   canViewAnalytics: boolean;
   canManagePayouts: boolean;
   canManageSettings: boolean;
+  canManageCommunication: boolean;
 }
 
 interface RolesConfig {
@@ -589,7 +590,7 @@ export default function App() {
       created_at: new Date().toISOString()
     }
   ]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'kit' | 'promotions' | 'payouts' | 'inbox'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'kit' | 'promotions' | 'payouts' | 'inbox' | 'communication'>('dashboard');
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   
   // Setup Tab State
@@ -650,10 +651,10 @@ export default function App() {
     }
   };
   const [rolesConfig, setRolesConfig] = useState<RolesConfig>({
-    admin: { canApprove: true, canEditServices: true, canEditStaff: true, canViewAnalytics: true, canManagePayouts: true, canManageSettings: true },
-    receptionist: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: false, canManageSettings: false },
-    staff: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: false, canManageSettings: false },
-    dispensary: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: true, canManageSettings: false }
+    admin: { canApprove: true, canEditServices: true, canEditStaff: true, canViewAnalytics: true, canManagePayouts: true, canManageSettings: true, canManageCommunication: true },
+    receptionist: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: false, canManageSettings: false, canManageCommunication: true },
+    staff: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: false, canManageSettings: false, canManageCommunication: false },
+    dispensary: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: true, canManageSettings: false, canManageCommunication: false }
   });
 
   // Staff Detail State
@@ -682,32 +683,41 @@ export default function App() {
   const [referralSearch, setReferralSearch] = useState('');
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
-  const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [notificationForm, setNotificationForm] = useState({
-    user_id: 'all',
+    user_ids: [] as string[],
     title: '',
     message: '',
     type: 'announcement'
   });
 
   const sendNotification = async () => {
-    if (!notificationForm.title || !notificationForm.message) return;
+    if (!notificationForm.title || !notificationForm.message) {
+      showNotification('error', 'Please fill in all fields');
+      return;
+    }
+    
+    setIsSavingSetup(true);
     try {
       const response = await fetch('/api/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...notificationForm,
-          user_id: notificationForm.user_id === 'all' ? null : parseInt(notificationForm.user_id)
+          user_ids: notificationForm.user_ids.length === 0 ? [] : notificationForm.user_ids.map(id => id === 'all' ? null : parseInt(id))
         })
       });
 
       if (response.ok) {
-        setShowNotificationModal(false);
-        setNotificationForm({ user_id: 'all', title: '', message: '', type: 'announcement' });
+        showNotification('success', 'Notification sent successfully');
+        setNotificationForm({ user_ids: [], title: '', message: '', type: 'announcement' });
+      } else {
+        const errorData = await response.json();
+        showNotification('error', `Error: ${errorData.error}`);
       }
     } catch (error) {
-      console.error('Error sending notification:', error);
+      showNotification('error', 'Failed to send notification');
+    } finally {
+      setIsSavingSetup(false);
     }
   };
 
@@ -932,6 +942,11 @@ export default function App() {
 
   useEffect(() => {
     // Check for active session
+    if (isPlaceholder) {
+      setIsAuthChecking(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
         fetchStaffByEmail(session.user.email, session.user);
@@ -945,8 +960,19 @@ export default function App() {
           setIsAuthChecking(false);
         }
       }
-    }).catch(err => {
+    }).catch(async (err: any) => {
       console.warn('Supabase session check failed:', err);
+      // Handle invalid refresh token by clearing the session
+      if (err.message?.includes('Refresh Token Not Found') || err.message?.includes('invalid_refresh_token')) {
+        console.log('Clearing invalid Supabase session...');
+        try {
+          await supabase.auth.signOut();
+        } catch (e) {
+          console.error('Error during signOut:', e);
+        }
+        localStorage.removeItem('currentUser');
+        setCurrentUser(null);
+      }
       setIsAuthChecking(false);
     });
 
@@ -2839,6 +2865,15 @@ export default function App() {
                 <UserCircle size={18} />
                 <span className="text-sm font-medium">My Profile</span>
               </button>
+              {rolesConfig[currentUser.role]?.canManageCommunication && (
+                <button 
+                  onClick={() => setActiveTab('communication')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'communication' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  <MessageSquare size={18} />
+                  <span className="text-sm font-medium">Communication</span>
+                </button>
+              )}
               {rolesConfig[currentUser.role]?.canViewAnalytics && (
                 <button 
                   onClick={() => setActiveTab('admin')}
@@ -3900,13 +3935,6 @@ export default function App() {
                   <h2 className="text-3xl font-black text-zinc-900 tracking-tight">Admin Panel</h2>
                   <p className="text-zinc-500 text-sm">Manage clinic operations and staff.</p>
                 </div>
-                <button 
-                  onClick={() => setShowNotificationModal(true)}
-                  className="flex items-center gap-2 px-6 py-3 bg-violet-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg shadow-violet-500/20 active:scale-95 transition-all"
-                >
-                  <Mail size={18} />
-                  Send Notification
-                </button>
               </div>
 
               {/* Stats Grid */}
@@ -4253,6 +4281,165 @@ export default function App() {
                       )}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'communication' && rolesConfig[currentUser.role]?.canManageCommunication && (
+            <motion.div 
+              key="communication"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-8"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-black text-zinc-900 tracking-tight">Communication</h2>
+                  <p className="text-zinc-500 text-sm">Send notifications and announcements to staff members.</p>
+                </div>
+                <div className="w-12 h-12 bg-violet-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/20">
+                  <MessageSquare size={24} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm space-y-6">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 block">Notification Title</label>
+                        <input 
+                          type="text"
+                          value={notificationForm.title}
+                          onChange={(e) => setNotificationForm({...notificationForm, title: e.target.value})}
+                          placeholder="Enter a descriptive title..."
+                          className="w-full px-5 py-4 bg-zinc-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-violet-500 transition-all"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 block">Message Content</label>
+                        <textarea 
+                          value={notificationForm.message}
+                          onChange={(e) => setNotificationForm({...notificationForm, message: e.target.value})}
+                          placeholder="Type your message here..."
+                          rows={6}
+                          className="w-full px-5 py-4 bg-zinc-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-violet-500 transition-all resize-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 block">Notification Type</label>
+                          <select 
+                            value={notificationForm.type}
+                            onChange={(e) => setNotificationForm({...notificationForm, type: e.target.value as any})}
+                            className="w-full px-5 py-4 bg-zinc-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-violet-500 transition-all"
+                          >
+                            <option value="announcement">Announcement</option>
+                            <option value="alert">Alert</option>
+                            <option value="update">Update</option>
+                            <option value="reminder">Reminder</option>
+                          </select>
+                        </div>
+                        <div className="flex items-end">
+                          <button 
+                            onClick={sendNotification}
+                            disabled={isSavingSetup || !notificationForm.title || !notificationForm.message}
+                            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg shadow-violet-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                          >
+                            {isSavingSetup ? (
+                              <RefreshCw size={18} className="animate-spin" />
+                            ) : (
+                              <Send size={18} />
+                            )}
+                            Send Notification
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-zinc-50 p-8 rounded-[2.5rem] border border-zinc-100">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Info size={18} className="text-violet-600" />
+                      <h4 className="font-bold text-zinc-900">Communication Tips</h4>
+                    </div>
+                    <ul className="space-y-3 text-sm text-zinc-600">
+                      <li className="flex gap-2">
+                        <span className="text-violet-600 font-bold">•</span>
+                        Use clear and concise titles to grab attention.
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="text-violet-600 font-bold">•</span>
+                        Announcements are sent to all staff by default if no specific users are selected.
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="text-violet-600 font-bold">•</span>
+                        Staff will receive these in their notification inbox in real-time.
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="font-black text-zinc-900 tracking-tight">Recipients</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                          {notificationForm.user_ids.length === 0 ? 'All Staff' : `${notificationForm.user_ids.length} Selected`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                      <label className="flex items-center gap-3 p-3 rounded-2xl hover:bg-zinc-50 transition-colors cursor-pointer border border-transparent hover:border-zinc-100">
+                        <input 
+                          type="checkbox"
+                          checked={notificationForm.user_ids.length === activeStaffList.length && activeStaffList.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNotificationForm({ ...notificationForm, user_ids: activeStaffList.map(s => s.id.toString()) });
+                            } else {
+                              setNotificationForm({ ...notificationForm, user_ids: [] });
+                            }
+                          }}
+                          className="w-5 h-5 rounded-lg border-zinc-200 text-violet-600 focus:ring-violet-500"
+                        />
+                        <span className="text-sm font-bold text-zinc-900">Select All Staff</span>
+                      </label>
+
+                      <div className="h-px bg-zinc-100 my-2" />
+
+                      {activeStaffList.map(staff => (
+                        <label key={staff.id} className="flex items-center gap-3 p-3 rounded-2xl hover:bg-zinc-50 transition-colors cursor-pointer border border-transparent hover:border-zinc-100">
+                          <input 
+                            type="checkbox"
+                            checked={notificationForm.user_ids.includes(staff.id.toString())}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setNotificationForm({ ...notificationForm, user_ids: [...notificationForm.user_ids, staff.id.toString()] });
+                              } else {
+                                setNotificationForm({ ...notificationForm, user_ids: notificationForm.user_ids.filter(id => id !== staff.id.toString()) });
+                              }
+                            }}
+                            className="w-5 h-5 rounded-lg border-zinc-200 text-violet-600 focus:ring-violet-500"
+                          />
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-[10px] font-bold text-zinc-500">
+                              {staff.name.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-zinc-900 leading-tight">{staff.name}</p>
+                              <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">{staff.role}</p>
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -7915,92 +8102,6 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
             </div>
           )}
 
-          {showNotificationModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setShowNotificationModal(false)}
-                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
-              />
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-black/5"
-              >
-                <div className="p-8">
-                  <div className="flex items-center justify-between mb-8">
-                    <div>
-                      <h3 className="text-2xl font-black text-zinc-900 tracking-tight">Send Notification</h3>
-                      <p className="text-zinc-500 text-sm">Send a message to staff members.</p>
-                    </div>
-                    <button 
-                      onClick={() => setShowNotificationModal(false)}
-                      className="p-2 hover:bg-zinc-100 rounded-xl transition-colors"
-                    >
-                      <PlusCircle size={24} className="rotate-45 text-zinc-400" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest ml-1">Recipient</label>
-                      <select 
-                        value={notificationForm.user_id}
-                        onChange={(e) => setNotificationForm({...notificationForm, user_id: e.target.value})}
-                        className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all"
-                      >
-                        <option value="all">All Staff Members</option>
-                        {staffList.map(s => (
-                          <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest ml-1">Title</label>
-                      <input 
-                        type="text"
-                        placeholder="Notification Title"
-                        value={notificationForm.title}
-                        onChange={(e) => setNotificationForm({...notificationForm, title: e.target.value})}
-                        className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest ml-1">Message</label>
-                      <textarea 
-                        placeholder="Write your message here..."
-                        rows={4}
-                        value={notificationForm.message}
-                        onChange={(e) => setNotificationForm({...notificationForm, message: e.target.value})}
-                        className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all resize-none"
-                      />
-                    </div>
-
-                    <div className="flex gap-3 pt-2">
-                      <button 
-                        onClick={() => setShowNotificationModal(false)}
-                        className="flex-1 px-6 py-4 rounded-2xl text-sm font-black uppercase tracking-widest text-zinc-400 hover:bg-zinc-50 transition-all"
-                      >
-                        Cancel
-                      </button>
-                      <button 
-                        onClick={sendNotification}
-                        disabled={!notificationForm.title || !notificationForm.message}
-                        className="flex-1 px-6 py-4 rounded-2xl text-sm font-black uppercase tracking-widest bg-violet-600 text-white shadow-lg shadow-violet-500/20 hover:bg-violet-700 disabled:opacity-50 disabled:shadow-none transition-all"
-                      >
-                        Send Now
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
         </AnimatePresence>
         <AnimatePresence>
           {notification && (

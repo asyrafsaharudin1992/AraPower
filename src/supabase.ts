@@ -13,7 +13,7 @@ if (supabaseUrl && supabaseUrl.includes('placeholder')) {
 }
 console.log('------------------------------');
 
-const isPlaceholder = !supabaseUrl || supabaseUrl === 'https://placeholder-project.supabase.co';
+export const isPlaceholder = !supabaseUrl || supabaseUrl === 'https://placeholder-project.supabase.co';
 
 if (isPlaceholder) {
   console.warn('Supabase credentials missing or using placeholders. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your platform settings and restart the dev server.');
