@@ -129,6 +129,7 @@ interface Service {
   posters?: string[];
   promo_price?: number;
   type?: 'Service' | 'Promotion';
+  category?: string;
   branches?: string[];
   start_date?: string;
   end_date?: string;
@@ -177,6 +178,226 @@ interface ClinicProfile {
   logoUrl?: string;
   customDomain?: string;
 }
+
+const getServiceStatus = (item: Service) => {
+  if (!item.start_date && !item.end_date) return 'active';
+  const now = new Date();
+  
+  const parseDate = (d: string) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      const [y, m, day] = d.split('-').map(Number);
+      return new Date(y, m - 1, day);
+    }
+    return new Date(d);
+  };
+
+  const start = item.start_date ? parseDate(item.start_date) : null;
+  const end = item.end_date ? parseDate(item.end_date) : null;
+  
+  if (start) {
+    if (item.start_time) {
+      const [h, m] = item.start_time.split(':').map(Number);
+      start.setHours(h, m, 0, 0);
+    } else {
+      start.setHours(0, 0, 0, 0);
+    }
+    if (now < start) return 'upcoming';
+  }
+  
+  if (end) {
+    if (item.end_time) {
+      const [h, m] = item.end_time.split(':').map(Number);
+      end.setHours(h, m, 59, 999);
+    } else {
+      end.setHours(23, 59, 59, 999);
+    }
+    if (now > end) return 'expired';
+  }
+  
+  return 'active';
+};
+
+const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => void }) => {
+  const status = getServiceStatus(item);
+
+  // Generate a consistent gradient based on the item ID
+  const gradients = [
+    'from-blue-900 to-purple-900',
+    'from-teal-900 to-black',
+    'from-indigo-900 to-blue-950',
+    'from-slate-900 to-purple-950',
+    'from-zinc-900 to-teal-950'
+  ];
+  const gradient = gradients[(Number(item.id) || 0) % gradients.length];
+
+  return (
+    <motion.div
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      className={`relative flex-shrink-0 w-64 h-80 rounded-[20px] bg-gradient-to-br ${gradient} p-6 flex flex-col justify-between shadow-2xl cursor-pointer overflow-hidden border border-white/5`}
+    >
+      <div className="flex justify-between items-start">
+        <div className="flex gap-2">
+          <span className="px-2 py-1 rounded-full bg-white/10 backdrop-blur-md text-[8px] font-black text-white uppercase tracking-widest border border-white/10">
+            {item.type || 'SERVICE'}
+          </span>
+          <span className={`px-2 py-1 rounded-full backdrop-blur-md text-[8px] font-black uppercase tracking-widest border border-white/10 ${
+            status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 
+            status === 'upcoming' ? 'bg-amber-500/20 text-amber-400' : 
+            'bg-rose-500/20 text-rose-400'
+          }`}>
+            {status}
+          </span>
+        </div>
+        {item.is_featured && <Star size={14} className="text-amber-400" fill="currentColor" />}
+      </div>
+      
+      <div className="relative z-10">
+        <h3 className="text-2xl font-bold text-white leading-tight tracking-tight">
+          {item.name}
+        </h3>
+      </div>
+
+      {/* Subtle background glow */}
+      <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-white/5 rounded-full blur-3xl" />
+    </motion.div>
+  );
+};
+
+const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile }: { item: Service | null, isOpen: boolean, onClose: () => void, clinicProfile: ClinicProfile }) => {
+  if (!item) return null;
+
+  const handleDownloadPoster = async (url: string, fileName: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const file = new File([blob], fileName, { type: blob.type });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: fileName,
+            text: `Poster for ${item.name}`,
+          });
+          return;
+        } catch (shareError) {
+          if ((shareError as Error).name !== 'AbortError') {
+            console.error('Share failed:', shareError);
+          }
+        }
+      }
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName || 'poster.jpg';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]"
+          />
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed bottom-0 left-0 right-0 bg-[#121212] rounded-t-[32px] z-[101] max-h-[90vh] overflow-y-auto custom-scrollbar"
+          >
+            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-4" />
+            
+            <div className="px-6 pb-12 space-y-8">
+              {/* Poster */}
+              {item.posters && item.posters.length > 0 ? (
+                <div className="rounded-2xl overflow-hidden shadow-2xl">
+                  <img src={item.posters[0]} alt={item.name} className="w-full aspect-[4/5] object-cover" />
+                </div>
+              ) : (
+                <div className="w-full aspect-[4/5] bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-2xl flex items-center justify-center">
+                  <Zap size={48} className="text-zinc-700" />
+                </div>
+              )}
+
+              {/* Info */}
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    <span className="px-2 py-1 rounded-md bg-white/10 text-[10px] font-black text-white uppercase tracking-widest border border-white/10">
+                      {item.type || 'SERVICE'}
+                    </span>
+                    {(() => {
+                      const status = getServiceStatus(item);
+                      return (
+                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border border-white/10 ${
+                          status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 
+                          status === 'upcoming' ? 'bg-amber-500/20 text-amber-400' : 
+                          'bg-rose-500/20 text-rose-400'
+                        }`}>
+                          {status}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <h2 className="text-3xl font-black text-white tracking-tight mb-2">{item.name}</h2>
+                  <p className="text-zinc-400 text-sm leading-relaxed">{item.description || 'No description provided'}</p>
+                </div>
+
+                {/* Pricing */}
+                <div className="bg-white/5 rounded-3xl p-6 border border-white/5 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Base Price</span>
+                    <span className="text-zinc-400 text-lg line-through font-medium">
+                      {clinicProfile.currency}{(item.base_price || 0).toFixed(0)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Promo Price</span>
+                    <span className="text-amber-400 text-3xl font-black">
+                      {clinicProfile.currency}{(item.promo_price || item.base_price || 0).toFixed(0)}
+                    </span>
+                  </div>
+
+                  <div className="pt-4 border-t border-white/10 flex justify-between items-center">
+                    <span className="text-brand-accent text-xs font-bold uppercase tracking-widest">Agent Incentive</span>
+                    <span className="text-brand-accent text-xl font-black">
+                      {clinicProfile.currency}{(item.commission_rate || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <button
+                  onClick={() => item.posters && item.posters.length > 0 && handleDownloadPoster(item.posters[0], `${item.name}-poster.jpg`)}
+                  disabled={!item.posters || item.posters.length === 0}
+                  className="w-full py-5 bg-white text-black rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  <Download size={20} />
+                  Download Poster to Share
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+};
 
 const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, darkMode: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: number) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
   const handleDownloadPoster = async (url: string, fileName: string) => {
@@ -232,45 +453,7 @@ const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDelet
     });
   };
 
-  const getStatus = () => {
-    if (!item.start_date && !item.end_date) return 'active';
-    const now = new Date();
-    
-    const parseDate = (d: string) => {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-        const [y, m, day] = d.split('-').map(Number);
-        return new Date(y, m - 1, day);
-      }
-      return new Date(d);
-    };
-
-    const start = item.start_date ? parseDate(item.start_date) : null;
-    const end = item.end_date ? parseDate(item.end_date) : null;
-    
-    if (start) {
-      if (item.start_time) {
-        const [h, m] = item.start_time.split(':').map(Number);
-        start.setHours(h, m, 0, 0);
-      } else {
-        start.setHours(0, 0, 0, 0);
-      }
-      if (now < start) return 'upcoming';
-    }
-    
-    if (end) {
-      if (item.end_time) {
-        const [h, m] = item.end_time.split(':').map(Number);
-        end.setHours(h, m, 59, 999);
-      } else {
-        end.setHours(23, 59, 59, 999);
-      }
-      if (now > end) return 'expired';
-    }
-    
-    return 'active';
-  };
-
-  const status = getStatus();
+  const status = getServiceStatus(item);
 
   const getCountdown = () => {
     if (!item.end_date) return null;
@@ -376,7 +559,7 @@ const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDelet
       <div className={`grid grid-cols-3 gap-2 mb-6 p-4 rounded-2xl ${darkMode ? 'bg-white/5' : 'bg-zinc-50'}`}>
         <div>
           <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Base Price</p>
-          <p className={`text-xs font-black ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{clinicProfile.currency}{item.base_price.toFixed(0)}</p>
+          <p className={`text-xs font-black ${darkMode ? 'text-[#f5f5dc]' : 'text-zinc-900'}`}>{clinicProfile.currency}{(item.base_price || 0).toFixed(0)}</p>
         </div>
         <div>
           <p className="text-[8px] font-black text-orange-400 uppercase tracking-widest mb-1">Promo Price</p>
@@ -384,7 +567,7 @@ const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDelet
         </div>
         <div className={`border-l pl-2 ${darkMode ? 'border-white/10' : 'border-zinc-200'}`}>
           <p className="text-[8px] font-black text-brand-accent uppercase tracking-widest mb-1">Incentive</p>
-          <p className="text-xs font-black text-brand-accent">{clinicProfile.currency}{item.commission_rate.toFixed(2)}</p>
+          <p className="text-xs font-black text-brand-accent">{clinicProfile.currency}{(item.commission_rate || 0).toFixed(2)}</p>
         </div>
       </div>
 
@@ -597,6 +780,8 @@ export default function App() {
   const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash'>('staff');
   const [promoSubTab, setPromoSubTab] = useState<'manage'>('manage');
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
+  const [selectedPromo, setSelectedPromo] = useState<Service | null>(null);
+  const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Partial<Staff> | null>(null);
   const [isSavingSetup, setIsSavingSetup] = useState(false);
 
@@ -5961,6 +6146,21 @@ export default function App() {
                           </div>
                         </div>
 
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Category</label>
+                          <select 
+                            value={editingService?.category || ''}
+                            onChange={(e) => setEditingService(prev => ({ ...prev, category: e.target.value }))}
+                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500/10'}`}
+                          >
+                            <option value="">Select Category</option>
+                            <option value="Health Screenings">Health Screenings</option>
+                            <option value="Specialist Services">Specialist Services</option>
+                            <option value="General Services">General Services</option>
+                            <option value="Dental Services">Dental Services</option>
+                          </select>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <label className="block text-xs font-bold text-zinc-400 uppercase ml-1">Start Date</label>
@@ -6273,6 +6473,18 @@ export default function App() {
                                     <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${service.type === 'Promotion' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
                                       {service.type || 'Service'}
                                     </span>
+                                    {(() => {
+                                      const status = getServiceStatus(service);
+                                      return (
+                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${
+                                          status === 'active' ? 'bg-emerald-100 text-emerald-600' : 
+                                          status === 'upcoming' ? 'bg-amber-100 text-amber-600' : 
+                                          'bg-rose-100 text-rose-600'
+                                        }`}>
+                                          {status}
+                                        </span>
+                                      );
+                                    })()}
                                   </div>
                                   <p className="text-[10px] text-zinc-400 font-medium line-clamp-1">{service.description || 'No description provided'}</p>
                                   {(service.start_date || service.end_date) && (
@@ -6341,20 +6553,62 @@ export default function App() {
                 </div>
               )}
 
-              <div className={`grid grid-cols-1 gap-8 ${currentUser.role === 'admin' ? 'md:grid-cols-2 lg:grid-cols-3' : ''}`}>
-                {services
-                  .filter(item => 
-                    currentUser.role === 'admin' || 
+              <div className="space-y-12">
+                {/* Categories & Carousels */}
+                {[
+                  { title: 'Featured', filter: (s: Service) => s.is_featured },
+                  { title: 'Promotions', filter: (s: Service) => s.type === 'Promotion' && !s.is_featured },
+                  { title: 'Health Screenings', filter: (s: Service) => s.type !== 'Promotion' && !s.is_featured && (s.category === 'Health Screenings' || s.name?.toLowerCase()?.includes('screening')) },
+                  { title: 'Other Services', filter: (s: Service) => s.type !== 'Promotion' && !s.is_featured && s.category !== 'Health Screenings' && !s.name?.toLowerCase()?.includes('screening') }
+                ].map((category, idx) => {
+                  const displayServices = services.length > 0 ? services : promotions.map(p => ({
+                    id: p.id,
+                    name: p.title,
+                    description: p.description,
+                    start_date: p.start_date,
+                    end_date: p.end_date,
+                    type: 'Promotion',
+                    base_price: 0,
+                    commission_rate: 0,
+                    is_featured: true,
+                    allowances: {},
+                    posters: [],
+                    branches: []
+                  } as Service));
+
+                  const filteredServices = displayServices.filter(item => 
+                    (currentUser.role === 'admin' || 
                     !item.branches ||
                     item.branches.length === 0 || 
                     !currentUser.branch ||
-                    item.branches.includes(currentUser.branch)
-                  )
-                  .map((item) => (
-                    <PromotionCard key={item.id} item={item} darkMode={darkMode} clinicProfile={clinicProfile} currentUser={currentUser} handleDeleteService={handleDeleteService} setEditingService={setEditingService} />
-                  ))}
+                    item.branches.includes(currentUser.branch)) &&
+                    category.filter(item)
+                  );
 
-                {services.filter(item => 
+                  if (filteredServices.length === 0) return null;
+
+                  return (
+                    <div key={idx} className="space-y-6">
+                      <h3 className={`text-2xl font-bold tracking-tight px-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+                        {category.title}
+                      </h3>
+                      <div className="flex overflow-x-auto gap-6 pb-8 px-2 custom-scrollbar snap-x">
+                        {filteredServices.map((item) => (
+                          <ModernPromotionCard 
+                            key={item.id} 
+                            item={item} 
+                            onClick={() => {
+                              setSelectedPromo(item);
+                              setIsPromoModalOpen(true);
+                            }} 
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {(services.length > 0 ? services : promotions).filter((item: any) => 
                   currentUser.role === 'admin' || 
                   !item.branches ||
                   item.branches.length === 0 || 
@@ -6370,6 +6624,14 @@ export default function App() {
                   </div>
                 )}
               </div>
+
+              {/* Detail Modal */}
+              <PromotionDetailModal 
+                item={selectedPromo} 
+                isOpen={isPromoModalOpen} 
+                onClose={() => setIsPromoModalOpen(false)} 
+                clinicProfile={clinicProfile}
+              />
             </motion.div>
           )}
 
