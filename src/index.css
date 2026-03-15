@@ -27,13 +27,17 @@
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --color-brand-primary: #000000;
-  --color-brand-secondary: #333333;
-  --color-brand-accent: #FF4500;
-  --color-brand-bg: #FFFFFF;
-  --color-brand-surface: #F5F5F5;
-  --color-brand-peach: #FFDAB9;
-  --color-brand-pink: #FFC0CB;
+  --color-eggshell: #F4F1DE;
+  --color-burnt-peach: #E07A5F;
+  --color-muted-teal: #81B29A;
+  --color-twilight-indigo: #3D405B;
+  --color-apricot-cream: #F2CC8F;
+  
+  /* Mapping for existing components if needed, but we'll update components directly */
+  --color-brand-primary: #3D405B;
+  --color-brand-accent: #E07A5F;
+  --color-brand-bg: #F4F1DE;
+  --color-brand-surface: #81B29A;
 }
 
 @utility grid-rows-0 {

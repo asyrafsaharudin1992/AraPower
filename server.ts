@@ -33,6 +33,10 @@ let referralColumns: Set<string> = new Set(['id', 'staff_id', 'service_id', 'pat
 let serviceColumns: Set<string> = new Set(['name', 'base_price', 'commission_rate', 'allowances_json']);
 let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'promo_code']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
+let branchColumns: Set<string> = new Set(['id', 'name', 'location']);
+let settingsColumns: Set<string> = new Set(['key', 'value']);
+let notificationColumns: Set<string> = new Set(['id', 'user_id', 'title', 'message', 'type', 'is_read', 'created_at']);
+let branchChangeRequestColumns: Set<string> = new Set(['id', 'staff_id', 'status']);
 
 async function discoverColumns() {
   if (!supabase) return;
@@ -41,7 +45,10 @@ async function discoverColumns() {
     { name: 'referrals', set: referralColumns },
     { name: 'staff', set: staffColumns },
     { name: 'tasks', set: taskColumns },
-    { name: 'notifications', set: new Set(['id', 'user_id', 'title', 'message', 'type', 'is_read', 'created_at']) }
+    { name: 'branches', set: branchColumns },
+    { name: 'settings', set: settingsColumns },
+    { name: 'notifications', set: notificationColumns },
+    { name: 'branch_change_requests', set: branchChangeRequestColumns }
   ];
 
   for (const table of tables) {
@@ -90,6 +97,13 @@ if (!supabaseUrl || !supabaseKey) {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false
+      },
+      global: {
+        fetch: (url, options) => {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+          return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+        }
       }
     });
     console.log('Supabase client initialized successfully.');
@@ -275,7 +289,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Branch Management Routes
 app.get("/api/branches", async (req, res) => {
   if (!checkSupabase(res)) return;
-  const { data, error } = await supabase.from('branches').select('*').order('name');
+  const selectColumns = Array.from(branchColumns).length > 0 ? Array.from(branchColumns).join(',') : '*';
+  const { data, error } = await supabase.from('branches').select(selectColumns).order('name');
   if (error) {
     const isMissingTable = error.code === '42P01' || error.message?.includes('schema cache') || error.message?.includes('does not exist');
     if (isMissingTable) {
@@ -327,9 +342,13 @@ app.delete("/api/branches/:id", async (req, res) => {
 
 app.get("/api/branches/:name/performance", async (req, res) => {
   const { name } = req.params;
+  
+  let selectCols = 'status';
+  if (referralColumns.has('commission_earned')) selectCols += ', commission_earned';
+  
   const { data: referrals, error } = await supabase
     .from('referrals')
-    .select('status, commission_earned')
+    .select(selectCols)
     .eq('branch', name);
   
   if (error) return res.status(500).json({ error: error.message });
@@ -365,9 +384,14 @@ app.post("/api/branch-change-requests", async (req, res) => {
 });
 
 app.get("/api/branch-change-requests", async (req, res) => {
+  const selectColumns = Array.from(branchChangeRequestColumns).length > 0 
+    ? Array.from(branchChangeRequestColumns).join(',') 
+    : '*';
+  const fullSelect = `${selectColumns}, staff:staff_id(name, email)`;
+
   const { data, error } = await supabase
     .from('branch_change_requests')
-    .select('*, staff:staff_id(name, email)')
+    .select(fullSelect)
     .order('created_at', { ascending: false });
   
   if (error) return res.status(500).json({ error: error.message });
@@ -378,9 +402,13 @@ app.put("/api/branch-change-requests/:id", async (req, res) => {
   const { id } = req.params;
   const { status, admin_notes } = req.body;
   
+  const selectColumns = Array.from(branchChangeRequestColumns).length > 0 
+    ? Array.from(branchChangeRequestColumns).join(',') 
+    : '*';
+
   const { data: request, error: fetchError } = await supabase
     .from('branch_change_requests')
-    .select('*')
+    .select(selectColumns)
     .eq('id', id)
     .single();
     
@@ -501,12 +529,25 @@ app.post("/api/auth/login", async (req, res) => {
   console.log(`Login attempt for: ${email}`);
   
   try {
-    const { data: staff, error } = await supabase
+    let selectColumns = 'id, name, email, role, promo_code';
+    const optionalColumns = ['staff_id_code', 'branch', 'department', 'position', 'employment_status', 'date_joined', 'pending_earnings', 'approved_earnings', 'paid_earnings', 'lifetime_earnings', 'last_payout_date', 'referrer_type', 'phone', 'aracoins', 'is_approved', 'nickname', 'profile_picture', 'bank_name', 'bank_account_number', 'id_type', 'id_number'];
+    
+    optionalColumns.forEach(col => {
+      if (staffColumns.has(col)) {
+        selectColumns += `, ${col}`;
+      }
+    });
+
+    let query = supabase
       .from('staff')
-      .select('*')
-      .eq('email', email)
-      .eq('password', password)
-      .single();
+      .select(selectColumns)
+      .eq('email', email);
+      
+    if (staffColumns.has('password')) {
+      query = query.eq('password', password);
+    }
+
+    const { data: staff, error } = await query.single();
 
     if (error) {
       if (error.code === 'PGRST116') {
@@ -527,7 +568,7 @@ app.post("/api/auth/login", async (req, res) => {
       res.status(401).json({ error: "Invalid email or password" });
     }
   } catch (error: any) {
-    console.error(`Login error for ${email}:`, error);
+    console.error(`Login error for ${email}:`, error.message || error);
     res.status(500).json({ error: `Server error: ${error.message || 'Unknown error'}` });
   }
 });
@@ -595,13 +636,14 @@ app.post("/api/auth/register", async (req, res) => {
       email,
       role: 'staff',
       promo_code,
-      branch,
-      phone: phone || null,
-      date_joined: new Date().toISOString(),
-      is_approved: 0,
-      password: password || 'password123'
     };
-    if (auth_id) insertData.auth_id = auth_id;
+    
+    if (staffColumns.has('branch')) insertData.branch = branch;
+    if (staffColumns.has('phone')) insertData.phone = phone || null;
+    if (staffColumns.has('date_joined')) insertData.date_joined = new Date().toISOString();
+    if (staffColumns.has('is_approved')) insertData.is_approved = 0;
+    if (staffColumns.has('password')) insertData.password = password || 'password123';
+    if (auth_id && staffColumns.has('auth_id')) insertData.auth_id = auth_id;
 
     const { data: newStaff, error: insertError } = await supabase
       .from('staff')
@@ -610,7 +652,9 @@ app.post("/api/auth/register", async (req, res) => {
       .single();
     
     if (insertError) {
-      logError('Supabase Registration Insert', insertError);
+      if (insertError.code !== '23505') {
+        logError('Supabase Registration Insert', insertError);
+      }
       throw insertError;
     }
 
@@ -621,19 +665,21 @@ app.post("/api/auth/register", async (req, res) => {
     
     res.json(newStaff);
   } catch (error: any) {
-    logError(`Registration error for ${email}`, error);
     if (error.code === '23505') { // Unique constraint violation in Postgres
       res.status(400).json({ error: `Email or Promo Code already exists. Please try again.` });
     } else if (error.code === 'PGRST116' || error.message?.includes('relation "staff" does not exist')) {
+      logError(`Registration error for ${email}`, error);
       res.status(500).json({ error: "Database table 'staff' missing. Please run the SQL schema in Supabase." });
     } else {
+      logError(`Registration error for ${email}`, error);
       res.status(500).json({ error: `Server error: ${error.message || 'Unknown error'}` });
     }
   }
 });
 
 app.get("/api/settings", async (req, res) => {
-  const { data: settings, error } = await supabase.from('settings').select('*');
+  const selectColumns = Array.from(settingsColumns).length > 0 ? Array.from(settingsColumns).join(',') : '*';
+  const { data: settings, error } = await supabase.from('settings').select(selectColumns).neq('key', 'promotions');
   if (error) return res.status(500).json({ error: error.message });
   
   const result: any = {};
@@ -728,12 +774,11 @@ app.post("/api/settings", async (req, res) => {
 
 // Tasks API
 app.get("/api/tasks", async (req, res) => {
+  const selectColumns = Array.from(taskColumns).length > 0 ? Array.from(taskColumns).join(',') : '*';
+  const fullSelect = `${selectColumns}, staff:assigned_to (name)`;
   const { data: tasks, error } = await supabase
     .from('tasks')
-    .select(`
-      *,
-      staff:assigned_to (name)
-    `)
+    .select(fullSelect)
     .order('due_date', { ascending: true });
 
   if (error) return res.status(500).json({ error: error.message });
@@ -803,13 +848,17 @@ app.get("/api/staff/email", async (req, res) => {
   const { email, auth_id } = req.query;
   if (!email) return res.status(400).json({ error: "Email is required" });
   
+  const selectColumns = Array.from(staffColumns).length > 0 
+    ? Array.from(staffColumns).join(',') 
+    : 'id, name, email, role, promo_code';
+
   const { data: staff, error } = await supabase
     .from('staff')
-    .select('*')
+    .select(selectColumns)
     .eq('email', email)
     .single();
     
-  if (staff && auth_id && !staff.auth_id) {
+  if (staff && auth_id && !staff.auth_id && staffColumns.has('auth_id')) {
     // Update the staff record with the new auth_id
     const { data: updatedStaff } = await supabase
       .from('staff')
@@ -833,10 +882,15 @@ app.get("/api/notifications/:userId", async (req, res) => {
       return res.status(500).json({ error: 'Supabase client not initialized' });
     }
     const { userId } = req.params;
+    
+    const selectColumns = Array.from(notificationColumns).length > 0 
+      ? Array.from(notificationColumns).join(',') 
+      : '*';
+
     // Fetch notifications for specific user OR global ones (user_id is null)
     const { data, error } = await supabase
       .from('notifications')
-      .select('*')
+      .select(selectColumns)
       .or(`user_id.eq.${userId},user_id.is.null`)
       .order('created_at', { ascending: false });
 
@@ -959,7 +1013,11 @@ app.delete("/api/notifications/:id", async (req, res) => {
 app.get("/api/staff", async (req, res) => {
   const { promoCode, id } = req.query;
   
-  let query = supabase.from('staff').select('*');
+  const selectColumns = Array.from(staffColumns).length > 0 
+    ? Array.from(staffColumns).join(',') 
+    : 'id, name, email, role, promo_code';
+
+  let query = supabase.from('staff').select(selectColumns);
   
   if (id) {
     const { data, error } = await query.eq('id', id).single();
@@ -1172,7 +1230,11 @@ app.delete("/api/staff/:id/permanent", async (req, res) => {
 });
 
 app.get("/api/services", async (req, res) => {
-  let query = supabase.from('services').select('*');
+  const selectColumns = Array.from(serviceColumns).length > 0 
+    ? Array.from(serviceColumns).join(',') 
+    : 'id, name, base_price, commission_rate, allowances_json';
+
+  let query = supabase.from('services').select(selectColumns);
   if (serviceColumns.has('type')) {
     query = query.or('type.neq.Deleted,type.is.null');
   }
@@ -1181,22 +1243,19 @@ app.get("/api/services", async (req, res) => {
   
   res.json(services.map((s: any) => {
     let allowances = {};
-    let posters = [];
     let branches = [];
     try { allowances = s.allowances_json ? JSON.parse(s.allowances_json) : {}; } catch (e) {}
-    try { posters = s.posters ? JSON.parse(s.posters) : []; } catch (e) {}
     try { branches = s.branches ? JSON.parse(s.branches) : []; } catch (e) {}
     return {
       ...s,
       allowances,
-      posters,
       branches
     };
   }));
 });
 
 app.post("/api/services", async (req, res) => {
-  const { name, base_price, commission_rate, aracoins_perk, allowances, description, posters, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured } = req.body;
   
   const insertData: any = {
     name,
@@ -1206,7 +1265,7 @@ app.post("/api/services", async (req, res) => {
   };
 
   if (description !== undefined && serviceColumns.has('description')) insertData.description = description;
-  if (serviceColumns.has('posters')) insertData.posters = JSON.stringify(posters || []);
+  if (image_url !== undefined && serviceColumns.has('image_url')) insertData.image_url = image_url;
   if (serviceColumns.has('promo_price')) insertData.promo_price = promo_price === undefined ? null : promo_price;
   if (type !== undefined && serviceColumns.has('type')) insertData.type = type;
   if (serviceColumns.has('branches')) insertData.branches = JSON.stringify(branches || []);
@@ -1246,7 +1305,7 @@ app.post("/api/services", async (req, res) => {
 
 app.patch("/api/services/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, base_price, commission_rate, aracoins_perk, allowances, description, posters, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured } = req.body;
   
   const updateData: any = {
     name,
@@ -1256,7 +1315,7 @@ app.patch("/api/services/:id", async (req, res) => {
   };
 
   if (description !== undefined && serviceColumns.has('description')) updateData.description = description;
-  if (serviceColumns.has('posters')) updateData.posters = JSON.stringify(posters || []);
+  if (image_url !== undefined && serviceColumns.has('image_url')) updateData.image_url = image_url;
   if (serviceColumns.has('promo_price')) updateData.promo_price = promo_price === undefined ? null : promo_price;
   if (type !== undefined && serviceColumns.has('type')) updateData.type = type;
   if (serviceColumns.has('branches')) updateData.branches = JSON.stringify(branches || []);
@@ -1310,13 +1369,21 @@ app.get("/api/schema", (req, res) => {
 app.get("/api/referrals", async (req, res) => {
   const { staffId, branch, requesterRole, requesterBranch } = req.query;
   
+  const baseColumns = Array.from(referralColumns).length > 0 
+    ? Array.from(referralColumns).join(',') 
+    : 'id, patient_name, status, staff_id';
+  
+  let selectColumns = baseColumns;
+
+  // Add joins
+  selectColumns += `, staff:staff_id (name, promo_code)`;
+  if (referralColumns.has('service_id')) {
+    selectColumns += `, service:service_id (name)`;
+  }
+
   let query = supabase
     .from('referrals')
-    .select(`
-      *,
-      staff:staff_id (name, promo_code),
-      service:service_id (name)
-    `)
+    .select(selectColumns)
     .order('date', { ascending: false });
 
   if (staffId) {
@@ -1347,9 +1414,13 @@ app.get("/api/referrals", async (req, res) => {
 app.post("/api/referrals", async (req, res) => {
   const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch } = req.body;
   
+  const staffSelect = Array.from(staffColumns).length > 0 
+    ? Array.from(staffColumns).join(',') 
+    : 'id, staff_id_code, phone, branch, pending_earnings';
+
   const { data: staff, error: staffError } = await supabase
     .from('staff')
-    .select('*')
+    .select(staffSelect)
     .eq('id', staff_id)
     .single();
     
@@ -1363,7 +1434,7 @@ app.post("/api/referrals", async (req, res) => {
   const surname = patient_name.split(' ').pop();
   const { count: similarCount } = await supabase
     .from('referrals')
-    .select('*', { count: 'exact', head: true })
+    .select(Array.from(referralColumns).length > 0 ? Array.from(referralColumns).join(',') : '*', { count: 'exact', head: true })
     .ilike('patient_name', `%${surname}`)
     .eq('staff_id', staff_id);
     
@@ -1371,15 +1442,19 @@ app.post("/api/referrals", async (req, res) => {
 
   const { count: dailyCount } = await supabase
     .from('referrals')
-    .select('*', { count: 'exact', head: true })
+    .select(Array.from(referralColumns).length > 0 ? Array.from(referralColumns).join(',') : '*', { count: 'exact', head: true })
     .eq('staff_id', staff_id)
     .eq('date', date);
     
   if (dailyCount && dailyCount >= 5) fraudFlags.push("High daily volume (>5)");
 
+  const serviceSelect = Array.from(serviceColumns).length > 0 
+    ? Array.from(serviceColumns).join(',') 
+    : 'commission_rate, aracoins_perk';
+
   const { data: service, error: serviceError } = await supabase
     .from('services')
-    .select('commission_rate, aracoins_perk')
+    .select(serviceSelect)
     .eq('id', service_id)
     .single();
     
@@ -1430,9 +1505,13 @@ app.patch("/api/referrals/:id", async (req, res) => {
   const { id } = req.params;
   const { status, payment_status, visit_date, verified_by, rejection_reason } = req.body;
   
+  const referralSelect = Array.from(referralColumns).length > 0 
+    ? Array.from(referralColumns).join(',') 
+    : 'id, staff_id, status, commission_amount, aracoins_perk';
+
   const { data: referral, error: fetchError } = await supabase
     .from('referrals')
-    .select('*')
+    .select(referralSelect)
     .eq('id', id)
     .single();
     
@@ -1453,7 +1532,9 @@ app.patch("/api/referrals/:id", async (req, res) => {
   if (updateError) return res.status(500).json({ error: updateError.message });
 
   // Logic for status transitions
-  const { data: staff } = await supabase.from('staff').select('*').eq('id', referral.staff_id).single();
+  const staffSelectColumns = Array.from(staffColumns).length > 0 ? Array.from(staffColumns).join(',') : 'id';
+
+  const { data: staff } = await supabase.from('staff').select(staffSelectColumns).eq('id', referral.staff_id).single();
   if (!staff) return res.json({ success: true });
 
   if (status === 'approved' && referral.status !== 'approved') {

@@ -127,7 +127,7 @@ interface Service {
   aracoins_perk?: number;
   allowances: { [tier: string]: number };
   description?: string;
-  posters?: string[];
+  image_url?: string;
   promo_price?: number;
   type?: 'Service' | 'Promotion';
   category?: string;
@@ -324,9 +324,9 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile }: { item: 
             
             <div className="px-6 pb-12 space-y-8">
               {/* Poster */}
-              {item.posters && item.posters.length > 0 ? (
+              {item.image_url ? (
                 <div className="rounded-2xl overflow-hidden shadow-2xl">
-                  <img src={item.posters[0]} alt={item.name} className="w-full aspect-[4/5] object-cover" />
+                  <img src={item.image_url} alt={item.name} className="w-full aspect-[4/5] object-cover" />
                 </div>
               ) : (
                 <div className="w-full aspect-[4/5] bg-gradient-to-br from-brand-primary to-violet-500 rounded-2xl flex items-center justify-center">
@@ -384,8 +384,8 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile }: { item: 
 
                 {/* Action Button */}
                 <button
-                  onClick={() => item.posters && item.posters.length > 0 && handleDownloadPoster(item.posters[0], `${item.name}-poster.jpg`)}
-                  disabled={!item.posters || item.posters.length === 0}
+                  onClick={() => item.image_url && handleDownloadPoster(item.image_url, `${item.name}-poster.jpg`)}
+                  disabled={!item.image_url}
                   className="w-full py-5 bg-white text-zinc-900 rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
                 >
                   <Download size={20} />
@@ -407,7 +407,6 @@ const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDelet
       const blob = await response.blob();
       const file = new File([blob], fileName, { type: blob.type });
 
-      // Try Web Share API first (better for mobile gallery saving)
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
@@ -417,14 +416,12 @@ const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDelet
           });
           return;
         } catch (shareError) {
-          // If user cancelled or share failed, fall back to download
           if ((shareError as Error).name !== 'AbortError') {
             console.error('Share failed:', shareError);
           }
         }
       }
 
-      // Fallback to standard download
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
@@ -438,157 +435,102 @@ const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDelet
     }
   };
 
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return null;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      const [y, m, d] = dateStr.split('-').map(Number);
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return `${d} ${months[m-1]} ${y}`;
-    }
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return null;
-    return date.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
-
   const status = getServiceStatus(item);
 
-  const getCountdown = () => {
-    if (!item.end_date) return null;
-    const now = new Date();
-    
-    const parseDate = (d: string) => {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-        const [y, m, day] = d.split('-').map(Number);
-        return new Date(y, m - 1, day);
-      }
-      return new Date(d);
-    };
-
-    const end = parseDate(item.end_date);
-    if (item.end_time) {
-      const [h, m] = item.end_time.split(':').map(Number);
-      end.setHours(h, m, 59, 999);
-    } else {
-      end.setHours(23, 59, 59, 999);
-    }
-
-    const diffTime = end.getTime() - now.getTime();
-    if (diffTime <= 0) return null; // Expired
-
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (diffDays <= 7) {
-      if (diffDays === 1) {
-        const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
-        if (diffHours < 24) {
-          return `Ends in ${diffHours} hour${diffHours > 1 ? 's' : ''}`;
-        }
-      }
-      return `Ends in ${diffDays} day${diffDays > 1 ? 's' : ''}`;
-    }
-    return null;
-  };
-
-  const countdown = getCountdown();
-
   return (
-    <div className={`p-6 rounded-[2.5rem] border transition-all ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100 shadow-sm hover:border-violet-500'}`}>
-      <div className="flex justify-between items-start mb-6">
-        <div className="flex-1">
-          <div className="flex items-center flex-wrap gap-2 mb-2">
-            <h4 className={`text-xl font-black tracking-tight ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{item.name}</h4>
-            {item.is_featured && <Star size={14} className="text-brand-accent" fill="currentColor" />}
-            <div className="flex gap-1.5">
-              <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${item.type === 'Promotion' ? 'bg-brand-accent text-zinc-900' : 'bg-brand-primary text-white'}`}>
-                {item.type || 'Service'}
-              </span>
-              <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                status === 'active' ? 'bg-emerald-500 text-white' : 
-                status === 'upcoming' ? 'bg-brand-surface text-zinc-900' : 
-                'bg-rose-500 text-white'
-              }`}>
-                {status}
-              </span>
-            </div>
-          </div>
-          <p className={`text-xs font-medium leading-relaxed mb-4 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'} line-clamp-2`}>{item.description || 'No description provided'}</p>
-          
-          {(item.start_date || item.end_date || item.start_time || item.end_time) && (
-            <div className={`flex flex-col gap-1.5 px-4 py-3 rounded-2xl w-fit mt-4 border ${darkMode ? 'bg-brand-accent/10 border-brand-accent/20 text-brand-accent' : 'bg-violet-500 border-violet-500 text-white'}`}>
-              <div className="flex items-center gap-2">
-                <Calendar size={14} className="shrink-0" />
-                <span className="text-xs font-black uppercase tracking-widest">
-                  {item.start_date ? formatDate(item.start_date) : 'Start'} 
-                  {' — '} 
-                  {item.end_date ? formatDate(item.end_date) : 'End'}
-                </span>
-              </div>
-              {(item.start_time || item.end_time) && (
-                <div className="flex items-center gap-2 opacity-80">
-                  <Clock size={12} className="shrink-0" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">
-                    {item.start_time || '00:00'} - {item.end_time || '23:59'}
-                  </span>
-                </div>
-              )}
-              {countdown && status === 'active' && (
-                <div className="flex items-center gap-2 mt-1 pt-1.5 border-t border-current/10 text-zinc-900">
-                  <Clock size={12} className="shrink-0" />
-                  <span className="text-[10px] font-black uppercase tracking-widest animate-pulse">
-                    {countdown}
-                  </span>
-                </div>
-              )}
+    <div className="p-4 rounded-[2.5rem] bg-eggshell border-4 border-eggshell shadow-xl overflow-hidden">
+      <div className="bg-twilight-indigo rounded-[2rem] overflow-hidden flex flex-col">
+        {/* Flyer Watermark Area */}
+        <div className="relative h-48 bg-twilight-indigo flex items-center justify-center overflow-hidden p-4">
+          {item.image_url ? (
+            <img 
+              src={item.image_url} 
+              alt={item.name} 
+              className="w-full h-full object-contain opacity-40 scale-90" 
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center opacity-20">
+              <Zap size={80} className="text-eggshell" />
             </div>
           )}
-        </div>
-        {currentUser.role === 'admin' && (
-          <div className="flex gap-2 ml-4">
-            <button onClick={() => setEditingService(item)} className={`p-2 rounded-xl transition-all ${darkMode ? 'bg-zinc-50 text-zinc-900/60 hover:text-zinc-900' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50'}`}>
-              <Edit2 size={16} />
-            </button>
-            <button onClick={() => handleDeleteService(item.id)} className={`p-2 rounded-xl transition-all ${darkMode ? 'bg-zinc-50 text-zinc-900/60 hover:text-zinc-900' : 'text-zinc-500 hover:text-white hover:bg-rose-500'}`}>
-              <Trash2 size={16} />
-            </button>
+          
+          {/* Status Badge */}
+          <div className="absolute top-4 right-4 flex gap-2">
+            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+              status === 'active' ? 'bg-emerald-500 text-white' : 
+              status === 'upcoming' ? 'bg-apricot-cream text-twilight-indigo' : 
+              'bg-rose-500 text-white'
+            }`}>
+              {status}
+            </span>
           </div>
-        )}
-      </div>
+        </div>
 
-      <div className={`grid grid-cols-3 gap-2 mb-6 p-4 rounded-2xl ${darkMode ? 'bg-zinc-900' : 'bg-zinc-50'}`}>
-        <div>
-          <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-1">Base Price</p>
-          <p className={`text-xs font-black ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{clinicProfile.currency}{(item.base_price || 0).toFixed(0)}</p>
-        </div>
-        <div>
-          <p className="text-[8px] font-black text-zinc-900 uppercase tracking-widest mb-1">Promo Price</p>
-          <p className="text-xs font-black text-zinc-900">{item.promo_price ? `${clinicProfile.currency}${item.promo_price.toFixed(0)}` : '-'}</p>
-        </div>
-        <div className={`border-l pl-2 ${darkMode ? 'border-zinc-800' : 'border-zinc-200'}`}>
-          <p className="text-[8px] font-black text-brand-accent uppercase tracking-widest mb-1">Incentive</p>
-          <p className="text-xs font-black text-brand-accent">{clinicProfile.currency}{(item.commission_rate || 0).toFixed(2)}</p>
-        </div>
-      </div>
+        {/* Clear Text Panel */}
+        <div className="bg-eggshell p-6 flex flex-col gap-4">
+          <div className="space-y-1">
+            <h4 className="text-2xl font-black text-twilight-indigo tracking-tight uppercase leading-tight">
+              {item.name === 'UJIAN DNA' ? 'UJIAN DNA PROMOTION' : item.name}
+            </h4>
+            <div className="w-12 h-1 bg-burnt-peach rounded-full" />
+          </div>
 
-      {item.posters && item.posters.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex overflow-x-auto gap-4 pb-4 custom-scrollbar snap-x">
-            {item.posters.map((poster, idx) => (
-              <div key={idx} className={`relative group overflow-hidden rounded-[2rem] shrink-0 ${item.posters!.length > 1 ? 'w-[85%]' : 'w-full'} snap-center`}>
-                <img src={poster} alt={`${item.name} ${idx + 1}`} className="w-full aspect-[4/3] object-cover transition-transform duration-500 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <button 
-                  onClick={() => handleDownloadPoster(poster, `${item.name}-poster-${idx + 1}.jpg`)}
-                  className={`absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2.5 bg-white text-zinc-900 rounded-2xl shadow-2xl shadow-black/20 transition-all hover:scale-105 active:scale-95 ${darkMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                >
-                  <Download size={16} className="text-brand-accent" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Download</span>
-                </button>
+          {/* Pricing Section */}
+          <div className="flex flex-col">
+            <p className="text-sm text-twilight-indigo/60 line-through font-bold">
+              Was: {clinicProfile.currency}{(item.base_price || 0).toLocaleString()}
+            </p>
+            <p className="text-2xl font-black text-twilight-indigo">
+              SPECIAL NOW PRICE: {clinicProfile.currency}{(item.promo_price || item.base_price || 0).toLocaleString()}
+            </p>
+          </div>
+
+          {/* Location List */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-black text-twilight-indigo/50 uppercase tracking-widest">Available At:</p>
+            <div className="flex flex-wrap gap-2">
+              {(item.branches && item.branches.length > 0 ? item.branches : ['Main Branch, Bangi', 'Damansara']).map((branch, idx) => (
+                <span key={idx} className="text-xs font-bold text-twilight-indigo flex items-center gap-1">
+                  <div className="w-1 h-1 bg-muted-teal rounded-full" />
+                  {branch}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Incentive Text Callout */}
+          <div className="p-4 bg-eggshell border-2 border-apricot-cream rounded-2xl flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-apricot-cream rounded-xl flex items-center justify-center text-twilight-indigo shadow-sm">
+                <DollarSign size={20} />
               </div>
-            ))}
+              <p className="text-lg font-black text-twilight-indigo uppercase tracking-tight">
+                Get {clinicProfile.currency}{(item.commission_rate || 0).toFixed(0)} INCENTIVE
+              </p>
+            </div>
           </div>
+
+          {/* Action Button */}
+          <button
+            onClick={() => item.image_url && handleDownloadPoster(item.image_url, `${item.name}-poster.jpg`)}
+            disabled={!item.image_url}
+            className="w-full py-4 bg-burnt-peach text-twilight-indigo rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-burnt-peach/20"
+          >
+            <Download size={20} className="text-twilight-indigo" />
+            DOWNLOAD POSTER
+          </button>
+        </div>
+      </div>
+      
+      {/* Admin Controls */}
+      {currentUser.role === 'admin' && (
+        <div className="flex justify-end gap-2 mt-4 px-2">
+          <button onClick={() => setEditingService(item)} className="p-2 rounded-xl bg-twilight-indigo/5 text-twilight-indigo hover:bg-twilight-indigo/10 transition-colors">
+            <Edit2 size={16} />
+          </button>
+          <button onClick={() => handleDeleteService(item.id)} className="p-2 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors">
+            <Trash2 size={16} />
+          </button>
         </div>
       )}
     </div>
@@ -746,17 +688,6 @@ export default function App() {
   const [services, setServices] = useState<Service[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [promoServices, setPromoServices] = useState<PromoService[]>([]);
-
-  const [newPromo, setNewPromo] = useState({
-    title: '',
-    type: 'Promotion' as 'Service' | 'Promotion',
-    incentiveAmount: 0,
-    posterImages: [] as string[],
-    servicePrice: 0,
-    promoPrice: undefined as number | undefined,
-    branches: [] as string[],
-    description: ''
-  });
 
   const [branches, setBranches] = useState<any[]>([]);
   const [dbError, setDbError] = useState<string | null>(null);
@@ -1023,6 +954,7 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [welcomeQuote, setWelcomeQuote] = useState('');
   const [authEmail, setAuthEmail] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'auth'>('welcome');
   const [welcomeScreenClass, setWelcomeScreenClass] = useState('');
   const [loginScreenClass, setLoginScreenClass] = useState('hidden');
@@ -1034,6 +966,8 @@ export default function App() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [showResendButton, setShowResendButton] = useState(false);
+  const [resendStatus, setResendStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
@@ -1248,11 +1182,11 @@ export default function App() {
       handlePublicBooking(refCode);
     }
 
-    fetchStaff();
+    fetchPromotions();
     fetchServices();
     fetchSettings();
-    fetchTasks();
     fetchBranches();
+    fetchTasks();
   }, []);
 
   const checkConnection = async () => {
@@ -1284,61 +1218,6 @@ export default function App() {
   const fetchTasks = async () => {
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks`);
     if (res.ok && Array.isArray(data)) setTasks(data);
-  };
-
-  const handlePosterUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setNewPromo(prev => ({ 
-            ...prev, 
-            posterImages: [...prev.posterImages, reader.result as string] 
-          }));
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-  };
-
-  const publishPromo = async () => {
-    console.log('Publishing new promotion...', newPromo);
-    if (!newPromo.title || newPromo.posterImages.length === 0) {
-      console.warn('Missing title or poster images');
-      return;
-    }
-    const item: PromoService = {
-      id: Date.now(),
-      ...newPromo
-    };
-    const updatedPromos = [item, ...promoServices];
-    setPromoServices(updatedPromos);
-    
-    // Save to backend
-    console.log('Saving updated promotions to backend...', updatedPromos);
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/promotions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedPromos)
-    });
-
-    if (res.ok) {
-      console.log('Promotions saved successfully to backend');
-    } else {
-      console.error('Failed to save promotions to backend', data);
-    }
-
-    setNewPromo({
-      title: '',
-      type: 'Promotion',
-      incentiveAmount: 0,
-      posterImages: [],
-      servicePrice: 0,
-      promoPrice: undefined,
-      branches: [],
-      description: ''
-    });
   };
 
   const fetchSettings = async () => {
@@ -1375,24 +1254,21 @@ export default function App() {
     if (currentUser) {
       console.log('Current user detected:', currentUser.email, currentUser.role, currentUser.branch);
       fetchReferrals();
-      fetchPromotions();
-      fetchServices();
-      fetchTasks();
-      if (currentUser.role === 'admin' || currentUser.role === 'receptionist') {
-        fetchBranches();
-      }
+    }
+  }, [currentUser?.id, currentUser?.role, currentUser?.branch, branchFilter]);
+
+  useEffect(() => {
+    if (currentUser) {
       if (currentUser.role === 'admin') {
         fetchStaff();
-        fetchSettings();
         fetchBranchChangeRequests();
       }
     }
-  }, [currentUser, branchFilter, activeTab]);
+  }, [currentUser?.id, currentUser?.role]);
 
   useEffect(() => {
     let interval: any;
     if (activeTab === 'admin' && currentUser?.role === 'admin') {
-      fetchStaff();
       // Poll every 30 seconds for new applications
       interval = setInterval(fetchStaff, 30000);
     }
@@ -1488,6 +1364,8 @@ export default function App() {
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
+    setResendStatus(null);
+    setShowResendButton(false);
     console.log('Login attempt started', { email: authEmail, apiBaseUrl });
     try {
       // Check if Supabase is properly configured
@@ -1519,8 +1397,13 @@ export default function App() {
       });
 
       if (error) {
+        if (error.message === 'Email not confirmed') {
+          setShowResendButton(true);
+          console.log('Supabase email not confirmed, attempting local backend fallback...');
+        }
+        
         // Fallback to local backend if Supabase fails (e.g. user not in Supabase but in local DB)
-        console.log('Supabase login failed, trying local backend...');
+        console.log('Supabase login failed or email not confirmed, trying local backend...');
         const { res, data: localData } = await safeFetch(`${apiBaseUrl}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1533,6 +1416,13 @@ export default function App() {
           setShowWelcome(true);
           return;
         }
+
+        if (error.message === 'Email not confirmed') {
+          throw new Error('Please confirm your email address before logging in, or check your credentials.');
+        }
+        if (error.message === 'Failed to fetch' || error.message?.includes('aborted')) {
+          throw new Error('Database connection failed. Please check your Supabase URL and Key in the Settings.');
+        }
         throw error;
       }
 
@@ -1542,7 +1432,35 @@ export default function App() {
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      setAuthError(error.message || 'Login failed');
+      if (error.message === 'Failed to fetch' || error.message?.includes('aborted')) {
+        setAuthError('Database connection failed. Please check your Supabase URL and Key in the Settings.');
+      } else {
+        setAuthError(error.message || 'Login failed');
+      }
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!authEmail) {
+      setAuthError('Please enter your email address first.');
+      return;
+    }
+    setResendStatus(null);
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: authEmail,
+      });
+      if (error) throw error;
+      setResendStatus({ type: 'success', message: 'Confirmation email resent! Please check your inbox.' });
+      setShowResendButton(false);
+      setAuthError('');
+    } catch (error: any) {
+      console.error('Resend error:', error);
+      setResendStatus({ type: 'error', message: error.message || 'Failed to resend confirmation email.' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1562,6 +1480,7 @@ export default function App() {
                                   import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder-project.supabase.co';
 
       let authId = null;
+      let requiresEmailConfirmation = false;
       if (isSupabaseConfigured) {
         try {
           const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -1577,6 +1496,10 @@ export default function App() {
           if (authError) console.warn('Supabase registration warning:', authError.message);
           if (authData?.user) {
             authId = authData.user.id;
+            // If user is created but no session is returned, email confirmation is required
+            if (!authData.session && authData.user.identities && authData.user.identities.length > 0) {
+              requiresEmailConfirmation = true;
+            }
           }
         } catch (err) {
           console.warn('Supabase registration error (skipping):', err);
@@ -1599,10 +1522,15 @@ export default function App() {
 
       if (res.ok) {
         console.log('Registration successful', data);
-        setCurrentUser(data);
-        localStorage.setItem('currentUser', JSON.stringify(data));
-        setShowWelcome(true);
-        setActiveTab('dashboard');
+        if (requiresEmailConfirmation) {
+          setAuthError('Registration successful! Please check your email to confirm your account. You can also try signing in now.');
+          setAuthMode('login');
+        } else {
+          setCurrentUser(data);
+          localStorage.setItem('currentUser', JSON.stringify(data));
+          setShowWelcome(true);
+          setActiveTab('dashboard');
+        }
       } else {
         console.error('Registration failed:', data);
         setAuthError(data.error || 'Registration failed. Please try again.');
@@ -2374,21 +2302,21 @@ export default function App() {
   // Welcome / Onboarding Screen
   if (!currentUser) {
     return (
-      <div className="min-h-screen w-full overflow-x-hidden bg-brand-primary flex items-center justify-center p-0 sm:p-4 font-sans">
+      <div className="min-h-screen w-full overflow-x-hidden bg-eggshell flex items-center justify-center p-0 sm:p-4 font-sans">
         <div 
           id="welcome-screen"
-          className={`w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-y-auto flex flex-col relative ${welcomeScreenClass}`}
+          className={`w-full max-w-md h-screen sm:h-[90vh] bg-eggshell sm:rounded-[3rem] shadow-2xl overflow-y-auto flex flex-col relative ${welcomeScreenClass}`}
         >
           {/* Topographic Background */}
-          <div className="relative w-full h-[60%] shrink-0 overflow-hidden z-0 bg-brand-primary border-b-0 shadow-none">
-            <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none">
-              <path d="M0,20 Q25,10 50,20 T100,20" fill="none" stroke="white" strokeWidth="0.5" />
-              <path d="M0,40 Q25,30 50,40 T100,40" fill="none" stroke="white" strokeWidth="0.5" />
-              <path d="M0,60 Q25,50 50,60 T100,60" fill="none" stroke="white" strokeWidth="0.5" />
-              <path d="M0,80 Q25,70 50,80 T100,80" fill="none" stroke="white" strokeWidth="0.5" />
-              <path d="M0,100 Q25,90 50,100 T100,100" fill="none" stroke="white" strokeWidth="0.5" />
+          <div className="relative w-full h-[60%] shrink-0 overflow-hidden z-0 bg-muted-teal border-b-0 shadow-none">
+            <svg className="absolute inset-0 w-full h-full opacity-40" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <path d="M0,20 Q25,10 50,20 T100,20" fill="none" stroke="#F4F1DE" strokeWidth="1" />
+              <path d="M0,40 Q25,30 50,40 T100,40" fill="none" stroke="#F2CC8F" strokeWidth="1" />
+              <path d="M0,60 Q25,50 50,60 T100,60" fill="none" stroke="#F4F1DE" strokeWidth="1" />
+              <path d="M0,80 Q25,70 50,80 T100,80" fill="none" stroke="#F2CC8F" strokeWidth="1" />
+              <path d="M0,100 Q25,90 50,100 T100,100" fill="none" stroke="#F4F1DE" strokeWidth="1" />
             </svg>
-            <svg className="absolute bottom-0 w-full h-32 text-white fill-current translate-y-[1px] scale-y-[1.01]" viewBox="0 0 1440 320" preserveAspectRatio="none">
+            <svg className="absolute bottom-0 w-full h-32 text-eggshell fill-current translate-y-[1px] scale-y-[1.01]" viewBox="0 0 1440 320" preserveAspectRatio="none">
               <path d="M0,160C480,320,960,0,1440,160L1440,320L0,320Z"></path>
             </svg>
           </div>
@@ -2402,8 +2330,8 @@ export default function App() {
               <div className="mb-6">
                 <Logo className="w-16 h-16" logoUrl={clinicProfile.logoUrl} />
               </div>
-              <h1 className="text-5xl font-black text-brand-primary mb-2 tracking-tight leading-tight">Welcome to AraPower</h1>
-              <p id="welcome-quote" className="text-zinc-500 italic mb-12 animate-fade-in opacity-0 fill-mode-forwards">
+              <h1 className="text-5xl font-black text-twilight-indigo mb-2 tracking-tight leading-tight">Welcome to AraPower</h1>
+              <p id="welcome-quote" className="text-twilight-indigo italic mb-12 animate-fade-in opacity-0 fill-mode-forwards">
                 {welcomeQuote}
               </p>
               
@@ -2412,8 +2340,8 @@ export default function App() {
                   onClick={handleGetStarted}
                   className="flex items-center gap-3 group"
                 >
-                  <span className="text-zinc-500 font-bold text-lg group-hover:text-zinc-500 transition-colors">Get Started</span>
-                  <div className="w-14 h-14 bg-brand-accent rounded-full flex items-center justify-center text-zinc-900 shadow-lg shadow-brand-accent/30 group-hover:scale-110 transition-transform">
+                  <span className="text-twilight-indigo font-bold text-lg group-hover:text-twilight-indigo transition-colors">Get Started</span>
+                  <div className="w-14 h-14 bg-burnt-peach rounded-full flex items-center justify-center text-twilight-indigo shadow-lg shadow-burnt-peach/30 group-hover:scale-110 transition-transform">
                     <ArrowRight size={24} />
                   </div>
                 </button>
@@ -2424,16 +2352,16 @@ export default function App() {
 
         <div 
           id="login-screen"
-          className={`w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-y-auto flex flex-col relative ${loginScreenClass}`}
+          className={`w-full max-w-md h-screen sm:h-[90vh] bg-eggshell sm:rounded-[3rem] shadow-2xl overflow-y-auto flex flex-col relative ${loginScreenClass}`}
         >
           {/* Topographic Background */}
-          <div className="relative w-full h-[45%] shrink-0 overflow-hidden z-0 bg-brand-primary border-b-0 shadow-none">
-            <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none">
-              <path d="M10,10 Q30,0 50,10 T90,10" fill="none" stroke="white" strokeWidth="0.5" />
-              <path d="M0,30 Q40,20 80,30 T120,30" fill="none" stroke="white" strokeWidth="0.5" />
-              <path d="M-20,50 Q20,40 60,50 T140,50" fill="none" stroke="white" strokeWidth="0.5" />
+          <div className="relative w-full h-[45%] shrink-0 overflow-hidden z-0 bg-muted-teal border-b-0 shadow-none">
+            <svg className="absolute inset-0 w-full h-full opacity-40" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <path d="M10,10 Q30,0 50,10 T90,10" fill="none" stroke="#F4F1DE" strokeWidth="1" />
+              <path d="M0,30 Q40,20 80,30 T120,30" fill="none" stroke="#F2CC8F" strokeWidth="1" />
+              <path d="M-20,50 Q20,40 60,50 T140,50" fill="none" stroke="#F4F1DE" strokeWidth="1" />
             </svg>
-            <svg className="absolute bottom-0 w-full h-32 text-white fill-current translate-y-[1px] scale-y-[1.01]" viewBox="0 0 1440 320" preserveAspectRatio="none">
+            <svg className="absolute bottom-0 w-full h-32 text-eggshell fill-current translate-y-[1px] scale-y-[1.01]" viewBox="0 0 1440 320" preserveAspectRatio="none">
               <path d="M0,128C480,256,960,0,1440,128L1440,320L0,320Z"></path>
             </svg>
           </div>
@@ -2449,10 +2377,10 @@ export default function App() {
                 <div className="mb-4">
                   <Logo className="w-12 h-12" logoUrl={clinicProfile.logoUrl} />
                 </div>
-                <h1 className="text-4xl font-black text-brand-primary mb-1">
+                <h1 className="text-4xl font-black text-twilight-indigo mb-1">
                   {authMode === 'login' ? 'Sign in' : 'Sign up'}
                 </h1>
-                <div className="w-10 h-1 bg-brand-accent rounded-full mb-4" />
+                <div className="w-10 h-1 bg-apricot-cream rounded-full mb-4" />
               </motion.div>
 
               <AnimatePresence mode="wait">
@@ -2461,10 +2389,34 @@ export default function App() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="mb-6 p-4 bg-rose-500 text-white text-xs font-bold rounded-2xl border border-rose-500 flex items-center gap-3"
+                    className="mb-6 p-4 bg-rose-500 text-white text-xs font-bold rounded-2xl border border-rose-500 flex flex-col gap-3"
                   >
-                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                    {authError}
+                    <div className="flex items-center gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                      <span className="flex-1">{authError}</span>
+                    </div>
+                    {showResendButton && (
+                      <button
+                        type="button"
+                        onClick={handleResendConfirmation}
+                        disabled={isSubmitting}
+                        className="mt-2 py-2 px-4 bg-white text-rose-500 rounded-xl hover:bg-rose-50 transition-colors text-[10px] uppercase tracking-wider font-black self-start"
+                      >
+                        {isSubmitting ? 'Resending...' : 'Resend Confirmation Email'}
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+
+                {resendStatus && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className={`mb-6 p-4 ${resendStatus.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'} text-white text-xs font-bold rounded-2xl flex items-center gap-3`}
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    {resendStatus.message}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -2481,35 +2433,35 @@ export default function App() {
                   >
                     <div className="space-y-6 mb-8">
                       <div className="space-y-2">
-                        <label className="block text-sm font-bold text-zinc-500">Email</label>
-                        <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-brand-accent pb-2 transition-colors">
-                          <Mail size={18} className="text-zinc-500" />
+                        <label className="block text-sm font-bold text-twilight-indigo/60">Email</label>
+                        <div className="flex items-center gap-3 border-b border-twilight-indigo/20 focus-within:border-burnt-peach pb-2 transition-colors">
+                          <Mail size={18} className="text-twilight-indigo/40" />
                           <input 
                             type="email"
                             required
                             value={authEmail}
                             onChange={(e) => setAuthEmail(e.target.value)}
-                            className="w-full bg-transparent focus:outline-none text-zinc-900 placeholder-zinc-300 text-base"
+                            className="w-full bg-transparent focus:outline-none text-twilight-indigo placeholder-twilight-indigo/20 text-base"
                             placeholder="demo@email.com"
                           />
                         </div>
                       </div>
                       <div className="space-y-2 relative">
-                        <label className="block text-sm font-bold text-zinc-500">Password</label>
-                        <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-brand-accent pb-2 transition-colors">
-                          <Lock size={18} className="text-zinc-500" />
+                        <label className="block text-sm font-bold text-twilight-indigo/60">Password</label>
+                        <div className="flex items-center gap-3 border-b border-twilight-indigo/20 focus-within:border-burnt-peach pb-2 transition-colors">
+                          <Lock size={18} className="text-twilight-indigo/40" />
                           <input 
                             type={showPassword ? "text" : "password"}
                             required
                             value={authPassword}
                             onChange={(e) => setAuthPassword(e.target.value)}
-                            className="w-full bg-transparent focus:outline-none text-zinc-900 placeholder-zinc-300 text-base"
+                            className="w-full bg-transparent focus:outline-none text-twilight-indigo placeholder-twilight-indigo/20 text-base"
                             placeholder="enter your password"
                           />
                           <button 
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="text-zinc-500 hover:text-zinc-500 transition-colors"
+                            className="text-twilight-indigo/40 hover:text-twilight-indigo transition-colors"
                           >
                             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                           </button>
@@ -2519,12 +2471,18 @@ export default function App() {
 
                     <div className="flex items-center justify-between mb-10">
                       <label className="flex items-center gap-2 cursor-pointer group">
-                        <div className="w-5 h-5 rounded border-2 border-zinc-200 flex items-center justify-center group-hover:border-brand-accent transition-colors">
-                          <div className="w-3 h-3 bg-brand-accent rounded-sm opacity-0 group-hover:opacity-20 transition-opacity" />
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${rememberMe ? 'bg-burnt-peach border-burnt-peach' : 'border-twilight-indigo/20 group-hover:border-burnt-peach'}`}>
+                          <input 
+                            type="checkbox"
+                            className="hidden"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                          />
+                          {rememberMe && <div className="w-2.5 h-2.5 bg-twilight-indigo rounded-sm" />}
                         </div>
-                        <span className="text-xs font-bold text-zinc-500">Remember Me</span>
+                        <span className="text-xs font-bold text-twilight-indigo/60">Remember Me</span>
                       </label>
-                      <button type="button" className="text-brand-accent text-xs font-bold hover:underline">
+                      <button type="button" className="text-burnt-peach text-xs font-bold hover:underline">
                         Forgot Password?
                       </button>
                     </div>
@@ -2532,13 +2490,18 @@ export default function App() {
                     <div className="mt-auto space-y-6">
                       <button 
                         type="submit"
-                        className="w-full py-5 bg-brand-accent text-zinc-900 rounded-2xl font-black text-lg shadow-xl shadow-brand-accent/30 hover:shadow-brand-accent/40 transition-all active:scale-[0.98]"
+                        className="w-full py-5 bg-burnt-peach text-twilight-indigo rounded-2xl font-black text-lg shadow-xl shadow-burnt-peach/30 hover:shadow-burnt-peach/40 transition-all active:scale-[0.98]"
                       >
                         Login
                       </button>
                       
-                      <p className="text-center text-sm font-bold text-zinc-500">
-                        Don't have an Account ? <button onClick={() => setAuthMode('register')} className="text-brand-accent hover:underline">Sign up</button>
+                      <p className="text-center text-sm font-bold text-twilight-indigo/60">
+                        Don't have an Account ? <button onClick={() => {
+                          setAuthMode('register');
+                          setAuthError('');
+                          setResendStatus(null);
+                          setShowResendButton(false);
+                        }} className="text-burnt-peach hover:underline">Sign up</button>
                       </p>
                     </div>
                   </motion.form>
@@ -2553,57 +2516,57 @@ export default function App() {
                   >
                     <div className="space-y-4 mb-8">
                       <div className="space-y-1">
-                        <label className="block text-xs font-bold text-zinc-500">Full Name</label>
-                        <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-brand-accent pb-1 transition-colors">
-                          <User size={16} className="text-zinc-500" />
+                        <label className="block text-xs font-bold text-twilight-indigo/60">Full Name</label>
+                        <div className="flex items-center gap-3 border-b border-twilight-indigo/20 focus-within:border-burnt-peach pb-1 transition-colors">
+                          <User size={16} className="text-twilight-indigo/40" />
                           <input 
                             type="text"
                             required
                             value={authName}
                             onChange={(e) => setAuthName(e.target.value)}
-                            className="w-full bg-transparent focus:outline-none text-zinc-900 placeholder-zinc-300 text-base"
+                            className="w-full bg-transparent focus:outline-none text-twilight-indigo placeholder-twilight-indigo/20 text-base"
                             placeholder="John Doe"
                           />
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <label className="block text-xs font-bold text-zinc-500">Email</label>
-                        <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-brand-accent pb-1 transition-colors">
-                          <Mail size={16} className="text-zinc-500" />
+                        <label className="block text-xs font-bold text-twilight-indigo/60">Email</label>
+                        <div className="flex items-center gap-3 border-b border-twilight-indigo/20 focus-within:border-burnt-peach pb-1 transition-colors">
+                          <Mail size={16} className="text-twilight-indigo/40" />
                           <input 
                             type="email"
                             required
                             value={authEmail}
                             onChange={(e) => setAuthEmail(e.target.value)}
-                            className="w-full bg-transparent focus:outline-none text-zinc-900 placeholder-zinc-300 text-base"
+                            className="w-full bg-transparent focus:outline-none text-twilight-indigo placeholder-twilight-indigo/20 text-base"
                             placeholder="john@clinic.com"
                           />
                         </div>
                       </div>
                       <div className="space-y-1 relative">
-                        <label className="block text-xs font-bold text-zinc-500">Password</label>
-                        <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-brand-accent pb-1 transition-colors">
-                          <Lock size={16} className="text-zinc-500" />
+                        <label className="block text-xs font-bold text-twilight-indigo/60">Password</label>
+                        <div className="flex items-center gap-3 border-b border-twilight-indigo/20 focus-within:border-burnt-peach pb-1 transition-colors">
+                          <Lock size={16} className="text-twilight-indigo/40" />
                           <input 
                             type={showPassword ? "text" : "password"}
                             required
                             minLength={6}
                             value={authPassword}
                             onChange={(e) => setAuthPassword(e.target.value)}
-                            className="w-full bg-transparent focus:outline-none text-zinc-900 placeholder-zinc-300 text-base"
+                            className="w-full bg-transparent focus:outline-none text-twilight-indigo placeholder-twilight-indigo/20 text-base"
                             placeholder="Min. 6 characters"
                           />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="block text-xs font-bold text-zinc-500">Branch</label>
-                          <div className="border-b border-zinc-200 focus-within:border-brand-accent pb-1 transition-colors">
+                          <label className="block text-xs font-bold text-twilight-indigo/60">Branch</label>
+                          <div className="border-b border-twilight-indigo/20 focus-within:border-burnt-peach pb-1 transition-colors">
                             <select 
                               required
                               value={authBranch}
                               onChange={(e) => setAuthBranch(e.target.value)}
-                              className="w-full bg-transparent focus:outline-none text-zinc-900 appearance-none text-base"
+                              className="w-full bg-transparent focus:outline-none text-twilight-indigo appearance-none text-base"
                             >
                               <option value="">Select</option>
                               {branches.map(b => (
@@ -2613,15 +2576,15 @@ export default function App() {
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <label className="block text-xs font-bold text-zinc-500">Phone</label>
-                          <div className="flex items-center gap-3 border-b border-zinc-200 focus-within:border-brand-accent pb-1 transition-colors">
-                            <Phone size={16} className="text-zinc-500" />
+                          <label className="block text-xs font-bold text-twilight-indigo/60">Phone</label>
+                          <div className="flex items-center gap-3 border-b border-twilight-indigo/20 focus-within:border-burnt-peach pb-1 transition-colors">
+                            <Phone size={16} className="text-twilight-indigo/40" />
                             <input 
                               type="tel"
                               required
                               value={authPhone}
                               onChange={(e) => setAuthPhone(e.target.value)}
-                              className="w-full bg-transparent focus:outline-none text-zinc-900 placeholder-zinc-300 text-base"
+                              className="w-full bg-transparent focus:outline-none text-twilight-indigo placeholder-twilight-indigo/20 text-base"
                               placeholder="6012..."
                             />
                           </div>
@@ -2629,17 +2592,17 @@ export default function App() {
                       </div>
                     <div className="mt-4 mb-4">
                       <label className="flex items-start gap-3 cursor-pointer group">
-                        <div className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${agreedToTerms ? 'bg-brand-accent border-brand-accent' : 'border-zinc-200 group-hover:border-brand-accent'}`}>
+                        <div className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${agreedToTerms ? 'bg-burnt-peach border-burnt-peach' : 'border-twilight-indigo/20 group-hover:border-burnt-peach'}`}>
                           <input 
                             type="checkbox"
                             className="hidden"
                             checked={agreedToTerms}
                             onChange={(e) => setAgreedToTerms(e.target.checked)}
                           />
-                          {agreedToTerms && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
+                          {agreedToTerms && <div className="w-2.5 h-2.5 bg-twilight-indigo rounded-sm" />}
                         </div>
-                        <span className="text-xs font-bold text-zinc-500 leading-tight">
-                          I agree to the <button type="button" onClick={() => setShowTermsModal(true)} className="text-brand-accent hover:underline">User Agreement & Privacy Policy</button>
+                        <span className="text-xs font-bold text-twilight-indigo/60 leading-tight">
+                          I agree to the <button type="button" onClick={() => setShowTermsModal(true)} className="text-burnt-peach hover:underline">User Agreement & Privacy Policy</button>
                         </span>
                       </label>
                     </div>
@@ -2649,12 +2612,17 @@ export default function App() {
                     <button 
                       type="submit"
                       disabled={isSubmitting || !agreedToTerms}
-                      className="w-full py-4 bg-brand-accent text-zinc-900 rounded-2xl font-black text-lg shadow-xl shadow-brand-accent/30 hover:shadow-brand-accent/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full py-4 bg-burnt-peach text-twilight-indigo rounded-2xl font-black text-lg shadow-xl shadow-burnt-peach/30 hover:shadow-burnt-peach/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSubmitting ? 'Creating...' : 'Sign Up'}
                     </button>
-                      <p className="text-center text-sm font-bold text-zinc-500">
-                        Already have an account? <button onClick={() => setAuthMode('login')} className="text-brand-accent hover:underline">Sign in</button>
+                      <p className="text-center text-sm font-bold text-twilight-indigo/60">
+                        Already have an account? <button onClick={() => {
+                          setAuthMode('login');
+                          setAuthError('');
+                          setResendStatus(null);
+                          setShowResendButton(false);
+                        }} className="text-burnt-peach hover:underline">Sign in</button>
                       </p>
                     </div>
                   </motion.form>
@@ -2679,13 +2647,13 @@ export default function App() {
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+                className="relative w-full max-w-2xl bg-eggshell rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
               >
-                <div className="p-8 border-b border-zinc-100 flex items-center justify-between bg-brand-primary text-white">
+                <div className="p-8 border-b border-twilight-indigo/10 flex items-center justify-between bg-muted-teal text-eggshell">
                   <h2 className="text-2xl font-black tracking-tight">User Agreement</h2>
                   <button 
                     onClick={() => setShowTermsModal(false)}
-                    className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center hover:bg-violet-500/40 transition-colors"
+                    className="w-10 h-10 rounded-full bg-eggshell/20 flex items-center justify-center hover:bg-eggshell/40 transition-colors"
                   >
                     <ArrowRight className="rotate-180" size={20} />
                   </button>
@@ -2695,13 +2663,13 @@ export default function App() {
                     <Markdown>{TERMS_OF_SERVICE}</Markdown>
                   </div>
                 </div>
-                <div className="p-6 bg-zinc-50 border-t border-zinc-100 flex justify-end">
+                <div className="p-6 bg-eggshell border-t border-twilight-indigo/10 flex justify-end">
                   <button
                     onClick={() => {
                       setAgreedToTerms(true);
                       setShowTermsModal(false);
                     }}
-                    className="px-8 py-3 bg-brand-accent text-zinc-900 rounded-xl font-bold shadow-lg shadow-brand-accent/20 hover:shadow-brand-accent/30 transition-all active:scale-95"
+                    className="px-8 py-3 bg-burnt-peach text-twilight-indigo rounded-xl font-bold shadow-lg shadow-burnt-peach/20 hover:shadow-burnt-peach/30 transition-all active:scale-95"
                   >
                     I Agree
                   </button>
@@ -2716,19 +2684,19 @@ export default function App() {
 
   if (showWelcome && currentUser) {
     return (
-      <div className="min-h-screen w-full overflow-x-hidden bg-zinc-50 flex items-center justify-center p-0 sm:p-4 font-sans">
+      <div className="min-h-screen w-full overflow-x-hidden bg-eggshell flex items-center justify-center p-0 sm:p-4 font-sans">
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative"
+          className="w-full max-w-md h-screen sm:h-[90vh] bg-eggshell sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative"
         >
           {/* Wavy Top Background - Same as Login */}
-          <div className="relative w-full h-[45%] shrink-0 overflow-hidden z-0 bg-brand-primary">
-            <svg className="absolute bottom-0 w-full h-40 text-white/10 fill-current translate-y-4" viewBox="0 0 1440 320" preserveAspectRatio="none">
+          <div className="relative w-full h-[45%] shrink-0 overflow-hidden z-0 bg-muted-teal">
+            <svg className="absolute bottom-0 w-full h-40 text-eggshell/10 fill-current translate-y-4" viewBox="0 0 1440 320" preserveAspectRatio="none">
               <path d="M0,160C320,300,640,0,1440,160L1440,320L0,320Z"></path>
             </svg>
-            <svg className="absolute bottom-0 w-full h-32 text-white fill-current translate-y-[1px] scale-y-[1.01]" viewBox="0 0 1440 320" preserveAspectRatio="none">
+            <svg className="absolute bottom-0 w-full h-32 text-eggshell fill-current translate-y-[1px] scale-y-[1.01]" viewBox="0 0 1440 320" preserveAspectRatio="none">
               <path d="M0,224C480,350,960,100,1440,224L1440,320L0,320Z"></path>
             </svg>
           </div>
@@ -2740,8 +2708,8 @@ export default function App() {
               transition={{ delay: 0.3, duration: 0.8, type: 'spring' }}
               className="mb-8"
             >
-              <h1 className="text-4xl font-black text-zinc-900 tracking-tighter mb-2">Welcome to</h1>
-              <h2 className="text-5xl font-black text-brand-primary tracking-tighter">AraPower</h2>
+              <h1 className="text-4xl font-black text-twilight-indigo tracking-tighter mb-2">Welcome to</h1>
+              <h2 className="text-5xl font-black text-twilight-indigo tracking-tighter">AraPower</h2>
             </motion.div>
             
             <motion.div
@@ -2750,13 +2718,13 @@ export default function App() {
               transition={{ delay: 0.8, duration: 0.5 }}
               className="flex flex-col items-center gap-4"
             >
-              <p className="text-zinc-500 font-medium">Preparing your personalized dashboard...</p>
-              <div className="w-48 h-1.5 bg-zinc-50 rounded-full overflow-hidden">
+              <p className="text-twilight-indigo/60 font-medium">Preparing your personalized dashboard...</p>
+              <div className="w-48 h-1.5 bg-twilight-indigo/5 rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: '100%' }}
                   transition={{ duration: 2.5, ease: "easeInOut" }}
-                  className="h-full bg-brand-primary"
+                  className="h-full bg-burnt-peach"
                 />
               </div>
             </motion.div>
@@ -2768,28 +2736,24 @@ export default function App() {
 
   if (currentUser.is_approved === 0 && currentUser.role !== 'admin') {
     return (
-      <div className="min-h-screen w-full overflow-x-hidden bg-zinc-50 flex items-center justify-center p-4 font-sans relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
-          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-rose-500 rounded-full blur-[120px] opacity-60" />
-        </div>
-
+      <div className="min-h-screen w-full overflow-x-hidden bg-eggshell flex items-center justify-center p-4 font-sans relative overflow-hidden">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white p-12 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] max-w-md w-full border border-black/[0.03] text-center"
+          className="bg-eggshell p-12 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] max-w-md w-full border border-twilight-indigo/5 text-center"
         >
-          <div className="w-20 h-20 bg-brand-accent text-zinc-900 rounded-3xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-20 h-20 bg-apricot-cream text-twilight-indigo rounded-3xl flex items-center justify-center mx-auto mb-4">
             <Clock size={40} />
           </div>
-          <p className="text-zinc-900 text-[10px] font-black uppercase tracking-[0.3em] mb-8">Empowering Healthcare</p>
-          <h1 className="text-2xl font-black text-zinc-900 tracking-tight mb-4">Account Pending Approval</h1>
-          <p className="text-zinc-500 text-sm leading-relaxed mb-8 font-medium">
-            Hi <span className="text-zinc-900 font-bold">{currentUser.name}</span>, your account has been created successfully. 
+          <p className="text-twilight-indigo text-[10px] font-black uppercase tracking-[0.3em] mb-8">Empowering Healthcare</p>
+          <h1 className="text-2xl font-black text-twilight-indigo tracking-tight mb-4">Account Pending Approval</h1>
+          <p className="text-twilight-indigo/60 text-sm leading-relaxed mb-8 font-medium">
+            Hi <span className="text-twilight-indigo font-bold">{currentUser.name}</span>, your account has been created successfully. 
             However, an administrator needs to approve your profile before you can access the portal features.
           </p>
-          <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100 mb-8">
-            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Status</p>
-            <p className="text-xs font-bold text-zinc-900 uppercase">Under Review</p>
+          <div className="p-4 bg-eggshell rounded-2xl border border-twilight-indigo/10 mb-8">
+            <p className="text-[10px] font-black text-twilight-indigo/50 uppercase tracking-widest mb-1">Status</p>
+            <p className="text-xs font-bold text-twilight-indigo uppercase">Under Review</p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <button 
@@ -2804,13 +2768,13 @@ export default function App() {
                   }
                 }
               }}
-              className="bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:from-violet-500 hover:to-rose-500 transition-all shadow-lg shadow-violet-500"
+              className="bg-burnt-peach text-twilight-indigo py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-burnt-peach/20"
             >
               Check Status
             </button>
             <button 
               onClick={handleLogout}
-              className="bg-brand-primary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-primary transition-all shadow-lg shadow-brand-primary/10"
+              className="bg-twilight-indigo text-eggshell py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-twilight-indigo/10"
             >
               Sign Out
             </button>
@@ -2896,22 +2860,22 @@ export default function App() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'entered': return 'bg-brand-accent text-zinc-900';
-      case 'completed': return 'bg-indigo-100 text-indigo-700';
-      case 'paid_completed': return 'bg-violet-500 text-white';
-      case 'buffer': return 'bg-brand-primary text-white';
-      case 'approved': return 'bg-violet-500 text-white border border-violet-500';
-      case 'payout_processed': return 'bg-zinc-50 text-zinc-900';
+      case 'entered': return 'bg-apricot-cream text-twilight-indigo';
+      case 'completed': return 'bg-muted-teal/20 text-muted-teal';
+      case 'paid_completed': return 'bg-muted-teal text-eggshell';
+      case 'buffer': return 'bg-twilight-indigo text-eggshell';
+      case 'approved': return 'bg-burnt-peach text-twilight-indigo';
+      case 'payout_processed': return 'bg-eggshell text-twilight-indigo border border-twilight-indigo/10';
       case 'rejected': return 'bg-rose-500 text-white';
-      default: return 'bg-zinc-50 text-zinc-900';
+      default: return 'bg-eggshell text-twilight-indigo';
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'entered': return 'Entered';
-      case 'completed': return 'Visit Completed';
-      case 'paid_completed': return 'Payment Completed';
+      case 'completed': return 'Arrived';
+      case 'paid_completed': return 'Paid';
       case 'buffer': return '7-Day Buffer';
       case 'approved': return 'Approved';
       case 'payout_processed': return 'Payout Processed';
@@ -2924,15 +2888,15 @@ export default function App() {
     // Device Guard
     if ((currentUser.role === 'admin' || currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && isMobile) {
       return (
-        <div className="min-h-screen w-full overflow-x-hidden bg-zinc-50 flex flex-col items-center justify-center p-8 text-center">
-          <div className="w-20 h-20 bg-violet-500 text-white rounded-3xl flex items-center justify-center mb-6">
+        <div className="min-h-screen w-full overflow-x-hidden bg-eggshell flex flex-col items-center justify-center p-8 text-center">
+          <div className="w-20 h-20 bg-muted-teal text-eggshell rounded-3xl flex items-center justify-center mb-6">
             <LayoutDashboard size={40} />
           </div>
-          <h1 className="text-2xl font-bold mb-2">Desktop View Required</h1>
-          <p className="text-zinc-500 max-w-xs mb-8">The {currentUser.role === 'admin' ? 'Admin Panel' : (currentUser.role === 'receptionist' ? 'Receptionist Portal' : 'Dispensary Portal')} is optimized for desktop use. Please switch to a larger screen to manage the clinic.</p>
+          <h1 className="text-2xl font-black text-twilight-indigo mb-2">Desktop View Required</h1>
+          <p className="text-twilight-indigo/60 max-w-xs mb-8">The {currentUser.role === 'admin' ? 'Admin Panel' : (currentUser.role === 'receptionist' ? 'Receptionist Portal' : 'Dispensary Portal')} is optimized for desktop use. Please switch to a larger screen to manage the clinic.</p>
           <button 
             onClick={handleLogout}
-            className="px-6 py-3 bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 rounded-xl font-medium shadow-lg shadow-violet-500"
+            className="px-6 py-3 bg-burnt-peach text-twilight-indigo rounded-xl font-bold shadow-lg shadow-burnt-peach/20"
           >
             Sign Out
           </button>
@@ -2942,15 +2906,15 @@ export default function App() {
 
     if (currentUser.role === 'staff' && !isMobile) {
       return (
-        <div className="min-h-screen w-full overflow-x-hidden bg-zinc-50 flex flex-col items-center justify-center p-8 text-center">
-          <div className="w-20 h-20 bg-violet-500 text-white rounded-3xl flex items-center justify-center mb-6">
+        <div className="min-h-screen w-full overflow-x-hidden bg-eggshell flex flex-col items-center justify-center p-8 text-center">
+          <div className="w-20 h-20 bg-muted-teal text-eggshell rounded-3xl flex items-center justify-center mb-6">
             <MessageCircle size={40} />
           </div>
-          <h1 className="text-2xl font-bold mb-2">Mobile View Required</h1>
-          <p className="text-zinc-500 max-w-xs mb-8">The Staff Portal is optimized for mobile use. Please access this page from your smartphone.</p>
+          <h1 className="text-2xl font-black text-twilight-indigo mb-2">Mobile View Required</h1>
+          <p className="text-twilight-indigo/60 max-w-xs mb-8">The Staff Portal is optimized for mobile use. Please access this page from your smartphone.</p>
           <button 
             onClick={handleLogout}
-            className="px-6 py-3 bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 rounded-xl font-medium shadow-lg shadow-violet-500"
+            className="px-6 py-3 bg-burnt-peach text-twilight-indigo rounded-xl font-bold shadow-lg shadow-burnt-peach/20"
           >
             Sign Out
           </button>
@@ -2959,32 +2923,32 @@ export default function App() {
     }
 
     return (
-      <div className={`min-h-screen w-full overflow-x-hidden font-sans transition-colors duration-500 ${darkMode ? 'bg-zinc-50 text-zinc-900' : 'bg-zinc-50 text-zinc-900'} relative`}>
+      <div className={`min-h-screen w-full overflow-x-hidden font-sans transition-colors duration-500 bg-eggshell text-twilight-indigo relative`}>
         {/* Background elements for translucency visibility */}
         <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-violet-500/5 rounded-full blur-[120px]" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-rose-500/5 rounded-full blur-[150px]" />
-          <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-brand-primary rounded-full blur-[100px]" />
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-muted-teal/5 rounded-full blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-burnt-peach/5 rounded-full blur-[150px]" />
+          <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-muted-teal/5 rounded-full blur-[100px]" />
         </div>
 
         {/* Mobile Navigation (Floating Glass Dock - iOS 26 style) */}
         {isMobile && (
           <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
-            <nav className={`max-w-md mx-auto ${reduceTranslucency ? (darkMode ? 'bg-zinc-900' : 'bg-white') : (darkMode ? 'bg-zinc-900/80' : 'bg-white/80') + ' backdrop-blur-2xl'} border ${darkMode ? 'border-zinc-800' : 'border-zinc-200'} px-4 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto`}>
+            <nav className={`max-w-md mx-auto ${reduceTranslucency ? 'bg-eggshell' : 'bg-eggshell/80 backdrop-blur-2xl'} border border-twilight-indigo/10 px-4 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto`}>
               <div className="flex flex-1 justify-around items-center">
                 <button 
                   onClick={() => setActiveTab('dashboard')}
-                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'dashboard' ? 'text-brand-primary scale-110' : 'text-zinc-500 hover:text-zinc-500'}`}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'dashboard' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}
                 >
-                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-brand-surface' : ''}`}>
+                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-burnt-peach/10' : ''}`}>
                     <LayoutDashboard size={22} />
                   </div>
                 </button>
                 <button 
                   onClick={() => setActiveTab('referrals')}
-                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'referrals' ? 'text-brand-primary scale-110' : 'text-zinc-500 hover:text-zinc-500'}`}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'referrals' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}
                 >
-                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-brand-surface' : ''}`}>
+                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-burnt-peach/10' : ''}`}>
                     <Calendar size={22} />
                   </div>
                 </button>
@@ -2994,7 +2958,7 @@ export default function App() {
               <div className="px-2">
                 <button 
                   onClick={() => setShowReferralModal(true)}
-                  className="w-14 h-14 bg-brand-accent text-zinc-900 rounded-full flex items-center justify-center shadow-lg shadow-brand-accent/40 active:scale-95 transition-transform"
+                  className="w-14 h-14 bg-burnt-peach text-twilight-indigo rounded-full flex items-center justify-center shadow-lg shadow-burnt-peach/40 active:scale-95 transition-transform"
                 >
                   <Plus size={28} strokeWidth={3} />
                 </button>
@@ -3003,17 +2967,17 @@ export default function App() {
               <div className="flex flex-1 justify-around items-center">
                 <button 
                   onClick={() => setActiveTab('promotions')}
-                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'promotions' ? 'text-brand-primary scale-110' : 'text-zinc-500 hover:text-zinc-500'}`}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'promotions' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}
                 >
-                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'promotions' ? 'bg-brand-surface' : ''}`}>
+                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'promotions' ? 'bg-burnt-peach/10' : ''}`}>
                     <Zap size={22} />
                   </div>
                 </button>
                 <button 
                   onClick={() => setActiveTab('profile')}
-                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'profile' ? 'text-brand-primary scale-110' : 'text-zinc-500 hover:text-zinc-500'}`}
+                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'profile' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}
                 >
-                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'profile' ? 'bg-brand-surface' : ''}`}>
+                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'profile' ? 'bg-burnt-peach/10' : ''}`}>
                     <UserCircle size={22} />
                   </div>
                 </button>
@@ -3024,109 +2988,109 @@ export default function App() {
 
         {/* Desktop Sidebar (Admin Only) */}
         {!isMobile && (
-          <nav className={`fixed left-0 top-0 bottom-0 w-64 ${reduceTranslucency ? (darkMode ? 'bg-zinc-900' : 'bg-white') : (darkMode ? 'bg-zinc-900/70' : 'bg-white/70') + ' backdrop-blur-xl'} border-r ${darkMode ? 'border-zinc-800' : 'border-zinc-100'} p-6 flex flex-col z-40`}>
+          <nav className={`fixed left-0 top-0 bottom-0 w-64 ${reduceTranslucency ? 'bg-eggshell' : 'bg-eggshell/70 backdrop-blur-xl'} border-r border-twilight-indigo/5 p-6 flex flex-col z-40`}>
             <div className="flex items-center gap-3 mb-10 px-2">
-              <div className="w-10 h-10 bg-white border border-zinc-100 rounded-2xl flex items-center justify-center shadow-sm overflow-hidden">
+              <div className="w-10 h-10 bg-eggshell border border-twilight-indigo/10 rounded-2xl flex items-center justify-center shadow-sm overflow-hidden">
                 <Logo className="w-8 h-8" logoUrl={clinicProfile.logoUrl} />
               </div>
               <div>
-                <h1 className="font-bold text-xl tracking-tight text-zinc-900">{clinicProfile.name}</h1>
-                <p className="text-[8px] font-black text-zinc-900 uppercase tracking-[0.2em] -mt-0.5">Empowering Healthcare</p>
+                <h1 className="font-black text-xl tracking-tight text-twilight-indigo">{clinicProfile.name}</h1>
+                <p className="text-[8px] font-black text-twilight-indigo/60 uppercase tracking-[0.2em] -mt-0.5">Empowering Healthcare</p>
               </div>
             </div>
 
             <div className="flex-1 space-y-2">
               <button 
                 onClick={() => setActiveTab('dashboard')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'dashboard' ? 'bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 shadow-lg shadow-violet-500' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'dashboard' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
               >
                 <LayoutDashboard size={18} />
-                <span className="text-sm font-medium">Dashboard</span>
+                <span className="text-sm font-bold">Dashboard</span>
               </button>
               <button 
                 onClick={() => setActiveTab('referrals')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'referrals' ? 'bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 shadow-lg shadow-violet-500' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'referrals' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
               >
                 <ClipboardList size={18} />
-                <span className="text-sm font-medium">Referrals</span>
+                <span className="text-sm font-bold">Referrals</span>
               </button>
               <button 
                 onClick={() => setActiveTab('kit')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'kit' ? 'bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 shadow-lg shadow-violet-500' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'kit' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
               >
                 <QrCode size={18} />
-                <span className="text-sm font-medium">Referral Kit</span>
+                <span className="text-sm font-bold">Referral Kit</span>
               </button>
               <button 
                 onClick={() => setActiveTab('promotions')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'promotions' ? 'bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 shadow-lg shadow-violet-500' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'promotions' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
               >
                 <Zap size={18} />
-                <span className="text-sm font-medium">Promotions</span>
+                <span className="text-sm font-bold">Promotions</span>
               </button>
               <button 
                 onClick={() => setActiveTab('tasks')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'tasks' ? 'bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 shadow-lg shadow-violet-500' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'tasks' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
               >
                 <CheckSquare size={18} />
-                <span className="text-sm font-medium">Tasks</span>
+                <span className="text-sm font-bold">Tasks</span>
               </button>
               <button 
                 onClick={() => setActiveTab('profile')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 shadow-lg shadow-violet-500' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
               >
                 <UserCircle size={18} />
-                <span className="text-sm font-medium">My Profile</span>
+                <span className="text-sm font-bold">My Profile</span>
               </button>
               {rolesConfig[currentUser.role]?.canManageCommunication && (
                 <button 
                   onClick={() => setActiveTab('communication')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'communication' ? 'bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 shadow-lg shadow-violet-500' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'communication' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
                 >
                   <MessageSquare size={18} />
-                  <span className="text-sm font-medium">Communication</span>
+                  <span className="text-sm font-bold">Communication</span>
                 </button>
               )}
               {rolesConfig[currentUser.role]?.canViewAnalytics && (
                 <button 
                   onClick={() => setActiveTab('admin')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'admin' ? 'bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 shadow-lg shadow-violet-500' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'admin' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
                 >
                   <Users size={18} />
-                  <span className="text-sm font-medium">Admin Panel</span>
+                  <span className="text-sm font-bold">Admin Panel</span>
                 </button>
               )}
               {rolesConfig[currentUser.role]?.canViewAnalytics && (
                 <button 
                   onClick={() => setActiveTab('payouts')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'payouts' ? 'bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 shadow-lg shadow-violet-500' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'payouts' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
                 >
                   <DollarSign size={18} />
-                  <span className="text-sm font-medium">Payouts</span>
+                  <span className="text-sm font-bold">Payouts</span>
                 </button>
               )}
             </div>
 
-            <div className="pt-6 border-t border-zinc-100">
+            <div className="pt-6 border-t border-twilight-indigo/10">
               <div className="flex items-center gap-3 mb-4 px-2">
-                <div className="w-8 h-8 rounded-full bg-violet-500 text-white flex items-center justify-center text-xs font-bold">
+                <div className="w-8 h-8 rounded-full bg-muted-teal text-eggshell flex items-center justify-center text-xs font-bold">
                   {currentUser.name.charAt(0)}
                 </div>
                 <div className="overflow-hidden">
-                  <p className="text-sm font-medium truncate">{currentUser.name}</p>
+                  <p className="text-sm font-bold truncate text-twilight-indigo">{currentUser.name}</p>
                   <div className="flex items-center gap-1">
-                    <Coins size={10} className="text-zinc-900" />
-                    <span className="text-[10px] font-bold text-zinc-900">{currentUser.aracoins || 0} AraCoins</span>
+                    <Coins size={10} className="text-twilight-indigo/60" />
+                    <span className="text-[10px] font-black text-twilight-indigo/60 uppercase tracking-wider">{currentUser.aracoins || 0} AraCoins</span>
                   </div>
                 </div>
               </div>
               {rolesConfig[currentUser.role]?.canManageSettings && (
                 <button 
                   onClick={() => setActiveTab('setup')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'setup' ? 'bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 shadow-lg shadow-violet-500' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'setup' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
                 >
                   <Settings size={18} />
-                  <span className="text-sm font-medium">Setup</span>
+                  <span className="text-sm font-bold">Setup</span>
                 </button>
               )}
             </div>
@@ -3135,11 +3099,11 @@ export default function App() {
 
         {/* Main Content */}
         <MobilePullToRefreshWrapper isMobile={isMobile} onRefresh={handleRefresh}>
-          <main className={`${!isMobile ? `ml-64 ${reduceTranslucency ? (darkMode ? 'bg-zinc-900' : 'bg-zinc-50') : (darkMode ? 'bg-zinc-50/80' : 'bg-zinc-50/80') + ' backdrop-blur-sm'}` : `pb-32 min-h-screen ${darkMode ? 'bg-zinc-900' : 'bg-zinc-50'}`} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
+          <main className={`${!isMobile ? `ml-64 bg-eggshell` : `pb-32 min-h-screen bg-eggshell`} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
           {isMobile && (
             <>
-              <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-brand-primary/20 to-transparent -z-10" />
-              <div className="absolute top-[10%] -right-[20%] w-[80%] h-[40%] bg-brand-primary/10 rounded-full blur-[100px] -z-10" />
+              <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-muted-teal/10 to-transparent -z-10" />
+              <div className="absolute top-[10%] -right-[20%] w-[80%] h-[40%] bg-burnt-peach/5 rounded-full blur-[100px] -z-10" />
             </>
           )}
 
@@ -3149,44 +3113,44 @@ export default function App() {
               animate={{ opacity: 1, scale: 1 }}
               className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-8 relative z-10"
             >
-              <div className="w-24 h-24 bg-rose-500 text-white rounded-[2.5rem] flex items-center justify-center shadow-xl shadow-brand-accent border border-brand-accent">
+              <div className="w-24 h-24 bg-apricot-cream text-twilight-indigo rounded-[2.5rem] flex items-center justify-center shadow-xl shadow-apricot-cream/20 border border-apricot-cream/30">
                 <ShieldAlert size={48} />
               </div>
               <div className="space-y-3 max-w-md">
-                <h3 className="text-3xl font-black tracking-tighter text-zinc-900">Account Pending Approval</h3>
-                <p className="text-zinc-500 text-sm font-medium leading-relaxed">
+                <h3 className="text-3xl font-black tracking-tighter text-twilight-indigo">Account Pending Approval</h3>
+                <p className="text-twilight-indigo/60 text-sm font-medium leading-relaxed">
                   Welcome to {clinicProfile.name}! Your account has been successfully created and is currently being reviewed by our administration team.
                 </p>
               </div>
-              <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm max-w-sm w-full">
+              <div className="bg-eggshell p-8 rounded-[2.5rem] border border-twilight-indigo/10 shadow-sm max-w-sm w-full">
                 <ul className="space-y-5 text-left">
-                  <li className="flex gap-4 items-center text-xs font-bold text-zinc-500">
-                    <div className="w-2.5 h-2.5 rounded-full bg-brand-accent shadow-[0_0_10px_rgba(251,146,60,0.5)]" />
+                  <li className="flex gap-4 items-center text-xs font-bold text-twilight-indigo/60">
+                    <div className="w-2.5 h-2.5 rounded-full bg-burnt-peach shadow-[0_0_10px_rgba(224,122,95,0.5)]" />
                     <span>Reviewing your credentials</span>
                   </li>
-                  <li className="flex gap-4 items-center text-xs font-bold text-zinc-500">
-                    <div className="w-2.5 h-2.5 rounded-full bg-zinc-50" />
+                  <li className="flex gap-4 items-center text-xs font-bold text-twilight-indigo/40">
+                    <div className="w-2.5 h-2.5 rounded-full bg-twilight-indigo/5" />
                     <span>Activating your referral code</span>
                   </li>
-                  <li className="flex gap-4 items-center text-xs font-bold text-zinc-500">
-                    <div className="w-2.5 h-2.5 rounded-full bg-zinc-50" />
+                  <li className="flex gap-4 items-center text-xs font-bold text-twilight-indigo/40">
+                    <div className="w-2.5 h-2.5 rounded-full bg-twilight-indigo/5" />
                     <span>Granting access to dashboard</span>
                   </li>
                 </ul>
               </div>
               <div className="flex flex-col items-center gap-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                <p className="text-[10px] font-black uppercase tracking-widest text-twilight-indigo/40">
                   Estimated time: 24-48 hours
                 </p>
                 <button 
                   onClick={() => setActiveTab('profile')}
-                  className="px-6 py-3 bg-violet-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-violet-500 transition-all active:scale-95"
+                  className="px-6 py-3 bg-burnt-peach text-twilight-indigo rounded-xl text-xs font-black uppercase tracking-widest hover:bg-burnt-peach transition-all active:scale-95"
                 >
                   Complete your profile while you wait
                 </button>
                 <button 
                   onClick={handleLogout}
-                  className="text-[10px] font-black uppercase tracking-widest text-zinc-900 hover:text-zinc-900 transition-all"
+                  className="text-[10px] font-black uppercase tracking-widest text-twilight-indigo hover:text-twilight-indigo/70 transition-all"
                 >
                   Sign Out
                 </button>
@@ -3194,19 +3158,19 @@ export default function App() {
             </motion.div>
           ) : (
             <>
-              <header className={`flex flex-row items-center justify-between gap-4 z-[100] ${isMobile ? `sticky top-0 ${darkMode ? 'bg-zinc-50/80' : 'bg-zinc-50/80'} backdrop-blur-xl py-4 -mx-4 px-4 border-b ${darkMode ? 'border-zinc-800' : 'border-zinc-200/50'} mb-6` : 'mb-8 relative'}`}>
+              <header className={`flex flex-row items-center justify-between gap-4 z-[100] ${isMobile ? `sticky top-0 bg-eggshell/80 backdrop-blur-xl py-4 -mx-4 px-4 border-b border-twilight-indigo/10 mb-6` : 'mb-8 relative'}`}>
                 <div className={isMobile ? '' : ''}>
-                  <h2 className={`text-3xl sm:text-3xl font-black tracking-tighter capitalize ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+                  <h2 className={`text-3xl sm:text-3xl font-black tracking-tighter capitalize text-twilight-indigo`}>
                     {activeTab === 'guide' ? 'User Guide' : activeTab === 'profile' ? 'My Profile' : activeTab === 'kit' ? 'Referral Kit' : activeTab}
                   </h2>
-                  {!isMobile && <p className={`${darkMode ? 'text-zinc-400' : 'text-zinc-500'} text-sm font-medium`}>Welcome back, {currentUser.name}</p>}
+                  {!isMobile && <p className={`text-twilight-indigo/60 text-sm font-medium`}>Welcome back, {currentUser.name}</p>}
                 </div>
                 
                 <div className="flex items-center gap-4">
                   {activeTab === 'dashboard' && currentUser.role !== 'admin' && !isMobile && (
-                    <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-black/5 shadow-sm">
-                      <Clock size={16} className="text-zinc-500" />
-                      <span className="text-xs font-bold text-zinc-500">
+                    <div className="flex items-center gap-2 bg-eggshell/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-twilight-indigo/10 shadow-sm">
+                      <Clock size={16} className="text-twilight-indigo/60" />
+                      <span className="text-xs font-bold text-twilight-indigo/60">
                         {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                       </span>
                     </div>
@@ -3216,13 +3180,9 @@ export default function App() {
                   {activeTab === 'dashboard' && (
                     <button 
                       onClick={() => setActiveTab('profile')}
-                      className={`flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all active:scale-95 ${
-                        darkMode 
-                          ? 'bg-zinc-50 hover:bg-violet-500/20 border-violet-500' 
-                          : 'bg-white hover:bg-zinc-50 border-black/5 shadow-sm'
-                      } border`}
+                      className={`flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all active:scale-95 bg-eggshell hover:bg-twilight-indigo/5 border-twilight-indigo/10 shadow-sm border`}
                     >
-                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-rose-500 text-zinc-900 flex items-center justify-center text-xs font-black shadow-lg shadow-violet-500 overflow-hidden relative">
+                      <div className="w-8 h-8 rounded-xl bg-burnt-peach text-twilight-indigo flex items-center justify-center text-xs font-black shadow-lg shadow-burnt-peach/20 overflow-hidden relative">
                         {currentUser.profile_picture ? (
                           <img 
                             src={currentUser.profile_picture} 
@@ -3234,12 +3194,12 @@ export default function App() {
                           currentUser.name.charAt(0)
                         )}
                         {unreadNotificationsCount > 0 && (
-                          <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-rose-500 border-2 border-white rounded-full" />
+                          <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-rose-500 border-2 border-eggshell rounded-full" />
                         )}
                       </div>
                       <div className="text-left">
-                        <p className={`text-xs font-black tracking-tight ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{currentUser.name}</p>
-                        <p className={`text-[9px] font-bold uppercase tracking-widest ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>{currentUser.role}</p>
+                        <p className={`text-xs font-black tracking-tight text-twilight-indigo`}>{currentUser.name}</p>
+                        <p className={`text-[9px] font-bold uppercase tracking-widest text-twilight-indigo/40`}>{currentUser.role}</p>
                       </div>
                     </button>
                   )}
@@ -3902,8 +3862,8 @@ export default function App() {
                     >
                       <option value="all">All Statuses</option>
                       <option value="entered">Entered</option>
-                      <option value="completed">Visit Completed</option>
-                      <option value="paid_completed">Payment Completed</option>
+                      <option value="completed">Arrived</option>
+                      <option value="paid_completed">Paid</option>
                       <option value="buffer">7-Day Buffer</option>
                       <option value="approved">Approved</option>
                       <option value="payout_processed">Payout Processed</option>
@@ -4092,7 +4052,7 @@ export default function App() {
                                     onClick={() => handleUpdateStatus(ref.id, 'completed', { visit_date: new Date().toISOString().split('T')[0] })}
                                     className="text-[10px] font-bold text-indigo-600 hover:underline"
                                   >
-                                    Check-in
+                                    Arrived
                                   </button>
                                   <button 
                                     onClick={() => handleUpdateStatus(ref.id, 'rejected', { rejection_reason: 'Patient did not arrive' })}
@@ -4107,7 +4067,7 @@ export default function App() {
                                   onClick={() => handleUpdateStatus(ref.id, 'paid_completed', { payment_status: 'completed' })}
                                   className="text-[10px] font-bold text-zinc-900 hover:underline"
                                 >
-                                  Mark Paid
+                                  Paid
                                 </button>
                               )}
                               {currentUser.role === 'admin' && ref.status === 'paid_completed' && (
@@ -5054,7 +5014,7 @@ export default function App() {
                 <div className={currentUser.role === 'receptionist' ? 'lg:col-span-2' : 'lg:col-span-3'}>
                   <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
                     <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <h3 className="font-semibold">{currentUser.role === 'receptionist' ? `Patient Check-in (${branchFilter === 'all' ? 'All Branches' : branchFilter})` : 'Pending Payouts'}</h3>
+                      <h3 className="font-semibold">{currentUser.role === 'receptionist' ? `Patient Arrivals (${branchFilter === 'all' ? 'All Branches' : branchFilter})` : 'Pending Payouts'}</h3>
                       <div className="flex flex-col sm:flex-row gap-2">
                         {(currentUser.role === 'admin' || currentUser.role === 'receptionist') && (
                           <select 
@@ -5075,8 +5035,8 @@ export default function App() {
                         >
                           <option value="all">All Statuses</option>
                           <option value="entered">Entered</option>
-                          <option value="completed">Visit Completed</option>
-                          <option value="paid_completed">Payment Completed</option>
+                          <option value="completed">Arrived</option>
+                          <option value="paid_completed">Paid</option>
                           <option value="buffer">7-Day Buffer</option>
                           <option value="approved">Approved</option>
                           <option value="payout_processed">Payout Processed</option>
@@ -5132,12 +5092,16 @@ export default function App() {
                               className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                             >
                               <option value="entered">Entered</option>
-                              <option value="completed">Visit Completed</option>
-                              <option value="paid_completed">Payment Completed</option>
-                              <option value="buffer">7-Day Buffer</option>
-                              <option value="approved">Approved</option>
-                              <option value="payout_processed">Payout Processed</option>
+                              <option value="completed">Arrived</option>
+                              <option value="paid_completed">Paid</option>
                               <option value="rejected">Rejected</option>
+                              {currentUser.role === 'admin' && (
+                                <>
+                                  <option value="buffer">7-Day Buffer</option>
+                                  <option value="approved">Approved</option>
+                                  <option value="payout_processed">Payout Processed</option>
+                                </>
+                              )}
                             </select>
                           </div>
                         </div>
@@ -5455,7 +5419,7 @@ export default function App() {
                   <ul className="space-y-3 text-xs text-zinc-500 font-medium">
                     <li className="flex gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
-                      <span>Use the "Check-in" tab to find patients arriving today.</span>
+                      <span>Use the "Arrived" tab to find patients arriving today.</span>
                     </li>
                     <li className="flex gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
@@ -6388,48 +6352,40 @@ export default function App() {
                         </div>
 
                         <div className="space-y-2">
-                          <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Marketing Posters</label>
+                          <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Marketing Poster</label>
                           <div className="relative group">
                             <input 
                               type="file"
                               accept="image/*"
-                              multiple
                               disabled={isUploading}
                               onChange={async (e) => {
-                                const files = e.target.files;
-                                if (!files || !currentUser) return;
+                                const file = e.target.files?.[0];
+                                if (!file || !currentUser) return;
                                 
                                 setIsUploading(true);
                                 try {
                                   const authUid = currentUser.id;
-
-                                  const newPosters = [];
-                                  for (const file of Array.from(files)) {
-                                    const fileExt = file.name.split('.').pop();
-                                    const fileName = `${currentUser.id}-${Date.now()}-${Math.random()}.${fileExt}`;
-                                    // The RLS policy requires the Supabase Auth UUID to be the first part of the path
-                                    const filePath = `${authUid}/posters/${fileName}`;
-                                    
-                                    const { data, error } = await supabase.storage
-                                      .from('clinic-assets')
-                                      .upload(filePath, file);
-                                    
-                                    if (error) throw error;
-                                    
-                                    const { data: { publicUrl } } = supabase.storage
-                                      .from('clinic-assets')
-                                      .getPublicUrl(filePath);
-                                      
-                                    newPosters.push(publicUrl);
-                                  }
+                                  const fileExt = file.name.split('.').pop();
+                                  const fileName = `${authUid}-${Date.now()}-${Math.random()}.${fileExt}`;
+                                  const filePath = `${authUid}/posters/${fileName}`;
                                   
+                                  const { data, error } = await supabase.storage
+                                    .from('posters')
+                                    .upload(filePath, file);
+                                  
+                                  if (error) throw error;
+                                  
+                                  const { data: { publicUrl } } = supabase.storage
+                                    .from('posters')
+                                    .getPublicUrl(filePath);
+                                    
                                   setEditingService(prev => ({
                                     ...prev,
-                                    posters: [...(prev?.posters || []), ...newPosters]
+                                    image_url: publicUrl
                                   }));
                                 } catch (error: any) {
-                                  console.error('Error uploading posters:', error);
-                                  alert('Failed to upload posters: ' + error.message);
+                                  console.error('Error uploading poster:', error);
+                                  alert('Failed to upload poster: ' + error.message);
                                 } finally {
                                   setIsUploading(false);
                                 }
@@ -6445,25 +6401,23 @@ export default function App() {
                               ) : (
                                 <>
                                   <Plus size={24} className="text-zinc-500" />
-                                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Add Posters (Multiple)</p>
+                                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Add Poster</p>
                                 </>
                               )}
                             </div>
                           </div>
-                          {editingService?.posters && editingService.posters.length > 0 && (
+                          {editingService?.image_url && (
                             <div className="flex overflow-x-auto gap-4 mt-6 pb-4 custom-scrollbar snap-x">
-                              {editingService.posters.map((img, idx) => (
-                                <div key={idx} className="relative w-32 h-32 shrink-0 rounded-2xl overflow-hidden border border-zinc-100 group shadow-sm snap-start">
-                                  <img src={img} alt="Poster" className="w-full h-full object-cover" />
-                                  <button 
-                                    type="button"
-                                    onClick={() => setEditingService(prev => ({ ...prev, posters: prev?.posters?.filter((_, i) => i !== idx) }))}
-                                    className="absolute inset-0 bg-rose-500 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                                  >
-                                    <Trash2 size={20} />
-                                  </button>
-                                </div>
-                              ))}
+                              <div className="relative w-32 h-32 shrink-0 rounded-2xl overflow-hidden border border-zinc-100 group shadow-sm snap-start">
+                                <img src={editingService.image_url} alt="Poster" className="w-full h-full object-cover" />
+                                <button 
+                                  type="button"
+                                  onClick={() => setEditingService(prev => ({ ...prev, image_url: undefined }))}
+                                  className="absolute inset-0 bg-rose-500 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                                >
+                                  <Trash2 size={20} />
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -6564,8 +6518,8 @@ export default function App() {
                                   <p className="text-xs font-bold text-zinc-900">{clinicProfile.currency}{service.commission_rate}</p>
                                 </div>
                                 <div>
-                                  <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-1">Posters</p>
-                                  <p className="text-xs font-bold">{(service.posters || []).length}</p>
+                                  <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-1">Poster</p>
+                                  <p className="text-xs font-bold">{service.image_url ? 'Yes' : 'No'}</p>
                                 </div>
                               </div>
                             </div>
@@ -6601,7 +6555,6 @@ export default function App() {
                     commission_rate: 0,
                     is_featured: true,
                     allowances: {},
-                    posters: [],
                     branches: []
                   } as Service));
 
