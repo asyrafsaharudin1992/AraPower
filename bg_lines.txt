@@ -1,0 +1,579 @@
+238:      className={`relative flex-shrink-0 w-64 h-80 rounded-[20px] bg-gradient-to-br ${gradient} p-6 flex flex-col justify-between shadow-2xl cursor-pointer overflow-hidden border border-white/5`}
+242:          <span className="px-2 py-1 rounded-full bg-white/10 backdrop-blur-md text-[8px] font-black text-text-main uppercase tracking-widest border border-white/10">
+246:            status === 'active' ? 'bg-celery text-text-main' : 
+247:            status === 'upcoming' ? 'bg-pale-yellow text-text-main' : 
+248:            'bg-blush text-text-main'
+263:      <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-white/5 rounded-full blur-3xl" />
+314:            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]"
+321:            className="fixed bottom-0 left-0 right-0 bg-[#121212] rounded-t-[32px] z-[101] max-h-[90vh] overflow-y-auto custom-scrollbar"
+323:            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-4" />
+332:                <div className="w-full aspect-[4/5] bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-2xl flex items-center justify-center">
+341:                    <span className="px-2 py-1 rounded-md bg-white/10 text-[10px] font-black text-text-main uppercase tracking-widest border border-white/10">
+348:                          status === 'active' ? 'bg-celery text-text-main' : 
+349:                          status === 'upcoming' ? 'bg-pale-yellow text-text-main' : 
+350:                          'bg-blush text-text-main'
+362:                <div className="bg-white/5 rounded-3xl p-6 border border-white/5 space-y-4">
+389:                  className="w-full py-5 bg-white text-black rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
+498:    <div className={`p-6 rounded-[2.5rem] border transition-all ${darkMode ? 'bg-[#0f172a] border-white/5' : 'bg-white border-zinc-100 shadow-sm hover:border-lavender'}`}>
+505:              <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${item.type === 'Promotion' ? 'bg-peach text-text-main' : 'bg-dusty-blue text-text-main'}`}>
+509:                status === 'active' ? 'bg-celery text-text-main' : 
+510:                status === 'upcoming' ? 'bg-pale-yellow text-text-main' : 
+511:                'bg-blush text-text-main'
+520:            <div className={`flex flex-col gap-1.5 px-4 py-3 rounded-2xl w-fit mt-4 border ${darkMode ? 'bg-peach/10 border-peach/20 text-peach' : 'bg-lavender border-lavender text-text-main'}`}>
+550:            <button onClick={() => setEditingService(item)} className={`p-2 rounded-xl transition-all ${darkMode ? 'bg-white/5 text-[#f5f5dc]/60 hover:text-text-main' : 'text-text-muted hover:text-text-main hover:bg-bg-main'}`}>
+553:            <button onClick={() => handleDeleteService(item.id)} className={`p-2 rounded-xl transition-all ${darkMode ? 'bg-white/5 text-[#f5f5dc]/60 hover:text-text-main' : 'text-text-muted hover:text-text-main hover:bg-blush'}`}>
+560:      <div className={`grid grid-cols-3 gap-2 mb-6 p-4 rounded-2xl ${darkMode ? 'bg-white/5' : 'bg-bg-main'}`}>
+581:                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+584:                  className={`absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2.5 bg-white text-text-main rounded-2xl shadow-2xl shadow-black/20 transition-all hover:scale-105 active:scale-95 ${darkMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+665:      <div className={`${className} flex items-center justify-center bg-white rounded-xl shadow-inner overflow-hidden`}>
+678:    <div className={`${className} flex items-center justify-center bg-lavender rounded-xl shadow-inner overflow-hidden`}>
+973:    { name: 'Bronze', min: 0, bonus: 1, color: 'text-text-main', bg: 'bg-peach' },
+974:    { name: 'Silver', min: 6, bonus: 1.2, color: 'text-text-main', bg: 'bg-lavender' },
+975:    { name: 'Gold', min: 11, bonus: 1.5, color: 'text-text-main', bg: 'bg-blush' }
+2226:      <div className="min-h-screen w-full overflow-x-hidden bg-bg-main flex items-center justify-center p-4 font-sans">
+2230:          className="bg-white p-8 rounded-3xl shadow-sm max-w-md w-full border border-black/5"
+2234:              <div className="bg-lavender w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+2241:                className="w-full bg-gradient-to-r from-lavender to-blush text-text-main py-3 rounded-xl font-medium shadow-lg shadow-lavender"
+2249:                <div className="bg-white p-1 rounded-xl border border-zinc-100 shadow-sm">
+2256:                <div className="bg-lavender p-4 rounded-2xl mb-6 border border-lavender">
+2261:                <div className="bg-blush p-4 rounded-2xl mb-6 border border-peach">
+2275:                    className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender focus:border-lavender transition-all"
+2286:                    className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender focus:border-lavender transition-all"
+2296:                    className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender focus:border-lavender transition-all appearance-none"
+2308:                    className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender focus:border-lavender transition-all appearance-none"
+2325:                      className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender focus:border-lavender transition-all"
+2334:                      className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender focus:border-lavender transition-all appearance-none"
+2346:                  className="w-full bg-gradient-to-r from-lavender to-blush text-text-main py-4 rounded-xl font-bold hover:from-lavender hover:to-blush transition-colors disabled:opacity-50"
+2360:      <div className="min-h-screen w-full overflow-x-hidden bg-bg-main flex items-center justify-center">
+2372:      <div className="min-h-screen w-full overflow-x-hidden bg-dusty-blue flex items-center justify-center p-0 sm:p-4 font-sans">
+2375:          className={`w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-y-auto flex flex-col relative ${welcomeScreenClass}`}
+2378:          <div className="relative w-full h-[60%] shrink-0 overflow-hidden z-0 bg-dusty-blue border-b-0 shadow-none">
+2411:                  <div className="w-14 h-14 bg-peach rounded-full flex items-center justify-center text-text-main shadow-lg shadow-peach/30 group-hover:scale-110 transition-transform">
+2422:          className={`w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-y-auto flex flex-col relative ${loginScreenClass}`}
+2425:          <div className="relative w-full h-[45%] shrink-0 overflow-hidden z-0 bg-dusty-blue border-b-0 shadow-none">
+2450:                <div className="w-10 h-1 bg-peach rounded-full mb-4" />
+2459:                    className="mb-6 p-4 bg-blush text-text-main text-xs font-bold rounded-2xl border border-blush flex items-center gap-3"
+2461:                    <div className="w-1.5 h-1.5 rounded-full bg-blush animate-pulse" />
+2487:                            className="w-full bg-transparent focus:outline-none text-text-main placeholder-zinc-300 text-base"
+2501:                            className="w-full bg-transparent focus:outline-none text-text-main placeholder-zinc-300 text-base"
+2518:                          <div className="w-3 h-3 bg-peach rounded-sm opacity-0 group-hover:opacity-20 transition-opacity" />
+2530:                        className="w-full py-5 bg-peach text-text-main rounded-2xl font-black text-lg shadow-xl shadow-peach/30 hover:shadow-peach/40 transition-all active:scale-[0.98]"
+2559:                            className="w-full bg-transparent focus:outline-none text-text-main placeholder-zinc-300 text-base"
+2573:                            className="w-full bg-transparent focus:outline-none text-text-main placeholder-zinc-300 text-base"
+2588:                            className="w-full bg-transparent focus:outline-none text-text-main placeholder-zinc-300 text-base"
+2601:                              className="w-full bg-transparent focus:outline-none text-text-main appearance-none text-base"
+2619:                              className="w-full bg-transparent focus:outline-none text-text-main placeholder-zinc-300 text-base"
+2627:                        <div className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${agreedToTerms ? 'bg-peach border-peach' : 'border-zinc-200 group-hover:border-peach'}`}>
+2634:                          {agreedToTerms && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
+2647:                      className="w-full py-4 bg-peach text-text-main rounded-2xl font-black text-lg shadow-xl shadow-peach/30 hover:shadow-peach/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+2671:                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+2677:                className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+2679:                <div className="p-8 border-b border-zinc-100 flex items-center justify-between bg-dusty-blue text-text-main">
+2683:                    className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+2693:                <div className="p-6 bg-bg-main border-t border-zinc-100 flex justify-end">
+2699:                    className="px-8 py-3 bg-peach text-text-main rounded-xl font-bold shadow-lg shadow-peach/20 hover:shadow-peach/30 transition-all active:scale-95"
+2714:      <div className="min-h-screen w-full overflow-x-hidden bg-bg-main flex items-center justify-center p-0 sm:p-4 font-sans">
+2719:          className="w-full max-w-md h-screen sm:h-[90vh] bg-white sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative"
+2722:          <div className="relative w-full h-[45%] shrink-0 overflow-hidden z-0 bg-dusty-blue">
+2749:              <div className="w-48 h-1.5 bg-bg-main rounded-full overflow-hidden">
+2754:                  className="h-full bg-dusty-blue"
+2766:      <div className="min-h-screen w-full overflow-x-hidden bg-bg-main flex items-center justify-center p-4 font-sans relative overflow-hidden">
+2768:          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blush rounded-full blur-[120px] opacity-60" />
+2774:          className="bg-white p-12 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] max-w-md w-full border border-black/[0.03] text-center"
+2776:          <div className="w-20 h-20 bg-peach text-text-main rounded-3xl flex items-center justify-center mx-auto mb-4">
+2785:          <div className="p-4 bg-bg-main rounded-2xl border border-zinc-100 mb-8">
+2802:              className="bg-gradient-to-r from-lavender to-blush text-text-main py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:from-lavender hover:to-blush transition-all shadow-lg shadow-lavender"
+2808:              className="bg-zinc-900 text-text-main py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-900/10"
+2894:      case 'entered': return 'bg-peach text-text-main';
+2895:      case 'completed': return 'bg-indigo-100 text-indigo-700';
+2896:      case 'paid_completed': return 'bg-lavender text-text-main';
+2897:      case 'buffer': return 'bg-dusty-blue text-text-main';
+2898:      case 'approved': return 'bg-lavender text-text-main border border-lavender';
+2899:      case 'payout_processed': return 'bg-bg-main text-text-main';
+2900:      case 'rejected': return 'bg-blush text-text-main';
+2901:      default: return 'bg-bg-main text-text-main';
+2922:        <div className="min-h-screen w-full overflow-x-hidden bg-bg-main flex flex-col items-center justify-center p-8 text-center">
+2923:          <div className="w-20 h-20 bg-lavender text-text-main rounded-3xl flex items-center justify-center mb-6">
+2930:            className="px-6 py-3 bg-gradient-to-r from-lavender to-blush text-text-main rounded-xl font-medium shadow-lg shadow-lavender"
+2940:        <div className="min-h-screen w-full overflow-x-hidden bg-bg-main flex flex-col items-center justify-center p-8 text-center">
+2941:          <div className="w-20 h-20 bg-lavender text-text-main rounded-3xl flex items-center justify-center mb-6">
+2948:            className="px-6 py-3 bg-gradient-to-r from-lavender to-blush text-text-main rounded-xl font-medium shadow-lg shadow-lavender"
+2957:      <div className={`min-h-screen w-full overflow-x-hidden font-sans transition-colors duration-500 ${darkMode ? 'bg-[#0f172a] text-[#f5f5dc]' : 'bg-bg-main text-text-main'} relative`}>
+2960:          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-lavender0/5 rounded-full blur-[120px]" />
+2961:          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blush/5 rounded-full blur-[150px]" />
+2962:          <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-dusty-blue rounded-full blur-[100px]" />
+2968:            <nav className={`max-w-md mx-auto ${reduceTranslucency ? (darkMode ? 'bg-[#1e293b]' : 'bg-white') : (darkMode ? 'bg-[#1e293b]/80' : 'bg-white/80') + ' backdrop-blur-2xl'} border ${darkMode ? 'border-white/10' : 'border-zinc-200'} px-4 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto`}>
+2974:                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-pale-yellow' : ''}`}>
+2982:                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-pale-yellow' : ''}`}>
+2992:                  className="w-14 h-14 bg-peach text-text-main rounded-full flex items-center justify-center shadow-lg shadow-peach/40 active:scale-95 transition-transform"
+3003:                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'promotions' ? 'bg-pale-yellow' : ''}`}>
+3011:                  <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'profile' ? 'bg-pale-yellow' : ''}`}>
+3022:          <nav className={`fixed left-0 top-0 bottom-0 w-64 ${reduceTranslucency ? (darkMode ? 'bg-[#1e293b]' : 'bg-white') : (darkMode ? 'bg-[#1e293b]/70' : 'bg-white/70') + ' backdrop-blur-xl'} border-r ${darkMode ? 'border-white/10' : 'border-zinc-100'} p-6 flex flex-col z-40`}>
+3024:              <div className="w-10 h-10 bg-white border border-zinc-100 rounded-2xl flex items-center justify-center shadow-sm overflow-hidden">
+3036:                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'dashboard' ? 'bg-gradient-to-r from-lavender to-blush text-text-main shadow-lg shadow-lavender' : 'text-text-muted hover:bg-bg-main'}`}
+3043:                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'referrals' ? 'bg-gradient-to-r from-lavender to-blush text-text-main shadow-lg shadow-lavender' : 'text-text-muted hover:bg-bg-main'}`}
+3050:                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'kit' ? 'bg-gradient-to-r from-lavender to-blush text-text-main shadow-lg shadow-lavender' : 'text-text-muted hover:bg-bg-main'}`}
+3057:                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'promotions' ? 'bg-gradient-to-r from-lavender to-blush text-text-main shadow-lg shadow-lavender' : 'text-text-muted hover:bg-bg-main'}`}
+3064:                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'tasks' ? 'bg-gradient-to-r from-lavender to-blush text-text-main shadow-lg shadow-lavender' : 'text-text-muted hover:bg-bg-main'}`}
+3071:                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-gradient-to-r from-lavender to-blush text-text-main shadow-lg shadow-lavender' : 'text-text-muted hover:bg-bg-main'}`}
+3079:                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'communication' ? 'bg-gradient-to-r from-lavender to-blush text-text-main shadow-lg shadow-lavender' : 'text-text-muted hover:bg-bg-main'}`}
+3088:                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'admin' ? 'bg-gradient-to-r from-lavender to-blush text-text-main shadow-lg shadow-lavender' : 'text-text-muted hover:bg-bg-main'}`}
+3097:                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'payouts' ? 'bg-gradient-to-r from-lavender to-blush text-text-main shadow-lg shadow-lavender' : 'text-text-muted hover:bg-bg-main'}`}
+3107:                <div className="w-8 h-8 rounded-full bg-lavender text-text-main flex items-center justify-center text-xs font-bold">
+3121:                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'setup' ? 'bg-gradient-to-r from-lavender to-blush text-text-main shadow-lg shadow-lavender' : 'text-text-muted hover:bg-bg-main'}`}
+3133:          <main className={`${!isMobile ? `ml-64 ${reduceTranslucency ? (darkMode ? 'bg-[#0f172a]' : 'bg-bg-main') : (darkMode ? 'bg-[#0f172a]/80' : 'bg-bg-main/80') + ' backdrop-blur-sm'}` : `pb-32 min-h-screen ${darkMode ? 'bg-[#0f172a]' : 'bg-bg-main'}`} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
+3136:              <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-dusty-blue/20 to-transparent -z-10" />
+3137:              <div className="absolute top-[10%] -right-[20%] w-[80%] h-[40%] bg-dusty-blue/10 rounded-full blur-[100px] -z-10" />
+3147:              <div className="w-24 h-24 bg-blush text-text-main rounded-[2.5rem] flex items-center justify-center shadow-xl shadow-peach border border-peach">
+3156:              <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm max-w-sm w-full">
+3159:                    <div className="w-2.5 h-2.5 rounded-full bg-peach shadow-[0_0_10px_rgba(251,146,60,0.5)]" />
+3163:                    <div className="w-2.5 h-2.5 rounded-full bg-bg-main" />
+3167:                    <div className="w-2.5 h-2.5 rounded-full bg-bg-main" />
+3178:                  className="px-6 py-3 bg-lavender text-text-main rounded-xl text-xs font-black uppercase tracking-widest hover:bg-lavender transition-all active:scale-95"
+3192:              <header className={`flex flex-row items-center justify-between gap-4 z-[100] ${isMobile ? `sticky top-0 ${darkMode ? 'bg-[#0f172a]/80' : 'bg-bg-main/80'} backdrop-blur-xl py-4 -mx-4 px-4 border-b ${darkMode ? 'border-white/10' : 'border-zinc-200/50'} mb-6` : 'mb-8 relative'}`}>
+3202:                    <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-black/5 shadow-sm">
+3216:                          ? 'bg-white/5 hover:bg-white/10 border-white/10' 
+3217:                          : 'bg-white hover:bg-bg-main border-black/5 shadow-sm'
+3220:                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-lavender to-blush text-text-main flex items-center justify-center text-xs font-black shadow-lg shadow-lavender overflow-hidden relative">
+3232:                          <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-blush border-2 border-white rounded-full" />
+3245:                      className={`p-3 rounded-2xl transition-all relative ${darkMode ? 'bg-white/5 hover:bg-white/10 text-text-main' : 'bg-white hover:bg-bg-main text-text-muted border border-black/5 shadow-sm'}`}
+3249:                        <div className="absolute top-2 right-2 w-2 h-2 bg-blush rounded-full border-2 border-white" />
+3272:                      <div className="relative overflow-hidden bg-pale-yellow p-8 rounded-[2.5rem] border border-white/10 shadow-sm min-h-[200px] flex flex-col justify-center">
+3274:                          <div className="w-2 h-2 rounded-full bg-peach animate-pulse" />
+3318:                              className={`h-1 rounded-full transition-all duration-500 ${idx === featuredIndex ? 'w-6 bg-peach' : 'w-1.5 bg-white/10'}`}
+3326:                    <div className="relative overflow-hidden bg-dusty-blue p-8 rounded-[2.5rem] shadow-2xl shadow-dusty-blue/20">
+3335:                            className="px-6 py-2.5 bg-peach text-text-main rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-peach/20 active:scale-95 transition-transform"
+3351:                        className="w-full text-left bg-zinc-900 rounded-[2.5rem] p-8 relative overflow-hidden shadow-2xl shadow-zinc-900/20 group active:scale-[0.98] transition-all"
+3353:                        <div className="absolute top-0 right-0 w-64 h-64 bg-peach/10 rounded-full blur-[100px] -mr-32 -mt-32" />
+3354:                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-peach/5 rounded-full blur-[80px] -ml-24 -mb-24" />
+3359:                              <div className="w-10 h-10 rounded-2xl bg-peach/20 flex items-center justify-center">
+3371:                                  className={`h-1 rounded-full transition-all duration-500 ${idx === serviceSlideshowIndex ? 'w-6 bg-peach' : 'w-2 bg-white/10'}`}
+3385:                              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-peach/10 border border-peach/20">
+3386:                                <span className="w-1.5 h-1.5 rounded-full bg-peach animate-pulse" />
+3405:                                  <div className="w-px h-6 bg-white/10" />
+3413:                                <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-text-main group-hover:bg-peach group-hover:text-text-main transition-colors">
+3442:                            className="p-5 rounded-[2rem] bg-peach flex flex-col justify-between min-h-[120px] shadow-lg shadow-peach/20 active:scale-[0.98] transition-transform"
+3456:                        <div className="col-span-2 p-10 rounded-[2.5rem] bg-bg-main border border-zinc-200 text-center">
+3457:                          <div className="w-12 h-12 bg-bg-main rounded-2xl flex items-center justify-center mx-auto mb-3">
+3470:                    <div className="bg-pale-yellow p-4 rounded-3xl border border-white/10 shadow-sm">
+3474:                    <div className="bg-pale-yellow p-4 rounded-3xl border border-white/10 shadow-sm">
+3487:                          <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group">
+3488:                            <div className="absolute top-0 right-0 w-32 h-32 bg-lavender0/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+3490:                              <div className="w-10 h-10 rounded-2xl bg-lavender text-text-main flex items-center justify-center mb-4">
+3496:                                <span className="text-[10px] font-bold text-text-main bg-celery px-2 py-0.5 rounded-lg">Active System</span>
+3501:                          <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group">
+3502:                            <div className="absolute top-0 right-0 w-32 h-32 bg-celery rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+3504:                              <div className="w-10 h-10 rounded-2xl bg-celery text-text-main flex items-center justify-center mb-4">
+3515:                          <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group">
+3516:                            <div className="absolute top-0 right-0 w-32 h-32 bg-dusty-blue rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+3518:                              <div className="w-10 h-10 rounded-2xl bg-dusty-blue text-text-main flex items-center justify-center mb-4">
+3531:                        <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+3539:                                <div className="w-3 h-3 rounded-full bg-lavender0" />
+3605:                        <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+3616:                        <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+3634:                  <div className="bg-lavender p-6 rounded-3xl border border-lavender shadow-sm overflow-hidden relative">
+3650:                      <div className="h-2 w-full bg-bg-main rounded-full overflow-hidden relative">
+3655:                          className="h-full bg-lavender0 rounded-full relative"
+3661:                            className="absolute top-0 bottom-0 w-1/2 bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12"
+3687:                  <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+3696:                            className="flex items-center justify-between cursor-pointer hover:bg-bg-main p-2 -mx-2 rounded-xl transition-colors"
+3704:                              <div className="w-8 h-8 rounded-full bg-bg-main flex items-center justify-center text-xs font-bold text-text-muted">
+3723:                <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+3733:                      <div key={ref.id} className="p-4 flex items-center justify-between hover:bg-bg-main transition-colors">
+3784:                    className="flex items-center gap-2 px-6 py-3 bg-bg-main hover:bg-bg-main text-text-muted rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+3801:                        ? 'bg-white border-zinc-100 opacity-75' 
+3802:                        : 'bg-white border-lavender shadow-xl shadow-lavender ring-1 ring-lavender'
+3806:                      <div className="absolute top-6 right-6 w-3 h-3 bg-lavender rounded-full animate-pulse shadow-lg shadow-lavender" />
+3811:                        notif.is_read ? 'bg-bg-main text-text-muted' : 'bg-lavender text-text-main'
+3848:                  <div className="bg-bg-main rounded-[3rem] p-20 text-center border-2 border-dashed border-zinc-200">
+3849:                    <div className="w-20 h-20 bg-bg-main rounded-3xl flex items-center justify-center mx-auto mb-6 text-text-muted">
+3867:              className={`${darkMode ? 'bg-[#1e293b] border-white/10' : 'bg-white border-black/5 shadow-sm'} rounded-3xl border overflow-hidden`}
+3880:                        className={`pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 w-full sm:w-64 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/20' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+3886:                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/20' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+3896:                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/20' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+3911:                  className={`flex items-center gap-2 text-xs font-bold transition-colors self-start sm:self-auto px-3 py-2 rounded-xl ${darkMode ? 'text-peach hover:bg-[#0f172a]' : 'text-text-main hover:bg-lavender'}`}
+3939:                        className="p-6 flex items-center justify-between cursor-pointer bg-[#1e3a8a]"
+3943:                            ref.status === 'completed' || ref.status === 'paid_completed' ? 'bg-celery text-text-main' :
+3944:                            ref.status === 'rejected' ? 'bg-blush text-text-main' : 'bg-white/10 text-text-main/80'
+3968:                        <div className="overflow-hidden bg-[#1e3a8a] border-t border-white/10">
+3996:                                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-[10px] font-black text-[#f5f5dc]/60">
+4008:                                  className="flex items-center gap-2 px-4 py-2 bg-celery text-text-main rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform border border-celery"
+4024:                    <tr className="bg-bg-main border-b border-zinc-100">
+4044:                      <tr key={ref.id} className="hover:bg-bg-main/50 transition-colors">
+4052:                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ref.patient_type === 'existing' ? 'bg-dusty-blue text-text-main' : 'bg-peach text-text-main'}`}>
+4078:                                  className="p-2 text-text-main hover:bg-lavender rounded-lg transition-colors"
+4151:                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+4155:                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+4161:                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+4167:                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+4177:                <div className="bg-dusty-blue rounded-[2.5rem] border border-dusty-blue p-8">
+4183:                    <div className="w-12 h-12 bg-dusty-blue text-text-main rounded-2xl flex items-center justify-center shadow-lg shadow-dusty-blue">
+4189:                      <div key={staff.id} className="bg-white p-6 rounded-3xl border border-dusty-blue shadow-sm hover:shadow-md transition-all">
+4191:                          <div className="w-12 h-12 rounded-2xl bg-bg-main flex items-center justify-center text-lg font-black text-text-muted">
+4216:                            className="flex-1 bg-gradient-to-r from-lavender to-blush text-text-main py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:from-lavender hover:to-blush transition-all shadow-lg shadow-lavender"
+4222:                            className="px-4 bg-blush text-text-main py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blush transition-all"
+4234:              <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+4244:                      className="pl-9 pr-4 py-2 rounded-xl bg-bg-main border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-lavender w-full sm:w-64"
+4250:                    <tr className="bg-bg-main border-b border-zinc-100">
+4263:                        className="hover:bg-bg-main/50 transition-colors cursor-pointer"
+4271:                            <div className="w-8 h-8 rounded-full bg-bg-main flex items-center justify-center text-xs font-bold text-text-muted">
+4296:              <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+4301:                    className="flex items-center gap-2 text-xs font-bold text-text-main hover:bg-lavender px-3 py-2 rounded-xl transition-colors"
+4309:                        <tr className="bg-bg-main border-b border-zinc-100">
+4320:                          <tr key={ref.id} className="hover:bg-bg-main/50 transition-colors">
+4325:                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ref.patient_type === 'existing' ? 'bg-dusty-blue text-text-main' : 'bg-peach text-text-main'}`}>
+4342:                                        <span key={flag} className="px-1 py-0.5 bg-blush text-text-main rounded text-[8px] font-bold uppercase border border-blush">
+4358:                                    className="text-[10px] font-bold uppercase tracking-wider bg-dusty-blue text-text-main px-3 py-1.5 rounded-lg hover:bg-dusty-blue transition-colors"
+4366:                                    className="text-[10px] font-bold uppercase tracking-wider bg-lavender0 text-text-main px-3 py-1.5 rounded-lg hover:bg-lavender transition-colors"
+4374:                                    className="text-[10px] font-bold uppercase tracking-wider bg-zinc-900 text-text-main px-3 py-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
+4395:              <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+4405:                      className="flex items-center gap-2 text-xs font-bold bg-lavender text-text-main px-4 py-2 rounded-xl transition-all hover:bg-lavender disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-lavender"
+4413:                      className="flex items-center gap-2 text-xs font-bold bg-zinc-900 text-text-main px-4 py-2 rounded-xl transition-all hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-zinc-900/20"
+4423:                      <tr className="bg-bg-main border-b border-zinc-100">
+4447:                        <tr key={staff.id} className="hover:bg-bg-main/50 transition-colors">
+4464:                              <div className="w-8 h-8 rounded-full bg-bg-main flex items-center justify-center text-xs font-bold text-text-muted">
+4510:                <div className="w-12 h-12 bg-lavender0 text-text-main rounded-2xl flex items-center justify-center shadow-lg shadow-lavender">
+4517:                  <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm space-y-6">
+4526:                          className="w-full px-5 py-4 bg-bg-main border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-lavender transition-all"
+4537:                          className="w-full px-5 py-4 bg-bg-main border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-lavender transition-all resize-none"
+4547:                            className="w-full px-5 py-4 bg-bg-main border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-lavender transition-all"
+4559:                            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-lavender to-blush text-text-main rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg shadow-lavender active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+4573:                  <div className="bg-bg-main p-8 rounded-[2.5rem] border border-zinc-100">
+4596:                  <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+4607:                      <label className="flex items-center gap-3 p-3 rounded-2xl hover:bg-bg-main transition-colors cursor-pointer border border-transparent hover:border-zinc-100">
+4623:                      <div className="h-px bg-bg-main my-2" />
+4626:                        <label key={staff.id} className="flex items-center gap-3 p-3 rounded-2xl hover:bg-bg-main transition-colors cursor-pointer border border-transparent hover:border-zinc-100">
+4640:                            <div className="w-8 h-8 rounded-full bg-bg-main flex items-center justify-center text-[10px] font-bold text-text-muted">
+4677:                  <div className="bg-white p-4 rounded-2xl border border-black/5 shadow-sm min-w-[150px]">
+4687:                  <div className="bg-white p-4 rounded-2xl border border-black/5 shadow-sm min-w-[150px]">
+4701:              <div className="flex gap-2 p-1 bg-bg-main rounded-2xl w-fit">
+4704:                  className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${payoutSubTab === 'history' ? 'bg-white text-text-main shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+4710:                  className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${payoutSubTab === 'bulk' ? 'bg-white text-text-main shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+4717:              <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm flex flex-wrap gap-4 items-end">
+4729:                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-bg-main border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-lavender transition-all"
+4738:                    className="w-full px-4 py-2.5 rounded-xl bg-bg-main border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-lavender transition-all"
+4751:                    className="w-full px-4 py-2.5 rounded-xl bg-bg-main border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-lavender transition-all"
+4774:                  <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+4778:                          <tr className="bg-bg-main/50 border-b border-zinc-100">
+4799:                              <tr key={ref.id} className="hover:bg-bg-main/50 transition-colors">
+4817:                                    ref.status === 'payout_processed' ? 'bg-celery text-text-main' : 'bg-pale-yellow text-text-main'
+4826:                                      className="px-4 py-2 bg-zinc-900 text-text-main rounded-xl text-xs font-bold hover:bg-zinc-800 transition-all active:scale-95"
+4843:                                <div className="w-12 h-12 bg-bg-main rounded-2xl flex items-center justify-center mx-auto mb-3">
+4858:                  <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+4868:                          className="flex items-center gap-2 text-xs font-bold bg-lavender text-text-main px-4 py-2 rounded-xl transition-all hover:bg-lavender disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-lavender"
+4876:                          className="flex items-center gap-2 text-xs font-bold bg-zinc-900 text-text-main px-4 py-2 rounded-xl transition-all hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-zinc-900/20"
+4886:                          <tr className="bg-bg-main border-b border-zinc-100">
+4910:                            <tr key={staff.id} className="hover:bg-bg-main/50 transition-colors">
+4927:                                  <div className="w-8 h-8 rounded-full bg-bg-main flex items-center justify-center text-xs font-bold text-text-muted">
+4975:                    <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+4988:                            className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender focus:border-lavender transition-all font-mono"
+5006:                            className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender focus:border-lavender transition-all"
+5016:                            className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender focus:border-lavender transition-all appearance-none"
+5028:                            className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender focus:border-lavender transition-all appearance-none"
+5039:                          className="w-full bg-zinc-900 text-text-main py-3 rounded-xl font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
+5050:                  <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+5058:                            className="px-4 py-2 rounded-xl bg-bg-main border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-lavender"
+5069:                          className="px-4 py-2 rounded-xl bg-bg-main border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-lavender"
+5085:                            className="pl-4 pr-4 py-2 rounded-xl bg-bg-main border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-lavender"
+5096:                        <div key={ref.id} className="p-4 flex items-center justify-between hover:bg-bg-main transition-colors">
+5127:                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-lavender"
+5158:              <div className={`p-8 rounded-[2.5rem] relative overflow-hidden ${darkMode ? 'bg-gradient-to-br from-dusty-blue via-brand-surface to-brand-bg text-text-main' : 'bg-gradient-to-br from-lavender via-violet-700 to-blush text-text-main'}`}>
+5159:                <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-[80px] -mr-32 -mt-32 ${darkMode ? 'bg-peach/20' : 'bg-blush/20'}`} />
+5166:              <div className={`${darkMode ? 'bg-white border-zinc-200 rotate-[1deg]' : 'bg-white border-black/5'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
+5168:                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${darkMode ? 'bg-peach text-dusty-blue shadow-peach/20 rotate-[-5deg]' : 'bg-dusty-blue text-text-main shadow-dusty-blue'}`}>
+5175:                  <div className={`flex flex-col items-center p-8 rounded-[2.5rem] border ${darkMode ? 'bg-bg-main border-zinc-100' : 'bg-bg-main/50 border-zinc-100'}`}>
+5176:                    <div className={`p-6 rounded-[2rem] shadow-sm mb-6 bg-white`}>
+5190:                    <div className={`p-6 rounded-2xl border flex items-center justify-between ${darkMode ? 'bg-bg-main border-zinc-100' : 'bg-bg-main/50 border-zinc-100'}`}>
+5200:                        className={`p-4 rounded-xl border transition-all active:scale-90 ${darkMode ? 'bg-white border-zinc-200 text-dusty-blue hover:bg-bg-main' : 'bg-white border-zinc-100 text-text-muted hover:text-text-main'}`}
+5213:                        className={`flex items-center justify-center gap-3 p-5 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg ${darkMode ? 'bg-peach text-dusty-blue shadow-peach/10 hover:bg-peach/90' : 'bg-gradient-to-r from-peach to-blush text-text-main shadow-peach hover:from-peach hover:to-blush'}`}
+5224:                        className={`flex items-center justify-center gap-3 p-5 border rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-sm ${darkMode ? 'bg-white text-text-main border-zinc-200 hover:bg-bg-main' : 'bg-white text-text-main border-zinc-100 hover:bg-bg-main'}`}
+5236:                <div className={`${darkMode ? 'bg-white border-zinc-200 rotate-[-1deg]' : 'bg-lavender border-lavender'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.02)]`}>
+5238:                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${darkMode ? 'bg-peach text-dusty-blue shadow-peach/20 rotate-[5deg]' : 'bg-lavender0 text-text-main shadow-lavender'}`}>
+5251:                        className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-bg-main border-zinc-100 focus:ring-peach/10 focus:border-peach/50 text-text-main' : 'bg-white border-zinc-100 focus:ring-lavender focus:border-lavender text-text-main'}`}
+5263:                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-bg-main border-zinc-100 focus:ring-peach/10 focus:border-peach/50 text-text-main' : 'bg-white border-zinc-100 focus:ring-lavender focus:border-lavender text-text-main'}`}
+5274:                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-bg-main border-zinc-100 focus:ring-peach/10 focus:border-peach/50 text-text-main' : 'bg-white border-zinc-100 focus:ring-lavender focus:border-lavender text-text-main'}`}
+5285:                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-bg-main border-zinc-100 focus:ring-peach/10 focus:border-peach/50 text-text-main' : 'bg-white border-zinc-100 focus:ring-lavender focus:border-lavender text-text-main'}`}
+5297:                        className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium h-20 resize-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-bg-main border-zinc-100 focus:ring-peach/10 focus:border-peach/50 text-text-main' : 'bg-white border-zinc-100 focus:ring-lavender focus:border-lavender text-text-main'}`}
+5307:                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-bg-main border-zinc-100 focus:ring-peach/10 focus:border-peach/50 text-text-main' : 'bg-white border-zinc-100 focus:ring-lavender focus:border-lavender text-text-main'}`}
+5322:                          className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium pr-12 focus:outline-none focus:ring-4 ${darkMode ? 'bg-bg-main border-zinc-100 focus:ring-peach/10 focus:border-peach/50 text-text-main' : 'bg-white border-zinc-100 focus:ring-lavender focus:border-lavender text-text-main'}`}
+5343:                          className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-bg-main border-zinc-100 focus:ring-peach/10 focus:border-peach/50 text-text-main' : 'bg-white border-zinc-100 focus:ring-lavender focus:border-lavender text-text-main'}`}
+5352:                          className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-bg-main border-zinc-100 focus:ring-peach/10 focus:border-peach/50 text-text-main' : 'bg-white border-zinc-100 focus:ring-lavender focus:border-lavender text-text-main'}`}
+5364:                      className={`w-full py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] shadow-xl disabled:opacity-50 mt-2 flex items-center justify-center gap-2 ${darkMode ? 'bg-peach text-dusty-blue shadow-peach/20 hover:bg-peach/90' : 'bg-gradient-to-r from-lavender to-blush text-text-main shadow-lavender hover:from-lavender hover:to-blush'}`}
+5382:              <div className="bg-dusty-blue p-8 rounded-[2.5rem] border border-dusty-blue">
+5384:                  <div className="w-10 h-10 bg-dusty-blue text-text-main rounded-2xl flex items-center justify-center shrink-0">
+5404:              <div className="bg-zinc-900 text-text-main p-8 rounded-[2.5rem] relative overflow-hidden">
+5405:                <div className="absolute top-0 right-0 w-64 h-64 bg-lavender0/20 rounded-full blur-[80px] -mr-32 -mt-32" />
+5420:                <div className={`p-6 rounded-3xl border ${currentUser.role === 'staff' ? 'bg-lavender border-lavender' : 'bg-white border-black/5'}`}>
+5421:                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'staff' ? 'bg-lavender0 text-text-main' : 'bg-bg-main text-text-muted'}`}>
+5427:                      <div className="w-1.5 h-1.5 rounded-full bg-lavender0 mt-1.5 shrink-0" />
+5431:                      <div className="w-1.5 h-1.5 rounded-full bg-lavender0 mt-1.5 shrink-0" />
+5435:                      <div className="w-1.5 h-1.5 rounded-full bg-lavender0 mt-1.5 shrink-0" />
+5439:                      <div className="w-1.5 h-1.5 rounded-full bg-lavender0 mt-1.5 shrink-0" />
+5445:                <div className={`p-6 rounded-3xl border ${currentUser.role === 'receptionist' ? 'bg-lavender border-lavender' : 'bg-white border-black/5'}`}>
+5446:                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'receptionist' ? 'bg-lavender0 text-text-main' : 'bg-bg-main text-text-muted'}`}>
+5452:                      <div className="w-1.5 h-1.5 rounded-full bg-lavender0 mt-1.5 shrink-0" />
+5456:                      <div className="w-1.5 h-1.5 rounded-full bg-lavender0 mt-1.5 shrink-0" />
+5460:                      <div className="w-1.5 h-1.5 rounded-full bg-lavender0 mt-1.5 shrink-0" />
+5464:                      <div className="w-1.5 h-1.5 rounded-full bg-lavender0 mt-1.5 shrink-0" />
+5470:                <div className={`p-6 rounded-3xl border ${currentUser.role === 'admin' ? 'bg-lavender border-lavender' : 'bg-white border-black/5'}`}>
+5471:                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'admin' ? 'bg-lavender0 text-text-main' : 'bg-bg-main text-text-muted'}`}>
+5477:                      <div className="w-1.5 h-1.5 rounded-full bg-lavender0 mt-1.5 shrink-0" />
+5481:                      <div className="w-1.5 h-1.5 rounded-full bg-lavender0 mt-1.5 shrink-0" />
+5485:                      <div className="w-1.5 h-1.5 rounded-full bg-lavender0 mt-1.5 shrink-0" />
+5489:                      <div className="w-1.5 h-1.5 rounded-full bg-lavender0 mt-1.5 shrink-0" />
+5496:              <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+5559:              <div className={`${darkMode ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border relative overflow-hidden`}>
+5560:                <div className={`absolute top-0 right-0 w-32 h-32 ${darkMode ? 'bg-peach/10' : 'bg-lavender'} rounded-full blur-3xl -mr-16 -mt-16`} />
+5564:                    <div className={`w-32 h-32 rounded-[2.5rem] ${darkMode ? 'bg-[#0f172a] border-white/10' : 'bg-bg-main border-white'} border-4 shadow-xl overflow-hidden flex items-center justify-center relative`}>
+5571:                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+5577:                      <label className={`cursor-pointer ${darkMode ? 'bg-peach text-text-main' : 'bg-zinc-900 text-text-main'} px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2`}>
+5586:                          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${darkMode ? 'bg-blush text-text-main' : 'bg-blush text-text-main hover:bg-blush'}`}
+5621:                            ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-peach/20 focus:border-peach' 
+5622:                            : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender focus:border-lavender'
+5635:                      <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-[#0f172a] border-white/5' : 'bg-bg-main border-zinc-100'}`}>
+5647:                                ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-peach/20 focus:border-peach' 
+5648:                                : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender focus:border-lavender'
+5680:                            className={`px-6 py-4 rounded-2xl font-bold text-sm transition-all ${darkMode ? 'bg-peach text-text-main' : 'bg-zinc-900 text-text-main hover:bg-zinc-800'}`}
+5703:                              ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-peach/20 focus:border-peach' 
+5704:                              : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender focus:border-lavender'
+5717:                              ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-peach/20 focus:border-peach' 
+5718:                              : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender focus:border-lavender'
+5730:                              ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-peach/20 focus:border-peach' 
+5731:                              : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender focus:border-lavender'
+5747:                              ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-peach/20 focus:border-peach' 
+5748:                              : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender focus:border-lavender'
+5772:                                ? (darkMode ? 'border-peach bg-peach/10' : 'border-lavender bg-lavender')
+5773:                                : (darkMode ? 'border-white/5 bg-[#0f172a]' : 'border-zinc-100 bg-bg-main hover:border-zinc-200')
+5800:                              ? (darkMode ? 'border-peach bg-peach/10' : 'border-lavender bg-lavender')
+5801:                              : (darkMode ? 'border-white/5 bg-[#0f172a]' : 'border-zinc-100 bg-bg-main hover:border-zinc-200')
+5818:                              ? (darkMode ? 'border-peach bg-peach/10' : 'border-lavender bg-lavender')
+5819:                              : (darkMode ? 'border-white/5 bg-[#0f172a]' : 'border-zinc-100 bg-bg-main hover:border-zinc-200')
+5841:                            ? (darkMode ? 'border-peach bg-peach/10' : 'border-lavender bg-lavender')
+5842:                            : (darkMode ? 'border-white/5 bg-[#0f172a]' : 'border-zinc-100 bg-bg-main hover:border-zinc-200')
+5846:                          <div className={`w-10 h-5 rounded-full relative transition-colors ${reduceTranslucency ? 'bg-peach' : 'bg-bg-main'}`}>
+5847:                            <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${reduceTranslucency ? 'left-6' : 'left-1'}`} />
+5871:                          ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] hover:bg-peach/10' 
+5872:                          : 'bg-pale-yellow border-peach/10 text-peach hover:bg-peach/5'
+5887:                          ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc]/60 hover:bg-peach/10' 
+5888:                          : 'bg-bg-main border-zinc-100 text-text-muted hover:bg-bg-main'
+5910:                            ? 'bg-[#0f172a] border-white/5 text-[#f5f5dc] focus:ring-peach/20 focus:border-peach' 
+5911:                            : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender focus:border-lavender'
+5925:                            ? 'bg-peach/10 text-peach hover:bg-peach/20' 
+5926:                            : 'bg-lavender text-text-main hover:bg-lavender'
+5944:                          ? 'bg-peach text-text-main shadow-peach/20 hover:opacity-90' 
+5945:                          : 'bg-zinc-900 text-text-main shadow-zinc-900/20 hover:bg-zinc-800'
+5955:                          ? 'bg-blush text-text-main border-blush hover:bg-blush' 
+5956:                          : 'bg-blush text-text-main border-blush hover:bg-blush'
+5966:              <div className="bg-zinc-900 text-text-main p-8 rounded-[2.5rem] relative overflow-hidden">
+5967:                <div className="absolute top-0 right-0 w-32 h-32 bg-peach/10 rounded-full blur-3xl -mr-16 -mt-16" />
+5969:                  <div className="w-10 h-10 bg-peach text-text-main rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-peach/20">
+5999:                    className="flex items-center gap-2 px-6 py-3 bg-zinc-900 text-text-main rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all active:scale-95 shadow-lg shadow-zinc-900/20"
+6012:                    className="bg-white p-6 rounded-[2rem] border border-black/5 shadow-sm hover:shadow-md transition-all group"
+6017:                          task.status === 'completed' ? 'bg-celery text-text-main' : 
+6018:                          task.status === 'in_progress' ? 'bg-dusty-blue text-text-main' : 'bg-bg-main text-text-muted'
+6039:                                task.status === 'completed' ? 'bg-celery' : 
+6040:                                task.status === 'in_progress' ? 'bg-dusty-blue' : 'bg-zinc-400'
+6052:                          className="px-4 py-2 rounded-xl bg-bg-main border border-zinc-100 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-lavender transition-all appearance-none cursor-pointer"
+6067:                              className="p-2 rounded-lg text-text-muted hover:bg-bg-main hover:text-text-muted transition-all"
+6073:                              className="p-2 rounded-lg text-text-muted hover:bg-blush hover:text-text-main transition-all"
+6085:                  <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-zinc-200">
+6086:                    <div className="w-20 h-20 bg-bg-main rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+6103:              <div className={`mb-8 ${darkMode ? 'bg-dusty-blue p-8 rounded-[2.5rem] shadow-2xl shadow-dusty-blue/20 relative overflow-hidden' : ''}`}>
+6104:                {darkMode && <div className="absolute top-0 right-0 w-32 h-32 bg-peach/10 rounded-full blur-3xl -mr-16 -mt-16" />}
+6114:                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${promoSubTab === 'manage' ? (darkMode ? 'bg-peach text-text-main' : 'bg-zinc-900 text-text-main') : (darkMode ? 'text-[#f5f5dc]/40' : 'text-text-muted hover:bg-bg-main')}`}
+6120:                  <div className={`${darkMode ? 'bg-[#1e293b] border-white/5' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border`}>
+6126:                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${darkMode ? 'bg-peach text-text-main shadow-peach/20' : 'bg-blush0 text-text-main shadow-peach'}`}>
+6142:                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/10' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+6152:                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/10' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+6162:                                    ? 'bg-peach text-text-main border-peach shadow-lg shadow-peach/20' 
+6163:                                    : darkMode ? 'bg-[#0f172a] border-white/10 text-text-muted' : 'bg-bg-main border-zinc-100 text-text-muted'
+6178:                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/10' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+6211:                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/10' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+6240:                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/10' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+6257:                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/10' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+6269:                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/10' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+6281:                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 min-h-[100px] ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/10' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+6296:                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/10' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+6306:                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/10' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+6320:                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/10' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+6330:                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc] focus:ring-peach/10' : 'bg-bg-main border-zinc-100 text-text-main focus:ring-lavender'}`}
+6349:                                  className={`flex-1 px-3 py-2 rounded-lg text-xs border ${darkMode ? 'bg-[#0f172a] border-white/10 text-[#f5f5dc]' : 'bg-bg-main border-zinc-100'}`}
+6375:                                    ? (darkMode ? 'bg-peach text-text-main' : 'bg-dusty-blue text-text-main')
+6376:                                    : (darkMode ? 'bg-[#0f172a] text-[#f5f5dc]/40' : 'bg-bg-main text-text-muted hover:bg-bg-main')
+6434:                            <div className={`w-full py-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${darkMode ? 'bg-[#0f172a] border-white/10 group-hover:border-peach' : 'bg-bg-main border-zinc-200 group-hover:border-lavender'}`}>
+6456:                                    className="absolute inset-0 bg-blush text-text-main opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+6470:                            className={`flex-1 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50 shadow-xl ${darkMode ? 'bg-peach text-text-main shadow-peach/20' : 'bg-zinc-900 text-text-main shadow-zinc-900/20'}`}
+6478:                              className={`px-8 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all ${darkMode ? 'bg-[#0f172a] text-[#f5f5dc]/40' : 'bg-bg-main text-text-muted'}`}
+6491:                            <div key={service.id} className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-[#0f172a] border-white/5' : 'bg-bg-main border-zinc-100 hover:border-lavender'}`}>
+6497:                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${service.type === 'Promotion' ? 'bg-peach text-text-main' : 'bg-dusty-blue text-text-main'}`}>
+6504:                                          status === 'active' ? 'bg-celery text-text-main' : 
+6505:                                          status === 'upcoming' ? 'bg-pale-yellow text-text-main' : 
+6506:                                          'bg-blush text-text-main'
+6643:                    <div className={`w-20 h-20 ${darkMode ? 'bg-[#1e293b]' : 'bg-bg-main'} rounded-[2rem] flex items-center justify-center mx-auto mb-6`}>
+6672:                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'staff' ? 'bg-zinc-900 text-text-main' : 'text-text-muted hover:bg-bg-main'}`}
+6678:                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'booking' ? 'bg-zinc-900 text-text-main' : 'text-text-muted hover:bg-bg-main'}`}
+6684:                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'auth' ? 'bg-zinc-900 text-text-main' : 'text-text-muted hover:bg-bg-main'}`}
+6690:                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'clinic' ? 'bg-zinc-900 text-text-main' : 'text-text-muted hover:bg-bg-main'}`}
+6696:                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'roles' ? 'bg-zinc-900 text-text-main' : 'text-text-muted hover:bg-bg-main'}`}
+6702:                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'referral' ? 'bg-zinc-900 text-text-main' : 'text-text-muted hover:bg-bg-main'}`}
+6708:                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'branches' ? 'bg-zinc-900 text-text-main' : 'text-text-muted hover:bg-bg-main'}`}
+6714:                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'trash' ? 'bg-zinc-900 text-text-main' : 'text-text-muted hover:bg-bg-main'}`}
+6723:                    <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm sticky top-8">
+6733:                            className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+6743:                            className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+6752:                            className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+6764:                              className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+6774:                              className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+6790:                              className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+6799:                              className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+6809:                              className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+6822:                              className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+6832:                            className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender appearance-none"
+6847:                              className="flex-1 px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender font-mono"
+6857:                              className="px-3 bg-bg-main text-text-muted rounded-xl hover:bg-bg-main transition-colors"
+6869:                            className="flex-1 bg-zinc-900 text-text-main py-3 rounded-xl font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
+6877:                              className="px-4 bg-bg-main text-text-muted py-3 rounded-xl font-medium hover:bg-bg-main transition-colors"
+6887:                    <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+6888:                      <div className="flex items-center justify-between p-4 border-b border-zinc-100 bg-bg-main/50">
+6900:                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-[10px] font-bold text-text-muted hover:bg-bg-main transition-colors shadow-sm"
+6907:                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-[10px] font-bold text-text-muted hover:bg-bg-main transition-colors shadow-sm"
+6916:                          <tr className="bg-bg-main border-b border-zinc-100">
+6926:                            <tr key={staff.id} className="hover:bg-bg-main/50 transition-colors">
+6929:                                  <div className="w-8 h-8 rounded-lg bg-bg-main overflow-hidden flex items-center justify-center shrink-0">
+6942:                                <span className="text-[9px] font-bold uppercase text-text-muted bg-bg-main px-1.5 py-0.5 rounded mt-1 inline-block">
+6958:                                    staff.is_approved ? 'bg-lavender text-text-main border border-lavender' : 
+6959:                                    (staff.employment_status === 'rejected' ? 'bg-blush text-text-main border border-blush' : 'bg-blush text-text-main border border-peach')
+7012:                <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+7013:                  <div className="flex items-center justify-between p-4 border-b border-zinc-100 bg-bg-main/50">
+7018:                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-[10px] font-bold text-text-muted hover:bg-bg-main transition-colors shadow-sm"
+7027:                      <tr className="bg-bg-main border-b border-zinc-100">
+7042:                          <tr key={staff.id} className="border-b border-zinc-50 hover:bg-bg-main/50 transition-colors">
+7045:                                <div className="w-10 h-10 rounded-xl bg-bg-main flex items-center justify-center text-text-muted font-bold overflow-hidden">
+7061:                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-bg-main text-text-muted w-fit">
+7070:                                <button onClick={() => handleRestoreStaff(staff.id)} title="Restore Staff" className="flex items-center gap-1 px-3 py-1.5 bg-lavender text-text-main hover:bg-lavender rounded-lg text-xs font-bold transition-colors">
+7074:                                <button onClick={() => handlePermanentDeleteStaff(staff.id)} title="Permanently Delete" className="flex items-center gap-1 px-3 py-1.5 bg-blush text-text-main hover:bg-blush rounded-lg text-xs font-bold transition-colors">
+7087:                <div className="max-w-2xl mx-auto bg-white p-8 rounded-3xl border border-black/5 shadow-sm">
+7091:                      <div className="w-24 h-24 rounded-3xl bg-bg-main border-2 border-dashed border-zinc-200 flex items-center justify-center overflow-hidden relative group">
+7094:                          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
+7106:                            className="flex items-center gap-2 px-4 py-2 bg-lavender text-text-main rounded-xl text-xs font-bold hover:bg-lavender transition-all disabled:opacity-50"
+7117:                              className="w-full px-4 py-2 bg-bg-main border border-zinc-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-lavender"
+7130:                          className="w-full px-5 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+7139:                          className="w-full px-5 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+7149:                        className="w-full px-5 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium h-24 resize-none"
+7159:                          className="w-full px-5 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+7164:                        <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-bg-main border border-zinc-100">
+7165:                          <div className="w-2 h-2 rounded-full bg-celery animate-pulse" />
+7177:                          className="w-full px-5 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+7186:                          className="w-full px-5 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+7209:                      className="w-full bg-zinc-900 text-text-main py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-900/10 disabled:opacity-50"
+7218:                    <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm sticky top-8">
+7254:                            className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+7264:                            className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+7272:                            className="flex-1 bg-zinc-900 text-text-main py-3 rounded-xl font-bold hover:bg-zinc-800 transition-all disabled:opacity-50"
+7280:                              className="px-4 py-3 rounded-xl bg-bg-main text-text-muted font-bold hover:bg-bg-main transition-all"
+7291:                    <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+7294:                          <tr className="bg-bg-main border-b border-zinc-100">
+7306:                                  <div className="w-12 h-12 bg-bg-main rounded-full flex items-center justify-center text-text-muted">
+7311:                                    <div className="mt-4 p-6 bg-blush border border-blush rounded-2xl max-w-md">
+7314:                                      <pre className="text-[10px] bg-white p-3 rounded-xl border border-blush overflow-x-auto text-left font-mono text-text-muted mb-4">
+7374:                                        className="w-full py-2 bg-blush text-text-main rounded-xl text-xs font-bold hover:bg-blush transition-colors"
+7387:                              <tr key={branch.id} className="border-b border-zinc-50 hover:bg-bg-main/50 transition-colors">
+7393:                                  <span className="px-2 py-1 bg-bg-main text-text-muted rounded-lg text-[10px] font-bold">
+7440:                        className="bg-zinc-900 text-text-main p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden"
+7472:                              <div key={member.id} className="px-3 py-1.5 bg-white/5 rounded-xl border border-white/10 flex items-center gap-2">
+7473:                                <div className="w-5 h-5 rounded-full bg-lavender0 flex items-center justify-center text-[8px] font-bold">
+7487:                  <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+7495:                              <span key={type} className="px-3 py-1.5 bg-bg-main text-text-main rounded-lg text-xs font-bold">{type}</span>
+7506:                            className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+7517:                          className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender text-sm"
+7523:                        <div className="bg-bg-main rounded-2xl overflow-hidden">
+7526:                              <tr className="bg-bg-main">
+7544:                                      className="w-20 px-2 py-1 rounded bg-white border border-zinc-200"
+7566:                        className="w-full bg-zinc-900 text-text-main py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all"
+7575:                  <div className="bg-white p-8 rounded-3xl border border-black/5 shadow-sm">
+7579:                        <div key={role} className="p-6 bg-bg-main rounded-3xl border border-zinc-100">
+7582:                            <span className="px-3 py-1 bg-white border border-zinc-200 rounded-full text-[10px] font-bold text-text-muted uppercase tracking-tighter">System Role</span>
+7586:                              <div key={permKey} className="flex items-center justify-between p-3 bg-white rounded-xl border border-zinc-100">
+7598:                                  className={`w-10 h-5 rounded-full transition-all relative ${value ? 'bg-lavender0' : 'bg-bg-main'}`}
+7600:                                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${value ? 'left-5.5' : 'left-0.5'}`} />
+7626:                        className="w-full bg-zinc-900 text-text-main py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-900/10 disabled:opacity-50"
+7635:                  <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden">
+7636:                    <div className="absolute top-0 right-0 w-64 h-64 bg-lavender/50 rounded-full blur-3xl -z-10 -mr-32 -mt-32" />
+7639:                      <div className="w-14 h-14 bg-zinc-900 text-text-main rounded-2xl flex items-center justify-center shadow-xl shadow-zinc-900/20">
+7649:                      <div className="flex items-center justify-between p-8 bg-bg-main rounded-[2rem] border border-zinc-100 group hover:bg-white hover:shadow-md transition-all duration-300">
+7676:                          className={`w-16 h-8 rounded-full transition-all relative shadow-inner ${authSettings.allowRegistration ? 'bg-lavender0' : 'bg-bg-main'}`}
+7678:                          <div className={`absolute top-1.5 w-5 h-5 bg-white rounded-full transition-all shadow-md ${authSettings.allowRegistration ? 'left-9' : 'left-1.5'}`} />
+7688:                            className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-3 ${saveStatus.type === 'success' ? 'bg-lavender text-text-main border border-lavender' : 'bg-blush text-text-main border border-blush'}`}
+7690:                            <div className={`w-2 h-2 rounded-full ${saveStatus.type === 'success' ? 'bg-lavender0' : 'bg-blush'} animate-pulse`} />
+7696:                      <div className="p-8 bg-dusty-blue text-text-main rounded-[2rem] border border-dusty-blue space-y-4">
+7714:                <div className="bg-white p-8 rounded-3xl border border-black/5 shadow-sm max-w-2xl">
+7724:                          className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+7733:                          className="w-full px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+7744:                          className="flex-1 px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+7754:                          className="px-6 py-3 bg-zinc-900 text-text-main rounded-xl font-bold text-xs uppercase tracking-wider"
+7761:                          <span key={date} className="flex items-center gap-2 px-3 py-1.5 bg-bg-main rounded-lg text-xs font-medium">
+7777:                          className="flex-1 px-4 py-3 rounded-xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-lavender"
+7787:                          className="px-6 py-3 bg-zinc-900 text-text-main rounded-xl font-bold text-xs uppercase tracking-wider"
+7794:                          <span key={time} className="flex items-center gap-2 px-3 py-1.5 bg-bg-main rounded-lg text-xs font-medium">
+7822:                        className="w-full bg-lavender0 text-text-main py-4 rounded-xl font-bold text-sm hover:bg-lavender transition-all shadow-lg shadow-lavender disabled:opacity-50"
+7843:                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+7849:                className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+7854:                      <div className="w-10 h-10 rounded-2xl bg-lavender text-text-main flex items-center justify-center">
+7861:                      className="p-2 hover:bg-bg-main rounded-xl transition-colors"
+7888:                        className="w-full px-6 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+7900:                        className="w-full px-6 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+7912:                        className="w-full px-6 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+7922:                        className="w-full px-6 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+7933:                      className="w-full bg-lavender text-text-main py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-lavender transition-all shadow-lg shadow-lavender"
+7953:                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+7959:                className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+7964:                      <div className="w-16 h-16 rounded-3xl bg-lavender text-text-main flex items-center justify-center text-2xl font-bold overflow-hidden border border-lavender shadow-sm">
+7984:                          <p className="text-[10px] font-black uppercase tracking-widest text-text-main bg-lavender px-2 py-0.5 rounded-md">{selectedStaffDetail.role}</p>
+7988:                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${selectedStaffDetail.tier?.bg || 'bg-bg-main'} ${selectedStaffDetail.tier?.color || 'text-text-muted'}`}>
+7991:                          <div className="flex items-center gap-1 text-text-main bg-pale-yellow px-2 py-0.5 rounded-lg border border-pale-yellow">
+8000:                      className="p-2 hover:bg-bg-main rounded-xl transition-colors"
+8007:                    <div className="bg-bg-main p-4 rounded-3xl border border-zinc-100">
+8011:                    <div className="bg-bg-main p-4 rounded-3xl border border-zinc-100">
+8015:                    <div className="bg-bg-main p-4 rounded-3xl border border-zinc-100">
+8021:                  <div className="bg-bg-main p-6 rounded-3xl border border-zinc-100 mb-8">
+8050:                            <div key={ref.id} className="flex items-center justify-between p-4 bg-bg-main rounded-2xl border border-zinc-100">
+8083:                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+8089:                className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+8094:                    <button onClick={() => setShowTaskModal(false)} className="w-10 h-10 rounded-full bg-bg-main flex items-center justify-center text-text-muted hover:bg-bg-main transition-all">
+8106:                        className="w-full px-6 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+8116:                        className="w-full px-6 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+8127:                          className="w-full px-6 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+8137:                          className="w-full px-6 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium appearance-none"
+8149:                      className="w-full bg-zinc-900 text-text-main py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/20 active:scale-[0.98]"
+8168:                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+8174:                className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+8179:                    <button onClick={() => setShowPasswordModal(false)} className="w-10 h-10 rounded-full bg-bg-main flex items-center justify-center text-text-muted hover:bg-bg-main transition-all">
+8186:                      <div className="p-4 bg-blush border border-blush rounded-2xl text-text-main text-xs font-bold">
+8197:                        className="w-full px-6 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+8209:                        className="w-full px-6 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+8221:                        className="w-full px-6 py-4 rounded-2xl bg-bg-main border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-lavender focus:border-lavender transition-all text-sm font-medium"
+8230:                      className="w-full bg-zinc-900 text-text-main py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+8254:                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+8260:                className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+8265:                    <button onClick={() => setShowReferralModal(false)} className="w-10 h-10 rounded-full bg-bg-main flex items-center justify-center text-text-muted hover:bg-bg-main transition-all">
+8275:                    <div className="bg-bg-main p-6 rounded-3xl border border-zinc-100 flex flex-col items-center text-center">
+8276:                      <div className="p-3 bg-white rounded-2xl shadow-sm mb-4">
+8295:                        className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-bg-main transition-all text-sm font-medium focus:outline-none focus:ring-4 focus:ring-peach/10 focus:border-peach/50 text-text-main"
+8307:                          className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-bg-main transition-all text-sm font-medium focus:outline-none focus:ring-4 focus:ring-peach/10 focus:border-peach/50 text-text-main"
+8318:                          className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-bg-main transition-all text-sm font-medium focus:outline-none focus:ring-4 focus:ring-peach/10 focus:border-peach/50 text-text-main"
+8329:                        className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-bg-main transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 focus:ring-peach/10 focus:border-peach/50 text-text-main"
+8343:                        className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-bg-main transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 focus:ring-peach/10 focus:border-peach/50 text-text-main"
+8360:                          className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-bg-main transition-all text-sm font-medium focus:outline-none focus:ring-4 focus:ring-peach/10 focus:border-peach/50 text-text-main"
+8369:                          className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-bg-main transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 focus:ring-peach/10 focus:border-peach/50 text-text-main"
+8381:                      className="w-full py-5 bg-peach text-text-main rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] shadow-xl shadow-peach/20 disabled:opacity-50 mt-2 flex items-center justify-center gap-2"
+8401:                notification.type === 'success' ? 'bg-celery border-celery text-text-main' :
+8402:                notification.type === 'error' ? 'bg-blush border-blush text-text-main' :
+8403:                'bg-dusty-blue border-dusty-blue text-text-main'
+8406:                  notification.type === 'success' ? 'bg-celery' :
+8407:                  notification.type === 'error' ? 'bg-blush' :
+8408:                  'bg-dusty-blue'
+8427:                className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+8433:                className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+8436:                  <div className="w-16 h-16 bg-blush text-text-main rounded-full flex items-center justify-center mx-auto mb-6">
+8446:                      className="py-4 rounded-2xl bg-bg-main text-text-muted font-black text-xs uppercase tracking-widest hover:bg-bg-main transition-all"
+8452:                      className="py-4 rounded-2xl bg-blush text-text-main font-black text-xs uppercase tracking-widest hover:bg-blush transition-all shadow-lg shadow-blush"

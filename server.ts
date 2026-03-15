@@ -1323,10 +1323,7 @@ app.get("/api/referrals", async (req, res) => {
     query = query.eq('staff_id', staffId);
   }
   
-  // Receptionist restriction: can only see referrals to their branch
-  if (requesterRole === 'receptionist') {
-    query = query.eq('branch', requesterBranch);
-  } else if (branch && branch !== 'all') {
+  if (branch && branch !== 'all') {
     query = query.eq('branch', branch);
   }
 
