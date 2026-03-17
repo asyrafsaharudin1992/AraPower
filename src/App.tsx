@@ -514,9 +514,9 @@ const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDelet
           <button
             onClick={() => item.image_url && handleDownloadPoster(item.image_url, `${item.name}-poster.jpg`)}
             disabled={!item.image_url}
-            className="w-full py-4 bg-burnt-peach text-twilight-indigo rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-burnt-peach/20"
+            className="w-full py-4 bg-burnt-peach text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-burnt-peach/20"
           >
-            <Download size={20} className="text-twilight-indigo" />
+            <Download size={20} className="text-white" />
             DOWNLOAD POSTER
           </button>
         </div>
@@ -714,8 +714,14 @@ export default function App() {
   ]);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'kit' | 'promotions' | 'payouts' | 'inbox' | 'communication'>('dashboard');
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  
-  // Setup Tab State
+  const isMobile = windowWidth < 1024;
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('dark-mode');
+    // Force light mode on small mobile screens for better readability
+    if (windowWidth < 768) return false;
+    if (saved !== null) return saved === 'true';
+    return false;
+  });
   const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash'>('staff');
   const [promoSubTab, setPromoSubTab] = useState<'manage'>('manage');
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
@@ -901,7 +907,7 @@ export default function App() {
 
   // Commission Tiers Configuration
   const TIERS = [
-    { name: 'Bronze', min: 0, bonus: 1, color: 'text-zinc-900', bg: 'bg-brand-accent' },
+    { name: 'Bronze', min: 0, bonus: 1, color: 'text-white', bg: 'bg-brand-accent' },
     { name: 'Silver', min: 6, bonus: 1.2, color: 'text-white', bg: 'bg-violet-500' },
     { name: 'Gold', min: 11, bonus: 1.5, color: 'text-white', bg: 'bg-rose-500' }
   ];
@@ -972,7 +978,13 @@ export default function App() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [apiBaseUrl, setApiBaseUrl] = useState('');
+  const [apiBaseUrl, setApiBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin : '');
+  const isSupabaseConfigured = Boolean(
+    import.meta.env.VITE_SUPABASE_URL && 
+    import.meta.env.VITE_SUPABASE_URL !== 'https://your-project-url.supabase.co' &&
+    import.meta.env.VITE_SUPABASE_ANON_KEY &&
+    import.meta.env.VITE_SUPABASE_ANON_KEY !== 'your-anon-key'
+  );
   const [payoutUserFilter, setPayoutUserFilter] = useState<string>('all');
   const [payoutBranchFilter, setPayoutBranchFilter] = useState<string>('all');
   const [payoutSubTab, setPayoutSubTab] = useState<'history' | 'bulk'>('history');
@@ -1003,11 +1015,6 @@ export default function App() {
     pink: { accent: '#DB2777', surface: '#FDF2F8', name: 'Soft Pink' },
   };
   const [selectedTheme, setSelectedTheme] = useState<string>(localStorage.getItem('app-theme') || 'pastel');
-  const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('dark-mode');
-    if (saved !== null) return saved === 'true';
-    return window.innerWidth < 768;
-  });
 
   useEffect(() => {
     const theme = THEMES[selectedTheme] || THEMES.pastel;
@@ -1175,6 +1182,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    console.log('App mounted', {
+      apiBaseUrl,
+      isMobile,
+      windowWidth,
+      isSupabaseConfigured,
+      userAgent: navigator.userAgent
+    });
+    
     // Check for public booking link
     const params = new URLSearchParams(window.location.search);
     const refCode = params.get('ref');
@@ -1245,6 +1260,21 @@ export default function App() {
     if (res.ok && Array.isArray(data)) {
       console.log(`Fetched ${data?.length || 0} promotions from backend:`, data);
       setPromoServices(data || []);
+      
+      // Also update the main promotions state used in the UI
+      const mappedPromotions = data.map((p: any) => ({
+        id: p.id,
+        title: p.title || p.name,
+        description: p.description || '',
+        image_url: p.posterImages?.[0] || p.image_url,
+        start_date: p.start_date || new Date().toISOString(),
+        end_date: p.end_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        is_active: true,
+        created_at: new Date().toISOString()
+      }));
+      if (mappedPromotions.length > 0) {
+        setPromotions(mappedPromotions);
+      }
     } else {
       console.error('Failed to fetch promotions from backend', data);
     }
@@ -1291,8 +1321,14 @@ export default function App() {
   };
 
   const fetchServices = async () => {
+    console.log('fetchServices() called');
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/services`);
-    if (res.ok && Array.isArray(data)) setServices(data);
+    if (res.ok && Array.isArray(data)) {
+      console.log(`Fetched ${data?.length || 0} services from backend`);
+      setServices(data);
+    } else {
+      console.error('Failed to fetch services', data);
+    }
   };
 
   const fetchBranches = async () => {
@@ -2341,7 +2377,7 @@ export default function App() {
                   className="flex items-center gap-3 group"
                 >
                   <span className="text-twilight-indigo font-bold text-lg group-hover:text-twilight-indigo transition-colors">Get Started</span>
-                  <div className="w-14 h-14 bg-burnt-peach rounded-full flex items-center justify-center text-twilight-indigo shadow-lg shadow-burnt-peach/30 group-hover:scale-110 transition-transform">
+                      <div className="w-14 h-14 bg-burnt-peach rounded-full flex items-center justify-center text-white shadow-lg shadow-burnt-peach/30 group-hover:scale-110 transition-transform">
                     <ArrowRight size={24} />
                   </div>
                 </button>
@@ -2490,7 +2526,7 @@ export default function App() {
                     <div className="mt-auto space-y-6">
                       <button 
                         type="submit"
-                        className="w-full py-5 bg-burnt-peach text-twilight-indigo rounded-2xl font-black text-lg shadow-xl shadow-burnt-peach/30 hover:shadow-burnt-peach/40 transition-all active:scale-[0.98]"
+                        className="w-full py-5 bg-burnt-peach text-white rounded-2xl font-black text-lg shadow-xl shadow-burnt-peach/30 hover:shadow-burnt-peach/40 transition-all active:scale-[0.98]"
                       >
                         Login
                       </button>
@@ -2612,7 +2648,7 @@ export default function App() {
                     <button 
                       type="submit"
                       disabled={isSubmitting || !agreedToTerms}
-                      className="w-full py-4 bg-burnt-peach text-twilight-indigo rounded-2xl font-black text-lg shadow-xl shadow-burnt-peach/30 hover:shadow-burnt-peach/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full py-4 bg-burnt-peach text-white rounded-2xl font-black text-lg shadow-xl shadow-burnt-peach/30 hover:shadow-burnt-peach/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSubmitting ? 'Creating...' : 'Sign Up'}
                     </button>
@@ -2669,7 +2705,7 @@ export default function App() {
                       setAgreedToTerms(true);
                       setShowTermsModal(false);
                     }}
-                    className="px-8 py-3 bg-burnt-peach text-twilight-indigo rounded-xl font-bold shadow-lg shadow-burnt-peach/20 hover:shadow-burnt-peach/30 transition-all active:scale-95"
+                    className="px-8 py-3 bg-burnt-peach text-white rounded-xl font-bold shadow-lg shadow-burnt-peach/20 hover:shadow-burnt-peach/30 transition-all active:scale-95"
                   >
                     I Agree
                   </button>
@@ -2768,7 +2804,7 @@ export default function App() {
                   }
                 }
               }}
-              className="bg-burnt-peach text-twilight-indigo py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-burnt-peach/20"
+              className="bg-burnt-peach text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-burnt-peach/20"
             >
               Check Status
             </button>
@@ -2856,15 +2892,13 @@ export default function App() {
     ? ((currentUserStats?.monthlySuccessfulRefs || 0) / nextTier.min) * 100 
     : 100;
 
-  const isMobile = windowWidth < 1024;
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'entered': return 'bg-apricot-cream text-twilight-indigo';
       case 'completed': return 'bg-muted-teal/20 text-muted-teal';
       case 'paid_completed': return 'bg-muted-teal text-eggshell';
       case 'buffer': return 'bg-twilight-indigo text-eggshell';
-      case 'approved': return 'bg-burnt-peach text-twilight-indigo';
+      case 'approved': return 'bg-burnt-peach text-white';
       case 'payout_processed': return 'bg-eggshell text-twilight-indigo border border-twilight-indigo/10';
       case 'rejected': return 'bg-rose-500 text-white';
       default: return 'bg-eggshell text-twilight-indigo';
@@ -2896,7 +2930,7 @@ export default function App() {
           <p className="text-twilight-indigo/60 max-w-xs mb-8">The {currentUser.role === 'admin' ? 'Admin Panel' : (currentUser.role === 'receptionist' ? 'Receptionist Portal' : 'Dispensary Portal')} is optimized for desktop use. Please switch to a larger screen to manage the clinic.</p>
           <button 
             onClick={handleLogout}
-            className="px-6 py-3 bg-burnt-peach text-twilight-indigo rounded-xl font-bold shadow-lg shadow-burnt-peach/20"
+            className="px-6 py-3 bg-burnt-peach text-white rounded-xl font-bold shadow-lg shadow-burnt-peach/20"
           >
             Sign Out
           </button>
@@ -2914,7 +2948,7 @@ export default function App() {
           <p className="text-twilight-indigo/60 max-w-xs mb-8">The Staff Portal is optimized for mobile use. Please access this page from your smartphone.</p>
           <button 
             onClick={handleLogout}
-            className="px-6 py-3 bg-burnt-peach text-twilight-indigo rounded-xl font-bold shadow-lg shadow-burnt-peach/20"
+            className="px-6 py-3 bg-burnt-peach text-white rounded-xl font-bold shadow-lg shadow-burnt-peach/20"
           >
             Sign Out
           </button>
@@ -2958,7 +2992,7 @@ export default function App() {
               <div className="px-2">
                 <button 
                   onClick={() => setShowReferralModal(true)}
-                  className="w-14 h-14 bg-burnt-peach text-twilight-indigo rounded-full flex items-center justify-center shadow-lg shadow-burnt-peach/40 active:scale-95 transition-transform"
+                  className="w-14 h-14 bg-burnt-peach text-white rounded-full flex items-center justify-center shadow-lg shadow-burnt-peach/40 active:scale-95 transition-transform"
                 >
                   <Plus size={28} strokeWidth={3} />
                 </button>
@@ -3002,42 +3036,42 @@ export default function App() {
             <div className="flex-1 space-y-2">
               <button 
                 onClick={() => setActiveTab('dashboard')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'dashboard' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'dashboard' ? 'bg-burnt-peach text-white shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
               >
                 <LayoutDashboard size={18} />
                 <span className="text-sm font-bold">Dashboard</span>
               </button>
               <button 
                 onClick={() => setActiveTab('referrals')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'referrals' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'referrals' ? 'bg-burnt-peach text-white shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
               >
                 <ClipboardList size={18} />
                 <span className="text-sm font-bold">Referrals</span>
               </button>
               <button 
                 onClick={() => setActiveTab('kit')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'kit' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'kit' ? 'bg-burnt-peach text-white shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
               >
                 <QrCode size={18} />
                 <span className="text-sm font-bold">Referral Kit</span>
               </button>
               <button 
                 onClick={() => setActiveTab('promotions')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'promotions' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'promotions' ? 'bg-burnt-peach text-white shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
               >
                 <Zap size={18} />
                 <span className="text-sm font-bold">Promotions</span>
               </button>
               <button 
                 onClick={() => setActiveTab('tasks')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'tasks' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'tasks' ? 'bg-burnt-peach text-white shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
               >
                 <CheckSquare size={18} />
                 <span className="text-sm font-bold">Tasks</span>
               </button>
               <button 
                 onClick={() => setActiveTab('profile')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-burnt-peach text-white shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
               >
                 <UserCircle size={18} />
                 <span className="text-sm font-bold">My Profile</span>
@@ -3045,7 +3079,7 @@ export default function App() {
               {rolesConfig[currentUser.role]?.canManageCommunication && (
                 <button 
                   onClick={() => setActiveTab('communication')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'communication' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'communication' ? 'bg-burnt-peach text-white shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
                 >
                   <MessageSquare size={18} />
                   <span className="text-sm font-bold">Communication</span>
@@ -3054,7 +3088,7 @@ export default function App() {
               {rolesConfig[currentUser.role]?.canViewAnalytics && (
                 <button 
                   onClick={() => setActiveTab('admin')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'admin' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'admin' ? 'bg-burnt-peach text-white shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
                 >
                   <Users size={18} />
                   <span className="text-sm font-bold">Admin Panel</span>
@@ -3063,7 +3097,7 @@ export default function App() {
               {rolesConfig[currentUser.role]?.canViewAnalytics && (
                 <button 
                   onClick={() => setActiveTab('payouts')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'payouts' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'payouts' ? 'bg-burnt-peach text-white shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
                 >
                   <DollarSign size={18} />
                   <span className="text-sm font-bold">Payouts</span>
@@ -3087,7 +3121,7 @@ export default function App() {
               {rolesConfig[currentUser.role]?.canManageSettings && (
                 <button 
                   onClick={() => setActiveTab('setup')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'setup' ? 'bg-burnt-peach text-twilight-indigo shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'setup' ? 'bg-burnt-peach text-white shadow-lg shadow-burnt-peach/20' : 'text-twilight-indigo/60 hover:bg-twilight-indigo/5'}`}
                 >
                   <Settings size={18} />
                   <span className="text-sm font-bold">Setup</span>
@@ -3097,6 +3131,21 @@ export default function App() {
           </nav>
         )}
 
+        {/* Supabase Configuration Warning */}
+        {!isSupabaseConfigured && (
+          <div className="fixed top-0 left-0 w-full z-[200] bg-amber-500 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-center shadow-lg">
+            Supabase is not configured. Data will not load correctly.
+          </div>
+        )}
+
+        {/* Connection Status Indicator */}
+        {connectionStatus === 'offline' && (
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] bg-rose-500 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center gap-2 animate-bounce">
+            <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            Offline Mode
+          </div>
+        )}
+        
         {/* Main Content */}
         <MobilePullToRefreshWrapper isMobile={isMobile} onRefresh={handleRefresh}>
           <main className={`${!isMobile ? `ml-64 bg-eggshell` : `pb-32 min-h-screen bg-eggshell`} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
@@ -3144,7 +3193,7 @@ export default function App() {
                 </p>
                 <button 
                   onClick={() => setActiveTab('profile')}
-                  className="px-6 py-3 bg-burnt-peach text-twilight-indigo rounded-xl text-xs font-black uppercase tracking-widest hover:bg-burnt-peach transition-all active:scale-95"
+                  className="px-6 py-3 bg-burnt-peach text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-burnt-peach transition-all active:scale-95"
                 >
                   Complete your profile while you wait
                 </button>
@@ -3182,7 +3231,7 @@ export default function App() {
                       onClick={() => setActiveTab('profile')}
                       className={`flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all active:scale-95 bg-eggshell hover:bg-twilight-indigo/5 border-twilight-indigo/10 shadow-sm border`}
                     >
-                      <div className="w-8 h-8 rounded-xl bg-burnt-peach text-twilight-indigo flex items-center justify-center text-xs font-black shadow-lg shadow-burnt-peach/20 overflow-hidden relative">
+                      <div className="w-8 h-8 rounded-xl bg-burnt-peach text-white flex items-center justify-center text-xs font-black shadow-lg shadow-burnt-peach/20 overflow-hidden relative">
                         {currentUser.profile_picture ? (
                           <img 
                             src={currentUser.profile_picture} 
@@ -3291,13 +3340,13 @@ export default function App() {
                     <div className="relative overflow-hidden bg-brand-primary p-8 rounded-[2.5rem] shadow-2xl shadow-brand-primary/20">
                       <div className="relative flex items-center justify-between">
                         <div className="max-w-[60%]">
-                          <p className="text-zinc-900 text-[10px] font-black uppercase tracking-widest mb-1">Lifetime Earning</p>
-                          <h3 className="text-zinc-900 text-3xl font-black leading-tight mb-4">
+                          <p className="text-white text-[10px] font-black uppercase tracking-widest mb-1">Lifetime Earning</p>
+                          <h3 className="text-white text-3xl font-black leading-tight mb-4">
                             {clinicProfile.currency}{(currentUserStats?.lifetime_earnings || 0).toFixed(0)}
                           </h3>
                           <button 
                             onClick={() => setActiveTab('referrals')}
-                            className="px-6 py-2.5 bg-brand-accent text-zinc-900 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-brand-accent/20 active:scale-95 transition-transform"
+                            className="px-6 py-2.5 bg-brand-accent text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-brand-accent/20 active:scale-95 transition-transform"
                           >
                             View History
                           </button>
@@ -3325,8 +3374,8 @@ export default function App() {
                                 <Stethoscope className="text-brand-accent" size={20} />
                               </div>
                               <div>
-                                <h3 className="text-zinc-900 font-black text-lg tracking-tight">Service Catalog</h3>
-                                <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Explore our offerings</p>
+                                <h3 className="text-white font-black text-lg tracking-tight">Service Catalog</h3>
+                                <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Explore our offerings</p>
                               </div>
                             </div>
                             <div className="flex gap-1">
@@ -3353,29 +3402,29 @@ export default function App() {
                                   {services[serviceSlideshowIndex].type || 'General Service'}
                                 </span>
                               </div>
-                              <h2 className="text-2xl font-black text-zinc-900 tracking-tighter leading-tight">
+                              <h2 className="text-2xl font-black text-white tracking-tighter leading-tight">
                                 {services[serviceSlideshowIndex].name}
                               </h2>
-                              <p className="text-zinc-500 text-xs leading-relaxed line-clamp-2">
+                              <p className="text-white/60 text-xs leading-relaxed line-clamp-2">
                                 {services[serviceSlideshowIndex].description || 'High-quality healthcare service provided by our expert medical team.'}
                               </p>
                               <div className="flex items-center justify-between pt-2">
                                 <div className="flex items-center gap-4">
                                   <div>
-                                    <p className="text-zinc-500 text-[8px] font-bold uppercase tracking-widest mb-0.5">Price</p>
-                                    <p className="text-zinc-900 text-sm font-black">
+                                    <p className="text-white/40 text-[8px] font-bold uppercase tracking-widest mb-0.5">Price</p>
+                                    <p className="text-white text-sm font-black">
                                       {clinicProfile.currency}{services[serviceSlideshowIndex].base_price.toFixed(0)}
                                     </p>
                                   </div>
-                                  <div className="w-px h-6 bg-violet-500/20" />
+                                  <div className="w-px h-6 bg-white/10" />
                                   <div>
-                                    <p className="text-zinc-500 text-[8px] font-bold uppercase tracking-widest mb-0.5">Incentive</p>
+                                    <p className="text-white/40 text-[8px] font-bold uppercase tracking-widest mb-0.5">Incentive</p>
                                     <p className="text-brand-accent text-sm font-black">
                                       {clinicProfile.currency}{services[serviceSlideshowIndex].commission_rate.toFixed(0)}
                                     </p>
                                   </div>
                                 </div>
-                                <div className="w-8 h-8 rounded-xl bg-zinc-50 flex items-center justify-center text-zinc-900 group-hover:bg-brand-accent group-hover:text-zinc-900 transition-colors">
+                                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white group-hover:bg-brand-accent group-hover:text-white transition-colors">
                                   <ArrowRight size={16} />
                                 </div>
                               </div>
@@ -3387,8 +3436,8 @@ export default function App() {
 
                     {/* Service Performance - Approved Commissions */}
                     <div className="pt-4">
-                      <h3 className="text-xl font-black text-zinc-900 tracking-tight">Service Performance</h3>
-                      <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">Approved Commissions</p>
+                      <h3 className="text-xl font-black text-twilight-indigo tracking-tight">Service Performance</h3>
+                      <p className="text-twilight-indigo/60 text-[10px] font-bold uppercase tracking-wider">Approved Commissions</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -3406,10 +3455,10 @@ export default function App() {
                             key={service.id}
                             className="p-5 rounded-[2rem] bg-brand-accent flex flex-col justify-between min-h-[120px] shadow-lg shadow-brand-accent/20 active:scale-[0.98] transition-transform"
                           >
-                            <p className="text-xs font-black text-zinc-900 leading-tight line-clamp-2">{service.name}</p>
+                            <p className="text-xs font-black text-white leading-tight line-clamp-2">{service.name}</p>
                             <div className="flex items-end justify-between mt-2">
-                              <span className="text-3xl font-black text-zinc-900">{count}</span>
-                              <span className="text-[8px] font-black uppercase tracking-widest text-zinc-900/60 mb-1">Approved</span>
+                              <span className="text-3xl font-black text-white">{count}</span>
+                              <span className="text-[8px] font-black uppercase tracking-widest text-white/60 mb-1">Approved</span>
                             </div>
                           </div>
                         );
@@ -3901,67 +3950,67 @@ export default function App() {
                             prev.includes(ref.id) ? prev.filter(id => id !== ref.id) : [...prev, ref.id]
                           );
                         }}
-                        className="p-6 flex items-center justify-between cursor-pointer bg-[#1e3a8a]"
+                        className="p-6 flex items-center justify-between cursor-pointer bg-brand-primary"
                       >
                         <div className="flex items-center gap-4">
                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
                             ref.status === 'completed' || ref.status === 'paid_completed' ? 'bg-emerald-500 text-white' :
-                            ref.status === 'rejected' ? 'bg-rose-500 text-white' : 'bg-violet-500/20 text-zinc-900/80'
+                            ref.status === 'rejected' ? 'bg-rose-500 text-white' : 'bg-violet-500/20 text-[#F5F5DC]/80'
                           }`}>
                             <ClipboardList size={20} />
                           </div>
                           <div>
-                            <p className="text-sm font-black text-zinc-900">{ref.patient_name}</p>
-                            <p className="text-[10px] font-bold text-zinc-900/80 uppercase tracking-widest">{ref.date}</p>
+                            <p className="text-sm font-black text-[#F5F5DC]">{ref.patient_name}</p>
+                            <p className="text-[10px] font-bold text-[#F5F5DC]/80 uppercase tracking-widest">{ref.date}</p>
                           </div>
                         </div>
                         <div className="text-right flex items-center gap-3">
                           <div>
                             <p className="text-sm font-black text-brand-accent">{clinicProfile.currency}{ref.commission_amount.toFixed(0)}</p>
                             <span className={`text-[8px] font-black uppercase tracking-widest ${
-                              ref.status === 'completed' || ref.status === 'paid_completed' ? 'text-zinc-900' :
-                              ref.status === 'rejected' ? 'text-zinc-900' : 'text-zinc-900/70'
+                              ref.status === 'completed' || ref.status === 'paid_completed' ? 'text-[#F5F5DC]' :
+                              ref.status === 'rejected' ? 'text-[#F5F5DC]' : 'text-[#F5F5DC]/70'
                             }`}>
                               {getStatusLabel(ref.status)}
                             </span>
                           </div>
-                          <ChevronRight size={16} className={`text-zinc-900/40 transition-transform duration-300 ${expandedReferralIds.includes(ref.id) ? 'rotate-90' : ''}`} />
+                          <ChevronRight size={16} className={`text-[#F5F5DC]/40 transition-transform duration-300 ${expandedReferralIds.includes(ref.id) ? 'rotate-90' : ''}`} />
                         </div>
                       </div>
 
                       <div className={`grid transition-grid ${expandedReferralIds.includes(ref.id) ? 'grid-rows-1 opacity-100' : 'grid-rows-0 opacity-0'}`}>
-                        <div className="overflow-hidden bg-[#1e3a8a] border-t border-violet-500">
+                        <div className="overflow-hidden bg-brand-primary border-t border-violet-500">
                           <div className="p-6 space-y-6">
                             <div className="grid grid-cols-2 gap-6">
                               <div>
-                                <p className="text-[10px] font-black text-zinc-900/60 uppercase tracking-widest mb-1">Service</p>
-                                <p className="text-xs font-bold text-zinc-900 leading-tight">{ref.service_name}</p>
+                                <p className="text-[10px] font-black text-[#F5F5DC]/60 uppercase tracking-widest mb-1">Service</p>
+                                <p className="text-xs font-bold text-[#F5F5DC] leading-tight">{ref.service_name}</p>
                               </div>
                               <div>
-                                <p className="text-[10px] font-black text-zinc-900/60 uppercase tracking-widest mb-1">Branch</p>
-                                <p className="text-xs font-bold text-zinc-900">{ref.branch}</p>
+                                <p className="text-[10px] font-black text-[#F5F5DC]/60 uppercase tracking-widest mb-1">Branch</p>
+                                <p className="text-xs font-bold text-[#F5F5DC]">{ref.branch}</p>
                               </div>
                               <div>
-                                <p className="text-[10px] font-black text-zinc-900/60 uppercase tracking-widest mb-1">Patient IC</p>
-                                <p className="text-xs font-bold text-zinc-900">{ref.patient_ic || 'N/A'}</p>
+                                <p className="text-[10px] font-black text-[#F5F5DC]/60 uppercase tracking-widest mb-1">Patient IC</p>
+                                <p className="text-xs font-bold text-[#F5F5DC]">{ref.patient_ic || 'N/A'}</p>
                               </div>
                               <div>
-                                <p className="text-[10px] font-black text-zinc-900/60 uppercase tracking-widest mb-1">Incentive</p>
+                                <p className="text-[10px] font-black text-[#F5F5DC]/60 uppercase tracking-widest mb-1">Incentive</p>
                                 <p className="text-xs font-bold text-brand-accent">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
                               </div>
                             </div>
                             
                             <div>
-                              <p className="text-[10px] font-black text-zinc-900/60 uppercase tracking-widest mb-1">Patient Address</p>
-                              <p className="text-xs font-bold text-zinc-900 leading-relaxed">{ref.patient_address || 'N/A'}</p>
+                              <p className="text-[10px] font-black text-[#F5F5DC]/60 uppercase tracking-widest mb-1">Patient Address</p>
+                              <p className="text-xs font-bold text-[#F5F5DC] leading-relaxed">{ref.patient_address || 'N/A'}</p>
                             </div>
 
                             <div className="flex items-center justify-between pt-4 border-t border-violet-500">
                               <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-xl bg-violet-500/20 flex items-center justify-center text-[10px] font-black text-zinc-900/60">
+                                <div className="w-8 h-8 rounded-xl bg-violet-500/20 flex items-center justify-center text-[10px] font-black text-[#F5F5DC]/60">
                                   {ref.staff_name.charAt(0)}
                                 </div>
-                                <p className="text-xs font-bold text-zinc-900/80">{ref.staff_name}</p>
+                                <p className="text-xs font-bold text-[#F5F5DC]/80">{ref.staff_name}</p>
                               </div>
                               {ref.patient_phone && (
                                 <button 
@@ -4014,7 +4063,7 @@ export default function App() {
                         <td className="p-4">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-medium">{ref.patient_name}</p>
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ref.patient_type === 'existing' ? 'bg-brand-primary text-white' : 'bg-brand-accent text-zinc-900'}`}>
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ref.patient_type === 'existing' ? 'bg-brand-primary text-white' : 'bg-brand-accent text-white'}`}>
                               {ref.patient_type || 'new'}
                             </span>
                           </div>
@@ -4287,7 +4336,7 @@ export default function App() {
                             <td className="p-4 text-sm">
                               <div className="flex items-center gap-2">
                                 <p className="font-medium">{ref.patient_name}</p>
-                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ref.patient_type === 'existing' ? 'bg-brand-primary text-white' : 'bg-brand-accent text-zinc-900'}`}>
+                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ref.patient_type === 'existing' ? 'bg-brand-primary text-white' : 'bg-brand-accent text-white'}`}>
                                   {ref.patient_type || 'new'}
                                 </span>
                               </div>
@@ -5525,12 +5574,12 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               className="max-w-2xl mx-auto space-y-8"
             >
-              <div className={`${darkMode ? 'bg-[#1e293b] border-violet-500' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border relative overflow-hidden`}>
+              <div className={`${darkMode ? 'bg-[#1e293b] border-violet-500' : 'bg-[#EDEADE] border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border relative overflow-hidden`}>
                 <div className={`absolute top-0 right-0 w-32 h-32 ${darkMode ? 'bg-brand-accent/10' : 'bg-violet-500'} rounded-full blur-3xl -mr-16 -mt-16`} />
                 
                 <div className="flex flex-col items-center text-center mb-10 relative z-10">
                   <div className="relative group mb-6 flex flex-col items-center">
-                    <div className={`w-32 h-32 rounded-[2.5rem] ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-white'} border-4 shadow-xl overflow-hidden flex items-center justify-center relative`}>
+                    <div className={`w-32 h-32 rounded-[2.5rem] ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#EDEADE]'} border-4 shadow-xl overflow-hidden flex items-center justify-center relative`}>
                       {currentUser.profile_picture ? (
                         <img src={currentUser.profile_picture} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
@@ -5543,7 +5592,7 @@ export default function App() {
                       )}
                     </div>
                     <div className="mt-4 flex gap-2">
-                      <label className={`cursor-pointer ${darkMode ? 'bg-brand-accent text-zinc-900' : 'bg-brand-primary text-white'} px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2`}>
+                      <label className={`cursor-pointer ${darkMode ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white'} px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2`}>
                         <PlusCircle size={14} />
                         Choose Image
                         <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
@@ -5588,7 +5637,7 @@ export default function App() {
                         className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
                           darkMode 
                             ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                            : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
+                            : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
                         }`}
                         placeholder="Your preferred name"
                       />
@@ -5601,7 +5650,7 @@ export default function App() {
                       Branch Assignment
                     </h4>
                     <div className="space-y-4">
-                      <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-100'}`}>
+                      <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-black/5'}`}>
                         <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Current Branch</p>
                         <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{currentUser.branch || 'Not Assigned'}</p>
                       </div>
@@ -5614,7 +5663,7 @@ export default function App() {
                             className={`flex-1 px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
                               darkMode 
                                 ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                                : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
+                                : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
                             }`}
                           >
                             <option value="">Select New Branch</option>
@@ -5646,7 +5695,7 @@ export default function App() {
                                 alert('Branch change request submitted!');
                               }
                             }}
-                            className={`px-6 py-4 rounded-2xl font-bold text-sm transition-all ${darkMode ? 'bg-brand-accent text-zinc-900' : 'bg-brand-primary text-white hover:bg-brand-primary'}`}
+                            className={`px-6 py-4 rounded-2xl font-bold text-sm transition-all ${darkMode ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white hover:bg-brand-primary'}`}
                           >
                             Apply
                           </button>
@@ -5670,7 +5719,7 @@ export default function App() {
                           className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
                             darkMode 
                               ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                              : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
+                              : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
                           }`}
                           placeholder="e.g. Maybank, CIMB"
                         />
@@ -5684,7 +5733,7 @@ export default function App() {
                           className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
                             darkMode 
                               ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                              : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
+                              : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
                           }`}
                           placeholder="1234567890"
                         />
@@ -5697,7 +5746,7 @@ export default function App() {
                           className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
                             darkMode 
                               ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                              : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
+                              : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
                           }`}
                         >
                           <option value="NRIC">NRIC</option>
@@ -5714,7 +5763,7 @@ export default function App() {
                           className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
                             darkMode 
                               ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                              : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
+                              : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
                           }`}
                           placeholder="e.g. 900101-10-5050"
                         />
@@ -5739,7 +5788,7 @@ export default function App() {
                             className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
                               selectedTheme === key 
                                 ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-500')
-                                : (darkMode ? 'border-violet-500 bg-zinc-50' : 'border-zinc-100 bg-zinc-50 hover:border-zinc-200')
+                                : (darkMode ? 'border-violet-500 bg-zinc-50' : 'border-black/5 bg-white hover:border-zinc-200')
                             }`}
                           >
                             <div 
@@ -5758,47 +5807,49 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="mb-8">
-                      <label className={`block text-[10px] font-black uppercase tracking-widest mb-4 ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Display Mode</label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <button
-                          type="button"
-                          onClick={() => setDarkMode(false)}
-                          className={`flex items-center justify-center gap-3 p-4 rounded-2xl border-2 transition-all ${
-                            !darkMode 
-                              ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-500')
-                              : (darkMode ? 'border-violet-500 bg-zinc-50' : 'border-zinc-100 bg-zinc-50 hover:border-zinc-200')
-                          }`}
-                        >
-                          <Sun size={18} className={!darkMode ? 'text-white' : 'text-zinc-500'} />
-                          <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                            !darkMode 
-                              ? (darkMode ? 'text-brand-accent' : 'text-zinc-900')
-                              : (darkMode ? 'text-zinc-500' : 'text-zinc-500')
-                          }`}>
-                            Light Mode
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDarkMode(true)}
-                          className={`flex items-center justify-center gap-3 p-4 rounded-2xl border-2 transition-all ${
-                            darkMode 
-                              ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-500')
-                              : (darkMode ? 'border-violet-500 bg-zinc-50' : 'border-zinc-100 bg-zinc-50 hover:border-zinc-200')
-                          }`}
-                        >
-                          <Moon size={18} className={darkMode ? 'text-white' : 'text-zinc-500'} />
-                          <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                            darkMode 
-                              ? (darkMode ? 'text-brand-accent' : 'text-zinc-900')
-                              : (darkMode ? 'text-zinc-500' : 'text-zinc-500')
-                          }`}>
-                            Dark Mode
-                          </span>
-                        </button>
+                    {windowWidth >= 768 && (
+                      <div className="mb-8">
+                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-4 ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Display Mode</label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <button
+                            type="button"
+                            onClick={() => setDarkMode(false)}
+                            className={`flex items-center justify-center gap-3 p-4 rounded-2xl border-2 transition-all ${
+                              !darkMode 
+                                ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-500')
+                                : (darkMode ? 'border-violet-500 bg-zinc-50' : 'border-black/5 bg-white hover:border-zinc-200')
+                            }`}
+                          >
+                            <Sun size={18} className={!darkMode ? 'text-white' : 'text-zinc-500'} />
+                            <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                              !darkMode 
+                                ? (darkMode ? 'text-brand-accent' : 'text-zinc-900')
+                                : (darkMode ? 'text-zinc-500' : 'text-zinc-500')
+                            }`}>
+                              Light Mode
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDarkMode(true)}
+                            className={`flex items-center justify-center gap-3 p-4 rounded-2xl border-2 transition-all ${
+                              darkMode 
+                                ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-500')
+                                : (darkMode ? 'border-violet-500 bg-zinc-50' : 'border-black/5 bg-white hover:border-zinc-200')
+                            }`}
+                          >
+                            <Moon size={18} className={darkMode ? 'text-white' : 'text-zinc-500'} />
+                            <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                              darkMode 
+                                ? (darkMode ? 'text-brand-accent' : 'text-zinc-900')
+                                : (darkMode ? 'text-zinc-500' : 'text-zinc-500')
+                            }`}>
+                              Dark Mode
+                            </span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div className="mb-8">
                       <label className={`block text-[10px] font-black uppercase tracking-widest mb-4 ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>App Appearance</label>
@@ -5808,7 +5859,7 @@ export default function App() {
                         className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
                           reduceTranslucency 
                             ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-500')
-                            : (darkMode ? 'border-violet-500 bg-zinc-50' : 'border-zinc-100 bg-zinc-50 hover:border-zinc-200')
+                            : (darkMode ? 'border-violet-500 bg-zinc-50' : 'border-black/5 bg-white hover:border-zinc-200')
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -5877,7 +5928,7 @@ export default function App() {
                         className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium min-h-[120px] resize-none ${
                           darkMode 
                             ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                            : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
+                            : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
                         }`}
                         placeholder="Type your feedback here..."
                       />
@@ -5910,7 +5961,7 @@ export default function App() {
                       type="submit"
                       className={`flex-1 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-[0.98] ${
                         darkMode 
-                          ? 'bg-brand-accent text-zinc-900 shadow-brand-accent/20 hover:opacity-90' 
+                          ? 'bg-brand-accent text-white shadow-brand-accent/20 hover:opacity-90' 
                           : 'bg-brand-primary text-white shadow-brand-primary/20 hover:bg-brand-primary'
                       }`}
                     >
@@ -5935,7 +5986,7 @@ export default function App() {
               <div className="bg-brand-primary text-white p-8 rounded-[2.5rem] relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-brand-accent/10 rounded-full blur-3xl -mr-16 -mt-16" />
                 <div className="flex items-start gap-4 relative z-10">
-                  <div className="w-10 h-10 bg-brand-accent text-zinc-900 rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-brand-accent/20">
+                  <div className="w-10 h-10 bg-brand-accent text-white rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-brand-accent/20">
                     <Zap size={20} />
                   </div>
                   <div>
@@ -6080,7 +6131,7 @@ export default function App() {
                   <div className={`flex items-center gap-4 border-b pb-4 ${darkMode ? 'border-zinc-800' : 'border-zinc-100'}`}>
                     <button 
                       onClick={() => setPromoSubTab('manage')}
-                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${promoSubTab === 'manage' ? (darkMode ? 'bg-brand-accent text-zinc-900' : 'bg-brand-primary text-white') : (darkMode ? 'text-zinc-500' : 'text-zinc-500 hover:bg-zinc-50')}`}
+                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${promoSubTab === 'manage' ? (darkMode ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white') : (darkMode ? 'text-zinc-500' : 'text-zinc-500 hover:bg-zinc-50')}`}
                     >
                       Manage Services & Promotions
                     </button>
@@ -6092,7 +6143,7 @@ export default function App() {
                         <h3 className={`text-2xl font-black tracking-tighter ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{editingService?.id ? 'Edit Service / Promotion' : 'Add New Service / Promotion'}</h3>
                         <p className={`text-sm font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Configure service details, incentives, and marketing materials</p>
                       </div>
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${darkMode ? 'bg-brand-accent text-zinc-900 shadow-brand-accent/20' : 'bg-rose-500 text-white shadow-brand-accent'}`}>
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${darkMode ? 'bg-brand-accent text-white shadow-brand-accent/20' : 'bg-rose-500 text-white shadow-brand-accent'}`}>
                         <Zap size={24} />
                       </div>
                     </div>
@@ -6128,7 +6179,7 @@ export default function App() {
                                 onClick={() => setEditingService(prev => ({ ...prev, is_featured: !prev?.is_featured }))}
                                 className={`flex items-center justify-center gap-2 px-4 py-2 rounded-2xl border transition-all text-[10px] font-black uppercase tracking-widest ${
                                   editingService?.is_featured 
-                                    ? 'bg-brand-accent text-zinc-900 border-brand-accent shadow-lg shadow-brand-accent/20' 
+                                    ? 'bg-brand-accent text-white border-brand-accent shadow-lg shadow-brand-accent/20' 
                                     : darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-500' : 'bg-zinc-50 border-zinc-100 text-zinc-500'
                                 }`}
                               >
@@ -6341,7 +6392,7 @@ export default function App() {
                                 }}
                                 className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                                   (editingService?.branches || []).includes(branchObj.name)
-                                    ? (darkMode ? 'bg-brand-accent text-zinc-900' : 'bg-brand-primary text-white')
+                                    ? (darkMode ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white')
                                     : (darkMode ? 'bg-zinc-50 text-zinc-900/40' : 'bg-zinc-50 text-zinc-500 hover:bg-zinc-50')
                                 }`}
                               >
@@ -6426,7 +6477,7 @@ export default function App() {
                           <button 
                             type="submit"
                             disabled={isSavingSetup}
-                            className={`flex-1 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50 shadow-xl ${darkMode ? 'bg-brand-accent text-zinc-900 shadow-brand-accent/20' : 'bg-brand-primary text-white shadow-brand-primary/20'}`}
+                            className={`flex-1 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50 shadow-xl ${darkMode ? 'bg-brand-accent text-white shadow-brand-accent/20' : 'bg-brand-primary text-white shadow-brand-primary/20'}`}
                           >
                             {isSavingSetup ? 'Saving...' : (editingService?.id ? 'Update Service' : 'Publish Service')}
                           </button>
@@ -6453,7 +6504,7 @@ export default function App() {
                                   <div className="flex items-center gap-2 mb-1">
                                     <h4 className={`font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{service.name}</h4>
                                     {service.is_featured && <Star size={10} className="text-brand-accent" fill="currentColor" />}
-                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${service.type === 'Promotion' ? 'bg-brand-accent text-zinc-900' : 'bg-brand-primary text-white'}`}>
+                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${service.type === 'Promotion' ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white'}`}>
                                       {service.type || 'Service'}
                                     </span>
                                     {(() => {
@@ -8336,7 +8387,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                     <button 
                       type="submit" 
                       disabled={isSubmitting}
-                      className="w-full py-5 bg-brand-accent text-zinc-900 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] shadow-xl shadow-brand-accent/20 disabled:opacity-50 mt-2 flex items-center justify-center gap-2"
+                      className="w-full py-5 bg-brand-accent text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] shadow-xl shadow-brand-accent/20 disabled:opacity-50 mt-2 flex items-center justify-center gap-2"
                     >
                       {isSubmitting ? 'Submitting...' : 'Submit Referral'}
                     </button>
