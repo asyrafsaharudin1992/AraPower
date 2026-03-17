@@ -222,10 +222,22 @@ const checkSupabase = (res: express.Response) => {
   return true;
 };
 
-if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('placeholder')) {
+const isPlaceholderUrl = (url: string) => {
+  if (!url || url.length === 0) return true;
+  const placeholders = ['placeholder', 'your-project-url', 'your-project-id', 'your-supabase-url'];
+  return placeholders.some(p => url.toLowerCase().includes(p));
+};
+
+const isPlaceholderKey = (key: string) => {
+  if (!key || key.length === 0) return true;
+  const placeholders = ['placeholder', 'your-anon-key', 'your-supabase-key'];
+  return placeholders.some(p => key.toLowerCase().includes(p));
+};
+
+if (isPlaceholderUrl(supabaseUrl) || isPlaceholderKey(supabaseKey)) {
   console.warn('Supabase environment variables are missing or using placeholders!');
-  console.warn('VITE_SUPABASE_URL:', supabaseUrl ? 'SET' : 'MISSING');
-  console.warn('SUPABASE_SERVICE_ROLE_KEY/VITE_SUPABASE_ANON_KEY:', supabaseKey ? 'SET' : 'MISSING');
+  console.warn('URL:', supabaseUrl || 'MISSING');
+  console.warn('Key:', supabaseKey ? 'SET (Hidden)' : 'MISSING');
   console.log('Initializing Mock Supabase for local development...');
   supabase = new MockSupabase();
 } else {
@@ -1042,7 +1054,14 @@ app.get("/api/notifications/:userId", async (req, res) => {
 });
 
 app.get("/api/check-env", (req, res) => {
-  res.json({ url: process.env.VITE_SUPABASE_URL });
+  res.json({ 
+    VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
+    VITE_SUPABASE_ANON_KEY: !!process.env.VITE_SUPABASE_ANON_KEY,
+    SUPABASE_URL: !!process.env.SUPABASE_URL,
+    SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
+    NODE_ENV: process.env.NODE_ENV,
+    npm_lifecycle_event: process.env.npm_lifecycle_event
+  });
 });
 
 app.get("/api/check-tables", async (req, res) => {
@@ -1803,10 +1822,12 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  // Force Vite middleware in development environment
+  const isDev = process.env.npm_lifecycle_event === 'dev' || process.env.NODE_ENV !== "production" || (process.env.APP_URL && process.env.APP_URL.includes('-dev-'));
+  
+  if (isDev) {
     try {
-      console.log('Initializing Vite middleware...');
+      console.log('Initializing Vite middleware (Dev Mode)...');
       const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
         server: { middlewareMode: true },
@@ -1816,8 +1837,11 @@ async function startServer() {
       console.log('Vite middleware initialized.');
     } catch (err) {
       console.error('Failed to initialize Vite middleware:', err);
+      // Fallback to static if vite fails
+      app.use(express.static(path.join(__dirname, "dist")));
     }
   } else {
+    console.log('Running in Production Mode, serving from dist...');
     app.use(express.static(path.join(__dirname, "dist")));
     app.get("*", (req, res) => {
       res.sendFile(path.join(__dirname, "dist", "index.html"));

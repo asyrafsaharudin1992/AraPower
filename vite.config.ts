@@ -14,9 +14,9 @@ export default defineConfig(({mode}) => {
   return {
     plugins: [react(), tailwindcss()],
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(geminiKey),
-      'process.env.VITE_SUPABASE_URL': JSON.stringify(supabaseUrl),
-      'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),
+      'process.env.GEMINI_API_KEY': JSON.stringify(geminiKey || ""),
+      'process.env.VITE_SUPABASE_URL': JSON.stringify(supabaseUrl || ""),
+      'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey || ""),
     },
     resolve: {
       alias: {

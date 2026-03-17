@@ -1,22 +1,56 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Use import.meta.env for production builds, fallback to process.env for dev
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined);
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : undefined);
-
-console.log('--- Supabase Frontend Init ---');
-console.log('URL Source:', import.meta.env.VITE_SUPABASE_URL ? 'import.meta.env' : (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL ? 'process.env' : 'NONE'));
-console.log('URL Configured:', !!supabaseUrl);
-console.log('Key Configured:', !!supabaseAnonKey);
-
-const isPlaceholderUrl = (url: string | undefined) => {
-  if (!url) return true;
-  return url.includes('placeholder') || url.includes('your-project-url') || url.includes('your-project-id');
+// Use a robust way to get environment variables that works with Vite's 'define' and standard env loading
+const getEnv = (key: string): string => {
+  if (key === 'VITE_SUPABASE_URL') {
+    return import.meta.env.VITE_SUPABASE_URL || 
+           (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : "") || 
+           "";
+  }
+  if (key === 'VITE_SUPABASE_ANON_KEY') {
+    return import.meta.env.VITE_SUPABASE_ANON_KEY || 
+           (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : "") || 
+           "";
+  }
+  if (key === 'SUPABASE_URL') {
+    return (typeof process !== 'undefined' ? process.env.SUPABASE_URL : "") || "";
+  }
+  if (key === 'SUPABASE_ANON_KEY') {
+    return (typeof process !== 'undefined' ? process.env.SUPABASE_ANON_KEY : "") || "";
+  }
+  return "";
 };
 
-const isPlaceholderKey = (key: string | undefined) => {
-  if (!key) return true;
-  return key.includes('placeholder') || key.includes('your-anon-key');
+const supabaseUrl = getEnv('VITE_SUPABASE_URL') || getEnv('SUPABASE_URL');
+const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY') || getEnv('SUPABASE_ANON_KEY');
+
+console.log('--- Supabase Frontend Init ---');
+console.log('URL Configured:', !!supabaseUrl && supabaseUrl.length > 0);
+console.log('Key Configured:', !!supabaseAnonKey && supabaseAnonKey.length > 0);
+if (supabaseUrl) {
+  console.log('URL Value:', supabaseUrl.substring(0, 15) + '...');
+} else {
+  console.log('URL Value: EMPTY');
+}
+if (supabaseAnonKey) {
+  console.log('Key Length:', supabaseAnonKey.length);
+}
+
+const isPlaceholderUrl = (url: string) => {
+  if (!url || url.length === 0) return true;
+  const lowerUrl = url.toLowerCase();
+  return lowerUrl.includes('placeholder-project') || 
+         lowerUrl.includes('your-project-url') || 
+         lowerUrl.includes('your-project-id') ||
+         lowerUrl === 'https://.supabase.co';
+};
+
+const isPlaceholderKey = (key: string) => {
+  if (!key || key.length === 0) return true;
+  const lowerKey = key.toLowerCase();
+  return lowerKey.includes('placeholder-key') || 
+         lowerKey.includes('your-anon-key') ||
+         lowerKey.length < 20; // Real keys are much longer
 };
 
 // Mock Supabase for local development without credentials
@@ -81,6 +115,8 @@ export const isPlaceholder = isPlaceholderUrl(supabaseUrl) || isPlaceholderKey(s
 if (isPlaceholder) {
   console.warn('Supabase credentials missing or using placeholders. Using Mock Supabase for local development.');
   if (supabaseUrl) console.log('Current URL:', supabaseUrl);
+} else {
+  console.log('Supabase configured successfully with URL:', supabaseUrl.split('//')[1]?.split('.')[0] + '...');
 }
 console.log('------------------------------');
 

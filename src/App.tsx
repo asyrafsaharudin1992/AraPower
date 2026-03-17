@@ -3120,8 +3120,20 @@ export default function App() {
 
         {/* Supabase Configuration Warning */}
         {!isSupabaseConfigured && (
-          <div className="fixed top-0 left-0 w-full z-[200] bg-amber-500 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-center shadow-lg">
-            Supabase is not configured. Data will not load correctly.
+          <div 
+            onClick={() => {
+              console.log('--- Supabase Diagnostic ---');
+              console.log('isPlaceholder:', isPlaceholder);
+              fetch('/api/check-env')
+                .then(r => r.json())
+                .then(data => console.log('Server Env Check:', data))
+                .catch(err => console.error('Server Env Check Failed:', err));
+              console.log('---------------------------');
+              alert('Diagnostic info logged to browser console (F12). Please check the console for details.');
+            }}
+            className="fixed top-0 left-0 w-full z-[200] bg-amber-500 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-center shadow-lg cursor-pointer hover:bg-amber-600 transition-colors"
+          >
+            Supabase is not configured. Click for diagnostics or set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Settings.
           </div>
         )}
 
