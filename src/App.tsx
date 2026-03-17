@@ -5222,7 +5222,7 @@ export default function App() {
                               <option value="completed">Arrived</option>
                               <option value="paid_completed">Paid</option>
                               <option value="rejected">Rejected</option>
-                              {currentUser.role === 'admin' && (
+                              { (currentUser.role === 'admin' || currentUser.role === 'receptionist') && (
                                 <>
                                   <option value="buffer">7-Day Buffer</option>
                                   <option value="approved">Approved</option>
