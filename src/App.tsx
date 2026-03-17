@@ -574,22 +574,53 @@ const welcomeQuotes = [
   '"Start where you are. Use what you have. Do what you can." – Arthur Ashe'
 ];
 
-const safeFetch = async (url: string, options?: RequestInit) => {
+const safeFetch = async (url: string, options?: RequestInit, retries = 3, backoff = 1000): Promise<{ res: Response, data: any }> => {
   try {
     console.log(`Fetching: ${url}`, options?.method || 'GET');
     const res = await fetch(url, options);
+    
+    // Handle rate limiting (429) or server errors (500, 502, 503, 504) with retries
+    if ((res.status === 429 || res.status >= 500) && retries > 0) {
+      console.warn(`Request to ${url} failed with status ${res.status}. Retrying in ${backoff}ms...`);
+      await new Promise(resolve => setTimeout(resolve, backoff));
+      return safeFetch(url, options, retries - 1, backoff * 2);
+    }
+
     const contentType = res.headers.get("content-type");
     if (contentType && contentType.includes("application/json")) {
       const data = await res.json();
+      
+      // Some APIs return 200 or 400 but include an error message like "Rate exceeded"
+      if (data?.error && typeof data.error === 'string' && data.error.toLowerCase().includes('rate') && retries > 0) {
+        console.warn(`Request to ${url} returned rate limit error in payload. Retrying in ${backoff}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoff));
+        return safeFetch(url, options, retries - 1, backoff * 2);
+      }
+      
       return { res, data };
     } else {
       const text = await res.text();
       // Truncate long error messages
       const errorText = text.length > 100 ? text.substring(0, 100) + '...' : text;
+      
+      if (errorText.toLowerCase().includes('rate') && retries > 0) {
+        console.warn(`Request to ${url} returned rate limit error in text. Retrying in ${backoff}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoff));
+        return safeFetch(url, options, retries - 1, backoff * 2);
+      }
+      
       return { res, data: { error: errorText || res.statusText || "Unknown error" } };
     }
   } catch (e: any) {
     console.error(`Fetch error for ${url}:`, e);
+    
+    // Retry on network errors
+    if (retries > 0) {
+      console.warn(`Network error for ${url}. Retrying in ${backoff}ms...`);
+      await new Promise(resolve => setTimeout(resolve, backoff));
+      return safeFetch(url, options, retries - 1, backoff * 2);
+    }
+    
     const isNetworkError = e.message === 'Failed to fetch' || e.name === 'TypeError';
     const errorMsg = isNetworkError 
       ? "Network error: The server could not be reached. Please ensure the backend is running and you have a stable connection."
