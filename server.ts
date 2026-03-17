@@ -1418,8 +1418,8 @@ app.post("/api/services", async (req, res) => {
   
   const insertData: any = {
     name,
-    base_price,
-    commission_rate,
+    base_price: base_price || 0,
+    commission_rate: commission_rate || 0,
     allowances_json: JSON.stringify(allowances || {})
   };
 
@@ -1468,8 +1468,8 @@ app.patch("/api/services/:id", async (req, res) => {
   
   const updateData: any = {
     name,
-    base_price,
-    commission_rate,
+    base_price: base_price !== undefined ? base_price : 0,
+    commission_rate: commission_rate !== undefined ? commission_rate : 0,
     allowances_json: JSON.stringify(allowances || {})
   };
 
@@ -1792,6 +1792,45 @@ async function startServer() {
         console.log('Detected task columns:', Array.from(taskColumns));
       }
     }).catch(err => console.warn('Task column detection failed:', err));
+
+    // Migrate legacy promotions to services
+    supabase.from('settings').select('*').eq('key', 'promotions').then(async ({ data, error }) => {
+      if (!error && data && data.length > 0) {
+        const setting = data[data.length - 1];
+        let promos: any[] = [];
+        try {
+          promos = setting.value ? JSON.parse(setting.value) : [];
+        } catch (e) {
+          promos = setting.value || [];
+        }
+        
+        if (Array.isArray(promos) && promos.length > 0) {
+          console.log(`Found ${promos.length} legacy promotions. Migrating to services table...`);
+          for (const promo of promos) {
+            // Check if already migrated (by name)
+            const { data: existing } = await supabase.from('services').select('id').eq('name', promo.title).limit(1);
+            if (!existing || existing.length === 0) {
+              await supabase.from('services').insert({
+                name: promo.title,
+                description: promo.description,
+                start_date: promo.start_date,
+                end_date: promo.end_date,
+                type: 'Promotion',
+                base_price: 0,
+                commission_rate: 0,
+                is_featured: true,
+                allowances_json: '{}',
+                branches: '[]'
+              });
+              console.log(`Migrated promotion: ${promo.title}`);
+            }
+          }
+          // Delete legacy promotions setting
+          await supabase.from('settings').delete().eq('key', 'promotions');
+          console.log('Legacy promotions migrated successfully.');
+        }
+      }
+    }).catch(err => console.warn('Legacy promotions migration failed:', err));
   }
 
   app.post("/api/feedback", async (req, res) => {

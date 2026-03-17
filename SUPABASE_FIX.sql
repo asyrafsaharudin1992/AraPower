@@ -101,3 +101,38 @@ BEGIN
         CREATE POLICY "Enable all for app" ON notifications FOR ALL USING (true) WITH CHECK (true);
     END IF;
 END $$;
+
+-- 6. Create Storage Buckets and RLS Policies
+-- Create 'posters' bucket for service and promotion images
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('posters', 'posters', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Create 'avatars' bucket for user profile pictures
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Create 'clinic-assets' bucket just in case
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('clinic-assets', 'clinic-assets', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Enable RLS for storage.objects (Usually already enabled by Supabase)
+-- ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+-- Allow all access to posters (since app uses custom auth)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Allow All Access to Posters') THEN
+        CREATE POLICY "Allow All Access to Posters" ON storage.objects FOR ALL USING (bucket_id = 'posters') WITH CHECK (bucket_id = 'posters');
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Allow All Access to Avatars') THEN
+        CREATE POLICY "Allow All Access to Avatars" ON storage.objects FOR ALL USING (bucket_id = 'avatars') WITH CHECK (bucket_id = 'avatars');
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Allow All Access to Clinic Assets') THEN
+        CREATE POLICY "Allow All Access to Clinic Assets" ON storage.objects FOR ALL USING (bucket_id = 'clinic-assets') WITH CHECK (bucket_id = 'clinic-assets');
+    END IF;
+END $$;
