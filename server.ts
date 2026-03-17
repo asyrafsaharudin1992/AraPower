@@ -1545,7 +1545,7 @@ app.get("/api/referrals", async (req, res) => {
   let selectColumns = baseColumns;
 
   // Add joins
-  selectColumns += `, staff:staff_id (name, promo_code)`;
+  selectColumns += `, staff:staff_id(name, promo_code)`;
   if (referralColumns.has('service_id')) {
     selectColumns += `, service:service_id (name)`;
   }
@@ -1564,7 +1564,15 @@ app.get("/api/referrals", async (req, res) => {
   }
 
   const { data: referrals, error } = await query;
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('Error fetching referrals - message:', error.message);
+    console.error('Error fetching referrals - code:', error.code);
+    console.error('Error fetching referrals - details:', error.details);
+    console.error('Error fetching referrals - hint:', error.hint);
+    return res.status(500).json({ error: error.message });
+  }
+  
+  console.log(`Fetched ${referrals?.length || 0} referrals.`);
   
   if (referrals && referrals.length > 0) {
     Object.keys(referrals[0]).forEach(key => referralColumns.add(key));

@@ -3168,7 +3168,7 @@ export default function App() {
             <div className="pt-6 border-t border-twilight-indigo/10">
               <div className="flex items-center gap-3 mb-4 px-2">
                 <div className="w-8 h-8 rounded-full bg-muted-teal text-eggshell flex items-center justify-center text-xs font-bold">
-                  {currentUser.name.charAt(0)}
+                  {currentUser?.name?.charAt(0) || '?'}
                 </div>
                 <div className="overflow-hidden">
                   <p className="text-sm font-bold truncate text-twilight-indigo">{currentUser.name}</p>
@@ -3312,7 +3312,7 @@ export default function App() {
                             referrerPolicy="no-referrer"
                           />
                         ) : (
-                          currentUser.name.charAt(0)
+                          currentUser?.name?.charAt(0) || '?'
                         )}
                         {unreadNotificationsCount > 0 && (
                           <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-rose-500 border-2 border-eggshell rounded-full" />
@@ -3788,7 +3788,7 @@ export default function App() {
                             <div className="flex items-center gap-3">
                               <span className="text-xs font-bold text-zinc-500 w-4">{index + 1}</span>
                               <div className="w-8 h-8 rounded-full bg-zinc-50 flex items-center justify-center text-xs font-bold text-zinc-500">
-                                {staff.name.charAt(0)}
+                                {staff?.name?.charAt(0) || '?'}
                               </div>
                               <div>
                                 <p className="text-sm font-medium">{staff.name}</p>
@@ -4085,7 +4085,7 @@ export default function App() {
                               <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
                                 <div className="flex items-center gap-2">
                                   <div className="w-6 h-6 rounded-full bg-zinc-200 flex items-center justify-center text-[8px] font-bold text-zinc-500">
-                                    {ref.staff_name.charAt(0)}
+                                    {ref?.staff_name?.charAt(0) || '?'}
                                   </div>
                                   <p className="text-[10px] font-medium text-zinc-500">Referred by {ref.staff_name}</p>
                                 </div>
@@ -4281,7 +4281,7 @@ export default function App() {
                       <div key={staff.id} className="bg-white p-6 rounded-3xl border border-brand-primary shadow-sm hover:shadow-md transition-all">
                         <div className="flex items-center gap-4 mb-4">
                           <div className="w-12 h-12 rounded-2xl bg-zinc-50 flex items-center justify-center text-lg font-black text-zinc-500">
-                            {staff.name.charAt(0)}
+                            {staff?.name?.charAt(0) || '?'}
                           </div>
                           <div>
                             <h4 className="font-bold text-zinc-900">{staff.name}</h4>
@@ -4554,7 +4554,7 @@ export default function App() {
                           <td className="p-4">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-full bg-zinc-50 flex items-center justify-center text-xs font-bold text-zinc-500">
-                                {staff.name.charAt(0)}
+                                {staff?.name?.charAt(0) || '?'}
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-sm font-medium">{staff.name}</span>
@@ -5017,7 +5017,7 @@ export default function App() {
                               <td className="p-4">
                                 <div className="flex items-center gap-3">
                                   <div className="w-8 h-8 rounded-full bg-zinc-50 flex items-center justify-center text-xs font-bold text-zinc-500">
-                                    {staff.name.charAt(0)}
+                                    {staff?.name?.charAt(0) || '?'}
                                   </div>
                                   <div className="flex flex-col">
                                     <span className="text-sm font-medium">{staff.name}</span>
@@ -7576,7 +7576,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                             {activeStaffList.filter(s => s.branch === branchPerformance.name).map(member => (
                               <div key={member.id} className="px-3 py-1.5 bg-zinc-50 rounded-xl border border-violet-500 flex items-center gap-2">
                                 <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center text-[8px] font-bold">
-                                  {member.name.charAt(0)}
+                                  {member?.name?.charAt(0) || '?'}
                                 </div>
                                 <span className="text-xs font-medium">{member.name}</span>
                               </div>
@@ -8075,7 +8075,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                             referrerPolicy="no-referrer" 
                           />
                         ) : (
-                          selectedStaffDetail.name.charAt(0)
+                          selectedStaffDetail?.name?.charAt(0) || '?'
                         )}
                       </div>
                       <div>
