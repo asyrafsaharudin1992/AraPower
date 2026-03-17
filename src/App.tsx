@@ -980,12 +980,7 @@ export default function App() {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin : '');
-  const isSupabaseConfigured = Boolean(
-    import.meta.env.VITE_SUPABASE_URL && 
-    import.meta.env.VITE_SUPABASE_URL !== 'https://your-project-url.supabase.co' &&
-    import.meta.env.VITE_SUPABASE_ANON_KEY &&
-    import.meta.env.VITE_SUPABASE_ANON_KEY !== 'your-anon-key'
-  );
+  const isSupabaseConfigured = !isPlaceholder;
   const [payoutUserFilter, setPayoutUserFilter] = useState<string>('all');
   const [payoutBranchFilter, setPayoutBranchFilter] = useState<string>('all');
   const [payoutSubTab, setPayoutSubTab] = useState<'history' | 'bulk'>('history');
@@ -1406,9 +1401,6 @@ export default function App() {
     console.log('Login attempt started', { email: authEmail, apiBaseUrl });
     try {
       // Check if Supabase is properly configured
-      const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
-                                  import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder-project.supabase.co';
-
       if (!isSupabaseConfigured) {
         console.log('Supabase not configured, using local backend login...');
         const { res, data } = await safeFetch(`${apiBaseUrl}/api/auth/login`, {
@@ -1513,9 +1505,6 @@ export default function App() {
       console.log('Registration attempt started', { email: authEmail, name: authName });
       
       // Check if Supabase is properly configured
-      const isSupabaseConfigured = import.meta.env.VITE_SUPABASE_URL && 
-                                  import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder-project.supabase.co';
-
       let authId = null;
       let requiresEmailConfirmation = false;
       if (isSupabaseConfigured) {
@@ -1819,9 +1808,6 @@ export default function App() {
     if (!file || !currentUser) return;
 
     // Check if Supabase is actually configured
-    const { data: { publicUrl: testUrl } } = supabase.storage.from('test').getPublicUrl('test');
-    const isPlaceholder = testUrl.includes('placeholder-project.supabase.co');
-
     if (isPlaceholder) {
       console.log('Supabase is not configured. Using local backend and mock storage.');
       return;
