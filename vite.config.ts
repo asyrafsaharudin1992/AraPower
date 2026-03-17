@@ -11,6 +11,12 @@ export default defineConfig(({mode}) => {
   const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY;
   const geminiKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY;
 
+  console.log('--- Vite Config Env Loading ---');
+  console.log('Mode:', mode);
+  console.log('process.env.VITE_SUPABASE_URL:', !!process.env.VITE_SUPABASE_URL);
+  console.log('env.VITE_SUPABASE_URL:', !!env.VITE_SUPABASE_URL);
+  console.log('Final supabaseUrl:', !!supabaseUrl);
+
   return {
     plugins: [react(), tailwindcss()],
     define: {

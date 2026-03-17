@@ -846,8 +846,8 @@ app.get("/api/settings", async (req, res) => {
   res.json(result);
 });
 
-app.get("/api/promotions", async (req, res) => {
-  console.log('GET /api/promotions');
+app.get("/api/special-offers", async (req, res) => {
+  console.log('GET /api/special-offers');
   try {
     const { data: settings, error } = await supabase
       .from('settings')
@@ -855,7 +855,7 @@ app.get("/api/promotions", async (req, res) => {
       .eq('key', 'promotions');
       
     if (error) {
-      logError('GET /api/promotions', error);
+      logError('GET /api/special-offers', error);
       return res.status(500).json({ error: error.message });
     }
     
@@ -876,15 +876,15 @@ app.get("/api/promotions", async (req, res) => {
     console.log(`Returning ${promos.length || 0} promotions from database`);
     res.json(promos);
   } catch (err: any) {
-    console.error('Unexpected error in GET /api/promotions:', err);
+    console.error('Unexpected error in GET /api/special-offers:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/promotions", async (req, res) => {
+app.post("/api/special-offers", async (req, res) => {
   try {
     const promotions = req.body || [];
-    console.log(`POST /api/promotions - Saving ${promotions.length || 0} promotions`);
+    console.log(`POST /api/special-offers - Saving ${promotions.length || 0} promotions`);
     
     // Delete existing ones first to ensure we only have one row for this key
     const { error: deleteError } = await supabase
@@ -902,7 +902,7 @@ app.post("/api/promotions", async (req, res) => {
       .insert({ key: 'promotions', value: JSON.stringify(promotions) });
 
     if (insertError) {
-      logError('POST /api/promotions', insertError);
+      logError('POST /api/special-offers', insertError);
       return res.status(500).json({ error: insertError.message });
     }
     

@@ -1283,7 +1283,7 @@ export default function App() {
 
   const fetchPromotions = async () => {
     console.log('fetchPromotions() called');
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/promotions`);
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/special-offers`);
     if (res.ok && Array.isArray(data)) {
       console.log(`Fetched ${data?.length || 0} promotions from backend:`, data);
       setPromoServices(data || []);

@@ -1,28 +1,28 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Use a robust way to get environment variables that works with Vite's 'define' and standard env loading
-const getEnv = (key: string): string => {
-  if (key === 'VITE_SUPABASE_URL') {
-    return import.meta.env.VITE_SUPABASE_URL || 
-           (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : "") || 
-           "";
-  }
-  if (key === 'VITE_SUPABASE_ANON_KEY') {
-    return import.meta.env.VITE_SUPABASE_ANON_KEY || 
-           (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : "") || 
-           "";
-  }
-  if (key === 'SUPABASE_URL') {
-    return (typeof process !== 'undefined' ? process.env.SUPABASE_URL : "") || "";
-  }
-  if (key === 'SUPABASE_ANON_KEY') {
-    return (typeof process !== 'undefined' ? process.env.SUPABASE_ANON_KEY : "") || "";
-  }
-  return "";
-};
+let supabaseUrl = "";
+let supabaseAnonKey = "";
 
-const supabaseUrl = getEnv('VITE_SUPABASE_URL') || getEnv('SUPABASE_URL');
-const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY') || getEnv('SUPABASE_ANON_KEY');
+try {
+  supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+} catch (e) {}
+
+if (!supabaseUrl) {
+  try {
+    supabaseUrl = process.env.VITE_SUPABASE_URL || "";
+  } catch (e) {}
+}
+
+try {
+  supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+} catch (e) {}
+
+if (!supabaseAnonKey) {
+  try {
+    supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || "";
+  } catch (e) {}
+}
 
 console.log('--- Supabase Frontend Init ---');
 console.log('URL Configured:', !!supabaseUrl && supabaseUrl.length > 0);
