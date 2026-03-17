@@ -3,6 +3,7 @@
 import { GoogleGenAI } from "@google/genai";
 import React, { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
+import { PromotionsCarousel } from './components/PromotionsCarousel';
 import { 
   Users, 
   PlusCircle, 
@@ -246,7 +247,7 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
           <span className={`px-2 py-1 rounded-full backdrop-blur-md text-[8px] font-black uppercase tracking-widest border border-violet-500 ${
             status === 'active' ? 'bg-emerald-500 text-white' : 
             status === 'upcoming' ? 'bg-brand-surface text-zinc-900' : 
-            'bg-rose-500 text-white'
+            'bg-rose-50 text-rose-700'
           }`}>
             {status}
           </span>
@@ -254,14 +255,45 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
         {item.is_featured && <Star size={14} className="text-zinc-900" fill="currentColor" />}
       </div>
       
-      <div className="relative z-10">
-        <h3 className="text-2xl font-bold text-zinc-900 leading-tight tracking-tight">
-          {item.name}
-        </h3>
-      </div>
-
       {/* Subtle background glow */}
       <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-zinc-50 rounded-full blur-3xl" />
+    </motion.div>
+  );
+};
+
+const MobilePromotionCard = ({ item, onClick }: { item: Service, onClick: () => void }) => {
+  const status = getServiceStatus(item);
+
+  return (
+    <motion.div
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className="bg-white rounded-2xl p-4 shadow-sm border border-black/5 flex items-center gap-4 cursor-pointer w-full"
+    >
+      {/* Image */}
+      <div className="w-20 h-20 rounded-xl overflow-hidden bg-zinc-100 flex-shrink-0">
+        {item.image_url ? (
+          <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Zap size={24} className="text-zinc-400" />
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-1">
+          <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest border ${
+            status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+            status === 'upcoming' ? 'bg-zinc-50 text-zinc-700 border-zinc-200' : 
+            'bg-rose-50 text-rose-700 border-rose-200'
+          }`}>
+            {status}
+          </span>
+          {item.is_featured && <Star size={14} className="text-brand-accent" fill="currentColor" />}
+        </div>
+      </div>
     </motion.div>
   );
 };
@@ -6674,18 +6706,32 @@ export default function App() {
                       <h3 className={`text-2xl font-bold tracking-tight px-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
                         {category.title}
                       </h3>
-                      <div className="flex overflow-x-auto gap-6 pb-2 px-2 custom-scrollbar flex-nowrap">
-                        {filteredServices.map((item) => (
-                          <ModernPromotionCard 
-                            key={item.id} 
-                            item={item} 
-                            onClick={() => {
-                              setSelectedPromo(item);
-                              setIsPromoModalOpen(true);
-                            }} 
-                          />
-                        ))}
-                      </div>
+{isMobile ? (
+                          <PromotionsCarousel items={filteredServices} onClick={(item) => {
+                            setSelectedPromo(item);
+                            setIsPromoModalOpen(true);
+                          }} />
+                        ) : (
+                          <div className="flex overflow-x-auto gap-6 pb-4 px-2 scrollbar-hide flex-nowrap">
+                            {filteredServices.map((item) => (
+                              <div key={item.id} className="flex-shrink-0 w-64 flex flex-col gap-2">
+                                <ModernPromotionCard 
+                                  item={item} 
+                                  onClick={() => {
+                                    setSelectedPromo(item);
+                                    setIsPromoModalOpen(true);
+                                  }} 
+                                />
+                                <div className="px-1">
+                                  <h4 className="text-sm font-bold text-zinc-900 truncate">{item.name}</h4>
+                                  <p className="text-xs text-zinc-500 font-medium">
+                                    {item.promo_price ? `RM${item.promo_price}` : `RM${item.base_price || 0}`}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                     </div>
                   );
                 })}
