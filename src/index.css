@@ -87,3 +87,26 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+.category-scroll-wrapper {
+  width: 100vw;
+  margin-left: -16px;
+  margin-right: -16px;
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-left: 16px;
+  padding-right: 16px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.category-scroll-wrapper::-webkit-scrollbar {
+  display: none;
+}
+
+.service-card-small {
+  width: 140px;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+}
