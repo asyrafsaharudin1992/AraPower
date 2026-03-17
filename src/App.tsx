@@ -1822,7 +1822,7 @@ export default function App() {
     const isPlaceholder = testUrl.includes('placeholder-project.supabase.co');
 
     if (isPlaceholder) {
-      alert('Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your platform settings and restart the dev server.');
+      console.log('Supabase is not configured. Using local backend and mock storage.');
       return;
     }
 

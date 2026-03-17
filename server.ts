@@ -28,6 +28,142 @@ if (process.env.SUPABASE_SERVICE_ROLE_KEY) console.log('Using: Service Role Key'
 else if (process.env.VITE_SUPABASE_ANON_KEY) console.log('Using: Anon Key');
 console.log('------------------------------');
 
+// Mock Supabase for local development without credentials
+class MockSupabase {
+  private data: any = {
+    staff: [],
+    branches: [],
+    services: [],
+    settings: [
+      { key: 'auth', value: JSON.stringify({ allowRegistration: true }) }
+    ],
+    referrals: [],
+    tasks: [],
+    notifications: [],
+    branch_change_requests: [],
+    feedback: []
+  };
+
+  from(table: string) {
+    if (!this.data[table]) this.data[table] = [];
+    return new MockQuery(this.data[table], table, this.data);
+  }
+
+  auth = {
+    getSession: async () => ({ data: { session: null }, error: null }),
+    signInWithPassword: async () => ({ data: { user: null, session: null }, error: new Error('Mock Auth Not Implemented') }),
+    signUp: async () => ({ data: { user: null, session: null }, error: new Error('Mock Auth Not Implemented') }),
+  };
+
+  storage = {
+    from: (bucket: string) => ({
+      getPublicUrl: (path: string) => ({ data: { publicUrl: `https://picsum.photos/seed/${path}/200` } }),
+      upload: async () => ({ data: { path: 'mock-path' }, error: null })
+    })
+  };
+}
+
+class MockQuery {
+  private filters: any[] = [];
+  private orderCol: string | null = null;
+  private limitCount: number | null = null;
+
+  constructor(private items: any[], private table: string, private allData: any) {}
+
+  select(cols: string = '*', options: any = {}) {
+    return this;
+  }
+
+  eq(col: string, val: any) {
+    this.filters.push((item: any) => item[col] == val);
+    return this;
+  }
+
+  neq(col: string, val: any) {
+    this.filters.push((item: any) => item[col] != val);
+    return this;
+  }
+
+  ilike(col: string, pattern: string) {
+    const regex = new RegExp(pattern.replace(/%/g, '.*'), 'i');
+    this.filters.push((item: any) => regex.test(item[col]));
+    return this;
+  }
+
+  or(filter: string) {
+    // Simple mock for common OR patterns
+    return this;
+  }
+
+  order(col: string, options: any = {}) {
+    this.orderCol = col;
+    return this;
+  }
+
+  limit(n: number) {
+    this.limitCount = n;
+    return this;
+  }
+
+  private getFiltered() {
+    let result = [...this.items];
+    this.filters.forEach(f => {
+      result = result.filter(f);
+    });
+    if (this.limitCount !== null) {
+      result = result.slice(0, this.limitCount);
+    }
+    return result;
+  }
+
+  async single() {
+    const filtered = this.getFiltered();
+    return { data: filtered[0] || null, error: filtered[0] ? null : { code: 'PGRST116', message: 'Not found' } };
+  }
+
+  // Support for await query
+  async then(resolve: any, reject: any) {
+    try {
+      const filtered = this.getFiltered();
+      resolve({ data: filtered, error: null, count: filtered.length });
+    } catch (err) {
+      resolve({ data: [], error: err });
+    }
+  }
+
+  insert(data: any) {
+    const itemsToInsert = Array.isArray(data) ? data : [data];
+    const inserted = itemsToInsert.map(item => {
+      const newItem = { 
+        id: item.id || Math.floor(Math.random() * 1000000), 
+        created_at: new Date().toISOString(),
+        ...item 
+      };
+      this.items.push(newItem);
+      return newItem;
+    });
+    
+    // For single insert, return a query that can .select().single()
+    return new MockQuery(inserted, this.table, this.allData);
+  }
+
+  update(data: any) {
+    const filtered = this.getFiltered();
+    filtered.forEach(item => {
+      Object.assign(item, data);
+    });
+    return new MockQuery(filtered, this.table, this.allData);
+  }
+
+  delete() {
+    const filtered = this.getFiltered();
+    const idsToDelete = filtered.map(i => i.id);
+    const tableData = this.allData[this.table];
+    this.allData[this.table] = tableData.filter((i: any) => !idsToDelete.includes(i.id));
+    return new MockQuery([], this.table, this.allData);
+  }
+}
+
 let supabase: any = null;
 let referralColumns: Set<string> = new Set(['id', 'staff_id', 'service_id', 'patient_name', 'status']);
 let serviceColumns: Set<string> = new Set(['name', 'base_price', 'commission_rate', 'allowances_json']);
@@ -86,10 +222,12 @@ const checkSupabase = (res: express.Response) => {
   return true;
 };
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('CRITICAL ERROR: Supabase environment variables are missing!');
-  console.error('VITE_SUPABASE_URL:', supabaseUrl ? 'SET' : 'MISSING');
-  console.error('SUPABASE_SERVICE_ROLE_KEY/VITE_SUPABASE_ANON_KEY:', supabaseKey ? 'SET' : 'MISSING');
+if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('placeholder')) {
+  console.warn('Supabase environment variables are missing or using placeholders!');
+  console.warn('VITE_SUPABASE_URL:', supabaseUrl ? 'SET' : 'MISSING');
+  console.warn('SUPABASE_SERVICE_ROLE_KEY/VITE_SUPABASE_ANON_KEY:', supabaseKey ? 'SET' : 'MISSING');
+  console.log('Initializing Mock Supabase for local development...');
+  supabase = new MockSupabase();
 } else {
   try {
     supabase = createClient(supabaseUrl, supabaseKey, {
@@ -112,6 +250,8 @@ if (!supabaseUrl || !supabaseKey) {
     }
   } catch (err: any) {
     console.error('Failed to initialize Supabase client:', err.message);
+    console.log('Falling back to Mock Supabase...');
+    supabase = new MockSupabase();
   }
 }
 
