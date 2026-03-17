@@ -78,3 +78,12 @@
 .fade-out {
   animation: fadeOut 0.4s ease-in-out forwards;
 }
+
+.custom-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.custom-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

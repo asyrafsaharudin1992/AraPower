@@ -9,6 +9,7 @@ import {
   Phone,
   TrendingUp, 
   CheckCircle2, 
+  XCircle,
   Clock, 
   DollarSign, 
   LogOut,
@@ -265,7 +266,7 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
   );
 };
 
-const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile }: { item: Service | null, isOpen: boolean, onClose: () => void, clinicProfile: ClinicProfile }) => {
+const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode }: { item: Service | null, isOpen: boolean, onClose: () => void, clinicProfile: ClinicProfile, darkMode: boolean }) => {
   if (!item) return null;
 
   const handleDownloadPoster = async (url: string, fileName: string) => {
@@ -359,7 +360,7 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile }: { item: 
                 </div>
 
                 {/* Pricing */}
-                <div className="bg-zinc-50 rounded-3xl p-6 border border-violet-500 space-y-4">
+                <div className={`${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-transparent border-violet-500/20'} rounded-3xl p-6 border space-y-4`}>
                   <div className="flex justify-between items-center">
                     <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Base Price</span>
                     <span className="text-zinc-500 text-lg line-through font-medium">
@@ -3746,9 +3747,6 @@ export default function App() {
                     {referrals.slice(0, 5).map((ref) => (
                       <div key={ref.id} className="p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors">
                         <div className="flex items-center gap-4">
-                          <div className={`p-2 rounded-xl ${getStatusColor(ref.status)}`}>
-                            {ref.status === 'payout_processed' || ref.status === 'approved' || ref.status === 'paid_completed' ? <CheckCircle2 size={18} /> : <Clock size={18} />}
-                          </div>
                           <div>
                             <p className="text-sm font-semibold">{ref.patient_name}</p>
                             <p className="text-xs text-zinc-500">{ref.service_name} • {ref.branch || 'N/A'}</p>
@@ -3930,7 +3928,7 @@ export default function App() {
               </div>
 
               {isMobile ? (
-                <div className="space-y-4 p-4">
+                <div className="divide-y divide-zinc-100">
                   {referrals
                     .filter(ref => 
                       ref.patient_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
@@ -3942,7 +3940,7 @@ export default function App() {
                     .map((ref, idx) => (
                     <div 
                       key={ref.id} 
-                      className={`rounded-[2.5rem] overflow-hidden transition-all duration-500 border border-violet-500 ${expandedReferralIds.includes(ref.id) ? 'shadow-2xl' : 'shadow-sm'}`}
+                      className={`transition-all duration-300 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white'}`}
                     >
                       <div 
                         onClick={() => {
@@ -3950,85 +3948,94 @@ export default function App() {
                             prev.includes(ref.id) ? prev.filter(id => id !== ref.id) : [...prev, ref.id]
                           );
                         }}
-                        className="p-6 flex items-center justify-between cursor-pointer bg-brand-primary"
+                        className="p-4 flex items-center justify-between cursor-pointer active:bg-zinc-50 transition-colors"
                       >
-                        <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                            ref.status === 'completed' || ref.status === 'paid_completed' ? 'bg-emerald-500 text-white' :
-                            ref.status === 'rejected' ? 'bg-rose-500 text-white' : 'bg-violet-500/20 text-[#F5F5DC]/80'
-                          }`}>
-                            <ClipboardList size={20} />
-                          </div>
+                        <div className="flex items-center gap-3">
                           <div>
-                            <p className="text-sm font-black text-[#F5F5DC]">{ref.patient_name}</p>
-                            <p className="text-[10px] font-bold text-[#F5F5DC]/80 uppercase tracking-widest">{ref.date}</p>
+                            <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{ref.patient_name}</p>
+                            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-tight">
+                              {ref.service_name} • {ref.branch}
+                            </p>
                           </div>
                         </div>
                         <div className="text-right flex items-center gap-3">
                           <div>
-                            <p className="text-sm font-black text-brand-accent">{clinicProfile.currency}{ref.commission_amount.toFixed(0)}</p>
-                            <span className={`text-[8px] font-black uppercase tracking-widest ${
-                              ref.status === 'completed' || ref.status === 'paid_completed' ? 'text-[#F5F5DC]' :
-                              ref.status === 'rejected' ? 'text-[#F5F5DC]' : 'text-[#F5F5DC]/70'
+                            <p className={`text-sm font-bold ${darkMode ? 'text-brand-accent' : 'text-zinc-900'}`}>
+                              {clinicProfile.currency}{ref.commission_amount.toFixed(2)}
+                            </p>
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${
+                              ref.status === 'completed' || ref.status === 'paid_completed' ? 'text-emerald-600' :
+                              ref.status === 'rejected' ? 'text-rose-600' : 
+                              ref.status === 'approved' ? 'text-orange-600' :
+                              'text-zinc-400'
                             }`}>
                               {getStatusLabel(ref.status)}
                             </span>
                           </div>
-                          <ChevronRight size={16} className={`text-[#F5F5DC]/40 transition-transform duration-300 ${expandedReferralIds.includes(ref.id) ? 'rotate-90' : ''}`} />
+                          <ChevronRight size={14} className={`text-zinc-300 transition-transform duration-300 ${expandedReferralIds.includes(ref.id) ? 'rotate-90' : ''}`} />
                         </div>
                       </div>
 
-                      <div className={`grid transition-grid ${expandedReferralIds.includes(ref.id) ? 'grid-rows-1 opacity-100' : 'grid-rows-0 opacity-0'}`}>
-                        <div className="overflow-hidden bg-brand-primary border-t border-violet-500">
-                          <div className="p-6 space-y-6">
-                            <div className="grid grid-cols-2 gap-6">
-                              <div>
-                                <p className="text-[10px] font-black text-[#F5F5DC]/60 uppercase tracking-widest mb-1">Service</p>
-                                <p className="text-xs font-bold text-[#F5F5DC] leading-tight">{ref.service_name}</p>
-                              </div>
-                              <div>
-                                <p className="text-[10px] font-black text-[#F5F5DC]/60 uppercase tracking-widest mb-1">Branch</p>
-                                <p className="text-xs font-bold text-[#F5F5DC]">{ref.branch}</p>
-                              </div>
-                              <div>
-                                <p className="text-[10px] font-black text-[#F5F5DC]/60 uppercase tracking-widest mb-1">Patient IC</p>
-                                <p className="text-xs font-bold text-[#F5F5DC]">{ref.patient_ic || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <p className="text-[10px] font-black text-[#F5F5DC]/60 uppercase tracking-widest mb-1">Incentive</p>
-                                <p className="text-xs font-bold text-brand-accent">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
-                              </div>
-                            </div>
-                            
-                            <div>
-                              <p className="text-[10px] font-black text-[#F5F5DC]/60 uppercase tracking-widest mb-1">Patient Address</p>
-                              <p className="text-xs font-bold text-[#F5F5DC] leading-relaxed">{ref.patient_address || 'N/A'}</p>
-                            </div>
-
-                            <div className="flex items-center justify-between pt-4 border-t border-violet-500">
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-xl bg-violet-500/20 flex items-center justify-center text-[10px] font-black text-[#F5F5DC]/60">
-                                  {ref.staff_name.charAt(0)}
+                      <AnimatePresence>
+                        {expandedReferralIds.includes(ref.id) && (
+                          <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden bg-zinc-50/50"
+                          >
+                            <div className="p-4 pt-0 space-y-4 border-t border-zinc-100/50">
+                              <div className="grid grid-cols-2 gap-4 mt-4">
+                                <div>
+                                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Referral Date</p>
+                                  <p className="text-xs font-medium text-zinc-700">{ref.date}</p>
                                 </div>
-                                <p className="text-xs font-bold text-[#F5F5DC]/80">{ref.staff_name}</p>
+                                <div>
+                                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Staff Name</p>
+                                  <p className="text-xs font-medium text-zinc-700">{ref.staff_name}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Patient IC</p>
+                                  <p className="text-xs font-medium text-zinc-700">{ref.patient_ic || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Appointment</p>
+                                  <p className="text-xs font-medium text-zinc-700">{ref.appointment_date || 'N/A'}</p>
+                                </div>
                               </div>
-                              {ref.patient_phone && (
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const text = `Hi ${ref.patient_name}! This is ${ref.staff_name} from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`;
-                                    window.open(`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
-                                  }}
-                                  className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform border border-emerald-500"
-                                >
-                                  <MessageCircle size={14} />
-                                  Follow Up
-                                </button>
+                              
+                              {ref.patient_address && (
+                                <div>
+                                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Address</p>
+                                  <p className="text-xs font-medium text-zinc-700 leading-relaxed">{ref.patient_address}</p>
+                                </div>
                               )}
+
+                              <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-zinc-200 flex items-center justify-center text-[8px] font-bold text-zinc-500">
+                                    {ref.staff_name.charAt(0)}
+                                  </div>
+                                  <p className="text-[10px] font-medium text-zinc-500">Referred by {ref.staff_name}</p>
+                                </div>
+                                {ref.patient_phone && (
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const text = `Hi ${ref.patient_name}! This is ${ref.staff_name} from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`;
+                                      window.open(`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-transform"
+                                  >
+                                    <MessageCircle size={12} />
+                                    WhatsApp
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   ))}
                 </div>
@@ -6159,7 +6166,7 @@ export default function App() {
                               required
                               value={editingService?.name || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, name: e.target.value }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               placeholder="e.g. Dental Cleaning"
                             />
                           </div>
@@ -6169,7 +6176,7 @@ export default function App() {
                               <select 
                                 value={editingService?.type || 'Service'}
                                 onChange={(e) => setEditingService(prev => ({ ...prev, type: e.target.value as 'Service' | 'Promotion' }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               >
                                 <option value="Service">Service</option>
                                 <option value="Promotion">Promotion</option>
@@ -6180,7 +6187,7 @@ export default function App() {
                                 className={`flex items-center justify-center gap-2 px-4 py-2 rounded-2xl border transition-all text-[10px] font-black uppercase tracking-widest ${
                                   editingService?.is_featured 
                                     ? 'bg-brand-accent text-white border-brand-accent shadow-lg shadow-brand-accent/20' 
-                                    : darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-500' : 'bg-zinc-50 border-zinc-100 text-zinc-500'
+                                    : darkMode ? 'bg-transparent border-violet-500 text-zinc-500' : 'bg-transparent border-zinc-100 text-zinc-500'
                                 }`}
                               >
                                 {editingService?.is_featured ? <Star size={14} fill="currentColor" /> : <Star size={14} />}
@@ -6195,7 +6202,7 @@ export default function App() {
                           <select 
                             value={editingService?.category || ''}
                             onChange={(e) => setEditingService(prev => ({ ...prev, category: e.target.value }))}
-                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                           >
                             <option value="">Select Category</option>
                             <option value="Health Screenings">Health Screenings</option>
@@ -6228,7 +6235,7 @@ export default function App() {
                                   const d = date.getDate().toString().padStart(2, '0');
                                   setEditingService(prev => ({ ...prev, start_date: `${y}-${m}-${d}` }));
                                 }}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                                 placeholderText="Select start date"
                                 dateFormat="dd/MM/yyyy"
                               />
@@ -6257,7 +6264,7 @@ export default function App() {
                                   const d = date.getDate().toString().padStart(2, '0');
                                   setEditingService(prev => ({ ...prev, end_date: `${y}-${m}-${d}` }));
                                 }}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                                 placeholderText="Select end date"
                                 dateFormat="dd/MM/yyyy"
                               />
@@ -6274,7 +6281,7 @@ export default function App() {
                                 type="time"
                                 value={editingService?.start_time || ''}
                                 onChange={(e) => setEditingService(prev => ({ ...prev, start_time: e.target.value }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               />
                               <Clock className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
                             </div>
@@ -6286,7 +6293,7 @@ export default function App() {
                                 type="time"
                                 value={editingService?.end_time || ''}
                                 onChange={(e) => setEditingService(prev => ({ ...prev, end_time: e.target.value }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               />
                               <Clock className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
                             </div>
@@ -6298,7 +6305,7 @@ export default function App() {
                           <textarea 
                             value={editingService?.description || ''}
                             onChange={(e) => setEditingService(prev => ({ ...prev, description: e.target.value }))}
-                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 min-h-[100px] ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 min-h-[100px] ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                             placeholder="Add more details regarding the service..."
                           />
                         </div>
@@ -6313,7 +6320,7 @@ export default function App() {
                               required
                               value={editingService?.base_price || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, base_price: Number(e.target.value) }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               placeholder="0.00"
                             />
                           </div>
@@ -6323,7 +6330,7 @@ export default function App() {
                               type="number"
                               value={editingService?.promo_price || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, promo_price: e.target.value ? Number(e.target.value) : undefined }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               placeholder="0.00"
                             />
                           </div>
@@ -6337,7 +6344,7 @@ export default function App() {
                               required
                               value={editingService?.commission_rate || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, commission_rate: Number(e.target.value) }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               placeholder="0.00"
                             />
                           </div>
@@ -6347,7 +6354,7 @@ export default function App() {
                               type="number"
                               value={editingService?.aracoins_perk || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, aracoins_perk: Number(e.target.value) }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               placeholder="0"
                             />
                           </div>
@@ -6498,7 +6505,7 @@ export default function App() {
                         <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Existing Services & Promotions</label>
                         <div className="space-y-4 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
                           {services.map(service => (
-                            <div key={service.id} className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-100 hover:border-violet-500'}`}>
+                            <div key={service.id} className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-transparent border-zinc-100 hover:border-violet-500'}`}>
                               <div className="flex justify-between items-start mb-4">
                                 <div>
                                   <div className="flex items-center gap-2 mb-1">
@@ -6625,7 +6632,7 @@ export default function App() {
                       <h3 className={`text-2xl font-bold tracking-tight px-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
                         {category.title}
                       </h3>
-                      <div className="flex overflow-x-auto gap-6 pb-8 px-2 custom-scrollbar snap-x">
+                      <div className="flex overflow-x-auto gap-6 pb-2 px-2 custom-scrollbar flex-nowrap">
                         {filteredServices.map((item) => (
                           <ModernPromotionCard 
                             key={item.id} 
@@ -6649,7 +6656,7 @@ export default function App() {
                   item.branches.includes(currentUser.branch)
                 ).length === 0 && (
                   <div className="col-span-full text-center py-20">
-                    <div className={`w-20 h-20 ${darkMode ? 'bg-zinc-900' : 'bg-zinc-50'} rounded-[2rem] flex items-center justify-center mx-auto mb-6`}>
+                    <div className={`w-20 h-20 ${darkMode ? 'bg-zinc-900' : 'bg-transparent'} rounded-[2rem] flex items-center justify-center mx-auto mb-6`}>
                       <Zap size={32} className="text-zinc-500" />
                     </div>
                     <h3 className={`text-xl font-black tracking-tight mb-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>No active promotions</h3>
@@ -6664,6 +6671,7 @@ export default function App() {
                 isOpen={isPromoModalOpen} 
                 onClose={() => setIsPromoModalOpen(false)} 
                 clinicProfile={clinicProfile}
+                darkMode={darkMode}
               />
             </motion.div>
           )}
