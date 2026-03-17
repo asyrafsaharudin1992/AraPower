@@ -789,7 +789,8 @@ export default function App() {
     if (saved !== null) return saved === 'true';
     return false;
   });
-  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash'>('staff');
+  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash' | 'categories'>('staff');
+  const [serviceCategories, setServiceCategories] = useState<string[]>(['Healthscreening', 'Diagnostic test', 'Vaccination']);
   const [promoSubTab, setPromoSubTab] = useState<'manage'>('manage');
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
   const [selectedPromo, setSelectedPromo] = useState<Service | null>(null);
@@ -6276,10 +6277,9 @@ export default function App() {
                             className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                           >
                             <option value="">Select Category</option>
-                            <option value="Health Screenings">Health Screenings</option>
-                            <option value="Specialist Services">Specialist Services</option>
-                            <option value="General Services">General Services</option>
-                            <option value="Dental Services">Dental Services</option>
+                            {serviceCategories.map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
                           </select>
                         </div>
 
@@ -6672,9 +6672,8 @@ export default function App() {
                 {/* Categories & Carousels */}
                 {[
                   { title: 'Featured', filter: (s: Service) => s.is_featured },
-                  { title: 'Promotions', filter: (s: Service) => s.type === 'Promotion' && !s.is_featured },
-                  { title: 'Health Screenings', filter: (s: Service) => s.type !== 'Promotion' && !s.is_featured && (s.category === 'Health Screenings' || s.name?.toLowerCase()?.includes('screening')) },
-                  { title: 'Other Services', filter: (s: Service) => s.type !== 'Promotion' && !s.is_featured && s.category !== 'Health Screenings' && !s.name?.toLowerCase()?.includes('screening') }
+                  ...serviceCategories.map(cat => ({ title: cat, filter: (s: Service) => s.category === cat && !s.is_featured })),
+                  { title: 'Other Services', filter: (s: Service) => s.type !== 'Promotion' && !s.is_featured && !serviceCategories.includes(s.category || '') }
                 ].map((category, idx) => {
                   const displayServices = services.length > 0 ? services : promotions.map(p => ({
                     id: p.id,
@@ -6714,17 +6713,19 @@ export default function App() {
                         ) : (
                           <div className="flex overflow-x-auto gap-6 pb-4 px-2 scrollbar-hide flex-nowrap">
                             {filteredServices.map((item) => (
-                              <div key={item.id} className="flex-shrink-0 w-64 flex flex-col gap-2">
-                                <ModernPromotionCard 
-                                  item={item} 
-                                  onClick={() => {
-                                    setSelectedPromo(item);
-                                    setIsPromoModalOpen(true);
-                                  }} 
-                                />
+                              <div key={item.id} className="flex-shrink-0 w-[3.2rem] h-[4rem] flex flex-col gap-2">
+                                <div className="scale-[0.2] origin-top-left">
+                                  <ModernPromotionCard 
+                                    item={item} 
+                                    onClick={() => {
+                                      setSelectedPromo(item);
+                                      setIsPromoModalOpen(true);
+                                    }} 
+                                  />
+                                </div>
                                 <div className="px-1">
-                                  <h4 className="text-sm font-bold text-zinc-900 truncate">{item.name}</h4>
-                                  <p className="text-xs text-zinc-500 font-medium">
+                                  <h4 className="text-[6px] font-bold text-zinc-900 truncate">{item.name}</h4>
+                                  <p className="text-[5px] text-zinc-500 font-medium">
                                     {item.promo_price ? `RM${item.promo_price}` : `RM${item.base_price || 0}`}
                                   </p>
                                 </div>
@@ -6820,8 +6821,40 @@ export default function App() {
                 >
                   Trash Bin
                 </button>
+                <button 
+                  onClick={() => setSetupSubTab('categories')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'categories' ? 'bg-brand-primary text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  Categories
+                </button>
               </div>
 
+              {setupSubTab === 'categories' && (
+                <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+                  <h3 className="font-semibold mb-6">Service Categories</h3>
+                  <div className="space-y-4">
+                    {serviceCategories.map((cat, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl">
+                        <span>{cat}</span>
+                        <button onClick={() => setServiceCategories(prev => prev.filter((_, i) => i !== idx))} className="text-rose-500">Remove</button>
+                      </div>
+                    ))}
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        placeholder="New category name"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            setServiceCategories(prev => [...prev, e.currentTarget.value]);
+                            e.currentTarget.value = '';
+                          }
+                        }}
+                        className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
               {setupSubTab === 'staff' ? (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   <div className="lg:col-span-1">
