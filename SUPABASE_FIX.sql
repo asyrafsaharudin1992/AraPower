@@ -91,6 +91,9 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='services' AND column_name='aracoins_perk') THEN
         ALTER TABLE services ADD COLUMN aracoins_perk NUMERIC DEFAULT 0;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='services' AND column_name='category') THEN
+        ALTER TABLE services ADD COLUMN category TEXT;
+    END IF;
 END $$;
 
 -- 3.5 Ensure the 'referrals' table has all necessary columns

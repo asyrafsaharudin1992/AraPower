@@ -526,7 +526,10 @@ const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDelet
       {/* Admin Controls */}
       {currentUser.role === 'admin' && (
         <div className="flex justify-end gap-2 mt-4 px-2">
-          <button onClick={() => setEditingService(item)} className="p-2 rounded-xl bg-twilight-indigo/5 text-twilight-indigo hover:bg-twilight-indigo/10 transition-colors">
+          <button onClick={() => {
+            setEditingService(item);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }} className="p-2 rounded-xl bg-twilight-indigo/5 text-twilight-indigo hover:bg-twilight-indigo/10 transition-colors">
             <Edit2 size={16} />
           </button>
           <button onClick={() => handleDeleteService(item.id)} className="p-2 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors">
@@ -1904,15 +1907,22 @@ export default function App() {
   const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingService?.name) return;
-    console.log('Saving service, editingService:', JSON.stringify(editingService, null, 2));
+    
+    // Ensure allowances is an object, not undefined
+    const serviceToSave = {
+      ...editingService,
+      allowances: editingService.allowances || {}
+    };
+    
+    console.log('Saving service, serviceToSave:', JSON.stringify(serviceToSave, null, 2));
     setIsSavingSetup(true);
     try {
-      const method = editingService.id ? 'PATCH' : 'POST';
-      const url = editingService.id ? `${apiBaseUrl}/api/services/${editingService.id}` : `${apiBaseUrl}/api/services`;
+      const method = serviceToSave.id ? 'PATCH' : 'POST';
+      const url = serviceToSave.id ? `${apiBaseUrl}/api/services/${serviceToSave.id}` : `${apiBaseUrl}/api/services`;
       const { res, data } = await safeFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingService)
+        body: JSON.stringify(serviceToSave)
       });
       if (res.ok) {
         setEditingService(null);
@@ -6195,7 +6205,7 @@ export default function App() {
                               required
                               value={editingService?.name || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, name: e.target.value }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               placeholder="e.g. Dental Cleaning"
                             />
                           </div>
@@ -6205,7 +6215,7 @@ export default function App() {
                               <select 
                                 value={editingService?.type || 'Service'}
                                 onChange={(e) => setEditingService(prev => ({ ...prev, type: e.target.value as 'Service' | 'Promotion' }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               >
                                 <option value="Service">Service</option>
                                 <option value="Promotion">Promotion</option>
@@ -6231,7 +6241,7 @@ export default function App() {
                           <select 
                             value={editingService?.category || ''}
                             onChange={(e) => setEditingService(prev => ({ ...prev, category: e.target.value }))}
-                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                           >
                             <option value="">Select Category</option>
                             <option value="Health Screenings">Health Screenings</option>
@@ -6264,7 +6274,7 @@ export default function App() {
                                   const d = date.getDate().toString().padStart(2, '0');
                                   setEditingService(prev => ({ ...prev, start_date: `${y}-${m}-${d}` }));
                                 }}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                                 placeholderText="Select start date"
                                 dateFormat="dd/MM/yyyy"
                               />
@@ -6293,7 +6303,7 @@ export default function App() {
                                   const d = date.getDate().toString().padStart(2, '0');
                                   setEditingService(prev => ({ ...prev, end_date: `${y}-${m}-${d}` }));
                                 }}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                                 placeholderText="Select end date"
                                 dateFormat="dd/MM/yyyy"
                               />
@@ -6349,7 +6359,7 @@ export default function App() {
                               required
                               value={editingService?.base_price || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, base_price: Number(e.target.value) }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               placeholder="0.00"
                             />
                           </div>
@@ -6359,7 +6369,7 @@ export default function App() {
                               type="number"
                               value={editingService?.promo_price || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, promo_price: e.target.value ? Number(e.target.value) : undefined }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               placeholder="0.00"
                             />
                           </div>
@@ -6373,7 +6383,7 @@ export default function App() {
                               required
                               value={editingService?.commission_rate || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, commission_rate: Number(e.target.value) }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               placeholder="0.00"
                             />
                           </div>
@@ -6383,7 +6393,7 @@ export default function App() {
                               type="number"
                               value={editingService?.aracoins_perk || ''}
                               onChange={(e) => setEditingService(prev => ({ ...prev, aracoins_perk: Number(e.target.value) }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                               placeholder="0"
                             />
                           </div>
@@ -6587,7 +6597,10 @@ export default function App() {
                                   )}
                                 </div>
                                 <div className="flex gap-1">
-                                  <button onClick={() => setEditingService(service)} className="p-2 text-zinc-500 hover:text-zinc-900 transition-colors">
+                                  <button onClick={() => {
+                                    setEditingService(service);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                  }} className="p-2 text-zinc-500 hover:text-zinc-900 transition-colors">
                                     <Edit2 size={14} />
                                   </button>
                                   <button onClick={() => handleDeleteService(service.id)} className="p-2 text-zinc-500 hover:text-zinc-900 transition-colors">

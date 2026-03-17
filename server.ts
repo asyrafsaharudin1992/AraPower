@@ -166,7 +166,7 @@ class MockQuery {
 
 let supabase: any = null;
 let referralColumns: Set<string> = new Set([
-  'id', 'staff_id', 'service_id', 'patient_name', 'status',
+  'id', 'staff_id', 'service_id', 'patient_name', 'status', 'date',
   'patient_phone', 'patient_ic', 'patient_address', 'patient_type',
   'appointment_date', 'booking_time', 'fraud_flags', 'created_by',
   'branch', 'aracoins_perk'
@@ -174,7 +174,7 @@ let referralColumns: Set<string> = new Set([
 let serviceColumns: Set<string> = new Set([
   'id', 'name', 'base_price', 'commission_rate', 'allowances_json', 
   'description', 'image_url', 'promo_price', 'type', 'branches', 
-  'start_date', 'end_date', 'start_time', 'end_time', 'is_featured', 'aracoins_perk'
+  'start_date', 'end_date', 'start_time', 'end_time', 'is_featured', 'aracoins_perk', 'category'
 ]);
 let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'promo_code']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
@@ -1423,7 +1423,7 @@ app.get("/api/services", async (req, res) => {
 });
 
 app.post("/api/services", async (req, res) => {
-  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category } = req.body;
   
   const insertData: any = {
     name,
@@ -1432,6 +1432,7 @@ app.post("/api/services", async (req, res) => {
     allowances_json: JSON.stringify(allowances || {})
   };
 
+  if (category !== undefined && serviceColumns.has('category')) insertData.category = category;
   if (description !== undefined && serviceColumns.has('description')) insertData.description = description;
   if (image_url !== undefined && serviceColumns.has('image_url')) insertData.image_url = image_url;
   if (serviceColumns.has('promo_price')) insertData.promo_price = promo_price === undefined ? null : promo_price;
@@ -1473,33 +1474,33 @@ app.post("/api/services", async (req, res) => {
 
 app.patch("/api/services/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category } = req.body;
   
-  const updateData: any = {
-    name,
-    base_price: base_price !== undefined ? base_price : 0,
-    commission_rate: commission_rate !== undefined ? commission_rate : 0,
-    allowances_json: JSON.stringify(allowances || {})
-  };
+  const updateData: any = {};
 
+  if (name !== undefined) updateData.name = name;
+  if (base_price !== undefined) updateData.base_price = base_price;
+  if (commission_rate !== undefined) updateData.commission_rate = commission_rate;
+  if (allowances !== undefined) updateData.allowances_json = JSON.stringify(allowances);
+  if (category !== undefined && serviceColumns.has('category')) updateData.category = category;
   if (description !== undefined && serviceColumns.has('description')) updateData.description = description;
   if (image_url !== undefined && serviceColumns.has('image_url')) updateData.image_url = image_url;
-  if (serviceColumns.has('promo_price')) updateData.promo_price = promo_price === undefined ? null : promo_price;
+  if (promo_price !== undefined && serviceColumns.has('promo_price')) updateData.promo_price = promo_price;
   if (type !== undefined && serviceColumns.has('type')) updateData.type = type;
-  if (serviceColumns.has('branches')) updateData.branches = JSON.stringify(branches || []);
-  if (serviceColumns.has('start_date')) updateData.start_date = start_date || null;
-  if (serviceColumns.has('end_date')) updateData.end_date = end_date || null;
-  if (serviceColumns.has('start_time')) updateData.start_time = start_time || null;
-  if (serviceColumns.has('end_time')) updateData.end_time = end_time || null;
+  if (branches !== undefined && serviceColumns.has('branches')) updateData.branches = JSON.stringify(branches);
+  if (start_date !== undefined && serviceColumns.has('start_date')) updateData.start_date = start_date;
+  if (end_date !== undefined && serviceColumns.has('end_date')) updateData.end_date = end_date;
+  if (start_time !== undefined && serviceColumns.has('start_time')) updateData.start_time = start_time;
+  if (end_time !== undefined && serviceColumns.has('end_time')) updateData.end_time = end_time;
   if (is_featured !== undefined && serviceColumns.has('is_featured')) updateData.is_featured = is_featured;
-  if (serviceColumns.has('aracoins_perk')) {
-    updateData.aracoins_perk = aracoins_perk || 0;
-  }
+  if (aracoins_perk !== undefined && serviceColumns.has('aracoins_perk')) updateData.aracoins_perk = aracoins_perk;
+
+  console.log(`PATCH /api/services/${id} - Update Data:`, JSON.stringify(updateData, null, 2));
 
   const { error } = await supabase
     .from('services')
     .update(updateData)
-    .eq('id', id);
+    .eq('id', Number(id));
     
   if (error) {
     console.error('Supabase update error:', error);
@@ -1517,11 +1518,11 @@ app.patch("/api/services/:id", async (req, res) => {
 
 app.delete("/api/services/:id", async (req, res) => {
   const { id } = req.params;
-  const { error } = await supabase.from('services').delete().eq('id', id);
+  const { error } = await supabase.from('services').delete().eq('id', Number(id));
   if (error) {
     // If delete fails (likely due to foreign key constraints), soft delete by changing type
     if (serviceColumns.has('type')) {
-      const { error: updateError } = await supabase.from('services').update({ type: 'Deleted' }).eq('id', id);
+      const { error: updateError } = await supabase.from('services').update({ type: 'Deleted' }).eq('id', Number(id));
       if (updateError) return res.status(500).json({ error: updateError.message });
     } else {
       return res.status(500).json({ error: "Cannot delete service because it is referenced by existing referrals. Soft delete failed because 'type' column is missing." });
