@@ -1538,8 +1538,9 @@ app.get("/api/schema", (req, res) => {
 app.get("/api/referrals", async (req, res) => {
   const { staffId, branch, requesterRole, requesterBranch } = req.query;
   
-  const baseColumns = Array.from(referralColumns).length > 0 
-    ? Array.from(referralColumns).join(',') 
+  const filteredColumns = Array.from(referralColumns).filter(col => col !== 'staff' && col !== 'service');
+  const baseColumns = filteredColumns.length > 0 
+    ? filteredColumns.join(',') 
     : 'id, patient_name, status, staff_id';
   
   let selectColumns = baseColumns;
