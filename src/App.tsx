@@ -6634,8 +6634,8 @@ export default function App() {
                 {/* Categories & Carousels */}
                 {[
                   { title: 'Featured', filter: (s: Service) => s.is_featured },
-                  ...serviceCategories.map(cat => ({ title: cat, filter: (s: Service) => s.category === cat && !s.is_featured })),
-                  { title: 'Other Services', filter: (s: Service) => s.type !== 'Promotion' && !s.is_featured && !serviceCategories.includes(s.category || '') }
+                  ...serviceCategories.map(cat => ({ title: cat, filter: (s: Service) => (s.category || '').replace(/\s+/g, '').toLowerCase() === cat.replace(/\s+/g, '').toLowerCase() && !s.is_featured })),
+                  { title: 'Other Services', filter: (s: Service) => s.type !== 'Promotion' && !s.is_featured && !serviceCategories.map(c => c.replace(/\s+/g, '').toLowerCase()).includes((s.category || '').replace(/\s+/g, '').toLowerCase()) }
                 ].map((category, idx) => {
                   const displayServices = services.length > 0 ? services : promotions.map(p => ({
                     id: p.id,
@@ -6651,7 +6651,7 @@ export default function App() {
                     branches: []
                   } as Service));
 
-                  const filteredServices = displayServices.filter(item => 
+                  let filteredServices = displayServices.filter(item => 
                     (currentUser.role === 'admin' || 
                     !item.branches ||
                     item.branches.length === 0 || 
@@ -6660,20 +6660,27 @@ export default function App() {
                     category.filter(item)
                   );
 
-                  if (filteredServices.length === 0) return null;
+                  if (filteredServices.length === 0) {
+                    filteredServices = [
+                      { id: -1, name: `${category.title} Coming Soon`, base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'Stay tuned for more services in this category.' },
+                      { id: -2, name: 'More info coming', base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'We are working on adding new services.' },
+                    ] as Service[];
+                  }
 
                   return (
                     <div key={idx} className="space-y-6">
                       <h3 className={`text-2xl font-bold tracking-tight px-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
                         {category.title}
                       </h3>
-{isMobile ? (
+                      {isMobile ? (
                           <PromotionsCarousel 
                             size={idx === 0 ? 'large' : 'small'}
                             items={filteredServices} 
                             onClick={(item) => {
-                              setSelectedPromo(item);
-                              setIsPromoModalOpen(true);
+                              if (item.id > 0) {
+                                setSelectedPromo(item);
+                                setIsPromoModalOpen(true);
+                              }
                             }} 
                           />
                         ) : (
@@ -6684,8 +6691,10 @@ export default function App() {
                                   <ModernPromotionCard 
                                     item={item} 
                                     onClick={() => {
-                                      setSelectedPromo(item);
-                                      setIsPromoModalOpen(true);
+                                      if (item.id > 0) {
+                                        setSelectedPromo(item);
+                                        setIsPromoModalOpen(true);
+                                      }
                                     }} 
                                   />
                                 </div>

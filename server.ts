@@ -1398,9 +1398,7 @@ app.delete("/api/staff/:id/permanent", async (req, res) => {
 });
 
 app.get("/api/services", async (req, res) => {
-  const selectColumns = Array.from(serviceColumns).length > 0 
-    ? Array.from(serviceColumns).join(',') 
-    : 'id, name, base_price, commission_rate, allowances_json';
+  const selectColumns = Array.from(new Set([...Array.from(serviceColumns), 'category'])).join(',');
 
   let query = supabase.from('services').select(selectColumns);
   if (serviceColumns.has('type')) {
