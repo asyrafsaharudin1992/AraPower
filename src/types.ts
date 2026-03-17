@@ -15,6 +15,10 @@ export interface Service {
   end_date?: string;
   start_time?: string;
   end_time?: string;
+  days_of_week?: string[];
+  blocked_dates?: string[];
+  blocked_times?: {start: string, end: string}[];
+  block_weekends?: boolean;
   is_featured?: boolean;
 }
 

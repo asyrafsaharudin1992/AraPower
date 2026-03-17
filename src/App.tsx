@@ -138,6 +138,10 @@ interface Service {
   end_date?: string;
   start_time?: string;
   end_time?: string;
+  days_of_week?: string[];
+  blocked_dates?: string[];
+  blocked_times?: {start: string, end: string}[];
+  block_weekends?: boolean;
   is_featured?: boolean;
 }
 
@@ -818,6 +822,8 @@ export default function App() {
   });
   const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash' | 'categories'>('staff');
   const [serviceCategories, setServiceCategories] = useState<string[]>(['Healthscreening', 'Diagnostic test', 'Vaccination']);
+  const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
+  const [editingCategoryValue, setEditingCategoryValue] = useState<string>('');
   const [promoSubTab, setPromoSubTab] = useState<'manage'>('manage');
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
   const [selectedPromo, setSelectedPromo] = useState<Service | null>(null);
@@ -3384,62 +3390,31 @@ export default function App() {
                 {/* Stats & Services Column */}
                 {(currentUser.role === 'staff' || currentUser.role === 'admin') && (
                   <div className="space-y-6">
-                    {/* Latest Promotion Slideshow (Mobile Only) */}
-                    {isMobile && services.filter(s => s.is_featured).length > 0 && (
-                      <div className="relative overflow-hidden bg-brand-surface p-8 rounded-[2.5rem] border border-violet-500 shadow-sm min-h-[200px] flex flex-col justify-center">
-                        <div className="absolute top-8 left-8 flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-brand-accent animate-pulse" />
-                          <p className="text-brand-accent text-[10px] font-black uppercase tracking-widest">Latest Promotion</p>
-                        </div>
-                        
-                        <AnimatePresence mode="wait">
-                          <motion.div
-                            key={featuredIndex}
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            className="mt-4"
-                          >
-                            {(() => {
-                              const featured = services.filter(s => s.is_featured);
-                              const item = featured[featuredIndex];
-                              if (!item) return null;
-                              return (
-                                <>
-                                  <h3 className="text-zinc-900 text-2xl font-black leading-tight mb-2 line-clamp-2">
-                                    {item.name}
-                                  </h3>
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                                      <Tag size={10} />
-                                      {item.type || 'Service'}
-                                    </div>
-                                    {item.promo_price && (
-                                      <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-900">
-                                        <Zap size={10} />
-                                        Special Offer
-                                      </div>
-                                    )}
-                                  </div>
-                                </>
-                              );
-                            })()}
-                          </motion.div>
-                        </AnimatePresence>
-                        
-                        {/* Indicators */}
-                        <div className="absolute bottom-8 left-8 flex gap-1.5">
-                          {services.filter(s => s.is_featured).map((_, idx) => (
-                            <div 
-                              key={idx}
-                              className={`h-1 rounded-full transition-all duration-500 ${idx === featuredIndex ? 'w-6 bg-brand-accent' : 'w-1.5 bg-violet-500/20'}`}
-                            />
-                          ))}
+                    {/* Main Card: Earnings Breakdown - Dark Design */}
+                    {isMobile && (
+                      <div className="relative overflow-hidden bg-brand-primary p-8 rounded-[2.5rem] shadow-2xl shadow-brand-primary/20">
+                        <div className="relative flex items-center justify-between">
+                          <div className="max-w-[60%]">
+                            <p className="text-white text-[10px] font-black uppercase tracking-widest mb-1">Lifetime Earning</p>
+                            <h3 className="text-white text-3xl font-black leading-tight mb-4">
+                              {clinicProfile.currency}{(currentUserStats?.lifetime_earnings || 0).toFixed(0)}
+                            </h3>
+                            <button 
+                              onClick={() => setActiveTab('referrals')}
+                              className="px-6 py-2.5 bg-brand-accent text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-brand-accent/20 active:scale-95 transition-transform"
+                            >
+                              View History
+                            </button>
+                          </div>
+                          
+                          <div className="relative w-24 h-24 flex items-center justify-center">
+                            <Trophy className="text-brand-accent" size={48} />
+                          </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Main Card: Earnings Breakdown - Dark Design */}
+                    {/* Main Card: Featured Services */}
                     {isMobile && (
                       <CategoryScrollRow 
                         title="Featured Services" 
@@ -3449,102 +3424,6 @@ export default function App() {
                           setIsPromoModalOpen(true);
                         }}
                       />
-                    )}
-                    <div className="relative overflow-hidden bg-brand-primary p-8 rounded-[2.5rem] shadow-2xl shadow-brand-primary/20">
-                      <div className="relative flex items-center justify-between">
-                        <div className="max-w-[60%]">
-                          <p className="text-white text-[10px] font-black uppercase tracking-widest mb-1">Lifetime Earning</p>
-                          <h3 className="text-white text-3xl font-black leading-tight mb-4">
-                            {clinicProfile.currency}{(currentUserStats?.lifetime_earnings || 0).toFixed(0)}
-                          </h3>
-                          <button 
-                            onClick={() => setActiveTab('referrals')}
-                            className="px-6 py-2.5 bg-brand-accent text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-brand-accent/20 active:scale-95 transition-transform"
-                          >
-                            View History
-                          </button>
-                        </div>
-                        
-                        <div className="relative w-24 h-24 flex items-center justify-center">
-                          <Trophy className="text-brand-accent" size={48} />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Service Catalog Slideshow Widget */}
-                    {services.length > 0 && (
-                      <button 
-                        onClick={() => setActiveTab('promotions')}
-                        className="w-full text-left bg-brand-primary rounded-[2.5rem] p-8 relative overflow-hidden shadow-2xl shadow-brand-primary/20 group active:scale-[0.98] transition-all"
-                      >
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-accent/10 rounded-full blur-[100px] -mr-32 -mt-32" />
-                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-brand-accent/5 rounded-full blur-[80px] -ml-24 -mb-24" />
-                        
-                        <div className="relative z-10">
-                          <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-2xl bg-brand-accent/20 flex items-center justify-center">
-                                <Stethoscope className="text-brand-accent" size={20} />
-                              </div>
-                              <div>
-                                <h3 className="text-white font-black text-lg tracking-tight">Service Catalog</h3>
-                                <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Explore our offerings</p>
-                              </div>
-                            </div>
-                            <div className="flex gap-1">
-                              {services.map((_, idx) => (
-                                <div
-                                  key={idx}
-                                  className={`h-1 rounded-full transition-all duration-500 ${idx === serviceSlideshowIndex ? 'w-6 bg-brand-accent' : 'w-2 bg-violet-500/20'}`}
-                                />
-                              ))}
-                            </div>
-                          </div>
-
-                          <AnimatePresence mode="wait">
-                            <motion.div
-                              key={serviceSlideshowIndex}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              className="space-y-4"
-                            >
-                              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-accent/10 border border-brand-accent/20">
-                                <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
-                                <span className="text-brand-accent text-[10px] font-black uppercase tracking-widest">
-                                  {services[serviceSlideshowIndex].type || 'General Service'}
-                                </span>
-                              </div>
-                              <h2 className="text-2xl font-black text-white tracking-tighter leading-tight">
-                                {services[serviceSlideshowIndex].name}
-                              </h2>
-                              <p className="text-white/60 text-xs leading-relaxed line-clamp-2">
-                                {services[serviceSlideshowIndex].description || 'High-quality healthcare service provided by our expert medical team.'}
-                              </p>
-                              <div className="flex items-center justify-between pt-2">
-                                <div className="flex items-center gap-4">
-                                  <div>
-                                    <p className="text-white/40 text-[8px] font-bold uppercase tracking-widest mb-0.5">Price</p>
-                                    <p className="text-white text-sm font-black">
-                                      {clinicProfile.currency}{services[serviceSlideshowIndex].base_price.toFixed(0)}
-                                    </p>
-                                  </div>
-                                  <div className="w-px h-6 bg-white/10" />
-                                  <div>
-                                    <p className="text-white/40 text-[8px] font-bold uppercase tracking-widest mb-0.5">Incentive</p>
-                                    <p className="text-brand-accent text-sm font-black">
-                                      {clinicProfile.currency}{services[serviceSlideshowIndex].commission_rate.toFixed(0)}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white group-hover:bg-brand-accent group-hover:text-white transition-colors">
-                                  <ArrowRight size={16} />
-                                </div>
-                              </div>
-                            </motion.div>
-                          </AnimatePresence>
-                        </div>
-                      </button>
                     )}
 
                     {/* Service Performance - Approved Commissions */}
@@ -6409,10 +6288,54 @@ export default function App() {
                               <Clock className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
                             </div>
                           </div>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Days of Week</label>
+                            <div className="flex flex-wrap gap-2">
+                              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                                <button
+                                  key={day}
+                                  type="button"
+                                  onClick={() => {
+                                    const currentDays = editingService?.days_of_week || [];
+                                    const newDays = currentDays.includes(day)
+                                      ? currentDays.filter(d => d !== day)
+                                      : [...currentDays, day];
+                                    setEditingService(prev => ({ ...prev, days_of_week: newDays }));
+                                  }}
+                                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                                    (editingService?.days_of_week || []).includes(day)
+                                      ? (darkMode ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white')
+                                      : (darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-100 text-zinc-500')
+                                  }`}
+                                >
+                                  {day}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase ml-1">
+                              <input 
+                                type="checkbox"
+                                checked={editingService?.block_weekends || false}
+                                onChange={(e) => setEditingService(prev => ({ ...prev, block_weekends: e.target.checked }))}
+                                className="rounded border-zinc-300 text-brand-primary focus:ring-brand-primary"
+                              />
+                              Block Weekends
+                            </label>
+                          </div>
                         </div>
 
                         <div className="space-y-2">
-                          <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Description</label>
+                          <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Blocked Dates (comma separated YYYY-MM-DD)</label>
+                          <input 
+                            type="text"
+                            value={editingService?.blocked_dates?.join(', ') || ''}
+                            onChange={(e) => setEditingService(prev => ({ ...prev, blocked_dates: e.target.value.split(',').map(d => d.trim()).filter(Boolean) }))}
+                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+                            placeholder="e.g. 2026-03-25, 2026-04-01"
+                          />
+                        </div>
                           <textarea 
                             value={editingService?.description || ''}
                             onChange={(e) => setEditingService(prev => ({ ...prev, description: e.target.value }))}
@@ -6609,9 +6532,8 @@ export default function App() {
                             </button>
                           )}
                         </div>
-                      </div>
 
-                      {/* List Section */}
+                        {/* List Section */}
                       <div className="space-y-6">
                         <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Existing Services & Promotions</label>
                         <div className="space-y-4 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
@@ -6746,10 +6668,14 @@ export default function App() {
                         {category.title}
                       </h3>
 {isMobile ? (
-                          <PromotionsCarousel items={filteredServices} onClick={(item) => {
-                            setSelectedPromo(item);
-                            setIsPromoModalOpen(true);
-                          }} />
+                          <PromotionsCarousel 
+                            size={idx === 0 ? 'large' : 'small'}
+                            items={filteredServices} 
+                            onClick={(item) => {
+                              setSelectedPromo(item);
+                              setIsPromoModalOpen(true);
+                            }} 
+                          />
                         ) : (
                           <div className="flex overflow-x-auto gap-6 pb-4 px-2 scrollbar-hide flex-nowrap">
                             {filteredServices.map((item) => (
@@ -6875,8 +6801,35 @@ export default function App() {
                   <div className="space-y-4">
                     {serviceCategories.map((cat, idx) => (
                       <div key={idx} className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl">
-                        <span>{cat}</span>
-                        <button onClick={() => setServiceCategories(prev => prev.filter((_, i) => i !== idx))} className="text-rose-500">Remove</button>
+                        {editingCategoryIndex === idx ? (
+                          <input 
+                            value={editingCategoryValue}
+                            onChange={(e) => setEditingCategoryValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                setServiceCategories(prev => prev.map((c, i) => i === idx ? editingCategoryValue : c));
+                                setEditingCategoryIndex(null);
+                              }
+                            }}
+                            className="px-2 py-1 rounded border"
+                          />
+                        ) : (
+                          <span>{cat}</span>
+                        )}
+                        <div className="flex gap-2">
+                          {editingCategoryIndex === idx ? (
+                            <button onClick={() => {
+                              setServiceCategories(prev => prev.map((c, i) => i === idx ? editingCategoryValue : c));
+                              setEditingCategoryIndex(null);
+                            }} className="text-emerald-600">Save</button>
+                          ) : (
+                            <button onClick={() => {
+                              setEditingCategoryIndex(idx);
+                              setEditingCategoryValue(cat);
+                            }} className="text-blue-600">Edit</button>
+                          )}
+                          <button onClick={() => setServiceCategories(prev => prev.filter((_, i) => i !== idx))} className="text-rose-500">Remove</button>
+                        </div>
                       </div>
                     ))}
                     <div className="flex gap-2">
