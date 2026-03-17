@@ -55,11 +55,76 @@ BEGIN
     END IF;
 END $$;
 
--- 3. Ensure the 'services' table has the 'is_featured' column if it's missing
+-- 3. Ensure the 'services' table has all necessary columns
 DO $$ 
 BEGIN 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='services' AND column_name='is_featured') THEN
         ALTER TABLE services ADD COLUMN is_featured BOOLEAN DEFAULT false;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='services' AND column_name='image_url') THEN
+        ALTER TABLE services ADD COLUMN image_url TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='services' AND column_name='description') THEN
+        ALTER TABLE services ADD COLUMN description TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='services' AND column_name='promo_price') THEN
+        ALTER TABLE services ADD COLUMN promo_price NUMERIC;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='services' AND column_name='type') THEN
+        ALTER TABLE services ADD COLUMN type TEXT DEFAULT 'Service';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='services' AND column_name='branches') THEN
+        ALTER TABLE services ADD COLUMN branches JSONB DEFAULT '[]'::jsonb;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='services' AND column_name='start_date') THEN
+        ALTER TABLE services ADD COLUMN start_date DATE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='services' AND column_name='end_date') THEN
+        ALTER TABLE services ADD COLUMN end_date DATE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='services' AND column_name='start_time') THEN
+        ALTER TABLE services ADD COLUMN start_time TIME;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='services' AND column_name='end_time') THEN
+        ALTER TABLE services ADD COLUMN end_time TIME;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='services' AND column_name='aracoins_perk') THEN
+        ALTER TABLE services ADD COLUMN aracoins_perk NUMERIC DEFAULT 0;
+    END IF;
+END $$;
+
+-- 3.5 Ensure the 'referrals' table has all necessary columns
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='patient_phone') THEN
+        ALTER TABLE referrals ADD COLUMN patient_phone TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='patient_ic') THEN
+        ALTER TABLE referrals ADD COLUMN patient_ic TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='patient_address') THEN
+        ALTER TABLE referrals ADD COLUMN patient_address TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='patient_type') THEN
+        ALTER TABLE referrals ADD COLUMN patient_type TEXT DEFAULT 'new';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='appointment_date') THEN
+        ALTER TABLE referrals ADD COLUMN appointment_date DATE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='booking_time') THEN
+        ALTER TABLE referrals ADD COLUMN booking_time TIME;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='fraud_flags') THEN
+        ALTER TABLE referrals ADD COLUMN fraud_flags JSONB DEFAULT '[]'::jsonb;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='created_by') THEN
+        ALTER TABLE referrals ADD COLUMN created_by BIGINT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='branch') THEN
+        ALTER TABLE referrals ADD COLUMN branch TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='aracoins_perk') THEN
+        ALTER TABLE referrals ADD COLUMN aracoins_perk NUMERIC DEFAULT 0;
     END IF;
 END $$;
 

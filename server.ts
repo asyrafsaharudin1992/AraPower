@@ -165,8 +165,17 @@ class MockQuery {
 }
 
 let supabase: any = null;
-let referralColumns: Set<string> = new Set(['id', 'staff_id', 'service_id', 'patient_name', 'status']);
-let serviceColumns: Set<string> = new Set(['name', 'base_price', 'commission_rate', 'allowances_json']);
+let referralColumns: Set<string> = new Set([
+  'id', 'staff_id', 'service_id', 'patient_name', 'status',
+  'patient_phone', 'patient_ic', 'patient_address', 'patient_type',
+  'appointment_date', 'booking_time', 'fraud_flags', 'created_by',
+  'branch', 'aracoins_perk'
+]);
+let serviceColumns: Set<string> = new Set([
+  'id', 'name', 'base_price', 'commission_rate', 'allowances_json', 
+  'description', 'image_url', 'promo_price', 'type', 'branches', 
+  'start_date', 'end_date', 'start_time', 'end_time', 'is_featured', 'aracoins_perk'
+]);
 let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'promo_code']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
 let branchColumns: Set<string> = new Set(['id', 'name', 'location']);
