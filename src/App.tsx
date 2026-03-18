@@ -4,6 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 import React, { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import { PromotionsCarousel } from './components/PromotionsCarousel';
+import AddServiceForm from './components/AddServiceForm';
 import { 
   Users, 
   PlusCircle, 
@@ -821,7 +822,7 @@ export default function App() {
     return false;
   });
   const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash' | 'categories'>('staff');
-  const [serviceCategories, setServiceCategories] = useState<string[]>(['Healthscreening', 'Diagnostic test', 'Vaccination']);
+  const [serviceCategories, setServiceCategories] = useState<string[]>(['Health screening', 'Diagnostic test', 'Vaccination']);
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
   const [editingCategoryValue, setEditingCategoryValue] = useState<string>('');
   const [promoSubTab, setPromoSubTab] = useState<'manage'>('manage');
@@ -1422,6 +1423,8 @@ export default function App() {
     if (res.ok && Array.isArray(data)) {
       console.log(`Fetched ${data?.length || 0} services from backend`);
       setServices(data);
+      const newCategories = Array.from(new Set(data.map((s: Service) => s.category).filter(Boolean)));
+      setServiceCategories(prev => Array.from(new Set([...prev, ...newCategories])));
     } else {
       console.error('Failed to fetch services', data);
     }
@@ -6146,393 +6149,18 @@ export default function App() {
                       </div>
                     </div>
 
-                    <form onSubmit={handleSaveService} className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                      {/* Form Section */}
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Name / Title</label>
-                            <input 
-                              type="text"
-                              required
-                              value={editingService?.name || ''}
-                              onChange={(e) => setEditingService(prev => ({ ...prev, name: e.target.value }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                              placeholder="e.g. Dental Cleaning"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Type</label>
-                            <div className="grid grid-cols-2 gap-2">
-                              <select 
-                                value={editingService?.type || 'Service'}
-                                onChange={(e) => setEditingService(prev => ({ ...prev, type: e.target.value as 'Service' | 'Promotion' }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                              >
-                                <option value="Service">Service</option>
-                                <option value="Promotion">Promotion</option>
-                              </select>
-                              <button
-                                type="button"
-                                onClick={() => setEditingService(prev => ({ ...prev, is_featured: !prev?.is_featured }))}
-                                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-2xl border transition-all text-[10px] font-black uppercase tracking-widest ${
-                                  editingService?.is_featured 
-                                    ? 'bg-brand-accent text-white border-brand-accent shadow-lg shadow-brand-accent/20' 
-                                    : darkMode ? 'bg-transparent border-violet-500 text-zinc-500' : 'bg-transparent border-zinc-100 text-zinc-500'
-                                }`}
-                              >
-                                {editingService?.is_featured ? <Star size={14} fill="currentColor" /> : <Star size={14} />}
-                                {editingService?.is_featured ? 'Featured' : 'Normal'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Category</label>
-                          <select 
-                            value={editingService?.category || ''}
-                            onChange={(e) => setEditingService(prev => ({ ...prev, category: e.target.value }))}
-                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium appearance-none focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                          >
-                            <option value="">Select Category</option>
-                            {serviceCategories.map(cat => (
-                              <option key={cat} value={cat}>{cat}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Start Date</label>
-                            <div className="relative">
-                              <DatePicker
-                                selected={editingService?.start_date ? (() => {
-                                  const d = editingService.start_date;
-                                  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-                                    const [y, m, day] = d.split('-').map(Number);
-                                    return new Date(y, m - 1, day);
-                                  }
-                                  return new Date(d);
-                                })() : null}
-                                onChange={(date: Date | null) => {
-                                  if (!date) {
-                                    setEditingService(prev => ({ ...prev, start_date: undefined }));
-                                    return;
-                                  }
-                                  const y = date.getFullYear();
-                                  const m = (date.getMonth() + 1).toString().padStart(2, '0');
-                                  const d = date.getDate().toString().padStart(2, '0');
-                                  setEditingService(prev => ({ ...prev, start_date: `${y}-${m}-${d}` }));
-                                }}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                                placeholderText="Select start date"
-                                dateFormat="dd/MM/yyyy"
-                              />
-                              <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">End Date</label>
-                            <div className="relative">
-                              <DatePicker
-                                selected={editingService?.end_date ? (() => {
-                                  const d = editingService.end_date;
-                                  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-                                    const [y, m, day] = d.split('-').map(Number);
-                                    return new Date(y, m - 1, day);
-                                  }
-                                  return new Date(d);
-                                })() : null}
-                                onChange={(date: Date | null) => {
-                                  if (!date) {
-                                    setEditingService(prev => ({ ...prev, end_date: undefined }));
-                                    return;
-                                  }
-                                  const y = date.getFullYear();
-                                  const m = (date.getMonth() + 1).toString().padStart(2, '0');
-                                  const d = date.getDate().toString().padStart(2, '0');
-                                  setEditingService(prev => ({ ...prev, end_date: `${y}-${m}-${d}` }));
-                                }}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                                placeholderText="Select end date"
-                                dateFormat="dd/MM/yyyy"
-                              />
-                              <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Start Time</label>
-                            <div className="relative">
-                              <input 
-                                type="time"
-                                value={editingService?.start_time || ''}
-                                onChange={(e) => setEditingService(prev => ({ ...prev, start_time: e.target.value }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                              />
-                              <Clock className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">End Time</label>
-                            <div className="relative">
-                              <input 
-                                type="time"
-                                value={editingService?.end_time || ''}
-                                onChange={(e) => setEditingService(prev => ({ ...prev, end_time: e.target.value }))}
-                                className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                              />
-                              <Clock className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Days of Week</label>
-                            <div className="flex flex-wrap gap-2">
-                              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                                <button
-                                  key={day}
-                                  type="button"
-                                  onClick={() => {
-                                    const currentDays = editingService?.days_of_week || [];
-                                    const newDays = currentDays.includes(day)
-                                      ? currentDays.filter(d => d !== day)
-                                      : [...currentDays, day];
-                                    setEditingService(prev => ({ ...prev, days_of_week: newDays }));
-                                  }}
-                                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                                    (editingService?.days_of_week || []).includes(day)
-                                      ? (darkMode ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white')
-                                      : (darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-100 text-zinc-500')
-                                  }`}
-                                >
-                                  {day}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase ml-1">
-                              <input 
-                                type="checkbox"
-                                checked={editingService?.block_weekends || false}
-                                onChange={(e) => setEditingService(prev => ({ ...prev, block_weekends: e.target.checked }))}
-                                className="rounded border-zinc-300 text-brand-primary focus:ring-brand-primary"
-                              />
-                              Block Weekends
-                            </label>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Blocked Dates (comma separated YYYY-MM-DD)</label>
-                          <input 
-                            type="text"
-                            value={editingService?.blocked_dates?.join(', ') || ''}
-                            onChange={(e) => setEditingService(prev => ({ ...prev, blocked_dates: e.target.value.split(',').map(d => d.trim()).filter(Boolean) }))}
-                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                            placeholder="e.g. 2026-03-25, 2026-04-01"
-                          />
-                        </div>
-                          <textarea 
-                            value={editingService?.description || ''}
-                            onChange={(e) => setEditingService(prev => ({ ...prev, description: e.target.value }))}
-                            className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 min-h-[100px] ${darkMode ? 'bg-transparent border-violet-500 text-zinc-900 focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                            placeholder="Add more details regarding the service..."
-                          />
-                        </div>
-
-
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Base Price ({clinicProfile.currency})</label>
-                            <input 
-                              type="number"
-                              required
-                              value={editingService?.base_price || ''}
-                              onChange={(e) => setEditingService(prev => ({ ...prev, base_price: Number(e.target.value) }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                              placeholder="0.00"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Promo Price (Optional)</label>
-                            <input 
-                              type="number"
-                              value={editingService?.promo_price || ''}
-                              onChange={(e) => setEditingService(prev => ({ ...prev, promo_price: e.target.value ? Number(e.target.value) : undefined }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                              placeholder="0.00"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Incentive ({clinicProfile.currency})</label>
-                            <input 
-                              type="number"
-                              required
-                              value={editingService?.commission_rate || ''}
-                              onChange={(e) => setEditingService(prev => ({ ...prev, commission_rate: Number(e.target.value) }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                              placeholder="0.00"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">AraCoins Perk</label>
-                            <input 
-                              type="number"
-                              value={editingService?.aracoins_perk || ''}
-                              onChange={(e) => setEditingService(prev => ({ ...prev, aracoins_perk: Number(e.target.value) }))}
-                              className={`w-full px-6 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-transparent border-violet-500 text-white focus:ring-brand-accent/10' : 'bg-transparent border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                              placeholder="0"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-3">
-                          <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Tier Allowances ({clinicProfile.currency})</label>
-                          <div className="grid grid-cols-2 gap-3">
-                            {TIERS.map(tier => (
-                              <div key={tier.name} className="flex items-center gap-3">
-                                <span className={`w-16 text-[10px] font-bold uppercase ${tier.color}`}>{tier.name}</span>
-                                <input 
-                                  type="number" 
-                                  value={editingService?.allowances?.[tier.name] || ''}
-                                  onChange={(e) => setEditingService(prev => ({
-                                    ...prev, 
-                                    allowances: { ...prev?.allowances, [tier.name]: parseFloat(e.target.value) }
-                                  }))}
-                                  className={`flex-1 px-3 py-2 rounded-lg text-xs border ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900' : 'bg-zinc-50 border-zinc-100'}`}
-                                  placeholder="0.00"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Branch Availability</label>
-                          <div className="flex flex-wrap gap-2">
-                            {branches.map(branchObj => (
-                              <button
-                                key={branchObj.id}
-                                type="button"
-                                onClick={() => {
-                                  const branchName = branchObj.name;
-                                  setEditingService(prev => ({
-                                    ...prev,
-                                    branches: (prev?.branches || []).includes(branchName) 
-                                      ? (prev?.branches || []).filter(b => b !== branchName)
-                                      : [...(prev?.branches || []), branchName]
-                                  }));
-                                }}
-                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                  (editingService?.branches || []).includes(branchObj.name)
-                                    ? (darkMode ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white')
-                                    : (darkMode ? 'bg-zinc-50 text-zinc-900/40' : 'bg-zinc-50 text-zinc-500 hover:bg-zinc-50')
-                                }`}
-                              >
-                                {branchObj.name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Marketing Poster</label>
-                          <div className="relative group">
-                            <input 
-                              type="file"
-                              accept="image/*"
-                              disabled={isUploading}
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (!file || !currentUser) return;
-                                
-                                setIsUploading(true);
-                                try {
-                                  const authUid = currentUser.id;
-                                  const fileExt = file.name.split('.').pop();
-                                  const fileName = `${authUid}-${Date.now()}-${Math.random()}.${fileExt}`;
-                                  const filePath = `${authUid}/posters/${fileName}`;
-                                  
-                                  const { data, error } = await supabase.storage
-                                    .from('posters')
-                                    .upload(filePath, file);
-                                  
-                                  if (error) throw error;
-                                  
-                                  const { data: { publicUrl } } = supabase.storage
-                                    .from('posters')
-                                    .getPublicUrl(filePath);
-                                    
-                                  setEditingService(prev => ({
-                                    ...prev,
-                                    image_url: publicUrl
-                                  }));
-                                } catch (error: any) {
-                                  console.error('Error uploading poster:', error);
-                                  alert('Failed to upload poster: ' + error.message);
-                                } finally {
-                                  setIsUploading(false);
-                                }
-                              }}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 disabled:cursor-not-allowed"
-                            />
-                            <div className={`w-full py-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${darkMode ? 'bg-zinc-50 border-violet-500 group-hover:border-brand-accent' : 'bg-zinc-50 border-zinc-200 group-hover:border-violet-500'}`}>
-                              {isUploading ? (
-                                <>
-                                  <RefreshCw size={24} className="text-brand-accent animate-spin" />
-                                  <p className="text-[10px] font-bold text-brand-accent uppercase tracking-widest">Uploading...</p>
-                                </>
-                              ) : (
-                                <>
-                                  <Plus size={24} className="text-zinc-500" />
-                                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Add Poster</p>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          {editingService?.image_url && (
-                            <div className="flex overflow-x-auto gap-4 mt-6 pb-4 custom-scrollbar snap-x">
-                              <div className="relative w-32 h-32 shrink-0 rounded-2xl overflow-hidden border border-zinc-100 group shadow-sm snap-start">
-                                <img src={editingService.image_url} alt="Poster" className="w-full h-full object-cover" />
-                                <button 
-                                  type="button"
-                                  onClick={() => setEditingService(prev => ({ ...prev, image_url: undefined }))}
-                                  className="absolute inset-0 bg-rose-500 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                                >
-                                  <Trash2 size={20} />
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex gap-3 pt-4">
-                          <button 
-                            type="submit"
-                            disabled={isSavingSetup}
-                            className={`flex-1 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50 shadow-xl ${darkMode ? 'bg-brand-accent text-white shadow-brand-accent/20' : 'bg-brand-primary text-white shadow-brand-primary/20'}`}
-                          >
-                            {isSavingSetup ? 'Saving...' : (editingService?.id ? 'Update Service' : 'Publish Service')}
-                          </button>
-                          {editingService && (
-                            <button 
-                              type="button"
-                              onClick={() => setEditingService(null)}
-                              className={`px-8 py-5 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all ${darkMode ? 'bg-zinc-50 text-zinc-900/40' : 'bg-zinc-50 text-zinc-500'}`}
-                            >
-                              Cancel
-                            </button>
-                          )}
-                        </div>
-
+                                        <AddServiceForm 
+                                          onSuccess={() => {
+                                            fetchServices();
+                                            setEditingService(null);
+                                          }} 
+                                          onCancel={() => setEditingService(null)}
+                                          initialData={editingService} 
+                                          categories={serviceCategories}
+                                        />
+                  </div>
+                  
+                  <div className={`${darkMode ? 'bg-[#1e293b] border-violet-500' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border mt-8`}>
                         {/* List Section */}
                       <div className="space-y-6">
                         <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Existing Services & Promotions</label>
@@ -6625,17 +6253,15 @@ export default function App() {
                           )}
                         </div>
                       </div>
-                    </form>
+                    </div>
                   </div>
-                </div>
               )}
 
               <div className="space-y-12">
                 {/* Categories & Carousels */}
                 {[
                   { title: 'Featured', filter: (s: Service) => s.is_featured },
-                  ...serviceCategories.map(cat => ({ title: cat, filter: (s: Service) => (s.category || '').replace(/\s+/g, '').toLowerCase() === cat.replace(/\s+/g, '').toLowerCase() && !s.is_featured })),
-                  { title: 'Other Services', filter: (s: Service) => s.type !== 'Promotion' && !s.is_featured && !serviceCategories.map(c => c.replace(/\s+/g, '').toLowerCase()).includes((s.category || '').replace(/\s+/g, '').toLowerCase()) }
+                  ...serviceCategories.map(cat => ({ title: cat, filter: (s: Service) => (s.category || '').replace(/\s+/g, '').toLowerCase() === cat.replace(/\s+/g, '').toLowerCase() && !s.is_featured }))
                 ].map((category, idx) => {
                   const displayServices = services.length > 0 ? services : promotions.map(p => ({
                     id: p.id,
