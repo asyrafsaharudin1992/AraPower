@@ -118,7 +118,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
       setDescription(initialData.description || '');
       setTags(initialData.tags || []);
       setDuration(initialData.duration || '30 Mins');
-      if (initialData.branch_schedules) setBranches(initialData.branch_schedules);
+      if (initialData.branches) setBranches(initialData.branches);
       setOverallLimitEnabled(initialData.overall_limit_enabled || false);
       setOverallLimit(initialData.overall_limit || 50);
       setBasePrice(initialData.base_price ? String(initialData.base_price) : '');

@@ -10,16 +10,38 @@ export interface Service {
   promo_price?: number;
   type?: 'Service' | 'Promotion';
   category?: string;
-  branches?: string[];
+  branches?: {
+    [branchName: string]: {
+      active: boolean;
+      startDate: string;
+      endDate: string;
+      startTime: string;
+      endTime: string;
+      days: string[];
+      limitBookings: boolean;
+      maxSlots: number;
+      blockedDates: {
+        id: string;
+        date: string;
+        type: 'all-day' | 'time-range';
+        startTime?: string;
+        endTime?: string;
+      }[];
+    };
+  };
   start_date?: string;
   end_date?: string;
   start_time?: string;
   end_time?: string;
-  days_of_week?: string[];
-  blocked_dates?: string[];
-  blocked_times?: {start: string, end: string}[];
-  block_weekends?: boolean;
   is_featured?: boolean;
+  visibility?: string;
+  tags?: string[];
+  duration?: string;
+  overall_limit_enabled?: boolean;
+  overall_limit?: number;
+  require_deposit?: boolean;
+  deposit_amount?: number;
+  category_carousel?: boolean;
 }
 
 export interface Promotion {

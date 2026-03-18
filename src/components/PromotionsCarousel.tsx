@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
+import { Share2 } from 'lucide-react';
 import { Service } from '../types';
 
 interface PromotionsCarouselProps {
@@ -28,14 +29,33 @@ export const PromotionsCarousel = ({ items, onClick, size = 'large' }: Promotion
             className={`${size === 'small' ? 'w-[45vw]' : 'w-[70vw]'} flex-shrink-0 snap-start bg-eggshell ${isMockup ? 'opacity-60 cursor-default' : 'cursor-pointer'}`}
             onClick={() => !isMockup && onClick(item)}
           >
-            <div className={`${size === 'small' ? 'aspect-[1/1]' : 'aspect-[3/4]'} rounded-xl overflow-hidden shadow-md ${isMockup ? mockupColor : ''}`}>
+            <div className={`${size === 'small' ? 'aspect-[1/1]' : 'aspect-[3/4]'} rounded-xl overflow-hidden shadow-md ${isMockup ? mockupColor : ''} relative`}>
               {!isMockup && (
-                <img 
-                  src={item.image_url || 'https://picsum.photos/seed/promo/300/400'} 
-                  alt={item.name} 
-                  className="w-full h-full object-cover" 
-                  referrerPolicy="no-referrer" 
-                />
+                <>
+                  <img 
+                    src={item.image_url || 'https://picsum.photos/seed/promo/300/400'} 
+                    alt={item.name} 
+                    className="w-full h-full object-cover" 
+                    referrerPolicy="no-referrer" 
+                  />
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (navigator.share) {
+                        navigator.share({
+                          title: item.name,
+                          text: item.description || `Check out this promotion: ${item.name}`,
+                          url: window.location.href,
+                        }).catch(console.error);
+                      } else {
+                        navigator.clipboard.writeText(window.location.href);
+                      }
+                    }}
+                    className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur-sm rounded-full text-zinc-900 shadow-sm active:scale-90 transition-transform"
+                  >
+                    <Share2 size={14} />
+                  </button>
+                </>
               )}
             </div>
             <div className={`mt-3 text-left px-1 ${size === 'small' ? 'mt-1' : 'mt-3'}`}>

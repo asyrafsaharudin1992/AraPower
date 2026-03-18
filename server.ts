@@ -385,9 +385,9 @@ async function seedSupabase() {
       if (staffInsertError) logError('Seed Staff', staffInsertError);
 
       const initialServices = [
-        { name: "Basic Health Screening", base_price: 80, commission_rate: 5, aracoins_perk: 10, is_featured: false },
-        { name: "Comprehensive Screening", base_price: 150, commission_rate: 5, aracoins_perk: 20, is_featured: true },
-        { name: "Vaccination Package", base_price: 120, commission_rate: 5, aracoins_perk: 15, is_featured: false }
+        { name: "Basic Health Screening", base_price: 80, commission_rate: 5, aracoins_perk: 10, is_featured: false, category: "Health screening", branches: JSON.stringify(["HQ", "Bangi", "Kajang"]) },
+        { name: "Comprehensive Screening", base_price: 150, commission_rate: 5, aracoins_perk: 20, is_featured: true, category: "Health screening", branches: JSON.stringify(["HQ", "Bangi", "Kajang"]) },
+        { name: "Vaccination Package", base_price: 120, commission_rate: 5, aracoins_perk: 15, is_featured: false, category: "Vaccination", branches: JSON.stringify(["HQ", "Bangi", "Kajang"]) }
       ].map(s => {
         const service: any = { ...s };
         if (!serviceColumns.has('aracoins_perk')) {
@@ -1401,7 +1401,9 @@ app.get("/api/services", async (req, res) => {
   const baseColumns = Array.from(serviceColumns).length > 0 
     ? Array.from(serviceColumns) 
     : ['id', 'name', 'base_price', 'commission_rate', 'allowances_json'];
-  const selectColumns = Array.from(new Set([...baseColumns, 'category'])).join(',');
+  
+  // Ensure we only select columns that exist in serviceColumns
+  const selectColumns = Array.from(serviceColumns).join(',');
 
   let query = supabase.from('services').select(selectColumns);
   if (serviceColumns.has('type')) {

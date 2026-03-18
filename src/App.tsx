@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import { PromotionsCarousel } from './components/PromotionsCarousel';
 import AddServiceForm from './components/AddServiceForm';
+import { Service } from './types';
 import { 
   Users, 
   PlusCircle, 
@@ -122,29 +123,7 @@ interface Staff {
   earned?: number;
 }
 
-interface Service {
-  id: number;
-  name: string;
-  base_price: number;
-  commission_rate: number;
-  aracoins_perk?: number;
-  allowances: { [tier: string]: number };
-  description?: string;
-  image_url?: string;
-  promo_price?: number;
-  type?: 'Service' | 'Promotion';
-  category?: string;
-  branches?: string[];
-  start_date?: string;
-  end_date?: string;
-  start_time?: string;
-  end_time?: string;
-  days_of_week?: string[];
-  blocked_dates?: string[];
-  blocked_times?: {start: string, end: string}[];
-  block_weekends?: boolean;
-  is_featured?: boolean;
-}
+
 
 interface Referral {
   id: number;
@@ -161,7 +140,7 @@ interface Referral {
   booking_time: string;
   visit_date?: string;
   date: string;
-  status: 'entered' | 'completed' | 'paid_completed' | 'buffer' | 'approved' | 'payout_processed' | 'rejected';
+  status: 'entered' | 'completed' | 'paid_completed' | 'buffer' | 'approved' | 'payout_processed' | 'rejected' | 'cancelled';
   payment_status: 'pending' | 'completed';
   commission_amount: number;
   fraud_flags?: string;
@@ -262,43 +241,6 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
       
       {/* Subtle background glow */}
       <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-zinc-50 rounded-full blur-3xl" />
-    </motion.div>
-  );
-};
-
-const MobilePromotionCard = ({ item, onClick }: { item: Service, onClick: () => void }) => {
-  const status = getServiceStatus(item);
-
-  return (
-    <motion.div
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className="bg-white rounded-2xl p-4 shadow-sm border border-black/5 flex items-center gap-4 cursor-pointer w-full"
-    >
-      {/* Image */}
-      <div className="w-20 h-20 rounded-xl overflow-hidden bg-zinc-100 flex-shrink-0">
-        {item.image_url ? (
-          <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Zap size={24} className="text-zinc-400" />
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-1">
-          <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest border ${
-            status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-            status === 'upcoming' ? 'bg-zinc-50 text-zinc-700 border-zinc-200' : 
-            'bg-rose-50 text-rose-700 border-rose-200'
-          }`}>
-            {status}
-          </span>
-          {item.is_featured && <Star size={14} className="text-brand-accent" fill="currentColor" />}
-        </div>
-      </div>
     </motion.div>
   );
 };
@@ -554,12 +496,15 @@ const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDelet
           <div className="space-y-1">
             <p className="text-[10px] font-black text-twilight-indigo/50 uppercase tracking-widest">Available At:</p>
             <div className="flex flex-wrap gap-2">
-              {(item.branches && item.branches.length > 0 ? item.branches : ['Main Branch, Bangi', 'Damansara']).map((branch, idx) => (
-                <span key={idx} className="text-xs font-bold text-twilight-indigo flex items-center gap-1">
-                  <div className="w-1 h-1 bg-muted-teal rounded-full" />
-                  {branch}
-                </span>
-              ))}
+              {(() => {
+                const activeBranches = item.branches ? Object.keys(item.branches).filter(bName => item.branches![bName].active) : [];
+                return (activeBranches.length > 0 ? activeBranches : ['Main Branch, Bangi', 'Damansara']).map((branch, idx) => (
+                  <span key={idx} className="text-xs font-bold text-twilight-indigo flex items-center gap-1">
+                    <div className="w-1 h-1 bg-muted-teal rounded-full" />
+                    {branch}
+                  </span>
+                ));
+              })()}
             </div>
           </div>
 
@@ -1343,6 +1288,81 @@ export default function App() {
     }
   };
 
+  const getAvailableTimeSlots = (serviceId: string, branchName: string, date: string) => {
+    const s = services.find(srv => srv.id === parseInt(serviceId));
+    if (!s) return [];
+    
+    const bSched = (s.branches && branchName) ? (s.branches as any)[branchName] : null;
+    
+    // Check overall limit if enabled
+    if (s.overall_limit_enabled && s.overall_limit !== null) {
+      const totalBookings = referrals.filter(r => r.service_id === s.id && r.status !== 'cancelled').length;
+      if (totalBookings >= s.overall_limit) return [];
+    }
+
+    // Check if date is within service start/end date if they exist
+    if (s.start_date && date < s.start_date) return [];
+    if (s.end_date && date > s.end_date) return [];
+
+    // Check branch schedule
+    if (bSched) {
+      // Check branch start/end date
+      if (bSched.startDate && date < bSched.startDate) return [];
+      if (bSched.endDate && date > bSched.endDate) return [];
+
+      // Check days of week
+      if (bSched.days && bSched.days.length > 0 && date) {
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        // Use local date parts to avoid timezone issues
+        const [y, m, d] = date.split('-').map(Number);
+        const selectedDay = dayNames[new Date(y, m - 1, d).getDay()];
+        if (!bSched.days.includes(selectedDay)) return [];
+      }
+
+      // Check blocked dates (all-day)
+      if (bSched.blockedDates && date) {
+        const isAllDayBlocked = bSched.blockedDates.some((bd: any) => bd.date === date && bd.type === 'all-day');
+        if (isAllDayBlocked) return [];
+      }
+    }
+    
+    let start = 9;
+    let end = 18;
+    if (bSched?.startTime) start = parseInt(bSched.startTime.split(':')[0]);
+    if (bSched?.endTime) end = parseInt(bSched.endTime.split(':')[0]);
+
+    const slots = [];
+    for (let i = start; i < end; i++) {
+      const time = `${i.toString().padStart(2, '0')}:00`;
+      
+      // Check blocked times for this specific date
+      if (bSched && bSched.blockedDates && date) {
+        const isBlocked = bSched.blockedDates.some((bd: any) => 
+          bd.date === date && 
+          bd.type === 'time-range' && 
+          bd.startTime && bd.endTime &&
+          time >= bd.startTime && time < bd.endTime
+        );
+        if (isBlocked) continue;
+      }
+
+      // Check max slots if limitBookings is enabled
+      if (bSched?.limitBookings && bSched.maxSlots > 0 && date) {
+        const existingCount = referrals.filter(r => 
+          r.service_id === s.id && 
+          r.branch === branchName && 
+          r.appointment_date === date && 
+          r.booking_time === time &&
+          r.status !== 'cancelled'
+        ).length;
+        if (existingCount >= bSched.maxSlots) continue;
+      }
+      
+      slots.push(time);
+    }
+    return slots;
+  };
+
   const handlePublicBooking = async (code: string) => {
     setIsPublicBooking(true);
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff?promoCode=${code}`);
@@ -1417,16 +1437,77 @@ export default function App() {
     }
   };
 
+  const checkBranchAccess = (item: Service) => {
+    if (!currentUser) return true;
+    if (currentUser.role === 'admin') return true;
+    
+    let branches: any = item.branches;
+    
+    // Handle stringified JSON if it wasn't parsed by the server
+    if (typeof branches === 'string' && branches.trim() !== '') {
+      try {
+        branches = JSON.parse(branches);
+      } catch (e) {
+        // If it's not JSON, maybe it's a comma-separated string?
+        if (branches.includes(',')) {
+          branches = branches.split(',').map(b => b.trim());
+        } else {
+          branches = [branches.trim()];
+        }
+      }
+    }
+
+    // If no branches are specified, it's available to all
+    if (!branches || (Array.isArray(branches) && branches.length === 0)) return true;
+    
+    const userBranch = currentUser.branch?.trim();
+    // If user has no branch assigned, they can see everything (or we can restrict, but let's be permissive for now)
+    if (!userBranch || userBranch.toLowerCase() === 'undefined' || userBranch.toLowerCase() === 'null') return true;
+
+    if (Array.isArray(branches)) {
+      return branches.some(b => {
+        if (typeof b === 'string') return b.trim().toLowerCase() === userBranch.toLowerCase();
+        if (typeof b === 'object' && b !== null) return (b.name || b.id || '').toString().trim().toLowerCase() === userBranch.toLowerCase();
+        return false;
+      });
+    }
+    
+    // Handle object format { "BranchName": { active: true } }
+    if (typeof branches === 'object' && branches !== null) {
+      const branchKeys = Object.keys(branches);
+      if (branchKeys.length === 0) return true;
+      
+      // Try exact match first
+      if (branches[userBranch] && branches[userBranch].active) return true;
+      
+      // Try case-insensitive match
+      const matchingKey = branchKeys.find(k => k.trim().toLowerCase() === userBranch.toLowerCase());
+      if (matchingKey && branches[matchingKey].active) return true;
+    }
+    
+    return false;
+  };
+
   const fetchServices = async () => {
     console.log('fetchServices() called');
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/services`);
-    if (res.ok && Array.isArray(data)) {
-      console.log(`Fetched ${data?.length || 0} services from backend`);
-      setServices(data);
-      const newCategories = Array.from(new Set(data.map((s: Service) => s.category).filter(Boolean)));
-      setServiceCategories(prev => Array.from(new Set([...prev, ...newCategories])));
-    } else {
-      console.error('Failed to fetch services', data);
+    try {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/services`);
+      if (res.ok && Array.isArray(data)) {
+        console.log(`Fetched ${data.length} services:`, data);
+        setServices(data);
+        const newCategories = Array.from(new Set(data.map((s: Service) => s.category).filter(Boolean)));
+        setServiceCategories(prev => {
+          // Filter out old categories that are no longer in the database or have been renamed
+          const filteredPrev = prev.filter(c => c !== 'Healthscreening' && c !== 'Health Screening');
+          const combined = Array.from(new Set([...filteredPrev, ...newCategories]));
+          console.log('Updated serviceCategories:', combined);
+          return combined;
+        });
+      } else {
+        console.error('Failed to fetch services', { status: res.status, data });
+      }
+    } catch (err) {
+      console.error('Error in fetchServices:', err);
     }
   };
 
@@ -1796,6 +1877,16 @@ export default function App() {
     e.preventDefault();
     const staffId = isPublicBooking ? referringStaff?.id : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id);
     if (!staffId || !selectedService || !patientName) return;
+
+    // Check overall limit
+    const s = services.find(srv => srv.id === parseInt(selectedService));
+    if (s?.overall_limit_enabled && s.overall_limit !== null) {
+      const totalBookings = referrals.filter(r => r.service_id === s.id && r.status !== 'cancelled').length;
+      if (totalBookings >= s.overall_limit) {
+        alert('This service has reached its overall booking limit.');
+        return;
+      }
+    }
 
     setIsSubmitting(true);
     try {
@@ -2373,7 +2464,12 @@ export default function App() {
                   <select 
                     required
                     value={selectedService}
-                    onChange={(e) => setSelectedService(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedService(e.target.value);
+                      setSelectedBranch('');
+                      setAppointmentDate('');
+                      setBookingTime('');
+                    }}
                     className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all appearance-none"
                   >
                     <option value="">Select a service</option>
@@ -2382,15 +2478,79 @@ export default function App() {
                     ))}
                   </select>
                 </div>
+
+                {selectedService && (
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Select Branch</label>
+                    <select 
+                      required
+                      value={selectedBranch}
+                      onChange={(e) => {
+                        setSelectedBranch(e.target.value);
+                        setAppointmentDate('');
+                        setBookingTime('');
+                      }}
+                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all appearance-none"
+                    >
+                      <option value="">Select a branch</option>
+                      {(() => {
+                        const s = services.find(srv => srv.id === parseInt(selectedService));
+                        if (!s || !s.branches) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
+                        const activeBranches = Object.keys(s.branches).filter(bName => s.branches![bName].active);
+                        if (activeBranches.length === 0) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
+                        return activeBranches.map(bName => <option key={bName} value={bName}>{bName}</option>);
+                      })()}
+                    </select>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Booking Date</label>
                     <input 
                       type="date" 
                       required
-                      min={new Date().toISOString().split('T')[0]}
+                      min={(() => {
+                        const s = services.find(srv => srv.id === parseInt(selectedService));
+                        const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
+                        const today = new Date().toISOString().split('T')[0];
+                        if (bSched?.startDate && bSched.startDate > today) return bSched.startDate;
+                        return today;
+                      })()}
+                      max={(() => {
+                        const s = services.find(srv => srv.id === parseInt(selectedService));
+                        const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
+                        return bSched?.endDate || undefined;
+                      })()}
                       value={appointmentDate}
-                      onChange={(e) => setAppointmentDate(e.target.value)}
+                      onChange={(e) => {
+                        const date = e.target.value;
+                        const s = services.find(srv => srv.id === parseInt(selectedService));
+                        const bSched = (s?.branches && selectedBranch) ? (s.branches as any)[selectedBranch] : null;
+                        
+                        if (bSched && bSched.days && bSched.days.length > 0 && date) {
+                          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                          const [y, m, d] = date.split('-').map(Number);
+                          const selectedDay = dayNames[new Date(y, m - 1, d).getDay()];
+                          if (!bSched.days.includes(selectedDay)) {
+                            alert(`This service is only available on: ${bSched.days.join(', ')}`);
+                            setAppointmentDate('');
+                            return;
+                          }
+                        }
+
+                        if (bSched && bSched.blockedDates && date) {
+                          const isBlocked = bSched.blockedDates.some((bd: any) => bd.date === date && bd.type === 'all-day');
+                          if (isBlocked) {
+                            alert('This date is fully booked or unavailable.');
+                            setAppointmentDate('');
+                            return;
+                          }
+                        }
+
+                        setAppointmentDate(date);
+                        setBookingTime('');
+                      }}
                       className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
                     />
                   </div>
@@ -2403,9 +2563,13 @@ export default function App() {
                       className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all appearance-none"
                     >
                       <option value="">Select time</option>
-                      {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(time => (
-                        <option key={time} value={time}>{time}</option>
-                      ))}
+                      {(() => {
+                        const slots = getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate);
+                        if (slots.length === 0) return <option disabled>No slots available</option>;
+                        return slots.map(time => (
+                          <option key={time} value={time}>{time}</option>
+                        ));
+                      })()}
                     </select>
                   </div>
                 </div>
@@ -3421,7 +3585,7 @@ export default function App() {
                     {isMobile && (
                       <CategoryScrollRow 
                         title="Featured Services" 
-                        services={services.filter(s => s.is_featured)} 
+                        services={services.filter(s => s.is_featured && checkBranchAccess(s))} 
                         onClick={(s) => {
                           setSelectedPromo(s);
                           setIsPromoModalOpen(true);
@@ -5318,26 +5482,17 @@ export default function App() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Target Branch</label>
-                      <select 
-                        required
-                        value={selectedBranch}
-                        onChange={(e) => setSelectedBranch(e.target.value)}
-                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500 focus:border-violet-500 text-zinc-900'}`}
-                      >
-                        <option value="">Select Branch</option>
-                        {branches.map(b => (
-                          <option key={b.id} value={b.name}>{b.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
                       <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Service Promoted</label>
                       <div className="relative">
                         <select 
                           required
                           value={selectedService}
-                          onChange={(e) => setSelectedService(e.target.value)}
+                          onChange={(e) => {
+                            setSelectedService(e.target.value);
+                            setSelectedBranch('');
+                            setAppointmentDate('');
+                            setBookingTime('');
+                          }}
                           className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium pr-12 focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500 focus:border-violet-500 text-zinc-900'}`}
                         >
                           <option value="">Select a service</option>
@@ -5350,15 +5505,74 @@ export default function App() {
                         </div>
                       </div>
                     </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Target Branch</label>
+                      <select 
+                        required
+                        value={selectedBranch}
+                        onChange={(e) => {
+                          setSelectedBranch(e.target.value);
+                          setAppointmentDate('');
+                          setBookingTime('');
+                        }}
+                        className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500 focus:border-violet-500 text-zinc-900'}`}
+                      >
+                        <option value="">Select Branch</option>
+                        {(() => {
+                          const s = services.find(srv => srv.id === parseInt(selectedService));
+                          if (!s || !s.branches) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
+                          const activeBranches = Object.keys(s.branches).filter(bName => s.branches![bName].active);
+                          if (activeBranches.length === 0) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
+                          return activeBranches.map(bName => <option key={bName} value={bName}>{bName}</option>);
+                        })()}
+                      </select>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Booking Date</label>
                         <input 
                           type="date" 
                           required
-                          min={new Date().toISOString().split('T')[0]}
+                          min={(() => {
+                            const s = services.find(srv => srv.id === parseInt(selectedService));
+                            const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
+                            const today = new Date().toISOString().split('T')[0];
+                            if (bSched?.startDate && bSched.startDate > today) return bSched.startDate;
+                            return today;
+                          })()}
+                          max={(() => {
+                            const s = services.find(srv => srv.id === parseInt(selectedService));
+                            const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
+                            return bSched?.endDate || undefined;
+                          })()}
                           value={appointmentDate}
-                          onChange={(e) => setAppointmentDate(e.target.value)}
+                          onChange={(e) => {
+                            const date = e.target.value;
+                            const s = services.find(srv => srv.id === parseInt(selectedService));
+                            const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
+                            
+                            if (bSched && bSched.days && bSched.days.length > 0) {
+                              const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                              const selectedDay = dayNames[new Date(date).getDay()];
+                              if (!bSched.days.includes(selectedDay)) {
+                                alert(`This service is only available on: ${bSched.days.join(', ')}`);
+                                setAppointmentDate('');
+                                return;
+                              }
+                            }
+
+                            if (bSched && bSched.blockedDates) {
+                              const isBlocked = bSched.blockedDates.some(bd => bd.date === date && bd.type === 'all-day');
+                              if (isBlocked) {
+                                alert('This date is fully booked or unavailable.');
+                                setAppointmentDate('');
+                                return;
+                              }
+                            }
+
+                            setAppointmentDate(date);
+                            setBookingTime('');
+                          }}
                           className={`w-full px-5 py-4 rounded-2xl border transition-all text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500 focus:border-violet-500 text-zinc-900'}`}
                         />
                       </div>
@@ -5371,9 +5585,13 @@ export default function App() {
                           className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500 focus:border-violet-500 text-zinc-900'}`}
                         >
                           <option value="">Select time</option>
-                          {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(time => (
-                            <option key={time} value={time}>{time}</option>
-                          ))}
+                          {(() => {
+                            const slots = getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate);
+                            if (slots.length === 0) return <option disabled>No slots available</option>;
+                            return slots.map(time => (
+                              <option key={time} value={time}>{time}</option>
+                            ));
+                          })()}
                         </select>
                       </div>
                     </div>
@@ -6260,8 +6478,15 @@ export default function App() {
               <div className="space-y-12">
                 {/* Categories & Carousels */}
                 {[
-                  { title: 'Featured', filter: (s: Service) => s.is_featured },
-                  ...serviceCategories.map(cat => ({ title: cat, filter: (s: Service) => (s.category || '').replace(/\s+/g, '').toLowerCase() === cat.replace(/\s+/g, '').toLowerCase() && !s.is_featured }))
+                  { title: 'Featured', filter: (s: Service) => s.is_featured && checkBranchAccess(s) },
+                  ...serviceCategories.map(cat => ({ 
+                    title: cat, 
+                    filter: (s: Service) => {
+                      const sCat = (s.category || '').trim().toLowerCase();
+                      const targetCat = cat.trim().toLowerCase();
+                      return sCat === targetCat && checkBranchAccess(s);
+                    }
+                  }))
                 ].map((category, idx) => {
                   const displayServices = services.length > 0 ? services : promotions.map(p => ({
                     id: p.id,
@@ -6274,17 +6499,12 @@ export default function App() {
                     commission_rate: 0,
                     is_featured: true,
                     allowances: {},
-                    branches: []
+                    branches: {}
                   } as Service));
 
-                  let filteredServices = displayServices.filter(item => 
-                    (currentUser.role === 'admin' || 
-                    !item.branches ||
-                    item.branches.length === 0 || 
-                    !currentUser.branch ||
-                    item.branches.includes(currentUser.branch)) &&
-                    category.filter(item)
-                  );
+                  let filteredServices = displayServices.filter(item => {
+                    return checkBranchAccess(item) && category.filter(item);
+                  });
 
                   if (filteredServices.length === 0) {
                     filteredServices = [
@@ -6338,13 +6558,12 @@ export default function App() {
                   );
                 })}
 
-                {(services.length > 0 ? services : promotions).filter((item: any) => 
-                  currentUser.role === 'admin' || 
-                  !item.branches ||
-                  item.branches.length === 0 || 
-                  !currentUser.branch ||
-                  item.branches.includes(currentUser.branch)
-                ).length === 0 && (
+                {(services.length > 0 ? services : promotions).filter((item: any) => {
+                  return currentUser.role === 'admin' || 
+                    !item.branches ||
+                    (Array.isArray(item.branches) && (item.branches.length === 0 || !currentUser.branch || item.branches.includes(currentUser.branch))) ||
+                    (!Array.isArray(item.branches) && (Object.keys(item.branches).length === 0 || !currentUser.branch || (item.branches[currentUser.branch] && item.branches[currentUser.branch].active)));
+                }).length === 0 && (
                   <div className="col-span-full text-center py-20">
                     <div className={`w-20 h-20 ${darkMode ? 'bg-zinc-900' : 'bg-transparent'} rounded-[2rem] flex items-center justify-center mx-auto mb-6`}>
                       <Zap size={32} className="text-zinc-500" />
@@ -8087,25 +8306,16 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Target Branch</label>
-                      <select 
-                        required
-                        value={selectedBranch}
-                        onChange={(e) => setSelectedBranch(e.target.value)}
-                        className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900"
-                      >
-                        <option value="">Select Branch</option>
-                        {branches.map(b => (
-                          <option key={b.id} value={b.name}>{b.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
                       <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Service Promoted</label>
                       <select 
                         required
                         value={selectedService}
-                        onChange={(e) => setSelectedService(e.target.value)}
+                        onChange={(e) => {
+                          setSelectedService(e.target.value);
+                          setSelectedBranch('');
+                          setAppointmentDate('');
+                          setBookingTime('');
+                        }}
                         className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900"
                       >
                         <option value="">Select a service</option>
@@ -8114,15 +8324,75 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                         ))}
                       </select>
                     </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Target Branch</label>
+                      <select 
+                        required
+                        value={selectedBranch}
+                        onChange={(e) => {
+                          setSelectedBranch(e.target.value);
+                          setAppointmentDate('');
+                          setBookingTime('');
+                        }}
+                        className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900"
+                      >
+                        <option value="">Select Branch</option>
+                        {(() => {
+                          const s = services.find(srv => srv.id === parseInt(selectedService));
+                          if (!s || !s.branches) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
+                          const activeBranches = Object.keys(s.branches).filter(bName => s.branches![bName].active);
+                          if (activeBranches.length === 0) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
+                          return activeBranches.map(bName => <option key={bName} value={bName}>{bName}</option>);
+                        })()}
+                      </select>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Booking Date</label>
                         <input 
                           type="date" 
                           required
-                          min={new Date().toISOString().split('T')[0]}
+                          min={(() => {
+                            const s = services.find(srv => srv.id === parseInt(selectedService));
+                            const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
+                            const today = new Date().toISOString().split('T')[0];
+                            if (bSched?.startDate && bSched.startDate > today) return bSched.startDate;
+                            return today;
+                          })()}
+                          max={(() => {
+                            const s = services.find(srv => srv.id === parseInt(selectedService));
+                            const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
+                            return bSched?.endDate || undefined;
+                          })()}
                           value={appointmentDate}
-                          onChange={(e) => setAppointmentDate(e.target.value)}
+                          onChange={(e) => {
+                            const date = e.target.value;
+                            const s = services.find(srv => srv.id === parseInt(selectedService));
+                            const bSched = (s?.branches && selectedBranch) ? (s.branches as any)[selectedBranch] : null;
+                            
+                            if (bSched && bSched.days && bSched.days.length > 0 && date) {
+                              const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                              const [y, m, d] = date.split('-').map(Number);
+                              const selectedDay = dayNames[new Date(y, m - 1, d).getDay()];
+                              if (!bSched.days.includes(selectedDay)) {
+                                alert(`This service is only available on: ${bSched.days.join(', ')}`);
+                                setAppointmentDate('');
+                                return;
+                              }
+                            }
+
+                            if (bSched && bSched.blockedDates && date) {
+                              const isBlocked = bSched.blockedDates.some((bd: any) => bd.date === date && bd.type === 'all-day');
+                              if (isBlocked) {
+                                alert('This date is fully booked or unavailable.');
+                                setAppointmentDate('');
+                                return;
+                              }
+                            }
+
+                            setAppointmentDate(date);
+                            setBookingTime('');
+                          }}
                           className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900"
                         />
                       </div>
@@ -8135,9 +8405,13 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                           className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900"
                         >
                           <option value="">Select time</option>
-                          {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(time => (
-                            <option key={time} value={time}>{time}</option>
-                          ))}
+                          {(() => {
+                            const slots = getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate);
+                            if (slots.length === 0) return <option disabled>No slots available</option>;
+                            return slots.map(time => (
+                              <option key={time} value={time}>{time}</option>
+                            ));
+                          })()}
                         </select>
                       </div>
                     </div>
