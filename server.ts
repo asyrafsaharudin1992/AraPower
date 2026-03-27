@@ -169,7 +169,7 @@ let referralColumns: Set<string> = new Set([
   'id', 'staff_id', 'service_id', 'patient_name', 'status', 'date',
   'patient_phone', 'patient_ic', 'patient_address', 'patient_type',
   'appointment_date', 'booking_time', 'fraud_flags', 'created_by',
-  'branch', 'aracoins_perk'
+  'branch', 'aracoins_perk', 'visit_date', 'verified_by', 'rejection_reason', 'payment_status'
 ]);
 let serviceColumns: Set<string> = new Set([
   'id', 'name', 'base_price', 'commission_rate', 'allowances_json', 
@@ -517,7 +517,7 @@ app.get("/api/branches/:name/performance", async (req, res) => {
   const performance = {
     total: referrals.length,
     successful: referrals.filter(r => ['approved', 'payout_processed'].includes(r.status)).length,
-    pending: referrals.filter(r => ['entered', 'completed', 'paid_completed', 'buffer'].includes(r.status)).length,
+    pending: referrals.filter(r => ['entered', 'completed', 'paid_completed'].includes(r.status)).length,
     total_commission: referrals.reduce((sum, r) => sum + (r.commission_earned || 0), 0)
   };
   
@@ -617,7 +617,10 @@ app.get("/api/health", async (req, res) => {
     config: {
       url: supabaseUrl ? 'SET' : 'MISSING',
       key: supabaseKey ? 'SET' : 'MISSING'
-    }
+    },
+    referralColumns: Array.from(referralColumns),
+    serviceColumns: Array.from(serviceColumns),
+    staffColumns: Array.from(staffColumns)
   });
 });
 
@@ -1686,24 +1689,59 @@ app.patch("/api/referrals/:id", async (req, res) => {
   const { id } = req.params;
   const { status, payment_status, visit_date, verified_by, rejection_reason } = req.body;
   
-  const referralSelect = Array.from(referralColumns).length > 0 
-    ? Array.from(referralColumns).join(',') 
-    : 'id, staff_id, status, commission_amount, aracoins_perk';
-
   const { data: referral, error: fetchError } = await supabase
     .from('referrals')
-    .select(referralSelect)
+    .select('*')
     .eq('id', id)
     .single();
     
-  if (fetchError || !referral) return res.status(404).json({ error: "Referral not found" });
+  if (fetchError) {
+    console.error(`Error fetching referral ${id}:`, fetchError);
+    return res.status(500).json({ error: `Database error: ${fetchError.message}` });
+  }
+  if (!referral) return res.status(404).json({ error: "Referral not found" });
+
+  // Update referralColumns based on the actual record fetched
+  if (referral) {
+    Object.keys(referral).forEach(key => referralColumns.add(key));
+  }
 
   const updateData: any = {};
-  if (status && referralColumns.has('status')) updateData.status = status;
-  if (payment_status && referralColumns.has('payment_status')) updateData.payment_status = payment_status;
-  if (visit_date && referralColumns.has('visit_date')) updateData.visit_date = visit_date;
-  if (verified_by && referralColumns.has('verified_by')) updateData.verified_by = verified_by;
-  if (rejection_reason && referralColumns.has('rejection_reason')) updateData.rejection_reason = rejection_reason;
+  const missingColumns: string[] = [];
+
+  if (status) {
+    if (referralColumns.has('status')) updateData.status = status;
+    else missingColumns.push('status');
+  }
+  if (payment_status) {
+    if (referralColumns.has('payment_status')) updateData.payment_status = payment_status;
+    else missingColumns.push('payment_status');
+  }
+  if (visit_date) {
+    if (referralColumns.has('visit_date')) updateData.visit_date = visit_date;
+    else missingColumns.push('visit_date');
+  }
+  if (verified_by) {
+    if (referralColumns.has('verified_by')) updateData.verified_by = verified_by;
+    else missingColumns.push('verified_by');
+  }
+  if (rejection_reason) {
+    if (referralColumns.has('rejection_reason')) updateData.rejection_reason = rejection_reason;
+    else missingColumns.push('rejection_reason');
+  }
+
+  if (missingColumns.length > 0) {
+    console.warn(`Attempted to update missing columns: ${missingColumns.join(', ')}`);
+    return res.status(400).json({ 
+      error: "Database schema mismatch", 
+      message: `The following columns are missing from the referrals table: ${missingColumns.join(', ')}. Please run the database migration.`,
+      missingColumns
+    });
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return res.status(400).json({ error: "No valid update data provided" });
+  }
 
   const { error: updateError } = await supabase
     .from('referrals')
@@ -1748,7 +1786,7 @@ app.patch("/api/referrals/:id", async (req, res) => {
         .eq('id', referral.staff_id);
     }
   } else if (status === 'rejected' && referral.status !== 'rejected') {
-    if (['entered', 'completed', 'paid_completed', 'buffer'].includes(referral.status)) {
+    if (['entered', 'completed', 'paid_completed'].includes(referral.status)) {
       if (staffColumns.has('pending_earnings')) {
         await supabase
           .from('staff')
@@ -1787,10 +1825,44 @@ async function startServer() {
   
   // Detect columns in background
   if (supabase) {
-    supabase.from('referrals').select().limit(1).then(({ data, error }) => {
+    // Attempt to add missing columns if they don't exist
+    // Note: This requires the service role key and a database function 'exec_sql' or similar if available.
+    // If not, we'll just log the failure.
+    const migrationSql = `
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='visit_date') THEN
+          ALTER TABLE referrals ADD COLUMN visit_date TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='verified_by') THEN
+          ALTER TABLE referrals ADD COLUMN verified_by TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='rejection_reason') THEN
+          ALTER TABLE referrals ADD COLUMN rejection_reason TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='payment_status') THEN
+          ALTER TABLE referrals ADD COLUMN payment_status TEXT;
+        END IF;
+      END $$;
+    `;
+
+    // We'll try to use a common RPC if it exists, but most likely we'll just have to rely on the user adding them.
+    // However, we can try to use the REST API with the service role key to run SQL if we have it.
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.log('Attempting to run database migrations...');
+      // Standard Supabase doesn't have a direct SQL RPC by default, but some templates do.
+      supabase.rpc('exec_sql', { sql: migrationSql }).then(({ error }: any) => {
+        if (error) console.warn('Migration RPC failed (this is expected if exec_sql is not defined):', error.message);
+        else console.log('Migration RPC succeeded');
+      }).catch((err: any) => console.warn('Migration RPC error:', err));
+    }
+
+    supabase.from('referrals').select('*').limit(1).then(({ data, error }) => {
       if (!error && data && data.length > 0) {
         referralColumns = new Set(Object.keys(data[0]));
         console.log('Detected referral columns:', Array.from(referralColumns));
+      } else if (error) {
+        console.warn('Referral column detection error:', error.message);
       }
     }).catch(err => console.warn('Referral column detection failed:', err));
 

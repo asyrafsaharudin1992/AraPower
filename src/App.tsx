@@ -140,7 +140,7 @@ interface Referral {
   booking_time: string;
   visit_date?: string;
   date: string;
-  status: 'entered' | 'completed' | 'paid_completed' | 'buffer' | 'approved' | 'payout_processed' | 'rejected' | 'cancelled';
+  status: 'entered' | 'completed' | 'paid_completed' | 'approved' | 'payout_processed' | 'rejected' | 'cancelled';
   payment_status: 'pending' | 'completed';
   commission_amount: number;
   fraud_flags?: string;
@@ -1406,8 +1406,8 @@ export default function App() {
 
   useEffect(() => {
     if (currentUser) {
+      fetchStaff();
       if (currentUser.role === 'admin') {
-        fetchStaff();
         fetchBranchChangeRequests();
       }
     }
@@ -1557,13 +1557,14 @@ export default function App() {
       fetchPromotions(),
       fetchServices(),
       fetchTasks(),
-      fetchNotifications()
+      fetchNotifications(),
+      fetchStaff()
     ];
     if (currentUser.role === 'admin' || currentUser.role === 'receptionist') {
       promises.push(fetchBranches());
     }
     if (currentUser.role === 'admin') {
-      promises.push(fetchStaff(), fetchSettings(), fetchBranchChangeRequests());
+      promises.push(fetchSettings(), fetchBranchChangeRequests());
     }
     await Promise.all(promises);
   };
@@ -1767,9 +1768,9 @@ export default function App() {
   };
 
   const generatePayoutCSV = (metadata: typeof payoutMetadata) => {
-    const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && s.approved_earnings > 0);
+    const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && (s.approved_earnings > 0 || s.pending_earnings > 0));
     if (staffToPay.length === 0) {
-      alert('No staff selected or no approved earnings to pay.');
+      alert('No staff selected or no payable earnings to pay.');
       return;
     }
 
@@ -1807,7 +1808,7 @@ export default function App() {
         s.bank_account_number || '',
         s.id_type || 'NRIC',
         s.id_number || '',
-        s.approved_earnings.toFixed(2),
+        (s.approved_earnings + s.pending_earnings).toFixed(2),
         metadata.paymentReference,
         metadata.paymentDescription
       ]);
@@ -1841,13 +1842,13 @@ export default function App() {
     
     showConfirm(
       'Process Payouts',
-      'Are you sure you want to mark these payouts as processed? This will update the status of all approved referrals for the selected staff.',
+      'Are you sure you want to mark these payouts as processed? This will update the status of all approved and pending referrals for the selected staff.',
       async () => {
-        const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && s.approved_earnings > 0);
+        const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && (s.approved_earnings > 0 || s.pending_earnings > 0));
         
         for (const staff of staffToPay) {
-          const approvedRefs = referrals.filter(r => r.staff_id === staff.id && r.status === 'approved');
-          for (const ref of approvedRefs) {
+          const payableRefs = referrals.filter(r => r.staff_id === staff.id && ['paid_completed', 'approved'].includes(r.status));
+          for (const ref of payableRefs) {
             await safeFetch(`${apiBaseUrl}/api/referrals/${ref.id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
@@ -1941,20 +1942,32 @@ export default function App() {
   };
 
   const handleUpdateStatus = async (id: number, status: string, additionalData: any = {}) => {
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
+    try {
+      const payload = { 
         status,
         ...additionalData,
         verified_by: (currentUser?.role === 'receptionist' || currentUser?.role === 'admin') ? currentUser.id : undefined
-      })
-    });
-    if (res.ok) {
-      fetchReferrals();
-      fetchStaff();
-    } else {
-      alert(data.error || 'Update failed');
+      };
+      
+      console.log('Updating status:', { id, payload });
+      
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (res.ok) {
+        fetchReferrals();
+        fetchStaff();
+      } else {
+        const errorMsg = data.error || 'Update failed';
+        console.error('Status update failed:', { id, status, data });
+        alert(`Status update failed: ${errorMsg}\n\nDetails: ${JSON.stringify(data)}`);
+      }
+    } catch (error) {
+      console.error('Error in handleUpdateStatus:', error);
+      alert(`An error occurred while updating status: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -3097,7 +3110,7 @@ export default function App() {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
     const staffRefs = referrals.filter(r => r.staff_id === staff.id);
     const monthlySuccessfulRefs = staffRefs.filter(r => 
-      (r.status === 'completed' || r.status === 'paid_completed' || r.status === 'buffer' || r.status === 'approved' || r.status === 'payout_processed') && 
+      (r.status === 'completed' || r.status === 'paid_completed' || r.status === 'approved' || r.status === 'payout_processed') && 
       r.date.startsWith(currentMonth)
     ).length;
 
@@ -3107,7 +3120,7 @@ export default function App() {
     
     // Calculate dynamic earnings based on status
     const pending_earnings = staffRefs
-      .filter(r => r.status === 'completed' || r.status === 'paid_completed' || r.status === 'buffer')
+      .filter(r => r.status === 'completed' || r.status === 'paid_completed')
       .reduce((sum, r) => sum + (r.commission_amount * tier.bonus), 0);
     
     const approved_earnings = staffRefs
@@ -3139,7 +3152,7 @@ export default function App() {
     totalPayout: staffPerformance.reduce((sum, s) => sum + (s.paid_earnings || 0), 0),
     totalReferrals: referrals.length,
     activeStaff: new Set(referrals.map(r => r.staff_id)).size,
-    pendingPayout: staffPerformance.reduce((sum, s) => sum + (s.approved_earnings || 0), 0)
+    pendingPayout: staffPerformance.reduce((sum, s) => sum + (s.approved_earnings || 0) + (s.pending_earnings || 0), 0)
   };
 
   const receptionistStats = {
@@ -3161,7 +3174,6 @@ export default function App() {
       case 'entered': return 'bg-apricot-cream text-twilight-indigo';
       case 'completed': return 'bg-muted-teal/20 text-muted-teal';
       case 'paid_completed': return 'bg-muted-teal text-eggshell';
-      case 'buffer': return 'bg-twilight-indigo text-eggshell';
       case 'approved': return 'bg-burnt-peach text-white';
       case 'payout_processed': return 'bg-eggshell text-twilight-indigo border border-twilight-indigo/10';
       case 'rejected': return 'bg-rose-500 text-white';
@@ -3174,7 +3186,6 @@ export default function App() {
       case 'entered': return 'Entered';
       case 'completed': return 'Arrived';
       case 'paid_completed': return 'Paid';
-      case 'buffer': return '7-Day Buffer';
       case 'approved': return 'Approved';
       case 'payout_processed': return 'Payout Processed';
       case 'rejected': return 'Rejected';
@@ -3183,42 +3194,6 @@ export default function App() {
   };
 
   if (currentUser) {
-    // Device Guard
-    if ((currentUser.role === 'admin' || currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && isMobile) {
-      return (
-        <div className="min-h-screen w-full overflow-x-hidden bg-eggshell flex flex-col items-center justify-center p-8 text-center">
-          <div className="w-20 h-20 bg-muted-teal text-eggshell rounded-3xl flex items-center justify-center mb-6">
-            <LayoutDashboard size={40} />
-          </div>
-          <h1 className="text-2xl font-black text-twilight-indigo mb-2">Desktop View Required</h1>
-          <p className="text-twilight-indigo/60 max-w-xs mb-8">The {currentUser.role === 'admin' ? 'Admin Panel' : (currentUser.role === 'receptionist' ? 'Receptionist Portal' : 'Dispensary Portal')} is optimized for desktop use. Please switch to a larger screen to manage the clinic.</p>
-          <button 
-            onClick={handleLogout}
-            className="px-6 py-3 bg-burnt-peach text-white rounded-xl font-bold shadow-lg shadow-burnt-peach/20"
-          >
-            Sign Out
-          </button>
-        </div>
-      );
-    }
-
-    if (currentUser.role === 'staff' && !isMobile) {
-      return (
-        <div className="min-h-screen w-full overflow-x-hidden bg-eggshell flex flex-col items-center justify-center p-8 text-center">
-          <div className="w-20 h-20 bg-muted-teal text-eggshell rounded-3xl flex items-center justify-center mb-6">
-            <MessageCircle size={40} />
-          </div>
-          <h1 className="text-2xl font-black text-twilight-indigo mb-2">Mobile View Required</h1>
-          <p className="text-twilight-indigo/60 max-w-xs mb-8">The Staff Portal is optimized for mobile use. Please access this page from your smartphone.</p>
-          <button 
-            onClick={handleLogout}
-            className="px-6 py-3 bg-burnt-peach text-white rounded-xl font-bold shadow-lg shadow-burnt-peach/20"
-          >
-            Sign Out
-          </button>
-        </div>
-      );
-    }
 
     return (
       <div className={`min-h-screen w-full overflow-x-hidden font-sans transition-colors duration-500 bg-eggshell text-twilight-indigo relative`}>
@@ -3550,10 +3525,100 @@ export default function App() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+              className="space-y-8"
             >
-              {/* Left Column: Form & Toolkit */}
-              <div className="lg:col-span-1 space-y-6">
+              {/* Top Stats Section - Unified for Admin/Receptionist/Dispensary */}
+              {(currentUser.role === 'admin' || currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {currentUser.role === 'admin' ? (
+                    <>
+                      {/* Total Referrals Card */}
+                      <div className="bg-white p-6 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group flex items-center gap-6">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
+                        <div className="w-14 h-14 rounded-[1.5rem] bg-violet-500 text-white flex items-center justify-center shrink-0">
+                          <ClipboardList size={28} />
+                        </div>
+                        <div className="relative z-10 flex-1">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-1">Total Referrals</p>
+                          <div className="flex items-baseline gap-2">
+                            <p className="text-3xl font-black text-zinc-900 tracking-tighter">{adminStats.totalReferrals}</p>
+                            <span className="text-[10px] font-bold text-white bg-emerald-500 px-2 py-0.5 rounded-lg">Active</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Processed Payouts Card */}
+                      <div className="bg-white p-6 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group flex items-center gap-6">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
+                        <div className="w-14 h-14 rounded-[1.5rem] bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                          <DollarSign size={28} />
+                        </div>
+                        <div className="relative z-10 flex-1">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-1">Processed Payouts</p>
+                          <p className="text-3xl font-black text-zinc-900 tracking-tighter">{clinicProfile.currency}{adminStats.totalPayout.toFixed(0)}</p>
+                          <p className="text-[10px] font-bold text-zinc-400 mt-1">Payable: {clinicProfile.currency}{adminStats.pendingPayout.toFixed(0)}</p>
+                        </div>
+                      </div>
+
+                      {/* Active Staff Card */}
+                      <div className="bg-white p-6 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group flex items-center gap-6">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-brand-primary/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
+                        <div className="w-14 h-14 rounded-[1.5rem] bg-brand-primary text-white flex items-center justify-center shrink-0">
+                          <Users size={28} />
+                        </div>
+                        <div className="relative z-10 flex-1">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-1">Active Staff</p>
+                          <p className="text-3xl font-black text-zinc-900 tracking-tighter">{activeStaffList.length}</p>
+                          <p className="text-[10px] font-bold text-zinc-400 mt-1">{staffList.length} Registered</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Receptionist/Dispensary Cards */}
+                      <div className="bg-white p-6 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group flex items-center gap-6">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
+                        <div className="w-14 h-14 rounded-[1.5rem] bg-violet-500 text-white flex items-center justify-center shrink-0">
+                          <CheckCircle2 size={28} />
+                        </div>
+                        <div className="relative z-10 flex-1">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-1">
+                            {currentUser.role === 'receptionist' ? 'Arrived Today' : 'Paid Today'}
+                          </p>
+                          <p className="text-3xl font-black text-zinc-900 tracking-tighter">
+                            {currentUser.role === 'receptionist' ? receptionistStats.arrivedToday : referrals.filter(r => r.status === 'paid_completed' && r.date === new Date().toISOString().split('T')[0]).length}
+                          </p>
+                          <p className="text-[10px] font-bold text-zinc-400 mt-1">
+                            {currentUser.role === 'receptionist' ? 'Patients checked in' : 'Referrals completed'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-6 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group flex items-center gap-6">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-burnt-peach/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
+                        <div className="w-14 h-14 rounded-[1.5rem] bg-burnt-peach text-white flex items-center justify-center shrink-0">
+                          <Clock size={28} />
+                        </div>
+                        <div className="relative z-10 flex-1">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-1">
+                            {currentUser.role === 'receptionist' ? 'Pending Arrival' : 'Pending Payout'}
+                          </p>
+                          <p className="text-3xl font-black text-zinc-900 tracking-tighter">
+                            {currentUser.role === 'receptionist' ? receptionistStats.pendingVerifications : referrals.filter(r => r.status === 'approved').length}
+                          </p>
+                          <p className="text-[10px] font-bold text-zinc-400 mt-1">
+                            {currentUser.role === 'receptionist' ? 'Waiting for check-in' : 'Waiting for payment'}
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left Column: Form & Toolkit */}
+                <div className="lg:col-span-1 space-y-6">
                 {/* Stats & Services Column */}
                 {(currentUser.role === 'staff' || currentUser.role === 'admin') && (
                   <div className="space-y-6">
@@ -3596,15 +3661,17 @@ export default function App() {
                     {/* Service Performance - Approved Commissions */}
                     <div className="pt-4">
                       <h3 className="text-xl font-black text-twilight-indigo tracking-tight">Service Performance</h3>
-                      <p className="text-twilight-indigo/60 text-[10px] font-bold uppercase tracking-wider">Approved Commissions</p>
+                      <p className="text-twilight-indigo/60 text-[10px] font-bold uppercase tracking-wider">
+                        {currentUser.role === 'admin' ? 'Global Approved Commissions' : 'Your Approved Commissions'}
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       {services.map(service => {
                         const count = referrals.filter(r => 
-                          r.staff_id === currentUser.id && 
+                          (currentUser.role === 'admin' ? true : r.staff_id === currentUser.id) && 
                           r.service_id === service.id && 
-                          r.status === 'approved'
+                          ['paid_completed', 'approved', 'payout_processed'].includes(r.status)
                         ).length;
                         
                         if (count === 0) return null;
@@ -3624,183 +3691,25 @@ export default function App() {
                       }).filter(Boolean)}
                       
                       {services.filter(service => 
-                        referrals.some(r => r.staff_id === currentUser.id && r.service_id === service.id && r.status === 'approved')
+                        referrals.some(r => (currentUser.role === 'admin' ? true : r.staff_id === currentUser.id) && r.service_id === service.id && ['paid_completed', 'approved', 'payout_processed'].includes(r.status))
                       ).length === 0 && (
                         <div className="col-span-2 p-10 rounded-[2.5rem] bg-zinc-50 border border-zinc-200 text-center">
                           <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
                             <ClipboardList className="text-zinc-500" size={24} />
                           </div>
                           <p className="text-zinc-500 text-xs font-black uppercase tracking-widest">No approved commissions</p>
-                          <p className="text-zinc-500 text-[10px] font-bold mt-1">Your approved referrals will appear here</p>
+                          <p className="text-zinc-500 text-[10px] font-bold mt-1">
+                            {currentUser.role === 'admin' 
+                              ? 'Referrals must be marked as "Approved" or "Paid" to appear here.' 
+                              : 'Your approved referrals will appear here.'}
+                          </p>
                         </div>
                       )}
                     </div>
                   </div>
                 )}
 
-                {isMobile && currentUser.role === 'receptionist' && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-brand-surface p-4 rounded-3xl border border-violet-500 shadow-sm">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-1">Arrived Today</p>
-                      <p className="text-xl font-bold text-zinc-900">{receptionistStats.arrivedToday}</p>
-                    </div>
-                    <div className="bg-brand-surface p-4 rounded-3xl border border-violet-500 shadow-sm">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-1">Pending</p>
-                      <p className="text-xl font-bold text-zinc-900">{receptionistStats.pendingVerifications}</p>
-                    </div>
-                  </div>
-                )}
 
-                {/* Desktop Admin/Receptionist/Dispensary Stats */}
-                {!isMobile && (currentUser.role === 'admin' || currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && (
-                  <div className="space-y-6">
-                    {currentUser.role === 'admin' ? (
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-3 gap-6">
-                          <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
-                            <div className="relative z-10">
-                              <div className="w-10 h-10 rounded-2xl bg-violet-500 text-white flex items-center justify-center mb-4">
-                                <ClipboardList size={20} />
-                              </div>
-                              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-1">Total Referrals</p>
-                              <p className="text-3xl font-black text-zinc-900 tracking-tighter">{adminStats.totalReferrals}</p>
-                              <div className="mt-4 flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-white bg-emerald-500 px-2 py-0.5 rounded-lg">Active System</span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
-                            <div className="relative z-10">
-                              <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-white flex items-center justify-center mb-4">
-                                <DollarSign size={20} />
-                              </div>
-                              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-1">Total Payouts</p>
-                              <p className="text-3xl font-black text-zinc-900 tracking-tighter">{clinicProfile.currency}{adminStats.totalPayout.toFixed(0)}</p>
-                              <div className="mt-4 flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-zinc-500">Pending: {clinicProfile.currency}{adminStats.pendingPayout.toFixed(0)}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-brand-primary rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
-                            <div className="relative z-10">
-                              <div className="w-10 h-10 rounded-2xl bg-brand-primary text-white flex items-center justify-center mb-4">
-                                <Users size={20} />
-                              </div>
-                              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-1">Active Staff</p>
-                              <p className="text-3xl font-black text-zinc-900 tracking-tighter">{activeStaffList.length}</p>
-                              <div className="mt-4 flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-zinc-500">{staffList.length} Total Registered</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Dedicated Analytics Chart */}
-                        <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
-                          <div className="flex items-center justify-between mb-8">
-                            <div>
-                              <h3 className="text-xl font-black tracking-tighter text-zinc-900">Referral Analytics</h3>
-                              <p className="text-xs text-zinc-500 font-medium">Performance overview for the last 7 days</p>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full bg-violet-500" />
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Referrals</span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="h-[300px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <AreaChart
-                                data={(() => {
-                                  const last7Days = [...Array(7)].map((_, i) => {
-                                    const d = new Date();
-                                    d.setDate(d.getDate() - (6 - i));
-                                    return d.toISOString().split('T')[0];
-                                  });
-                                  
-                                  return last7Days.map(date => ({
-                                    name: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
-                                    count: referrals.filter(r => r.date === date).length
-                                  }));
-                                })()}
-                                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                              >
-                                <defs>
-                                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                                  </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
-                                <XAxis 
-                                  dataKey="name" 
-                                  axisLine={false} 
-                                  tickLine={false} 
-                                  tick={{ fontSize: 10, fontWeight: 600, fill: '#a1a1aa' }}
-                                  dy={10}
-                                />
-                                <YAxis 
-                                  axisLine={false} 
-                                  tickLine={false} 
-                                  tick={{ fontSize: 10, fontWeight: 600, fill: '#a1a1aa' }}
-                                />
-                                <Tooltip 
-                                  contentStyle={{ 
-                                    borderRadius: '16px', 
-                                    border: 'none', 
-                                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
-                                    fontSize: '12px',
-                                    fontWeight: 'bold'
-                                  }}
-                                />
-                                <Area 
-                                  type="monotone" 
-                                  dataKey="count" 
-                                  stroke="#8b5cf6" 
-                                  strokeWidth={4}
-                                  fillOpacity={1} 
-                                  fill="url(#colorCount)" 
-                                />
-                              </AreaChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
-                          <p className="text-xs uppercase tracking-wider text-zinc-500 font-bold mb-2">
-                            {currentUser.role === 'receptionist' ? 'Arrived Today' : 'Paid Today'}
-                          </p>
-                          <p className="text-2xl font-bold text-zinc-900">
-                            {currentUser.role === 'receptionist' ? receptionistStats.arrivedToday : referrals.filter(r => r.status === 'paid_completed' && r.date === new Date().toISOString().split('T')[0]).length}
-                          </p>
-                          <p className="text-[10px] text-zinc-500 mt-1">
-                            {currentUser.role === 'receptionist' ? 'Patients checked in' : 'Referrals completed'}
-                          </p>
-                        </div>
-                        <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
-                          <p className="text-xs uppercase tracking-wider text-zinc-500 font-bold mb-2">
-                            {currentUser.role === 'receptionist' ? 'Pending Arrival' : 'Pending Payout'}
-                          </p>
-                          <p className="text-2xl font-bold text-zinc-900">
-                            {currentUser.role === 'receptionist' ? receptionistStats.pendingVerifications : referrals.filter(r => r.status === 'approved').length}
-                          </p>
-                          <p className="text-[10px] text-zinc-500 mt-1">
-                            {currentUser.role === 'receptionist' ? 'Waiting for check-in' : 'Waiting for payment'}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 {/* Tier Progress Card (Staff Only - Desktop) */}
                 {!isMobile && currentUser.role === 'staff' && (
@@ -3856,6 +3765,80 @@ export default function App() {
 
               {/* Recent Activity & Admin Insights */}
               <div className="lg:col-span-2 space-y-6">
+                {/* Dedicated Analytics Chart for Admin */}
+                {currentUser.role === 'admin' && (
+                  <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+                    <div className="flex items-center justify-between mb-8">
+                      <div>
+                        <h3 className="text-xl font-black tracking-tighter text-zinc-900">Referral Analytics</h3>
+                        <p className="text-xs text-zinc-500 font-medium">Performance overview for the last 7 days</p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-violet-500" />
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Referrals</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart
+                          data={(() => {
+                            const last7Days = [...Array(7)].map((_, i) => {
+                              const d = new Date();
+                              d.setDate(d.getDate() - (6 - i));
+                              return d.toISOString().split('T')[0];
+                            });
+                            
+                            return last7Days.map(date => ({
+                              name: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
+                              count: referrals.filter(r => r.date === date).length
+                            }));
+                          })()}
+                          margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                        >
+                          <defs>
+                            <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
+                          <XAxis 
+                            dataKey="name" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 10, fontWeight: 600, fill: '#a1a1aa' }}
+                            dy={10}
+                          />
+                          <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 10, fontWeight: 600, fill: '#a1a1aa' }}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              borderRadius: '16px', 
+                              border: 'none', 
+                              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="count" 
+                            stroke="#8b5cf6" 
+                            strokeWidth={4}
+                            fillOpacity={1} 
+                            fill="url(#colorCount)" 
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
                 {currentUser.role === 'admin' && (
                   <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
                     <div className="p-6 border-b border-zinc-100">
@@ -3910,9 +3893,23 @@ export default function App() {
                             <p className="text-xs text-zinc-500">{ref.service_name} • {ref.branch || 'N/A'}</p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-bold">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
-                          <p className={`text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status).split(' ')[1]}`}>{getStatusLabel(ref.status)}</p>
+                        <div className="text-right flex items-center gap-3">
+                          <div>
+                            <p className="text-sm font-bold">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status).split(' ')[1]}`}>{getStatusLabel(ref.status)}</p>
+                          </div>
+                          {currentUser.role === 'admin' && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteReferral(ref.id);
+                              }}
+                              className="p-2 text-zinc-400 hover:text-rose-500 transition-colors"
+                              title="Delete Referral"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -3925,7 +3922,8 @@ export default function App() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </div>
+          </motion.div>
           )}
 
           {activeTab === 'inbox' && (
@@ -4069,7 +4067,6 @@ export default function App() {
                       <option value="entered">Entered</option>
                       <option value="completed">Arrived</option>
                       <option value="paid_completed">Paid</option>
-                      <option value="buffer">7-Day Buffer</option>
                       <option value="approved">Approved</option>
                       <option value="payout_processed">Payout Processed</option>
                       <option value="rejected">Rejected</option>
@@ -4201,6 +4198,7 @@ export default function App() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-zinc-50 border-b border-zinc-100">
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">No.</th>
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Booking</th>
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Patient</th>
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Service</th>
@@ -4219,8 +4217,9 @@ export default function App() {
                       )
                       .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
                       .filter(ref => referralStatusFilter === 'all' ? true : ref.status === referralStatusFilter)
-                      .map((ref) => (
+                      .map((ref, index) => (
                       <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
+                        <td className="p-4 text-sm text-zinc-500 font-medium">{index + 1}</td>
                         <td className="p-4">
                           <p className="text-sm font-medium">{ref.appointment_date}</p>
                           <p className="text-[10px] text-zinc-500">{ref.booking_time}</p>
@@ -4286,10 +4285,10 @@ export default function App() {
                               )}
                               {currentUser.role === 'admin' && ref.status === 'paid_completed' && (
                                 <button 
-                                  onClick={() => handleUpdateStatus(ref.id, 'buffer')}
+                                  onClick={() => handleUpdateStatus(ref.id, 'approved')}
                                   className="text-[10px] font-bold text-zinc-900 hover:underline"
                                 >
-                                  Start Buffer
+                                  Approve
                                 </button>
                               )}
                               {currentUser.role === 'admin' && ref.status === 'approved' && (
@@ -4298,6 +4297,15 @@ export default function App() {
                                   className="text-[10px] font-bold text-zinc-900 hover:underline"
                                 >
                                   Pay
+                                </button>
+                              )}
+                              {currentUser.role === 'admin' && (
+                                <button 
+                                  onClick={() => handleDeleteReferral(ref.id)}
+                                  className="p-2 text-zinc-500 hover:text-rose-500 transition-colors"
+                                  title="Delete Referral"
+                                >
+                                  <Trash2 size={14} />
                                 </button>
                               )}
                             </div>
@@ -4340,7 +4348,7 @@ export default function App() {
                   <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">Referral Approvals</p>
                     <p className="text-3xl font-bold tracking-tight text-zinc-900">
-                      {referrals.filter(r => r.status === 'paid_completed' || r.status === 'buffer').length}
+                      {referrals.filter(r => r.status === 'paid_completed').length}
                     </p>
                   </div>
                   <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
@@ -4427,24 +4435,27 @@ export default function App() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-zinc-50 border-b border-zinc-100">
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">No.</th>
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Staff Member</th>
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Current Tier</th>
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-center">Monthly Success</th>
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-right">Total Earned (Incl. Bonus)</th>
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-50">
                     {staffPerformance
                       .filter(staff => staff.name.toLowerCase().includes(adminSearch.toLowerCase()))
-                      .map((staff) => (
+                      .map((staff, index) => (
                       <tr 
                         key={staff.id} 
-                        className="hover:bg-zinc-50/50 transition-colors cursor-pointer"
+                        className="hover:bg-zinc-50/50 transition-colors cursor-pointer group"
                         onClick={() => {
                           setSelectedStaffDetail(staff);
                           setShowStaffModal(true);
                         }}
                       >
+                        <td className="p-4 text-sm text-zinc-500 font-medium">{index + 1}</td>
                         <td className="p-4">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-zinc-50 flex items-center justify-center text-xs font-bold text-zinc-500">
@@ -4465,212 +4476,24 @@ export default function App() {
                         <td className="p-4 text-sm font-bold text-right text-zinc-900">
                           {clinicProfile.currency}{staff.earned.toFixed(2)}
                         </td>
+                        <td className="p-4 text-right">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteStaff(staff.id);
+                            }}
+                            className="p-2 text-zinc-400 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+                            title="Delete Staff"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Approval Table */}
-              <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
-                  <h3 className="font-semibold">Manage Referrals</h3>
-                  <button 
-                    onClick={exportToCSV}
-                    className="flex items-center gap-2 text-xs font-bold text-zinc-900 hover:bg-violet-500 hover:text-white px-3 py-2 rounded-xl transition-colors"
-                  >
-                    <Download size={14} />
-                    Export CSV
-                  </button>
-                </div>
-                <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-zinc-50 border-b border-zinc-100">
-                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Staff</th>
-                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Patient</th>
-                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Service</th>
-                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Incentive</th>
-                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Status</th>
-                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-50">
-                        {referrals.map((ref) => (
-                          <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
-                            <td className="p-4 text-sm font-medium">{ref.staff_name}</td>
-                            <td className="p-4 text-sm">
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium">{ref.patient_name}</p>
-                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ref.patient_type === 'existing' ? 'bg-brand-primary text-white' : 'bg-brand-accent text-white'}`}>
-                                  {ref.patient_type || 'new'}
-                                </span>
-                              </div>
-                              {ref.patient_phone && <p className="text-[10px] text-zinc-500">{ref.patient_phone} • <span className="font-bold text-indigo-600">{ref.branch}</span></p>}
-                            </td>
-                            <td className="p-4 text-sm text-zinc-500">{ref.service_name}</td>
-                            <td className="p-4 text-sm font-bold">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
-                            <td className="p-4">
-                              <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
-                                {getStatusLabel(ref.status)}
-                              </span>
-                              {ref.fraud_flags && (
-                                <div className="mt-1 flex gap-1">
-                                  {(() => {
-                                    try {
-                                      return JSON.parse(ref.fraud_flags).map((flag: string) => (
-                                        <span key={flag} className="px-1 py-0.5 bg-rose-500 text-white rounded text-[8px] font-bold uppercase border border-rose-500">
-                                          {flag}
-                                        </span>
-                                      ));
-                                    } catch (e) {
-                                      return null;
-                                    }
-                                  })()}
-                                </div>
-                              )}
-                            </td>
-                            <td className="p-4">
-                              <div className="flex gap-2">
-                                {ref.status === 'paid_completed' && (
-                                  <button 
-                                    onClick={() => handleUpdateStatus(ref.id, 'buffer')}
-                                    className="text-[10px] font-bold uppercase tracking-wider bg-brand-primary text-white px-3 py-1.5 rounded-lg hover:bg-brand-primary transition-colors"
-                                  >
-                                    Start Buffer
-                                  </button>
-                                )}
-                                {ref.status === 'buffer' && (
-                                  <button 
-                                    onClick={() => handleUpdateStatus(ref.id, 'approved')}
-                                    className="text-[10px] font-bold uppercase tracking-wider bg-violet-500 text-white px-3 py-1.5 rounded-lg hover:bg-violet-500 transition-colors"
-                                  >
-                                    Approve
-                                  </button>
-                                )}
-                                {ref.status === 'approved' && (
-                                  <button 
-                                    onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
-                                    className="text-[10px] font-bold uppercase tracking-wider bg-brand-primary text-white px-3 py-1.5 rounded-lg hover:bg-brand-primary transition-colors"
-                                  >
-                                    Pay
-                                  </button>
-                                )}
-                                <button 
-                                  onClick={() => handleDeleteReferral(ref.id)}
-                                  className="p-2 text-zinc-500 hover:text-zinc-900 transition-colors"
-                                  title="Delete Referral"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                </table>
-              </div>
-
-              {/* Payout Management Section */}
-              <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold">Payout Management</h3>
-                    <p className="text-xs text-zinc-500 font-medium">Generate bulk payment files for banking software</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => setShowPayoutModal(true)}
-                      disabled={selectedPayoutStaff.length === 0}
-                      className="flex items-center gap-2 text-xs font-bold bg-violet-500 text-white px-4 py-2 rounded-xl transition-all hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500"
-                    >
-                      <Download size={14} />
-                      Generate Bulk CSV
-                    </button>
-                    <button 
-                      onClick={processPayouts}
-                      disabled={selectedPayoutStaff.length === 0}
-                      className="flex items-center gap-2 text-xs font-bold bg-brand-primary text-white px-4 py-2 rounded-xl transition-all hover:bg-brand-primary disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-primary/20"
-                    >
-                      <CheckCircle2 size={14} />
-                      Mark as Paid
-                    </button>
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-zinc-50 border-b border-zinc-100">
-                        <th className="p-4 w-10">
-                          <input 
-                            type="checkbox"
-                            className="rounded border-zinc-300 text-zinc-900 focus:ring-violet-500"
-                            checked={selectedPayoutStaff.length === staffPerformance.filter(s => s.approved_earnings > 0).length && staffPerformance.filter(s => s.approved_earnings > 0).length > 0}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedPayoutStaff(staffPerformance.filter(s => s.approved_earnings > 0).map(s => s.id));
-                              } else {
-                                setSelectedPayoutStaff([]);
-                              }
-                            }}
-                          />
-                        </th>
-                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Staff Member</th>
-                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Bank Details</th>
-                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-right">Approved Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-50">
-                      {staffPerformance
-                        .filter(s => s.approved_earnings > 0)
-                        .map((staff) => (
-                        <tr key={staff.id} className="hover:bg-zinc-50/50 transition-colors">
-                          <td className="p-4">
-                            <input 
-                              type="checkbox"
-                              className="rounded border-zinc-300 text-zinc-900 focus:ring-violet-500"
-                              checked={selectedPayoutStaff.includes(staff.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedPayoutStaff([...selectedPayoutStaff, staff.id]);
-                                } else {
-                                  setSelectedPayoutStaff(selectedPayoutStaff.filter(id => id !== staff.id));
-                                }
-                              }}
-                            />
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-zinc-50 flex items-center justify-center text-xs font-bold text-zinc-500">
-                                {staff?.name?.charAt(0) || '?'}
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-sm font-medium">{staff.name}</span>
-                                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">{staff.branch}</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-zinc-900">{staff.bank_name || 'MISSING BANK'}</span>
-                              <span className="text-[10px] text-zinc-500 font-medium tracking-wider">{staff.bank_account_number || 'MISSING ACCOUNT'}</span>
-                            </div>
-                          </td>
-                          <td className="p-4 text-sm font-bold text-right text-zinc-900">
-                            {clinicProfile.currency}{staff.approved_earnings.toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
-                      {staffPerformance.filter(s => s.approved_earnings > 0).length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="p-8 text-center text-zinc-500 text-sm italic">
-                            No approved earnings ready for payout.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
             </motion.div>
           )}
 
@@ -4835,7 +4658,7 @@ export default function App() {
 
           {activeTab === 'payouts' && rolesConfig[currentUser.role]?.canViewAnalytics && (() => {
             const filteredStaffForBulk = staffPerformance
-              .filter(s => s.approved_earnings > 0)
+              .filter(s => (s.approved_earnings || 0) + (s.pending_earnings || 0) > 0)
               .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
               .filter(s => payoutBranchFilter === 'all' ? true : s.branch === payoutBranchFilter)
               .filter(s => payoutUserFilter === 'all' ? true : s.id.toString() === payoutUserFilter);
@@ -4955,6 +4778,7 @@ export default function App() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-zinc-50/50 border-b border-zinc-100">
+                            <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">No.</th>
                             <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Date</th>
                             <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Staff</th>
                             <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Patient</th>
@@ -4965,7 +4789,7 @@ export default function App() {
                         </thead>
                         <tbody className="divide-y divide-zinc-50">
                           {referrals
-                            .filter(r => r.status === 'approved' || r.status === 'payout_processed')
+                            .filter(r => ['paid_completed', 'approved', 'payout_processed'].includes(r.status))
                             .filter(r => 
                               r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                               r.staff_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -4974,8 +4798,9 @@ export default function App() {
                             .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
                             .filter(r => payoutUserFilter === 'all' ? true : r.staff_id.toString() === payoutUserFilter)
                             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                            .map((ref) => (
+                            .map((ref, index) => (
                               <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
+                                <td className="px-6 py-4 text-sm text-zinc-500 font-medium">{index + 1}</td>
                                 <td className="px-6 py-4">
                                   <p className="text-sm font-medium text-zinc-900">{new Date(ref.date).toLocaleDateString()}</p>
                                   <p className="text-[10px] text-zinc-500 font-bold uppercase">{ref.branch}</p>
@@ -4999,26 +4824,37 @@ export default function App() {
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                  {ref.status === 'approved' && (
-                                    <button 
-                                      onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
-                                      className="px-4 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold hover:bg-brand-primary transition-all active:scale-95"
-                                    >
-                                      Process Payout
-                                    </button>
-                                  )}
-                                  {ref.status === 'payout_processed' && (
-                                    <div className="flex items-center justify-end gap-1 text-zinc-900">
-                                      <CheckCircle2 size={14} />
-                                      <span className="text-xs font-bold">Processed</span>
-                                    </div>
-                                  )}
+                                  <div className="flex items-center justify-end gap-2">
+                                    {ref.status === 'approved' && (
+                                      <button 
+                                        onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
+                                        className="px-4 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold hover:bg-brand-primary transition-all active:scale-95"
+                                      >
+                                        Process Payout
+                                      </button>
+                                    )}
+                                    {ref.status === 'payout_processed' && (
+                                      <div className="flex items-center justify-end gap-1 text-zinc-900">
+                                        <CheckCircle2 size={14} />
+                                        <span className="text-xs font-bold">Processed</span>
+                                      </div>
+                                    )}
+                                    {currentUser.role === 'admin' && (
+                                      <button 
+                                        onClick={() => handleDeleteReferral(ref.id)}
+                                        className="p-2 text-zinc-500 hover:text-rose-500 transition-colors"
+                                        title="Delete Referral"
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    )}
+                                  </div>
                                 </td>
                               </tr>
                             ))}
                           {referrals.filter(r => r.status === 'approved' || r.status === 'payout_processed').length === 0 && (
                             <tr>
-                              <td colSpan={6} className="px-6 py-12 text-center">
+                              <td colSpan={7} className="px-6 py-12 text-center">
                                 <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
                                   <DollarSign className="text-zinc-500" size={24} />
                                 </div>
@@ -5079,13 +4915,14 @@ export default function App() {
                                 }}
                               />
                             </th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">No.</th>
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Staff Member</th>
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Bank Details</th>
-                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-right">Approved Amount</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-right">Payable Amount</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-50">
-                          {filteredStaffForBulk.map((staff) => (
+                          {filteredStaffForBulk.map((staff, index) => (
                             <tr key={staff.id} className="hover:bg-zinc-50/50 transition-colors">
                               <td className="p-4">
                                 <input 
@@ -5101,6 +4938,7 @@ export default function App() {
                                   }}
                                 />
                               </td>
+                              <td className="p-4 text-sm text-zinc-500 font-medium">{index + 1}</td>
                               <td className="p-4">
                                 <div className="flex items-center gap-3">
                                   <div className="w-8 h-8 rounded-full bg-zinc-50 flex items-center justify-center text-xs font-bold text-zinc-500">
@@ -5119,7 +4957,7 @@ export default function App() {
                                 </div>
                               </td>
                               <td className="p-4 text-sm font-bold text-right text-zinc-900">
-                                {clinicProfile.currency}{staff.approved_earnings.toFixed(2)}
+                                {clinicProfile.currency}{(staff.approved_earnings + staff.pending_earnings).toFixed(2)}
                               </td>
                             </tr>
                           ))}
@@ -5251,7 +5089,6 @@ export default function App() {
                           <option value="entered">Entered</option>
                           <option value="completed">Arrived</option>
                           <option value="paid_completed">Paid</option>
-                          <option value="buffer">7-Day Buffer</option>
                           <option value="approved">Approved</option>
                           <option value="payout_processed">Payout Processed</option>
                         </select>
@@ -5302,7 +5139,11 @@ export default function App() {
                           <div className="flex items-center gap-3 ml-4">
                             <select 
                               value={ref.status}
-                              onChange={(e) => handleUpdateStatus(ref.id, e.target.value as any)}
+                              onChange={(e) => {
+                                const newStatus = e.target.value;
+                                const additionalData = newStatus === 'completed' ? { visit_date: new Date().toISOString().split('T')[0] } : {};
+                                handleUpdateStatus(ref.id, newStatus as any, additionalData);
+                              }}
                               className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                             >
                               <option value="entered">Entered</option>
@@ -5311,7 +5152,6 @@ export default function App() {
                               <option value="rejected">Rejected</option>
                               { (currentUser.role === 'admin' || currentUser.role === 'receptionist') && (
                                 <>
-                                  <option value="buffer">7-Day Buffer</option>
                                   <option value="approved">Approved</option>
                                   <option value="payout_processed">Payout Processed</option>
                                 </>
@@ -5331,91 +5171,122 @@ export default function App() {
               </div>
             </motion.div>
           )}
-          {activeTab === 'kit' && currentUser.role === 'staff' && (
+          {activeTab === 'kit' && (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               className="max-w-2xl mx-auto space-y-8"
             >
-              <div className={`p-8 rounded-[2.5rem] relative overflow-hidden ${darkMode ? 'bg-gradient-to-br from-brand-primary via-pale-yellow to-bg-main text-zinc-900' : 'bg-gradient-to-br from-violet-500 via-peach to-rose-500 text-zinc-900'}`}>
-                <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-[80px] -mr-32 -mt-32 ${darkMode ? 'bg-brand-accent/20' : 'bg-rose-500/20'}`} />
-                <div className="relative z-10">
-                  <h3 className="text-2xl font-black tracking-tighter mb-2">Referral Kit</h3>
-                  <p className={`${darkMode ? 'text-zinc-300' : 'text-zinc-900/70'} text-sm font-medium max-w-md`}>Everything you need to refer patients and earn rewards.</p>
-                </div>
-              </div>
-
-              <div className={`${darkMode ? 'bg-white border-zinc-200 rotate-[1deg]' : 'bg-white border-black/5'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
-                <div className="flex items-center gap-2 mb-8">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${darkMode ? 'bg-brand-accent text-brand-primary shadow-brand-accent/20 rotate-[-5deg]' : 'bg-brand-primary text-white shadow-brand-primary'}`}>
-                    <QrCode size={20} />
+              {currentUser.role === 'admin' ? (
+                <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-zinc-200">
+                  <div className="w-20 h-20 bg-zinc-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                    <Users size={32} className="text-zinc-500" />
                   </div>
-                  <h3 className={`font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>Your Toolkit</h3>
+                  <h3 className="text-xl font-black tracking-tight text-zinc-900 mb-2">Staff Access Only</h3>
+                  <p className="text-zinc-500 text-sm font-medium max-w-xs mx-auto">
+                    The Referral Kit is designed for staff members to generate their personal referral links and QR codes.
+                  </p>
                 </div>
-                
-                <div className="space-y-8">
-                  <div className={`flex flex-col items-center p-8 rounded-[2.5rem] border ${darkMode ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
-                    <div className={`p-6 rounded-[2rem] shadow-sm mb-6 bg-white`}>
-                      <QRCodeCanvas 
-                        value={`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`}
-                        size={180}
-                        level="H"
-                        includeMargin={false}
-                        className="rounded-lg"
-                      />
+              ) : (
+                <>
+                  <div className={`p-8 rounded-[2.5rem] relative overflow-hidden ${darkMode ? 'bg-gradient-to-br from-brand-primary via-pale-yellow to-bg-main text-zinc-900' : 'bg-gradient-to-br from-violet-500 via-peach to-rose-500 text-zinc-900'}`}>
+                    <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-[80px] -mr-32 -mt-32 ${darkMode ? 'bg-brand-accent/20' : 'bg-rose-500/20'}`} />
+                    <div className="relative z-10">
+                      <h3 className="text-2xl font-black tracking-tighter mb-2">Referral Kit</h3>
+                      <p className={`${darkMode ? 'text-zinc-300' : 'text-zinc-900/70'} text-sm font-medium max-w-md`}>Everything you need to refer patients and earn rewards.</p>
                     </div>
-                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Personal QR Code</p>
-                    <p className={`text-xs mt-2 text-center max-w-[200px] ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Patients can scan this to book directly with your referral code.</p>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className={`p-6 rounded-2xl border flex items-center justify-between ${darkMode ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
-                      <div>
-                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Referral Code</p>
-                        <p className={`text-2xl font-black tracking-tighter ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{currentUser.promo_code}</p>
+                  <div className={`${darkMode ? 'bg-white border-zinc-200 rotate-[1deg]' : 'bg-white border-black/5'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
+                    <div className="flex items-center gap-2 mb-8">
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${darkMode ? 'bg-brand-accent text-brand-primary shadow-brand-accent/20 rotate-[-5deg]' : 'bg-brand-primary text-white shadow-brand-primary'}`}>
+                        <QrCode size={20} />
                       </div>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(currentUser.promo_code);
-                          alert('Code copied!');
-                        }}
-                        className={`p-4 rounded-xl border transition-all active:scale-90 ${darkMode ? 'bg-white border-zinc-200 text-brand-primary hover:bg-zinc-50' : 'bg-white border-zinc-100 text-zinc-500 hover:text-zinc-900'}`}
-                      >
-                        <Copy size={20} />
-                      </button>
+                      <h3 className={`font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>Your Toolkit</h3>
                     </div>
+                    
+                    <div className="space-y-8">
+                      <div className={`flex flex-col items-center p-8 rounded-[2.5rem] border ${darkMode ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
+                        <div className={`p-6 rounded-[2rem] shadow-sm mb-6 bg-white`}>
+                          <QRCodeCanvas 
+                            value={`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`}
+                            size={180}
+                            level="H"
+                            includeMargin={false}
+                            className="rounded-lg"
+                          />
+                        </div>
+                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Personal QR Code</p>
+                        <p className={`text-xs mt-2 text-center max-w-[200px] ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Patients can scan this to book directly with your referral code.</p>
+                      </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <button 
-                        onClick={() => {
-                          const url = `${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`;
-                          const text = `Hi! Book your appointment at our clinic using my referral link: ${url}`;
-                          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                        }}
-                        className={`flex items-center justify-center gap-3 p-5 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg ${darkMode ? 'bg-brand-accent text-brand-primary shadow-brand-accent/10 hover:bg-brand-accent/90' : 'bg-gradient-to-r from-brand-accent to-rose-500 text-zinc-900 shadow-brand-accent hover:from-brand-accent hover:to-rose-500'}`}
-                      >
-                        <MessageCircle size={18} />
-                        Share on WhatsApp
-                      </button>
-                      <button 
-                        onClick={() => {
-                          const url = `${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`;
-                          navigator.clipboard.writeText(url);
-                          alert('Link copied!');
-                        }}
-                        className={`flex items-center justify-center gap-3 p-5 border rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-sm ${darkMode ? 'bg-white text-zinc-900 border-zinc-200 hover:bg-zinc-50' : 'bg-white text-zinc-900 border-zinc-100 hover:bg-zinc-50'}`}
-                      >
-                        <Share2 size={18} />
-                        Copy Referral Link
-                      </button>
+                      <div className="space-y-4">
+                        <div className={`p-6 rounded-2xl border flex items-center justify-between ${darkMode ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
+                          <div>
+                            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Referral Code</p>
+                            <p className={`text-2xl font-black tracking-tighter ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{currentUser.promo_code}</p>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(currentUser.promo_code);
+                              alert('Code copied!');
+                            }}
+                            className={`p-4 rounded-xl border transition-all active:scale-90 ${darkMode ? 'bg-white border-zinc-200 text-brand-primary hover:bg-zinc-50' : 'bg-white border-zinc-100 text-zinc-500 hover:text-zinc-900'}`}
+                          >
+                            <Copy size={20} />
+                          </button>
+                        </div>
+
+                        <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
+                          <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Referral Link</p>
+                          <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-zinc-100 overflow-hidden">
+                            <p className="text-xs font-medium text-zinc-500 truncate flex-1">
+                              {`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`}
+                            </p>
+                            <button 
+                              onClick={() => {
+                                const url = `${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`;
+                                navigator.clipboard.writeText(url);
+                                alert('Link copied!');
+                              }}
+                              className="p-2 text-brand-primary hover:bg-brand-primary/5 rounded-lg transition-all"
+                            >
+                              <Copy size={16} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <button 
+                            onClick={() => {
+                              const url = `${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`;
+                              const text = `Hi! Book your appointment at our clinic using my referral link: ${url}`;
+                              window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                            }}
+                            className={`flex items-center justify-center gap-3 p-5 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg ${darkMode ? 'bg-brand-accent text-brand-primary shadow-brand-accent/10 hover:bg-brand-accent/90' : 'bg-gradient-to-r from-brand-accent to-rose-500 text-zinc-900 shadow-brand-accent hover:from-brand-accent hover:to-rose-500'}`}
+                          >
+                            <MessageCircle size={18} />
+                            Share on WhatsApp
+                          </button>
+                          <button 
+                            onClick={() => {
+                              const url = `${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`;
+                              navigator.clipboard.writeText(url);
+                              alert('Link copied!');
+                            }}
+                            className={`flex items-center justify-center gap-3 p-5 border rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-sm ${darkMode ? 'bg-white text-zinc-900 border-zinc-200 hover:bg-zinc-50' : 'bg-white text-zinc-900 border-zinc-100 hover:bg-zinc-50'}`}
+                          >
+                            <Share2 size={18} />
+                            Copy Referral Link
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Log New Referral (Staff Only) */}
-              {currentUser.role === 'staff' && !isMobile && (
+                  {/* Log New Referral (Staff Only) */}
+                  {currentUser.role === 'staff' && !isMobile && (
                 <div className={`${darkMode ? 'bg-white border-zinc-200 rotate-[-1deg]' : 'bg-violet-500 border-violet-500'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.02)]`}>
                   <div className="flex items-center gap-2 mb-6">
                     <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${darkMode ? 'bg-brand-accent text-brand-primary shadow-brand-accent/20 rotate-[5deg]' : 'bg-violet-500 text-white shadow-violet-500'}`}>
@@ -5616,19 +5487,21 @@ export default function App() {
                 </div>
               )}
 
-              <div className="bg-brand-primary p-8 rounded-[2.5rem] border border-brand-primary">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-white/10 text-white rounded-2xl flex items-center justify-center shrink-0">
-                    <Info size={20} />
+                  <div className="bg-brand-primary p-8 rounded-[2.5rem] border border-brand-primary">
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 bg-white/10 text-white rounded-2xl flex items-center justify-center shrink-0">
+                        <Info size={20} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-white mb-1">How to use?</h4>
+                        <p className="text-xs text-white/80 leading-relaxed">
+                          Share your link or QR code on social media, WhatsApp, or print it out! When patients book using your link, you'll see them in your history automatically.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-white mb-1">How to use?</h4>
-                    <p className="text-xs text-white/80 leading-relaxed">
-                      Share your link or QR code on social media, WhatsApp, or print it out! When patients book using your link, you'll see them in your history automatically.
-                    </p>
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
             </motion.div>
           )}
           {activeTab === 'guide' && (
@@ -5695,7 +5568,7 @@ export default function App() {
                     </li>
                     <li className="flex gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
-                      <span>Update "Payment Status" to trigger the 7-day buffer period.</span>
+                      <span>Update "Payment Status" to approve the referral.</span>
                     </li>
                     <li className="flex gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
@@ -6899,6 +6772,7 @@ export default function App() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-zinc-50 border-b border-zinc-100">
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">No.</th>
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Staff Member</th>
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">HR Info</th>
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Status</th>
@@ -6907,8 +6781,9 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-50">
-                          {staffPerformance.map(staff => (
+                          {staffPerformance.map((staff, index) => (
                             <tr key={staff.id} className="hover:bg-zinc-50/50 transition-colors">
+                              <td className="p-4 text-sm text-zinc-500 font-medium">{index + 1}</td>
                               <td className="p-4">
                                 <div className="flex items-center gap-3">
                                   <div className="w-8 h-8 rounded-lg bg-zinc-50 overflow-hidden flex items-center justify-center shrink-0">
@@ -7010,6 +6885,7 @@ export default function App() {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-zinc-50 border-b border-zinc-100">
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">No.</th>
                         <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Staff Member</th>
                         <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Role & Details</th>
                         <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-right">Actions</th>
@@ -7018,13 +6894,14 @@ export default function App() {
                     <tbody>
                       {deletedStaffList.length === 0 ? (
                         <tr>
-                          <td colSpan={3} className="p-12 text-center text-zinc-500">
+                          <td colSpan={4} className="p-12 text-center text-zinc-500">
                             No deleted staff found in the trash bin.
                           </td>
                         </tr>
                       ) : (
-                        deletedStaffList.map(staff => (
+                        deletedStaffList.map((staff, index) => (
                           <tr key={staff.id} className="border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors">
+                            <td className="p-4 text-sm text-zinc-500 font-medium">{index + 1}</td>
                             <td className="p-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-zinc-50 flex items-center justify-center text-zinc-500 font-bold overflow-hidden">
@@ -7277,6 +7154,7 @@ export default function App() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-zinc-50 border-b border-zinc-100">
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">No.</th>
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Branch Name</th>
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Location</th>
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Members</th>
@@ -7286,7 +7164,7 @@ export default function App() {
                         <tbody>
                           {branches.length === 0 ? (
                             <tr>
-                              <td colSpan={4} className="p-12 text-center">
+                              <td colSpan={5} className="p-12 text-center">
                                 <div className="flex flex-col items-center gap-2">
                                   <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center text-zinc-500">
                                     <MapPin size={24} />
@@ -7368,8 +7246,9 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                               </td>
                             </tr>
                           ) : (
-                            branches.map(branch => (
+                            branches.map((branch, index) => (
                               <tr key={branch.id} className="border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors">
+                                <td className="p-4 text-sm text-zinc-500 font-medium">{index + 1}</td>
                                 <td className="p-4">
                                   <span className="font-bold text-zinc-900">{branch.name}</span>
                                 </td>
@@ -7509,14 +7388,16 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                           <table className="w-full text-left text-xs">
                             <thead>
                               <tr className="bg-zinc-50">
+                                <th className="p-3 font-black uppercase tracking-widest text-zinc-500">No.</th>
                                 <th className="p-3 font-black uppercase tracking-widest text-zinc-500">Staff Member</th>
                                 <th className="p-3 font-black uppercase tracking-widest text-zinc-500">Monthly Quota</th>
                                 <th className="p-3 font-black uppercase tracking-widest text-zinc-500">Actions</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-200">
-                              {activeStaffList.map(staff => (
+                              {activeStaffList.map((staff, index) => (
                                 <tr key={staff.id}>
+                                  <td className="p-3 text-zinc-500 font-medium">{index + 1}</td>
                                   <td className="p-3 font-bold">{staff.name}</td>
                                   <td className="p-3">
                                     <input 
@@ -7980,12 +7861,26 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                         </div>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => setShowStaffModal(false)}
-                      className="p-2 hover:bg-zinc-50 rounded-xl transition-colors"
-                    >
-                      <PlusCircle className="rotate-45 text-zinc-500" size={24} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {currentUser.role === 'admin' && (
+                        <button 
+                          onClick={() => {
+                            handleDeleteStaff(selectedStaffDetail.id);
+                            setShowStaffModal(false);
+                          }}
+                          className="p-2 hover:bg-rose-50 text-zinc-400 hover:text-rose-500 rounded-xl transition-colors"
+                          title="Delete Staff"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setShowStaffModal(false)}
+                        className="p-2 hover:bg-zinc-50 rounded-xl transition-colors"
+                      >
+                        <PlusCircle className="rotate-45 text-zinc-500" size={24} />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4 mb-8">
@@ -8032,10 +7927,24 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                           const service = services.find(s => s.id === ref.service_id);
                           const allowance = service?.allowances?.[selectedStaffDetail.tier?.name || 'Bronze'] || 0;
                           return (
-                            <div key={ref.id} className="flex items-center justify-between p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
-                              <div>
-                                <p className="text-sm font-bold text-zinc-900">{ref.patient_name}</p>
-                                <p className="text-[10px] text-zinc-500 uppercase font-medium">{ref.service_name} • {ref.date}</p>
+                            <div key={ref.id} className="flex items-center justify-between p-4 bg-zinc-50 rounded-2xl border border-zinc-100 group">
+                              <div className="flex items-center gap-3">
+                                <div>
+                                  <p className="text-sm font-bold text-zinc-900">{ref.patient_name}</p>
+                                  <p className="text-[10px] text-zinc-500 uppercase font-medium">{ref.service_name} • {ref.date}</p>
+                                </div>
+                                {currentUser.role === 'admin' && (
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteReferral(ref.id);
+                                    }}
+                                    className="p-2 text-zinc-400 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+                                    title="Delete Referral"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                )}
                               </div>
                               <div className="text-right">
                                 <p className="text-sm font-bold text-zinc-900">+${(ref.commission_amount * (selectedStaffDetail.tier?.bonus || 1)).toFixed(2)}</p>
