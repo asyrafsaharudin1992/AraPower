@@ -176,7 +176,7 @@ let serviceColumns: Set<string> = new Set([
   'description', 'image_url', 'promo_price', 'type', 'branches', 
   'start_date', 'end_date', 'start_time', 'end_time', 'is_featured', 'aracoins_perk', 'category'
 ]);
-let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'promo_code']);
+let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'promo_code', 'approved_earnings', 'pending_earnings', 'lifetime_earnings']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
 let branchColumns: Set<string> = new Set(['id', 'name', 'location']);
 let settingsColumns: Set<string> = new Set(['key', 'value']);
@@ -1953,6 +1953,31 @@ async function startServer() {
       logError('POST /api/feedback', error);
       res.status(500).json({ error: error.message });
     }
+  });
+
+  app.get("/api/feedback", async (req, res) => {
+    if (!checkSupabase(res)) return;
+    try {
+      const { data, error } = await supabase
+        .from('feedback')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      res.json(data);
+    } catch (error: any) {
+      logError('GET /api/feedback', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/forgot-password", async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+    // TODO: Implement password reset logic (e.g., send email)
+    res.json({ success: true, message: "Password reset link sent (simulated)" });
   });
 
   // Force Vite middleware in development environment

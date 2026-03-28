@@ -777,6 +777,21 @@ export default function App() {
   const [editingStaff, setEditingStaff] = useState<Partial<Staff> | null>(null);
   const [isSavingSetup, setIsSavingSetup] = useState(false);
 
+  // Add auto-refresh for approval status
+  useEffect(() => {
+    if (currentUser && currentUser.is_approved === 0 && currentUser.role !== 'admin') {
+      const interval = setInterval(async () => {
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser.id}`);
+        if (res.ok && data && data.is_approved) {
+          setCurrentUser(data);
+          localStorage.setItem('currentUser', JSON.stringify(data));
+          clearInterval(interval);
+        }
+      }, 5000); // Check every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [currentUser]);
+
   // Clinic & Roles State
   const [clinicProfile, setClinicProfile] = useState<ClinicProfile>({
     name: 'AraPower',
@@ -1018,6 +1033,7 @@ export default function App() {
   const [authPhone, setAuthPhone] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [authError, setAuthError] = useState('');
   const [showResendButton, setShowResendButton] = useState(false);
   const [resendStatus, setResendStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -1099,6 +1115,7 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [taskDueDate, setTaskDueDate] = useState<Date | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackList, setFeedbackList] = useState<any[]>([]);
   const [isSendingFeedback, setIsSendingFeedback] = useState(false);
   const [referralSettings, setReferralSettings] = useState({
     types: ['Staff', 'Patient', 'Public'],
@@ -1423,6 +1440,14 @@ export default function App() {
       if (interval) clearInterval(interval);
     };
   }, [activeTab, currentUser?.role]);
+
+  useEffect(() => {
+    if (activeTab === 'communication' && currentUser?.role === 'admin') {
+      safeFetch(`${apiBaseUrl}/api/feedback`).then(({ res, data }) => {
+        if (res.ok && data) setFeedbackList(data);
+      });
+    }
+  }, [activeTab, currentUser]);
 
   const fetchStaff = async () => {
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff`);
@@ -2795,7 +2820,7 @@ export default function App() {
                         </div>
                         <span className="text-xs font-bold text-twilight-indigo/60">Remember Me</span>
                       </label>
-                      <button type="button" className="text-burnt-peach text-xs font-bold hover:underline">
+                      <button type="button" onClick={() => setShowForgotPasswordModal(true)} className="text-burnt-peach text-xs font-bold hover:underline">
                         Forgot Password?
                       </button>
                     </div>
@@ -3046,7 +3071,7 @@ export default function App() {
       </div>
     );
   }
-
+  
   if (currentUser.is_approved === 0 && currentUser.role !== 'admin') {
     return (
       <div className="min-h-screen w-full overflow-x-hidden bg-eggshell flex items-center justify-center p-4 font-sans relative overflow-hidden">
@@ -3668,11 +3693,13 @@ export default function App() {
 
                     <div className="grid grid-cols-2 gap-4">
                       {services.map(service => {
-                        const count = referrals.filter(r => 
+                        const filteredReferrals = referrals.filter(r => 
                           (currentUser.role === 'admin' ? true : r.staff_id === currentUser.id) && 
                           r.service_id === service.id && 
                           ['paid_completed', 'approved', 'payout_processed'].includes(r.status)
-                        ).length;
+                        );
+                        const count = filteredReferrals.length;
+                        const totalAmount = filteredReferrals.reduce((sum, r) => sum + (r.commission_amount || 0), 0);
                         
                         if (count === 0) return null;
 
@@ -3683,12 +3710,12 @@ export default function App() {
                           >
                             <p className="text-xs font-black text-white leading-tight line-clamp-2">{service.name}</p>
                             <div className="flex items-end justify-between mt-2">
-                              <span className="text-3xl font-black text-white">{count}</span>
-                              <span className="text-[8px] font-black uppercase tracking-widest text-white/60 mb-1">Approved</span>
+                              <p className="text-2xl font-black text-white">{count}</p>
+                              <p className="text-xs font-bold text-white/80">RM {totalAmount.toFixed(2)}</p>
                             </div>
                           </div>
                         );
-                      }).filter(Boolean)}
+                      })}
                       
                       {services.filter(service => 
                         referrals.some(r => (currentUser.role === 'admin' ? true : r.staff_id === currentUser.id) && r.service_id === service.id && ['paid_completed', 'approved', 'payout_processed'].includes(r.status))
@@ -3697,11 +3724,11 @@ export default function App() {
                           <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
                             <ClipboardList className="text-zinc-500" size={24} />
                           </div>
-                          <p className="text-zinc-500 text-xs font-black uppercase tracking-widest">No approved commissions</p>
+                          <p className="text-zinc-500 text-xs font-black uppercase tracking-widest">No approved or processed commissions</p>
                           <p className="text-zinc-500 text-[10px] font-bold mt-1">
                             {currentUser.role === 'admin' 
                               ? 'Referrals must be marked as "Approved" or "Paid" to appear here.' 
-                              : 'Your approved referrals will appear here.'}
+                              : 'Your approved or processed referrals will appear here.'}
                           </p>
                         </div>
                       )}
@@ -4591,6 +4618,24 @@ export default function App() {
                         Staff will receive these in their notification inbox in real-time.
                       </li>
                     </ul>
+                  </div>
+
+                  {/* Feedback Section */}
+                  <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm space-y-6">
+                    <h3 className="text-xl font-black text-zinc-900">Staff Feedback</h3>
+                    {feedbackList.length === 0 ? (
+                      <p className="text-zinc-500 text-sm">No feedback received yet.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {feedbackList.map((f) => (
+                          <div key={f.id} className="p-4 bg-zinc-50 rounded-2xl border border-black/5">
+                            <p className="text-sm font-bold text-zinc-900">{f.staff_name} ({f.staff_email})</p>
+                            <p className="text-sm text-zinc-600 mt-1">{f.message}</p>
+                            <p className="text-[10px] text-zinc-400 mt-2">{new Date(f.created_at).toLocaleString()}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
