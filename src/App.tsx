@@ -1034,6 +1034,9 @@ export default function App() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [isSendingForgotPassword, setIsSendingForgotPassword] = useState(false);
+  const [forgotPasswordStatus, setForgotPasswordStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [authError, setAuthError] = useState('');
   const [showResendButton, setShowResendButton] = useState(false);
   const [resendStatus, setResendStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -1594,6 +1597,13 @@ export default function App() {
     await Promise.all(promises);
   };
 
+  useEffect(() => {
+    if (window.location.pathname === '/reset-password') {
+      setShowPasswordModal(true);
+      window.history.replaceState({}, document.title, '/');
+    }
+  }, []);
+
   const handleGetStarted = () => {
     setWelcomeScreenClass('fade-out');
     setTimeout(() => {
@@ -1601,6 +1611,54 @@ export default function App() {
       setOnboardingStep('auth');
       setLoginScreenClass('fade-in');
     }, 400);
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotPasswordEmail) return;
+    
+    setIsSendingForgotPassword(true);
+    setForgotPasswordStatus(null);
+    
+    try {
+      if (isSupabaseConfigured) {
+        const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        
+        if (error) {
+          throw error;
+        }
+        
+        setForgotPasswordStatus({ type: 'success', message: 'Password reset link sent to your email.' });
+        setTimeout(() => {
+          setShowForgotPasswordModal(false);
+          setForgotPasswordEmail('');
+          setForgotPasswordStatus(null);
+        }, 3000);
+      } else {
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: forgotPasswordEmail }),
+        });
+        
+        if (res.ok) {
+          setForgotPasswordStatus({ type: 'success', message: 'Password reset link sent to your email.' });
+          setTimeout(() => {
+            setShowForgotPasswordModal(false);
+            setForgotPasswordEmail('');
+            setForgotPasswordStatus(null);
+          }, 3000);
+        } else {
+          setForgotPasswordStatus({ type: 'error', message: data?.error || 'Failed to send reset link.' });
+        }
+      }
+    } catch (error: any) {
+      setForgotPasswordStatus({ type: 'error', message: error.message || 'An error occurred.' });
+    } finally {
+      setIsSendingForgotPassword(false);
+    }
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -2085,6 +2143,9 @@ export default function App() {
         }
         if (uploadError.message.includes('row-level security policy')) {
           throw new Error('Security Policy Error: Your Supabase bucket is locked. Please ensure you have added the "INSERT" and "SELECT" policies for "public" or "authenticated" users on the "clinic-assets" bucket.');
+        }
+        if (uploadError.message.includes('Failed to fetch')) {
+          throw new Error('Network Error: Failed to upload image. This could be due to a slow connection, a large file size, or a CORS issue with your Supabase project.');
         }
         throw uploadError;
       }
@@ -3012,6 +3073,63 @@ export default function App() {
                     I Agree
                   </button>
                 </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Forgot Password Modal */}
+        <AnimatePresence>
+          {showForgotPasswordModal && (
+            <div key="forgot-password-container" className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+              <motion.div
+                key="forgot-password-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowForgotPasswordModal(false)}
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              />
+              <motion.div
+                key="forgot-password-modal"
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-md bg-eggshell rounded-[2.5rem] shadow-2xl p-8 space-y-6"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-2xl font-black text-zinc-900 tracking-tight">Forgot Password</h3>
+                  <button 
+                    onClick={() => setShowForgotPasswordModal(false)}
+                    className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center hover:bg-zinc-200 transition-colors"
+                  >
+                    <X size={20} className="text-zinc-500" />
+                  </button>
+                </div>
+                <p className="text-sm text-zinc-500">Enter your email address and we'll send you a link to reset your password.</p>
+                
+                {forgotPasswordStatus && (
+                  <div className={`p-4 rounded-2xl text-sm font-bold ${forgotPasswordStatus.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                    {forgotPasswordStatus.message}
+                  </div>
+                )}
+
+                <form onSubmit={handleForgotPassword} className="space-y-6">
+                  <input 
+                    type="email"
+                    required
+                    value={forgotPasswordEmail}
+                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    placeholder="Enter your email..."
+                    className="w-full px-5 py-4 bg-white border border-zinc-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-burnt-peach focus:border-transparent transition-all"
+                  />
+                  <div className="flex gap-4 pt-2">
+                    <button type="button" onClick={() => setShowForgotPasswordModal(false)} className="flex-1 px-6 py-4 bg-zinc-100 text-zinc-900 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors">Cancel</button>
+                    <button type="submit" disabled={isSendingForgotPassword || !forgotPasswordEmail} className="flex-1 px-6 py-4 bg-burnt-peach text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-burnt-peach/90 shadow-lg shadow-burnt-peach/20 transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2">
+                      {isSendingForgotPassword ? <RefreshCw size={18} className="animate-spin" /> : 'Send Link'}
+                    </button>
+                  </div>
+                </form>
               </motion.div>
             </div>
           )}

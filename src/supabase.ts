@@ -124,14 +124,5 @@ export const supabase = isPlaceholder
   ? new MockSupabase() as any 
   : createClient(
       supabaseUrl || 'https://placeholder-project.supabase.co', 
-      supabaseAnonKey || 'placeholder-key',
-      {
-        global: {
-          fetch: (url, options) => {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-            return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeoutId));
-          }
-        }
-      }
+      supabaseAnonKey || 'placeholder-key'
     );
