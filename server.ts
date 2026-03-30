@@ -68,7 +68,15 @@ class MockQuery {
   private orderCol: string | null = null;
   private limitCount: number | null = null;
 
-  constructor(private items: any[], private table: string, private allData: any) {}
+  private items: any[];
+  private table: string;
+  private allData: any;
+
+  constructor(items: any[], table: string, allData: any) {
+    this.items = items;
+    this.table = table;
+    this.allData = allData;
+  }
 
   select(cols: string = '*', options: any = {}) {
     return this;

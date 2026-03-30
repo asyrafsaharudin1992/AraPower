@@ -61,7 +61,8 @@ import {
   Moon,
   MessageSquare,
   Send,
-  ArrowLeft
+  ArrowLeft,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
