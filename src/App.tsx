@@ -1034,9 +1034,13 @@ export default function App() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [resetPasswordNewPassword, setResetPasswordNewPassword] = useState('');
   const [isSendingForgotPassword, setIsSendingForgotPassword] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [forgotPasswordStatus, setForgotPasswordStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [resetPasswordStatus, setResetPasswordStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [authError, setAuthError] = useState('');
   const [showResendButton, setShowResendButton] = useState(false);
   const [resendStatus, setResendStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -1598,8 +1602,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (window.location.pathname === '/reset-password') {
-      setShowPasswordModal(true);
+    if (window.location.pathname === '/reset-password' || window.location.hash.includes('type=recovery')) {
+      setShowResetPasswordModal(true);
       window.history.replaceState({}, document.title, '/');
     }
   }, []);
@@ -1658,6 +1662,43 @@ export default function App() {
       setForgotPasswordStatus({ type: 'error', message: error.message || 'An error occurred.' });
     } finally {
       setIsSendingForgotPassword(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetPasswordNewPassword) return;
+    
+    setIsUpdatingPassword(true);
+    setResetPasswordStatus(null);
+    
+    try {
+      if (isSupabaseConfigured) {
+        const { error } = await supabase.auth.updateUser({
+          password: resetPasswordNewPassword
+        });
+        
+        if (error) throw error;
+        
+        setResetPasswordStatus({ type: 'success', message: 'Password updated successfully.' });
+        setTimeout(() => {
+          setShowResetPasswordModal(false);
+          setResetPasswordNewPassword('');
+          setResetPasswordStatus(null);
+        }, 3000);
+      } else {
+        // Local fallback
+        setResetPasswordStatus({ type: 'success', message: 'Password updated successfully.' });
+        setTimeout(() => {
+          setShowResetPasswordModal(false);
+          setResetPasswordNewPassword('');
+          setResetPasswordStatus(null);
+        }, 3000);
+      }
+    } catch (error: any) {
+      setResetPasswordStatus({ type: 'error', message: error.message || 'Failed to update password.' });
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
@@ -3034,15 +3075,19 @@ export default function App() {
         {/* Terms of Service Modal */}
         <AnimatePresence>
           {showTermsModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+            <motion.div 
+              key="terms-modal-container"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
+            >
+              <div
                 onClick={() => setShowTermsModal(false)}
                 className="absolute inset-0 bg-black/40 backdrop-blur-sm"
               />
               <motion.div
+                key="terms-modal"
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -3074,19 +3119,21 @@ export default function App() {
                   </button>
                 </div>
               </motion.div>
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>
 
         {/* Forgot Password Modal */}
         <AnimatePresence>
           {showForgotPasswordModal && (
-            <div key="forgot-password-container" className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-              <motion.div
-                key="forgot-password-backdrop"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+            <motion.div 
+              key="forgot-password-container" 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
+            >
+              <div
                 onClick={() => setShowForgotPasswordModal(false)}
                 className="absolute inset-0 bg-black/40 backdrop-blur-sm"
               />
@@ -3131,7 +3178,66 @@ export default function App() {
                   </div>
                 </form>
               </motion.div>
-            </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Reset Password Modal */}
+        <AnimatePresence>
+          {showResetPasswordModal && (
+            <motion.div 
+              key="reset-password-container" 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
+            >
+              <div
+                onClick={() => setShowResetPasswordModal(false)}
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              />
+              <motion.div
+                key="reset-password-modal"
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-md bg-eggshell rounded-[2.5rem] shadow-2xl p-8 space-y-6"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-2xl font-black text-zinc-900 tracking-tight">Reset Password</h3>
+                  <button 
+                    onClick={() => setShowResetPasswordModal(false)}
+                    className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center hover:bg-zinc-200 transition-colors"
+                  >
+                    <X size={20} className="text-zinc-500" />
+                  </button>
+                </div>
+                <p className="text-sm text-zinc-500">Enter your new password below.</p>
+                
+                {resetPasswordStatus && (
+                  <div className={`p-4 rounded-2xl text-sm font-bold ${resetPasswordStatus.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                    {resetPasswordStatus.message}
+                  </div>
+                )}
+
+                <form onSubmit={handleUpdatePassword} className="space-y-6">
+                  <input 
+                    type="password"
+                    required
+                    value={resetPasswordNewPassword}
+                    onChange={(e) => setResetPasswordNewPassword(e.target.value)}
+                    placeholder="New password (min. 6 characters)"
+                    className="w-full px-5 py-4 bg-white border border-zinc-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-burnt-peach focus:border-transparent transition-all"
+                  />
+                  <div className="flex gap-4 pt-2">
+                    <button type="button" onClick={() => setShowResetPasswordModal(false)} className="flex-1 px-6 py-4 bg-zinc-100 text-zinc-900 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors">Cancel</button>
+                    <button type="submit" disabled={isUpdatingPassword || !resetPasswordNewPassword || resetPasswordNewPassword.length < 6} className="flex-1 px-6 py-4 bg-burnt-peach text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-burnt-peach/90 shadow-lg shadow-burnt-peach/20 transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2">
+                      {isUpdatingPassword ? <RefreshCw size={18} className="animate-spin" /> : 'Update'}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
@@ -8216,15 +8322,19 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
 
         <AnimatePresence>
           {showPasswordModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+            <motion.div 
+              key="password-modal-container"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            >
+              <div 
                 onClick={() => setShowPasswordModal(false)}
                 className="absolute inset-0 bg-brand-primary/60 backdrop-blur-sm"
               />
               <motion.div 
+                key="password-modal"
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -8296,21 +8406,25 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                   </form>
                 </div>
               </motion.div>
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>
 
         <AnimatePresence>
           {showReferralModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+            <motion.div 
+              key="referral-modal-container"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            >
+              <div 
                 onClick={() => setShowReferralModal(false)}
                 className="absolute inset-0 bg-brand-primary/60 backdrop-blur-sm"
               />
               <motion.div 
+                key="referral-modal"
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -8497,7 +8611,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                   </form>
                 </div>
               </motion.div>
-            </div>
+            </motion.div>
           )}
 
         </AnimatePresence>
@@ -8530,15 +8644,19 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
 
         <AnimatePresence>
           {confirmDialog.isOpen && (
-            <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+            <motion.div 
+              key="confirm-dialog-container"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[150] flex items-center justify-center p-4"
+            >
+              <div 
                 onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
                 className="absolute inset-0 bg-brand-primary/60 backdrop-blur-sm"
               />
               <motion.div 
+                key="confirm-dialog"
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -8568,7 +8686,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                   </div>
                 </div>
               </motion.div>
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>
       </>
