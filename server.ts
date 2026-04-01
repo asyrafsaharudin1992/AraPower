@@ -1301,6 +1301,26 @@ app.delete("/api/notifications/:id", async (req, res) => {
   }
 });
 
+app.get("/api/affiliate-lookup/:code", async (req, res) => {
+  const { code } = req.params;
+  
+  if (!staffColumns.has('referral_code')) {
+    return res.status(404).json({ error: "Referral code column not found" });
+  }
+
+  const { data, error } = await supabase
+    .from('staff')
+    .select('id, name')
+    .eq('referral_code', code)
+    .single();
+
+  if (error || !data) {
+    return res.status(404).json({ error: "Referral code not found" });
+  }
+
+  return res.json(data);
+});
+
 app.get("/api/staff", async (req, res) => {
   const { promoCode, id } = req.query;
   
@@ -1316,11 +1336,11 @@ app.get("/api/staff", async (req, res) => {
   }
   
   if (promoCode) {
-    if (!staffColumns.has('promo_code')) {
-      return res.json(null);
+    if (staffColumns.has('referral_code')) {
+      const { data, error } = await query.eq('referral_code', promoCode).single();
+      return res.json(data || null);
     }
-    const { data, error } = await query.eq('promo_code', promoCode).single();
-    return res.json(data || null);
+    return res.json(null);
   }
   
   const { data, error } = await query;
@@ -1899,39 +1919,44 @@ app.get("/api/referrals", async (req, res) => {
 app.post("/api/referrals", async (req, res) => {
   const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch } = req.body;
   
-  const staffSelect = Array.from(staffColumns).length > 0 
-    ? Array.from(staffColumns).join(',') 
-    : 'id, staff_id_code, phone, branch, pending_earnings';
-
-  const { data: staff, error: staffError } = await supabase
-    .from('staff')
-    .select(staffSelect)
-    .eq('id', staff_id)
-    .single();
-    
-  if (staffError || !staff) return res.status(400).json({ error: "Referrer not found" });
-
-  // Anti-fraud rules
+  let staff = null;
   const fraudFlags = [];
-  if (staff.staff_id_code === patient_ic) fraudFlags.push("Self-referral (IC match)");
-  if (staff.phone === patient_phone) fraudFlags.push("Self-referral (Phone match)");
-  
-  const surname = patient_name.split(' ').pop();
-  const { count: similarCount } = await supabase
-    .from('referrals')
-    .select(Array.from(referralColumns).length > 0 ? Array.from(referralColumns).join(',') : '*', { count: 'exact', head: true })
-    .ilike('patient_name', `%${surname}`)
-    .eq('created_by', staff_id);
-    
-  if (similarCount && similarCount >= 3) fraudFlags.push("Repeated surname pattern");
 
-  const { count: dailyCount } = await supabase
-    .from('referrals')
-    .select(Array.from(referralColumns).length > 0 ? Array.from(referralColumns).join(',') : '*', { count: 'exact', head: true })
-    .eq('created_by', staff_id)
-    .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
+  if (staff_id) {
+    const staffSelect = Array.from(staffColumns).length > 0 
+      ? Array.from(staffColumns).join(',') 
+      : 'id, staff_id_code, phone, branch, pending_earnings';
+
+    const { data, error: staffError } = await supabase
+      .from('staff')
+      .select(staffSelect)
+      .eq('id', staff_id)
+      .single();
+      
+    if (staffError || !data) return res.status(400).json({ error: "Referrer not found" });
+    staff = data;
+
+    // Anti-fraud rules
+    if (staff.staff_id_code === patient_ic) fraudFlags.push("Self-referral (IC match)");
+    if (staff.phone === patient_phone) fraudFlags.push("Self-referral (Phone match)");
     
-  if (dailyCount && dailyCount >= 5) fraudFlags.push("High daily volume (>5)");
+    const surname = patient_name.split(' ').pop();
+    const { count: similarCount } = await supabase
+      .from('referrals')
+      .select(Array.from(referralColumns).length > 0 ? Array.from(referralColumns).join(',') : '*', { count: 'exact', head: true })
+      .ilike('patient_name', `%${surname}`)
+      .eq('created_by', staff_id);
+      
+    if (similarCount && similarCount >= 3) fraudFlags.push("Repeated surname pattern");
+
+    const { count: dailyCount } = await supabase
+      .from('referrals')
+      .select(Array.from(referralColumns).length > 0 ? Array.from(referralColumns).join(',') : '*', { count: 'exact', head: true })
+      .eq('created_by', staff_id)
+      .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
+      
+    if (dailyCount && dailyCount >= 5) fraudFlags.push("High daily volume (>5)");
+  }
 
   const serviceSelect = Array.from(serviceColumns).length > 0 
     ? Array.from(serviceColumns).join(',') 
@@ -1951,7 +1976,7 @@ app.post("/api/referrals", async (req, res) => {
     status: 'entered'
   };
 
-  if (referralColumns.has('created_by')) insertData.created_by = staff_id;
+  if (staff_id && referralColumns.has('created_by')) insertData.created_by = staff_id;
 
   if (referralColumns.has('patient_phone')) insertData.patient_phone = patient_phone || null;
   if (referralColumns.has('patient_ic')) insertData.patient_ic = patient_ic || null;
@@ -1960,8 +1985,9 @@ app.post("/api/referrals", async (req, res) => {
   if (referralColumns.has('appointment_date')) insertData.appointment_date = appointment_date || null;
   if (referralColumns.has('booking_time')) insertData.booking_time = booking_time || null;
   if (referralColumns.has('fraud_flags')) insertData.fraud_flags = JSON.stringify(fraudFlags);
-  if (referralColumns.has('created_by')) insertData.created_by = created_by || null;
-  if (referralColumns.has('branch')) insertData.branch = staff.branch;
+  if (created_by && referralColumns.has('created_by')) insertData.created_by = created_by;
+  if (staff && referralColumns.has('branch')) insertData.branch = staff.branch;
+  else if (branch && referralColumns.has('branch')) insertData.branch = branch;
 
   // Only include aracoins_perk if the column exists in the database
   if (referralColumns.has('aracoins_perk')) {
