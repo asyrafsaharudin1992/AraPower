@@ -180,7 +180,8 @@ let referralColumns: Set<string> = new Set([
   'id', 'patient_name', 'status', 'created_at',
   'patient_phone', 'patient_ic', 'patient_address', 'patient_type',
   'appointment_date', 'booking_time', 'fraud_flags', 'created_by',
-  'branch', 'aracoins_perk', 'service_id', 'deposit_paid'
+  'branch', 'aracoins_perk', 'service_id', 'deposit_paid',
+  'staff_id', 'referral_code'
 ]);
 let serviceColumns: Set<string> = new Set([
   'id', 'name', 'category', 'type', 'description', 'base_price',
@@ -1866,7 +1867,7 @@ app.get("/api/schema", (req, res) => {
 app.get("/api/referrals", async (req, res) => {
   const { staffId, branch, requesterRole, requesterBranch } = req.query;
   
-  const filteredColumns = Array.from(referralColumns).filter(col => col !== 'staff' && col !== 'service' && col !== 'staff_id');
+  const filteredColumns = Array.from(referralColumns).filter(col => col !== 'staff' && col !== 'service' && col !== 'services');
   const baseColumns = filteredColumns.length > 0 
     ? filteredColumns.join(',') 
     : 'id, patient_name, status, created_by';
@@ -1887,7 +1888,21 @@ app.get("/api/referrals", async (req, res) => {
     .order('created_at', { ascending: false });
 
   if (staffId && staffId !== 'undefined' && staffId !== 'null') {
-    query = query.eq('created_by', staffId);
+    if (referralColumns.has('staff_id')) {
+      query = query.eq('staff_id', staffId);
+    } else {
+      query = query.eq('created_by', staffId);
+    }
+  }
+  
+  const { upcoming } = req.query;
+  if (upcoming === 'true') {
+    const today = new Date().toISOString().split('T')[0];
+    if (referralColumns.has('appointment_date')) {
+      query = query.gte('appointment_date', today);
+    } else {
+      query = query.gte('created_at', today);
+    }
   }
   
   if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
@@ -1913,6 +1928,7 @@ app.get("/api/referrals", async (req, res) => {
 
   const formattedReferrals = referrals.map(r => ({
     ...r,
+    staff_id: r.staff_id || r.created_by,
     staff_name: r.staff?.name,
     promo_code: r.staff?.promo_code,
     service_name: r.services?.name
@@ -1922,7 +1938,7 @@ app.get("/api/referrals", async (req, res) => {
 });
 
 app.post("/api/referrals", async (req, res) => {
-  const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch } = req.body;
+  const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch, referral_code } = req.body;
   
   let staff = null;
   const fraudFlags = [];
@@ -1978,7 +1994,7 @@ app.post("/api/referrals", async (req, res) => {
   const insertData: any = {
     service_id,
     patient_name,
-    status: 'entered'
+    status: 'pending'
   };
 
   if (staff_id) {
@@ -1993,6 +2009,7 @@ app.post("/api/referrals", async (req, res) => {
   if (referralColumns.has('appointment_date')) insertData.appointment_date = appointment_date || null;
   if (referralColumns.has('booking_time')) insertData.booking_time = booking_time || null;
   if (referralColumns.has('fraud_flags')) insertData.fraud_flags = JSON.stringify(fraudFlags);
+  if (referralColumns.has('referral_code') && referral_code) insertData.referral_code = referral_code;
   
   if (created_by) {
     if (referralColumns.has('created_by')) insertData.created_by = created_by;
@@ -2093,8 +2110,9 @@ app.patch("/api/referrals/:id", async (req, res) => {
 
   // Logic for status transitions
   const staffSelectColumns = Array.from(staffColumns).length > 0 ? Array.from(staffColumns).join(',') : 'id';
+  const effectiveStaffId = referral.staff_id || referral.created_by;
 
-  const { data: staff } = await supabase.from('staff').select(staffSelectColumns).eq('id', referral.created_by).single();
+  const { data: staff } = await supabase.from('staff').select(staffSelectColumns).eq('id', effectiveStaffId).single();
   if (!staff) return res.json({ success: true });
 
   const { data: service } = await supabase.from('services').select('commission_rate').eq('id', referral.service_id).single();
@@ -2115,7 +2133,7 @@ app.patch("/api/referrals/:id", async (req, res) => {
       await supabase
         .from('staff')
         .update(staffUpdate)
-        .eq('id', referral.created_by);
+        .eq('id', effectiveStaffId);
     }
   } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
     const staffUpdate: any = {};
@@ -2128,16 +2146,16 @@ app.patch("/api/referrals/:id", async (req, res) => {
       await supabase
         .from('staff')
         .update(staffUpdate)
-        .eq('id', referral.created_by);
+        .eq('id', effectiveStaffId);
     }
   } else if (status === 'rejected' && referral.status !== 'rejected') {
-    if (['entered', 'completed', 'paid_completed'].includes(referral.status)) {
+    if (['entered', 'completed', 'paid_completed', 'pending'].includes(referral.status)) {
       if (staffColumns.has('pending_earnings')) {
         const commission = service?.commission_rate || 0;
         await supabase
           .from('staff')
           .update({ pending_earnings: (staff.pending_earnings || 0) - commission })
-          .eq('id', referral.created_by);
+          .eq('id', effectiveStaffId);
       }
     }
   }

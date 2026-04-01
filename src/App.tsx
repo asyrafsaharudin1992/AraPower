@@ -1064,7 +1064,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    localStorage.setItem('reduceTranslucency', reduceTranslucency.toString());
+    localStorage.setItem('reduceTranslucency', String(reduceTranslucency ?? false));
   }, [reduceTranslucency]);
 
   useEffect(() => {
@@ -1170,7 +1170,7 @@ export default function App() {
   }, [selectedTheme]);
 
   useEffect(() => {
-    localStorage.setItem('dark-mode', darkMode.toString());
+    localStorage.setItem('dark-mode', String(darkMode ?? false));
     if (darkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -1232,14 +1232,7 @@ export default function App() {
       if (session?.user?.email) {
         fetchStaffByEmail(session.user.email, session.user);
       } else {
-        // If no Supabase session, check if we have a local user before stopping check
-        const saved = localStorage.getItem('currentUser');
-        if (!saved) {
-          setIsAuthChecking(false);
-        } else {
-          // If we have a saved user, we keep it but still stop the initial check
-          setIsAuthChecking(false);
-        }
+        setIsAuthChecking(false);
       }
     }).catch(async (err: any) => {
       console.warn('Supabase session check failed:', err);
@@ -1266,13 +1259,8 @@ export default function App() {
         setCurrentUser(null);
         localStorage.removeItem('currentUser');
         setIsAuthChecking(false);
-      } else {
-        // For other events like INITIAL_SESSION with no session, 
-        // only clear if we don't have a local user
-        const saved = localStorage.getItem('currentUser');
-        if (!saved && event === 'INITIAL_SESSION') {
-          setIsAuthChecking(false);
-        }
+      } else if (event === 'INITIAL_SESSION' && !session) {
+        setIsAuthChecking(false);
       }
     });
 
@@ -1382,7 +1370,7 @@ export default function App() {
   const fetchTasks = async () => {
     if (!currentUser) return;
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks`, {
-      headers: { 'x-user-id': currentUser.id.toString() }
+      headers: { 'x-user-id': String(currentUser.id ?? '') }
     });
     if (res.ok && Array.isArray(data)) setTasks(data);
   };
@@ -1443,7 +1431,7 @@ export default function App() {
 
     const slots = [];
     for (let i = start; i < end; i++) {
-      const time = `${i.toString().padStart(2, '0')}:00`;
+      const time = `${String(i ?? 0).padStart(2, '0')}:00`;
       
       // Check blocked times for this specific date
       if (bSched && bSched.blockedDates && date) {
@@ -1591,7 +1579,7 @@ export default function App() {
     if (Array.isArray(branches)) {
       return branches.some(b => {
         if (typeof b === 'string') return b.trim().toLowerCase() === userBranch.toLowerCase();
-        if (typeof b === 'object' && b !== null) return (b.name || b.id || '').toString().trim().toLowerCase() === userBranch.toLowerCase();
+        if (typeof b === 'object' && b !== null) return String(b.name || b.id || '').trim().toLowerCase() === userBranch.toLowerCase();
         return false;
       });
     }
@@ -1665,6 +1653,10 @@ export default function App() {
     let url = (currentUser.role === 'admin' || currentUser.role === 'receptionist') 
       ? `${apiBaseUrl}/api/referrals?requesterRole=${currentUser.role}&requesterBranch=${currentUser.branch}` 
       : `${apiBaseUrl}/api/referrals?staffId=${currentUser.id}`;
+    
+    if (currentUser.role === 'receptionist') {
+      url += '&upcoming=true';
+    }
     
     if (branchFilter !== 'all' && (currentUser.role === 'admin' || currentUser.role === 'receptionist')) {
       url += `&branch=${branchFilter}`;
@@ -1801,26 +1793,11 @@ export default function App() {
     setShowResendButton(false);
     console.log('Login attempt started', { email: authEmail, apiBaseUrl });
     try {
-      // Check if Supabase is properly configured
+      // Strictly use Supabase for authentication
       if (!isSupabaseConfigured) {
-        console.log('Supabase not configured, using local backend login...');
-        const { res, data } = await safeFetch(`${apiBaseUrl}/api/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: authEmail, password: authPassword })
-        });
-
-        if (res.ok && data && !data.error) {
-          setCurrentUser(data);
-          localStorage.setItem('currentUser', JSON.stringify(data));
-          setShowWelcome(true);
-          return;
-        } else {
-          throw new Error(data.error || 'Invalid credentials');
-        }
+        throw new Error('Authentication service is not configured. Please check your settings.');
       }
 
-      // If Supabase is configured, try it
       const { data, error } = await supabase.auth.signInWithPassword({
         email: authEmail,
         password: authPassword,
@@ -1829,27 +1806,9 @@ export default function App() {
       if (error) {
         if (error.message === 'Email not confirmed') {
           setShowResendButton(true);
-          console.log('Supabase email not confirmed, attempting local backend fallback...');
+          throw new Error('Please confirm your email address before logging in.');
         }
         
-        // Fallback to local backend if Supabase fails (e.g. user not in Supabase but in local DB)
-        console.log('Supabase login failed or email not confirmed, trying local backend...');
-        const { res, data: localData } = await safeFetch(`${apiBaseUrl}/api/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: authEmail, password: authPassword })
-        });
-
-        if (res.ok && localData && !localData.error) {
-          setCurrentUser(localData);
-          localStorage.setItem('currentUser', JSON.stringify(localData));
-          setShowWelcome(true);
-          return;
-        }
-
-        if (error.message === 'Email not confirmed') {
-          throw new Error('Please confirm your email address before logging in, or check your credentials.');
-        }
         if (error.message === 'Failed to fetch' || error.message?.includes('aborted')) {
           throw new Error('Database connection failed. Please check your Supabase URL and Key in the Settings.');
         }
@@ -1905,31 +1864,31 @@ export default function App() {
     try {
       console.log('Registration attempt started', { email: authEmail, name: authName });
       
-      // Check if Supabase is properly configured
-      let authId = null;
-      let requiresEmailConfirmation = false;
-      if (isSupabaseConfigured) {
-        try {
-          const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: authEmail,
-            password: authPassword,
-            options: {
-              data: {
-                full_name: authName,
-                branch: authBranch
-              }
-            }
-          });
-          if (authError) console.warn('Supabase registration warning:', authError.message);
-          if (authData?.user) {
-            authId = authData.user.id;
-            // If user is created but no session is returned, email confirmation is required
-            if (!authData.session && authData.user.identities && authData.user.identities.length > 0) {
-              requiresEmailConfirmation = true;
-            }
+      if (!isSupabaseConfigured) {
+        throw new Error('Authentication service is not configured. Please check your settings.');
+      }
+
+      // 1. Register in Supabase
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: authEmail,
+        password: authPassword,
+        options: {
+          data: {
+            full_name: authName,
+            branch: authBranch
           }
-        } catch (err) {
-          console.warn('Supabase registration error (skipping):', err);
+        }
+      });
+
+      if (authError) throw authError;
+
+      let authId = authData?.user?.id;
+      let requiresEmailConfirmation = false;
+
+      if (authData?.user) {
+        // If user is created but no session is returned, email confirmation is required
+        if (!authData.session && authData.user.identities && authData.user.identities.length > 0) {
+          requiresEmailConfirmation = true;
         }
       }
 
@@ -1952,19 +1911,22 @@ export default function App() {
         if (requiresEmailConfirmation) {
           setAuthError('Registration successful! Please check your email to confirm your account. You can also try signing in now.');
           setAuthMode('login');
-        } else {
+        } else if (data && !data.error) {
           setCurrentUser(data);
           localStorage.setItem('currentUser', JSON.stringify(data));
           setShowWelcome(true);
           setActiveTab('dashboard');
+        } else {
+          setAuthError('Registration successful! You can now log in.');
+          setAuthMode('login');
         }
       } else {
         console.error('Registration failed:', data);
         setAuthError(data.error || 'Registration failed. Please try again.');
       }
     } catch (error: any) {
-      console.error('Registration network error:', error);
-      setAuthError(error.message || 'Network error. Please check your connection and try again.');
+      console.error('Registration error:', error);
+      setAuthError(error.message || 'Registration failed');
     } finally {
       setIsSubmitting(false);
     }
@@ -2024,7 +1986,7 @@ export default function App() {
         s.bank_account_number || '',
         s.id_type || 'NRIC',
         s.id_number || '',
-        (s.approved_earnings + s.pending_earnings).toFixed(2),
+        ((s.approved_earnings || 0) + (s.pending_earnings || 0)).toFixed(2),
         metadata.paymentReference,
         metadata.paymentDescription
       ]);
@@ -2063,7 +2025,7 @@ export default function App() {
         const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && (s.approved_earnings > 0 || s.pending_earnings > 0));
         
         for (const staff of staffToPay) {
-          const payableRefs = referrals.filter(r => r.staff_id === staff.id && ['paid_completed', 'approved'].includes(r.status));
+          const payableRefs = referrals.filter(r => String(r.staff_id) === String(staff.id) && ['paid_completed', 'approved'].includes(r.status));
           for (const ref of payableRefs) {
             await safeFetch(`${apiBaseUrl}/api/referrals/${ref.id}`, {
               method: 'PATCH',
@@ -2092,7 +2054,26 @@ export default function App() {
 
   const handleSubmitReferral = async (e: React.FormEvent) => {
     e.preventDefault();
-    const staffId = isPublicBooking ? referringStaff?.id : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id);
+    
+    let staffId = isPublicBooking ? referringStaff?.id : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id);
+    let referralCode = isPublicBooking ? providedRefCode : null;
+
+    // If public booking and we don't have staffId but we have a ref code in URL, try to fetch it right now
+    if (isPublicBooking) {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get('ref');
+      if (ref) {
+        referralCode = ref;
+        try {
+          const { res, data } = await safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${ref}`);
+          if (res.ok && data && data.id) {
+            staffId = data.id;
+          }
+        } catch (err) {
+          console.error('Failed to lookup affiliate during submission:', err);
+        }
+      }
+    }
     
     // For public bookings, staffId is optional. For staff/receptionist, it's required.
     if ((!isPublicBooking && !staffId) || !selectedService || !patientName) return;
@@ -2109,23 +2090,30 @@ export default function App() {
 
     setIsSubmitting(true);
     try {
+      const payload: any = {
+        staff_id: staffId,
+        service_id: parseInt(selectedService),
+        patient_name: patientName,
+        patient_phone: patientPhone,
+        patient_ic: patientIC,
+        patient_address: patientAddress,
+        patient_type: patientType,
+        appointment_date: appointmentDate,
+        booking_time: bookingTime,
+        status: 'pending',
+        date: new Date().toISOString().split('T')[0],
+        created_by: currentUser?.id,
+        branch: selectedBranch || (isPublicBooking ? referringStaff?.branch : currentUser?.branch)
+      };
+
+      if (referralCode) {
+        payload.referral_code = referralCode;
+      }
+
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          staff_id: staffId,
-          service_id: parseInt(selectedService),
-          patient_name: patientName,
-          patient_phone: patientPhone,
-          patient_ic: patientIC,
-          patient_address: patientAddress,
-          patient_type: patientType,
-          appointment_date: appointmentDate,
-          booking_time: bookingTime,
-          date: new Date().toISOString().split('T')[0],
-          created_by: currentUser?.id,
-          branch: selectedBranch || (isPublicBooking ? referringStaff?.branch : currentUser?.branch)
-        })
+        body: JSON.stringify(payload)
       });
       
       if (res.ok) {
@@ -2627,7 +2615,7 @@ export default function App() {
         ref.patient_type || 'new',
         `"${ref.service_name}"`,
         ...(currentUser?.role === 'admin' ? [`"${ref.staff_name}"`] : []),
-        ref.commission_amount.toFixed(2),
+        (ref.commission_amount || 0).toFixed(2),
         ref.status
       ];
       return row.join(',');
@@ -3479,7 +3467,7 @@ export default function App() {
   // Analytics calculation
   const staffPerformance = activeStaffList.map(staff => {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-    const staffRefs = referrals.filter(r => r.staff_id === staff.id);
+    const staffRefs = referrals.filter(r => String(r.staff_id) === String(staff.id));
     const monthlySuccessfulRefs = staffRefs.filter(r => 
       (r.status === 'completed' || r.status === 'paid_completed' || r.status === 'approved' || r.status === 'payout_processed') && 
       r.date.startsWith(currentMonth)
@@ -3542,6 +3530,7 @@ export default function App() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'pending': return 'bg-burnt-peach/10 text-burnt-peach border border-burnt-peach/20';
       case 'entered': return 'bg-apricot-cream text-twilight-indigo';
       case 'completed': return 'bg-muted-teal/20 text-muted-teal';
       case 'paid_completed': return 'bg-muted-teal text-eggshell';
@@ -3554,6 +3543,7 @@ export default function App() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case 'pending': return 'Pending';
       case 'entered': return 'Entered';
       case 'completed': return 'Arrived';
       case 'paid_completed': return 'Paid';
@@ -3938,8 +3928,8 @@ export default function App() {
                         </div>
                         <div className="relative z-10 flex-1">
                           <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-1">Processed Payouts</p>
-                          <p className="text-3xl font-black text-zinc-900 tracking-tighter">{clinicProfile.currency}{adminStats.totalPayout.toFixed(0)}</p>
-                          <p className="text-[10px] font-bold text-zinc-400 mt-1">Payable: {clinicProfile.currency}{adminStats.pendingPayout.toFixed(0)}</p>
+                          <p className="text-3xl font-black text-zinc-900 tracking-tighter">{clinicProfile.currency}{(adminStats.totalPayout || 0).toFixed(0)}</p>
+                          <p className="text-[10px] font-bold text-zinc-400 mt-1">Payable: {clinicProfile.currency}{(adminStats.pendingPayout || 0).toFixed(0)}</p>
                         </div>
                       </div>
 
@@ -4052,7 +4042,7 @@ export default function App() {
                     <div className="grid grid-cols-2 gap-4">
                       {services.map(service => {
                         const filteredReferrals = referrals.filter(r => 
-                          (currentUser.role === 'admin' ? true : r.staff_id === currentUser.id) && 
+                          (currentUser.role === 'admin' ? true : String(r.staff_id) === String(currentUser.id)) && 
                           r.service_id === service.id && 
                           ['paid_completed', 'approved', 'payout_processed'].includes(r.status)
                         );
@@ -4069,14 +4059,14 @@ export default function App() {
                             <p className="text-xs font-black text-white leading-tight line-clamp-2">{service.name}</p>
                             <div className="flex items-end justify-between mt-2">
                               <p className="text-2xl font-black text-white">{count}</p>
-                              <p className="text-xs font-bold text-white/80">RM {totalAmount.toFixed(2)}</p>
+                              <p className="text-xs font-bold text-white/80">RM {(totalAmount || 0).toFixed(2)}</p>
                             </div>
                           </div>
                         );
                       })}
                       
                       {services.filter(service => 
-                        referrals.some(r => (currentUser.role === 'admin' ? true : r.staff_id === currentUser.id) && r.service_id === service.id && ['paid_completed', 'approved', 'payout_processed'].includes(r.status))
+                        referrals.some(r => (currentUser.role === 'admin' ? true : String(r.staff_id) === String(currentUser.id)) && r.service_id === service.id && ['paid_completed', 'approved', 'payout_processed'].includes(r.status))
                       ).length === 0 && (
                         <div className="col-span-2 p-10 rounded-[2.5rem] bg-zinc-50 border border-zinc-200 text-center">
                           <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
@@ -4133,7 +4123,7 @@ export default function App() {
 
                     {nextTier ? (
                       <p className="text-[11px] text-zinc-500 leading-relaxed">
-                        Achieve <span className="font-bold text-zinc-900">{nextTier.min - (currentUserStats?.monthlySuccessfulRefs || 0)} more</span> successful referrals this month to reach <span className="font-bold text-zinc-900">{nextTier.name} Tier</span> and get a <span className="text-zinc-900 font-bold">{((nextTier.bonus - 1) * 100).toFixed(0)}% bonus</span> on all commissions!
+                        Achieve <span className="font-bold text-zinc-900">{nextTier.min - (currentUserStats?.monthlySuccessfulRefs || 0)} more</span> successful referrals this month to reach <span className="font-bold text-zinc-900">{nextTier.name} Tier</span> and get a <span className="text-zinc-900 font-bold">{(((nextTier.bonus || 1) - 1) * 100).toFixed(0)}% bonus</span> on all commissions!
                       </p>
                     ) : (
                       <p className="text-[11px] text-zinc-900 font-bold leading-relaxed">
@@ -4252,7 +4242,7 @@ export default function App() {
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-bold text-zinc-900">{staff.monthlySuccessfulRefs} referrals</p>
-                              <p className="text-[10px] text-zinc-900 font-bold">${staff.earned.toFixed(2)} earned</p>
+                              <p className="text-[10px] text-zinc-900 font-bold">${(staff.earned || 0).toFixed(2)} earned</p>
                             </div>
                           </div>
                         ))}
@@ -4280,7 +4270,7 @@ export default function App() {
                         </div>
                         <div className="text-right flex items-center gap-3">
                           <div>
-                            <p className="text-sm font-bold">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
+                            <p className="text-sm font-bold">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</p>
                             <p className={`text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status).split(' ')[1]}`}>{getStatusLabel(ref.status)}</p>
                           </div>
                           {currentUser.role === 'admin' && (
@@ -4501,7 +4491,7 @@ export default function App() {
                         <div className="text-right flex items-center gap-3">
                           <div>
                             <p className={`text-sm font-bold ${darkMode ? 'text-brand-accent' : 'text-zinc-900'}`}>
-                              {clinicProfile.currency}{ref.commission_amount.toFixed(2)}
+                              {clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}
                             </p>
                             <span className={`text-[9px] font-black uppercase tracking-widest ${
                               ref.status === 'completed' || ref.status === 'paid_completed' ? 'text-emerald-600' :
@@ -4624,7 +4614,7 @@ export default function App() {
                         </td>
                         <td className="p-4 text-sm text-zinc-500">{ref.service_name}</td>
                         <td className="p-4 text-sm font-medium text-zinc-900">{ref.staff_name}</td>
-                        <td className="p-4 text-sm font-bold">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
+                        <td className="p-4 text-sm font-bold">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</td>
                         <td className="p-4">
                           <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
                             {getStatusLabel(ref.status)}
@@ -4779,7 +4769,7 @@ export default function App() {
                           </div>
                           <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-zinc-500">
                             <span>Joined</span>
-                            <span className="text-zinc-900">{new Date(staff.date_joined || '').toLocaleDateString()}</span>
+                            <span className="text-zinc-900">{staff.date_joined ? new Date(staff.date_joined).toLocaleDateString() : 'N/A'}</span>
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -4859,7 +4849,7 @@ export default function App() {
                         </td>
                         <td className="p-4 text-sm font-semibold text-center">{staff.monthlySuccessfulRefs}</td>
                         <td className="p-4 text-sm font-bold text-right text-zinc-900">
-                          {clinicProfile.currency}{staff.earned.toFixed(2)}
+                          {clinicProfile.currency}{(staff.earned || 0).toFixed(2)}
                         </td>
                         <td className="p-4 text-right">
                           <button 
@@ -5015,7 +5005,7 @@ export default function App() {
                           checked={notificationForm.user_ids.length === activeStaffList.length && activeStaffList.length > 0}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setNotificationForm({ ...notificationForm, user_ids: activeStaffList.map(s => s.id.toString()) });
+                              setNotificationForm({ ...notificationForm, user_ids: activeStaffList.map(s => String(s.id ?? '')) });
                             } else {
                               setNotificationForm({ ...notificationForm, user_ids: [] });
                             }
@@ -5031,12 +5021,12 @@ export default function App() {
                         <label key={staff.id} className="flex items-center gap-3 p-3 rounded-2xl hover:bg-zinc-50 transition-colors cursor-pointer border border-transparent hover:border-zinc-100">
                           <input 
                             type="checkbox"
-                            checked={notificationForm.user_ids.includes(staff.id.toString())}
+                            checked={notificationForm.user_ids.includes(String(staff.id ?? ''))}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setNotificationForm({ ...notificationForm, user_ids: [...notificationForm.user_ids, staff.id.toString()] });
+                                setNotificationForm({ ...notificationForm, user_ids: [...notificationForm.user_ids, String(staff.id ?? '')] });
                               } else {
-                                setNotificationForm({ ...notificationForm, user_ids: notificationForm.user_ids.filter(id => id !== staff.id.toString()) });
+                                setNotificationForm({ ...notificationForm, user_ids: notificationForm.user_ids.filter(id => id !== String(staff.id ?? '')) });
                               }
                             }}
                             className="w-5 h-5 rounded-lg border-zinc-200 text-zinc-900 focus:ring-violet-500"
@@ -5064,7 +5054,7 @@ export default function App() {
               .filter(s => (s.approved_earnings || 0) + (s.pending_earnings || 0) > 0)
               .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
               .filter(s => payoutBranchFilter === 'all' ? true : s.branch === payoutBranchFilter)
-              .filter(s => payoutUserFilter === 'all' ? true : s.id.toString() === payoutUserFilter);
+              .filter(s => payoutUserFilter === 'all' ? true : String(s.id) === payoutUserFilter);
 
             return (
             <motion.div 
@@ -5085,7 +5075,7 @@ export default function App() {
                       {clinicProfile.currency}{referrals
                         .filter(r => r.status === 'approved')
                         .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
-                        .filter(r => payoutUserFilter === 'all' ? true : r.staff_id.toString() === payoutUserFilter)
+                        .filter(r => payoutUserFilter === 'all' ? true : String(r.staff_id) === payoutUserFilter)
                         .reduce((sum, r) => sum + r.commission_amount, 0).toFixed(2)}
                     </p>
                   </div>
@@ -5095,7 +5085,7 @@ export default function App() {
                       {clinicProfile.currency}{referrals
                         .filter(r => r.status === 'payout_processed')
                         .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
-                        .filter(r => payoutUserFilter === 'all' ? true : r.staff_id.toString() === payoutUserFilter)
+                        .filter(r => payoutUserFilter === 'all' ? true : String(r.staff_id) === payoutUserFilter)
                         .reduce((sum, r) => sum + r.commission_amount, 0).toFixed(2)}
                     </p>
                   </div>
@@ -5199,7 +5189,7 @@ export default function App() {
                               (r.service_name && r.service_name.toLowerCase().includes(searchQuery.toLowerCase()))
                             )
                             .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
-                            .filter(r => payoutUserFilter === 'all' ? true : r.staff_id.toString() === payoutUserFilter)
+                            .filter(r => payoutUserFilter === 'all' ? true : String(r.staff_id) === payoutUserFilter)
                             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                             .map((ref, index) => (
                               <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
@@ -5217,7 +5207,7 @@ export default function App() {
                                   <p className="text-[10px] text-zinc-500 font-bold uppercase">{ref.service_name}</p>
                                 </td>
                                 <td className="px-6 py-4">
-                                  <p className="text-sm font-black text-zinc-900">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</p>
+                                  <p className="text-sm font-black text-zinc-900">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</p>
                                 </td>
                                 <td className="px-6 py-4">
                                   <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
@@ -5360,7 +5350,7 @@ export default function App() {
                                 </div>
                               </td>
                               <td className="p-4 text-sm font-bold text-right text-zinc-900">
-                                {clinicProfile.currency}{(staff.approved_earnings + staff.pending_earnings).toFixed(2)}
+                                {clinicProfile.currency}{((staff.approved_earnings || 0) + (staff.pending_earnings || 0)).toFixed(2)}
                               </td>
                             </tr>
                           ))}
@@ -5523,6 +5513,12 @@ export default function App() {
                               <p className="text-[10px] text-zinc-500">Service</p>
                             </div>
                             {currentUser.role === 'admin' && (
+                              <div className="flex flex-col">
+                                <p className="text-xs font-bold text-zinc-900">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</p>
+                                <p className="text-[10px] text-zinc-500">Commission</p>
+                              </div>
+                            )}
+                            {currentUser.role === 'admin' && (
                               <div>
                                 <p className="text-xs font-medium text-zinc-900">{ref.staff_name}</p>
                                 <p className="text-[10px] text-zinc-500">Staff</p>
@@ -5549,6 +5545,7 @@ export default function App() {
                               }}
                               className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                             >
+                              <option value="pending">Pending</option>
                               <option value="entered">Entered</option>
                               <option value="completed">Arrived</option>
                               <option value="paid_completed">Paid</option>
@@ -7242,19 +7239,19 @@ export default function App() {
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                                   <div className="flex flex-col">
                                     <span className="text-[8px] text-zinc-500 uppercase font-bold">Pending</span>
-                                    <span className="text-xs font-bold text-zinc-900">{staff.pending_earnings.toFixed(0)}</span>
+                                    <span className="text-xs font-bold text-zinc-900">{(staff.pending_earnings || 0).toFixed(0)}</span>
                                   </div>
                                   <div className="flex flex-col">
                                     <span className="text-[8px] text-zinc-500 uppercase font-bold">Approved</span>
-                                    <span className="text-xs font-bold text-zinc-900">{staff.approved_earnings.toFixed(0)}</span>
+                                    <span className="text-xs font-bold text-zinc-900">{(staff.approved_earnings || 0).toFixed(0)}</span>
                                   </div>
                                   <div className="flex flex-col">
                                     <span className="text-[8px] text-zinc-500 uppercase font-bold">Paid</span>
-                                    <span className="text-xs font-bold text-zinc-900">{staff.paid_earnings.toFixed(0)}</span>
+                                    <span className="text-xs font-bold text-zinc-900">{(staff.paid_earnings || 0).toFixed(0)}</span>
                                   </div>
                                   <div className="flex flex-col">
                                     <span className="text-[8px] text-zinc-500 uppercase font-bold">Lifetime</span>
-                                    <span className="text-xs font-bold text-zinc-900">{staff.lifetime_earnings.toFixed(0)}</span>
+                                    <span className="text-xs font-bold text-zinc-900">{(staff.lifetime_earnings || 0).toFixed(0)}</span>
                                   </div>
                                 </div>
                               </td>
@@ -8311,7 +8308,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                     </div>
                     <div className="bg-zinc-50 p-4 rounded-3xl border border-zinc-100">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">Total Earned</p>
-                      <p className="text-xl font-bold text-zinc-900">${selectedStaffDetail.earned.toFixed(2)}</p>
+                      <p className="text-xl font-bold text-zinc-900">${(selectedStaffDetail.earned || 0).toFixed(2)}</p>
                     </div>
                     <div className="bg-zinc-50 p-4 rounded-3xl border border-zinc-100">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">Promo Code</p>
@@ -8342,7 +8339,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                     <h4 className="text-sm font-bold uppercase tracking-wider text-zinc-500 ml-1">Recent Referrals & Allowances</h4>
                     <div className="max-height-[300px] overflow-y-auto pr-2 space-y-2">
                       {referrals
-                        .filter(r => r.staff_id === selectedStaffDetail.id)
+                        .filter(r => String(r.staff_id) === String(selectedStaffDetail.id))
                         .slice(0, 10)
                         .map(ref => {
                           const service = services.find(s => s.id === ref.service_id);
@@ -8368,15 +8365,15 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                                 )}
                               </div>
                               <div className="text-right">
-                                <p className="text-sm font-bold text-zinc-900">+${(ref.commission_amount * (selectedStaffDetail.tier?.bonus || 1)).toFixed(2)}</p>
+                                <p className="text-sm font-bold text-zinc-900">+${((ref.commission_amount || 0) * (selectedStaffDetail.tier?.bonus || 1)).toFixed(2)}</p>
                                 {allowance > 0 && (
-                                  <p className="text-[9px] font-bold text-zinc-900 uppercase">Allowance: +${allowance.toFixed(2)}</p>
+                                  <p className="text-[9px] font-bold text-zinc-900 uppercase">Allowance: +${(allowance || 0).toFixed(2)}</p>
                                 )}
                               </div>
                             </div>
                           );
                         })}
-                      {referrals.filter(r => r.staff_id === selectedStaffDetail.id).length === 0 && (
+                      {referrals.filter(r => String(r.staff_id) === String(selectedStaffDetail.id)).length === 0 && (
                         <p className="text-center py-8 text-zinc-500 text-sm italic">No referral history found.</p>
                       )}
                     </div>
