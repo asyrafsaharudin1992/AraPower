@@ -39,6 +39,7 @@ if (supabaseAnonKey) {
 const isPlaceholderUrl = (url: string) => {
   if (!url || url.length === 0) return true;
   const lowerUrl = url.toLowerCase();
+  if (!lowerUrl.startsWith('http://') && !lowerUrl.startsWith('https://')) return true;
   return lowerUrl.includes('placeholder-project') || 
          lowerUrl.includes('your-project-url') || 
          lowerUrl.includes('your-project-id') ||
@@ -71,6 +72,8 @@ class MockSupabase {
       remove: async () => ({ data: [], error: null }),
     })
   };
+
+  rpc = async (fn: string, args?: any) => ({ data: null, error: new Error('Mock RPC Not Implemented') });
 
   from(table: string) {
     return {

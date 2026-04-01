@@ -1073,6 +1073,15 @@ export default function App() {
     onConfirm: () => {}
   });
 
+  const [resetPasswordModal, setResetPasswordModal] = useState<{
+    isOpen: boolean;
+    staffId: number | null;
+    email: string;
+    tempPassword?: string;
+    isLoading?: boolean;
+    error?: string;
+  }>({ isOpen: false, staffId: null, email: '' });
+
   // Theme state
   const THEMES: Record<string, { accent: string, surface: string, name: string }> = {
     pastel: { accent: '#F2994A', surface: '#FFF5E9', name: 'Pastel Orange' },
@@ -2314,6 +2323,36 @@ export default function App() {
     }
   };
 
+  const handleAdminResetPassword = (staffId: number, email: string) => {
+    setResetPasswordModal({ isOpen: true, staffId, email });
+  };
+
+  const executeAdminResetPassword = async () => {
+    if (!resetPasswordModal.staffId) return;
+    
+    setResetPasswordModal(prev => ({ ...prev, isLoading: true, error: undefined }));
+    
+    try {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/admin/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: resetPasswordModal.staffId }),
+      });
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to reset password');
+      }
+
+      setResetPasswordModal(prev => ({ ...prev, isLoading: false, tempPassword: data.tempPassword }));
+      
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      setResetPasswordModal(prev => ({ ...prev, isLoading: false, error: error instanceof Error ? error.message : 'Failed to reset password' }));
+    }
+  };
+
   const handleDeleteStaff = async (id: number) => {
     showConfirm(
       'Trash Staff',
@@ -3154,30 +3193,25 @@ export default function App() {
                     <X size={20} className="text-zinc-500" />
                   </button>
                 </div>
-                <p className="text-sm text-zinc-500">Enter your email address and we'll send you a link to reset your password.</p>
+                <p className="text-sm text-zinc-500 font-medium leading-relaxed">
+                  For security reasons, password resets must be handled by your clinic administrator.
+                </p>
                 
-                {forgotPasswordStatus && (
-                  <div className={`p-4 rounded-2xl text-sm font-bold ${forgotPasswordStatus.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                    {forgotPasswordStatus.message}
-                  </div>
-                )}
+                <div className="bg-violet-50 p-6 rounded-2xl border border-violet-100">
+                  <p className="text-sm font-bold text-violet-900 mb-2">What to do next:</p>
+                  <ol className="list-decimal list-inside text-sm text-violet-800 space-y-2 font-medium">
+                    <li>Contact your Clinic Administrator or Receptionist.</li>
+                    <li>Ask them to reset your password from the Staff Management dashboard.</li>
+                    <li>They will provide you with a temporary password (e.g., <span className="font-mono bg-white px-1.5 py-0.5 rounded text-violet-900">Welcome123!</span>).</li>
+                    <li>Log in with the temporary password and change it immediately.</li>
+                  </ol>
+                </div>
 
-                <form onSubmit={handleForgotPassword} className="space-y-6">
-                  <input 
-                    type="email"
-                    required
-                    value={forgotPasswordEmail}
-                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                    placeholder="Enter your email..."
-                    className="w-full px-5 py-4 bg-white border border-zinc-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-burnt-peach focus:border-transparent transition-all"
-                  />
-                  <div className="flex gap-4 pt-2">
-                    <button type="button" onClick={() => setShowForgotPasswordModal(false)} className="flex-1 px-6 py-4 bg-zinc-100 text-zinc-900 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors">Cancel</button>
-                    <button type="submit" disabled={isSendingForgotPassword || !forgotPasswordEmail} className="flex-1 px-6 py-4 bg-burnt-peach text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-burnt-peach/90 shadow-lg shadow-burnt-peach/20 transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2">
-                      {isSendingForgotPassword ? <RefreshCw size={18} className="animate-spin" /> : 'Send Link'}
-                    </button>
-                  </div>
-                </form>
+                <div className="pt-2">
+                  <button type="button" onClick={() => setShowForgotPasswordModal(false)} className="w-full px-6 py-4 bg-zinc-100 text-zinc-900 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors">
+                    Back to Login
+                  </button>
+                </div>
               </motion.div>
             </motion.div>
           )}
@@ -3657,7 +3691,7 @@ export default function App() {
             </>
           )}
 
-          {!currentUser.is_approved && activeTab !== 'profile' ? (
+          {!currentUser.is_approved && currentUser.role !== 'admin' && activeTab !== 'profile' ? (
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -8133,16 +8167,27 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                     </div>
                     <div className="flex items-center gap-2">
                       {currentUser.role === 'admin' && (
-                        <button 
-                          onClick={() => {
-                            handleDeleteStaff(selectedStaffDetail.id);
-                            setShowStaffModal(false);
-                          }}
-                          className="p-2 hover:bg-rose-50 text-zinc-400 hover:text-rose-500 rounded-xl transition-colors"
-                          title="Delete Staff"
-                        >
-                          <Trash2 size={20} />
-                        </button>
+                        <>
+                          <button 
+                            onClick={() => {
+                              handleAdminResetPassword(selectedStaffDetail.id, selectedStaffDetail.email);
+                            }}
+                            className="p-2 hover:bg-amber-50 text-amber-500 hover:text-amber-600 rounded-xl transition-colors"
+                            title="Reset Password"
+                          >
+                            <Key size={20} />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              handleDeleteStaff(selectedStaffDetail.id);
+                              setShowStaffModal(false);
+                            }}
+                            className="p-2 hover:bg-rose-50 text-zinc-400 hover:text-rose-500 rounded-xl transition-colors"
+                            title="Delete Staff"
+                          >
+                            <Trash2 size={20} />
+                          </button>
+                        </>
                       )}
                       <button 
                         onClick={() => setShowStaffModal(false)}
@@ -8685,6 +8730,90 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                       Confirm
                     </button>
                   </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {resetPasswordModal.isOpen && (
+            <motion.div 
+              key="reset-password-dialog-container"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[150] flex items-center justify-center p-4"
+            >
+              <div 
+                onClick={() => !resetPasswordModal.isLoading && setResetPasswordModal({ isOpen: false, staffId: null, email: '' })}
+                className="absolute inset-0 bg-brand-primary/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                key="reset-password-dialog"
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+              >
+                <div className="p-8 text-center">
+                  <div className="w-16 h-16 bg-amber-500 text-white rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Key size={32} />
+                  </div>
+                  <h3 className="text-2xl font-black tracking-tighter mb-2">Reset Password</h3>
+                  
+                  {resetPasswordModal.tempPassword ? (
+                    <div className="mb-8">
+                      <p className="text-emerald-600 text-sm font-bold mb-4">Password reset successfully!</p>
+                      <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-200 mb-4">
+                        <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold mb-2">Temporary Password</p>
+                        <p className="text-2xl font-mono text-zinc-900 select-all">{resetPasswordModal.tempPassword}</p>
+                      </div>
+                      <p className="text-zinc-500 text-sm font-medium leading-relaxed">
+                        Please provide this password to <span className="font-bold text-zinc-900">{resetPasswordModal.email}</span>. They should change it immediately after logging in.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mb-8">
+                      <p className="text-zinc-500 text-sm font-medium leading-relaxed mb-4">
+                        Are you sure you want to reset the password for <span className="font-bold text-zinc-900">{resetPasswordModal.email}</span>?
+                      </p>
+                      <p className="text-amber-600 text-sm font-bold bg-amber-50 p-3 rounded-xl border border-amber-100">
+                        They will be given a randomly generated temporary password.
+                      </p>
+                      {resetPasswordModal.error && (
+                        <p className="text-rose-500 text-sm font-bold mt-4 bg-rose-50 p-3 rounded-xl border border-rose-100">
+                          {resetPasswordModal.error}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {resetPasswordModal.tempPassword ? (
+                    <button 
+                      onClick={() => setResetPasswordModal({ isOpen: false, staffId: null, email: '' })}
+                      className="w-full py-4 rounded-2xl bg-zinc-900 text-white font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-900/20"
+                    >
+                      Done
+                    </button>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <button 
+                        onClick={() => setResetPasswordModal({ isOpen: false, staffId: null, email: '' })}
+                        disabled={resetPasswordModal.isLoading}
+                        className="py-4 rounded-2xl bg-zinc-50 text-zinc-500 font-black text-xs uppercase tracking-widest hover:bg-zinc-100 transition-all disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={executeAdminResetPassword}
+                        disabled={resetPasswordModal.isLoading}
+                        className="py-4 rounded-2xl bg-amber-500 text-white font-black text-xs uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/30 disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {resetPasswordModal.isLoading ? <RefreshCw size={16} className="animate-spin" /> : 'Reset'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </motion.div>

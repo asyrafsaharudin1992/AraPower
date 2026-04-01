@@ -61,6 +61,8 @@ class MockSupabase {
       upload: async () => ({ data: { path: 'mock-path' }, error: null })
     })
   };
+
+  rpc = async (fn: string, args?: any) => ({ data: null, error: new Error('Mock RPC Not Implemented') });
 }
 
 class MockQuery {
@@ -174,17 +176,18 @@ class MockQuery {
 
 let supabase: any = null;
 let referralColumns: Set<string> = new Set([
-  'id', 'staff_id', 'service_id', 'patient_name', 'status', 'date',
+  'id', 'patient_name', 'status', 'created_at',
   'patient_phone', 'patient_ic', 'patient_address', 'patient_type',
   'appointment_date', 'booking_time', 'fraud_flags', 'created_by',
-  'branch', 'aracoins_perk', 'visit_date', 'verified_by', 'rejection_reason', 'payment_status'
+  'branch', 'aracoins_perk', 'service_id', 'deposit_paid'
 ]);
 let serviceColumns: Set<string> = new Set([
-  'id', 'name', 'base_price', 'commission_rate', 'allowances_json', 
-  'description', 'image_url', 'promo_price', 'type', 'branches', 
-  'start_date', 'end_date', 'start_time', 'end_time', 'is_featured', 'aracoins_perk', 'category'
+  'id', 'name', 'category', 'type', 'description', 'base_price',
+  'promo_price', 'aracoins_perk', 'is_featured', 'image_url',
+  'branches', 'start_date', 'end_date', 'start_time', 'end_time',
+  'duration_mins', 'created_at'
 ]);
-let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'promo_code', 'approved_earnings', 'pending_earnings', 'lifetime_earnings']);
+let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'created_at']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
 let branchColumns: Set<string> = new Set(['id', 'name', 'location']);
 let settingsColumns: Set<string> = new Set(['key', 'value']);
@@ -382,12 +385,21 @@ async function seedSupabase() {
       if (branchInsertError) logError('Seed Branches', branchInsertError);
 
       const initialStaff = [
-        { name: "Admin User", email: "admin@clinic.com", password: "password123", role: "admin", promo_code: "ARA-ADMIN1", branch: "HQ", staff_id_code: "STF-001", date_joined: now, is_approved: 1 },
-        { name: "Amir", email: "amir@clinic.com", password: "password123", role: "staff", promo_code: "ARA-AMIR22", branch: "Bangi", staff_id_code: "STF-002", date_joined: now, is_approved: 1 },
-        { name: "Sarah", email: "sarah@clinic.com", password: "password123", role: "staff", promo_code: "ARA-SARAH3", branch: "Kajang", staff_id_code: "STF-003", date_joined: now, is_approved: 1 },
-        { name: "Receptionist Sarah", email: "sarah_rec@clinic.com", password: "password123", role: "receptionist", promo_code: "ARA-REC444", branch: "Bangi", staff_id_code: "STF-004", date_joined: now, is_approved: 1 },
-        { name: "Paige", email: "paige@clinic.com", password: "password123", role: "staff", promo_code: "ARA-PAIGE5", branch: "HQ", staff_id_code: "STF-005", date_joined: now, is_approved: 1 }
-      ];
+        { name: "Admin User", email: "admin@clinic.com", role: "admin" },
+        { name: "Amir", email: "amir@clinic.com", role: "staff" },
+        { name: "Sarah", email: "sarah@clinic.com", role: "staff" },
+        { name: "Receptionist Sarah", email: "sarah_rec@clinic.com", role: "receptionist" },
+        { name: "Paige", email: "paige@clinic.com", role: "staff" }
+      ].map(staff => {
+        const data: any = { ...staff };
+        if (staffColumns.has('password')) data.password = "password123";
+        if (staffColumns.has('promo_code')) data.promo_code = `ARA-${staff.name.toUpperCase().replace(' ', '')}1`;
+        if (staffColumns.has('branch')) data.branch = "HQ";
+        if (staffColumns.has('staff_id_code')) data.staff_id_code = `STF-${Math.floor(Math.random() * 1000)}`;
+        if (staffColumns.has('date_joined')) data.date_joined = now;
+        if (staffColumns.has('is_approved')) data.is_approved = 1;
+        return data;
+      });
 
       const { error: staffInsertError } = await supabase.from('staff').insert(initialStaff);
       if (staffInsertError) logError('Seed Staff', staffInsertError);
@@ -556,7 +568,7 @@ app.get("/api/branch-change-requests", async (req, res) => {
   const selectColumns = Array.from(branchChangeRequestColumns).length > 0 
     ? Array.from(branchChangeRequestColumns).join(',') 
     : '*';
-  const fullSelect = `${selectColumns}, staff:staff_id(name, email)`;
+  const fullSelect = `${selectColumns}, staff(name, email)`;
 
   const { data, error } = await supabase
     .from('branch_change_requests')
@@ -701,7 +713,7 @@ app.post("/api/auth/login", async (req, res) => {
   console.log(`Login attempt for: ${email}`);
   
   try {
-    let selectColumns = 'id, name, email, role, promo_code';
+    let selectColumns = 'id, name, email, role';
     const optionalColumns = ['staff_id_code', 'branch', 'department', 'position', 'employment_status', 'date_joined', 'pending_earnings', 'approved_earnings', 'paid_earnings', 'lifetime_earnings', 'last_payout_date', 'referrer_type', 'phone', 'aracoins', 'is_approved', 'nickname', 'profile_picture', 'bank_name', 'bank_account_number', 'id_type', 'id_number'];
     
     optionalColumns.forEach(col => {
@@ -733,6 +745,10 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     if (staff) {
+      if (staff.employment_status === 'deleted') {
+        console.log(`Login failed: Account is deleted for ${email}`);
+        return res.status(401).json({ error: "This account has been deleted. Please contact an administrator." });
+      }
       console.log(`Login successful for: ${email}`);
       res.json(staff);
     } else {
@@ -759,7 +775,7 @@ app.post("/api/auth/register", async (req, res) => {
       .eq('key', 'auth')
       .single();
       
-    if (settingsError && settingsError.code !== 'PGRST116') {
+    if (settingsError && settingsError.code !== 'PGRST116' && settingsError.code !== 'PGRST205') {
       logError('Registration Settings Check', settingsError);
     }
     
@@ -791,15 +807,17 @@ app.post("/api/auth/register", async (req, res) => {
     
     // Try to ensure unique promo code
     let attempts = 0;
-    while (attempts < 10) {
-      const { data: existing } = await supabase
-        .from('staff')
-        .select('id')
-        .eq('promo_code', promo_code)
-        .single();
-      if (!existing) break;
-      promo_code = generateRandomCode();
-      attempts++;
+    if (staffColumns.has('promo_code')) {
+      while (attempts < 10) {
+        const { data: existing } = await supabase
+          .from('staff')
+          .select('id')
+          .eq('promo_code', promo_code)
+          .single();
+        if (!existing) break;
+        promo_code = generateRandomCode();
+        attempts++;
+      }
     }
 
     console.log(`Inserting new staff member: ${email} with promo code ${promo_code}`);
@@ -807,8 +825,8 @@ app.post("/api/auth/register", async (req, res) => {
       name,
       email,
       role: 'staff',
-      promo_code,
     };
+    if (staffColumns.has('promo_code')) insertData.promo_code = promo_code;
     
     if (staffColumns.has('branch')) insertData.branch = branch;
     if (staffColumns.has('phone')) insertData.phone = phone || null;
@@ -852,7 +870,10 @@ app.post("/api/auth/register", async (req, res) => {
 app.get("/api/settings", async (req, res) => {
   const selectColumns = Array.from(settingsColumns).length > 0 ? Array.from(settingsColumns).join(',') : '*';
   const { data: settings, error } = await supabase.from('settings').select(selectColumns).neq('key', 'promotions');
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    if (error.code === 'PGRST205') return res.json({});
+    return res.status(500).json({ error: error.message });
+  }
   
   const result: any = {};
   settings.forEach((s: any) => {
@@ -875,8 +896,11 @@ app.get("/api/special-offers", async (req, res) => {
       .eq('key', 'promotions');
       
     if (error) {
-      logError('GET /api/special-offers', error);
-      return res.status(500).json({ error: error.message });
+      if (error.code !== 'PGRST205') {
+        logError('GET /api/special-offers', error);
+      }
+      // If settings table doesn't exist or other error, return empty array to prevent frontend crash
+      return res.json([]);
     }
     
     if (!settings || settings.length === 0) {
@@ -913,7 +937,9 @@ app.post("/api/special-offers", async (req, res) => {
       .eq('key', 'promotions');
 
     if (deleteError) {
-      console.warn('Warning: Error deleting old promotions (may not exist):', deleteError);
+      if (deleteError.code !== 'PGRST205') {
+        console.warn('Warning: Error deleting old promotions (may not exist):', deleteError);
+      }
     }
 
     // Insert new one
@@ -922,7 +948,9 @@ app.post("/api/special-offers", async (req, res) => {
       .insert({ key: 'promotions', value: JSON.stringify(promotions) });
 
     if (insertError) {
-      logError('POST /api/special-offers', insertError);
+      if (insertError.code !== 'PGRST205') {
+        logError('POST /api/special-offers', insertError);
+      }
       return res.status(500).json({ error: insertError.message });
     }
     
@@ -940,7 +968,12 @@ app.post("/api/settings", async (req, res) => {
     .from('settings')
     .upsert({ key, value: JSON.stringify(value) });
     
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    if (error.code === 'PGRST205') {
+      return res.status(500).json({ error: "Settings table does not exist in the database." });
+    }
+    return res.status(500).json({ error: error.message });
+  }
   res.json({ success: true });
 });
 
@@ -1022,13 +1055,17 @@ app.get("/api/staff/email", async (req, res) => {
   
   const selectColumns = Array.from(staffColumns).length > 0 
     ? Array.from(staffColumns).join(',') 
-    : 'id, name, email, role, promo_code';
+    : 'id, name, email, role';
 
   const { data: staff, error } = await supabase
     .from('staff')
     .select(selectColumns)
     .eq('email', email)
     .single();
+
+  if (staff && staff.employment_status === 'deleted') {
+    return res.status(403).json({ error: "This account has been deleted. Please contact an administrator." });
+  }
     
   if (staff && auth_id && !staff.auth_id && staffColumns.has('auth_id')) {
     // Update the staff record with the new auth_id
@@ -1194,7 +1231,7 @@ app.get("/api/staff", async (req, res) => {
   
   const selectColumns = Array.from(staffColumns).length > 0 
     ? Array.from(staffColumns).join(',') 
-    : 'id, name, email, role, promo_code';
+    : 'id, name, email, role';
 
   let query = supabase.from('staff').select(selectColumns);
   
@@ -1204,6 +1241,9 @@ app.get("/api/staff", async (req, res) => {
   }
   
   if (promoCode) {
+    if (!staffColumns.has('promo_code')) {
+      return res.json(null);
+    }
     const { data, error } = await query.eq('promo_code', promoCode).single();
     return res.json(data || null);
   }
@@ -1237,13 +1277,61 @@ app.post("/api/staff", async (req, res) => {
   }
 
   try {
+    let auth_id = null;
+    const initialPassword = password || 'password123';
+
+    // 1. Create the user in Supabase Auth FIRST (if service role key is available)
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (serviceRoleKey) {
+      const adminSupabase = createClient(
+        process.env.VITE_SUPABASE_URL!,
+        serviceRoleKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        }
+      );
+
+      // Check if user already exists in auth
+      const { data: usersData } = await adminSupabase.auth.admin.listUsers();
+      let authUser = usersData?.users?.find((u: any) => u.email === email);
+
+      if (!authUser) {
+        // Create new auth user
+        const { data: newAuthUser, error: createAuthError } = await adminSupabase.auth.admin.createUser({
+          email: email,
+          password: initialPassword,
+          email_confirm: true, // Auto-confirm email since admin is creating it
+          user_metadata: {
+            full_name: name,
+            branch: branch
+          }
+        });
+
+        if (createAuthError) {
+          console.error('Error creating auth user:', createAuthError);
+          return res.status(400).json({ error: `Failed to create login account: ${createAuthError.message}` });
+        }
+        
+        if (newAuthUser.user) {
+          auth_id = newAuthUser.user.id;
+        }
+      } else {
+        auth_id = authUser.id;
+      }
+    }
+
+    // 2. Create the record in the staff table
     const insertData: any = {
       name,
       email,
       role,
-      password: password || 'password123'
+      password: initialPassword
     };
 
+    if (auth_id && staffColumns.has('auth_id')) insertData.auth_id = auth_id;
     if (staffColumns.has('promo_code')) insertData.promo_code = final_promo_code;
     if (staffColumns.has('staff_id_code')) insertData.staff_id_code = staff_id_code;
     if (staffColumns.has('branch')) insertData.branch = branch;
@@ -1343,14 +1431,75 @@ app.post("/api/auth/change-password", async (req, res) => {
   }
 });
 
-app.post("/api/staff/:id/reset-password", async (req, res) => {
-  const { id } = req.params;
-  const { error } = await supabase
-    .from('staff')
-    .update({ password: 'password123' })
-    .eq('id', id);
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true });
+app.post("/api/admin/reset-password", async (req, res) => {
+  const { userId } = req.body;
+  
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+
+  try {
+    // 1. Get the user's email from the staff table
+    const { data: staffData, error: staffError } = await supabase
+      .from('staff')
+      .select('email')
+      .eq('id', userId)
+      .single();
+
+    if (staffError || !staffData) {
+      return res.status(404).json({ error: 'Staff member not found' });
+    }
+
+    // 2. Generate a temporary password
+    const tempPassword = `Welcome${Math.floor(1000 + Math.random() * 9000)}!`;
+
+    // 3. Update the user's password in Supabase Auth using the service role key
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      return res.status(500).json({ error: 'Server configuration error: Missing service role key' });
+    }
+
+    const adminSupabase = createClient(
+      process.env.VITE_SUPABASE_URL!,
+      serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // We need to find the user in auth.users by email to get their auth ID
+    const { data: usersData, error: usersError } = await adminSupabase.auth.admin.listUsers();
+    
+    if (usersError) {
+      console.error('Error listing users:', usersError);
+      return res.status(500).json({ error: 'Failed to access auth system' });
+    }
+
+    const authUser = usersData.users.find((u: any) => u.email === staffData.email);
+
+    if (!authUser) {
+      return res.status(404).json({ error: 'Auth user not found for this email' });
+    }
+
+    // Update the password
+    const { error: updateError } = await adminSupabase.auth.admin.updateUserById(
+      authUser.id,
+      { password: tempPassword }
+    );
+
+    if (updateError) {
+      console.error('Error updating password:', updateError);
+      return res.status(500).json({ error: 'Failed to update password' });
+    }
+
+    res.json({ success: true, tempPassword });
+  } catch (error: any) {
+    console.error('Admin reset password error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
 });
 
 app.post("/api/staff/:id/approve", async (req, res) => {
@@ -1403,15 +1552,65 @@ app.post("/api/staff/:id/restore", async (req, res) => {
 
 app.delete("/api/staff/:id/permanent", async (req, res) => {
   const { id } = req.params;
-  const { error } = await supabase.from('staff').delete().eq('id', id);
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true });
+  
+  try {
+    // 1. Get the staff member's email before deleting
+    const { data: staffData, error: staffError } = await supabase
+      .from('staff')
+      .select('email')
+      .eq('id', id)
+      .single();
+
+    if (staffError || !staffData) {
+      return res.status(404).json({ error: 'Staff member not found' });
+    }
+
+    // 2. Delete from the staff table FIRST to remove any foreign key constraints
+    const { error } = await supabase.from('staff').delete().eq('id', id);
+    if (error) throw error;
+
+    // 3. Delete from Supabase Auth if service role key is available
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (serviceRoleKey) {
+      const adminSupabase = createClient(
+        process.env.VITE_SUPABASE_URL!,
+        serviceRoleKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        }
+      );
+
+      // Find the user in auth.users by email
+      const { data: usersData, error: usersError } = await adminSupabase.auth.admin.listUsers();
+      
+      if (!usersError && usersData?.users) {
+        const authUser = usersData.users.find((u: any) => u.email === staffData.email);
+        
+        if (authUser) {
+          // Delete the user from auth.users
+          const { error: deleteAuthError } = await adminSupabase.auth.admin.deleteUser(authUser.id);
+          if (deleteAuthError) {
+            console.error('Error deleting user from auth:', deleteAuthError);
+            // We already deleted the staff record, so we just log this error
+          }
+        }
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Permanent delete error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
 });
 
 app.get("/api/services", async (req, res) => {
   const baseColumns = Array.from(serviceColumns).length > 0 
     ? Array.from(serviceColumns) 
-    : ['id', 'name', 'base_price', 'commission_rate', 'allowances_json'];
+    : ['id', 'name', 'base_price'];
   
   // Ensure we only select columns that exist in serviceColumns
   const selectColumns = Array.from(serviceColumns).join(',');
@@ -1552,26 +1751,28 @@ app.get("/api/schema", (req, res) => {
 app.get("/api/referrals", async (req, res) => {
   const { staffId, branch, requesterRole, requesterBranch } = req.query;
   
-  const filteredColumns = Array.from(referralColumns).filter(col => col !== 'staff' && col !== 'service');
+  const filteredColumns = Array.from(referralColumns).filter(col => col !== 'staff' && col !== 'service' && col !== 'staff_id');
   const baseColumns = filteredColumns.length > 0 
     ? filteredColumns.join(',') 
-    : 'id, patient_name, status, staff_id';
+    : 'id, patient_name, status, created_by';
   
   let selectColumns = baseColumns;
 
   // Add joins
-  selectColumns += `, staff:staff_id(name, promo_code)`;
+  if (referralColumns.has('created_by')) {
+    selectColumns += `, staff!created_by(name)`;
+  }
   if (referralColumns.has('service_id')) {
-    selectColumns += `, service:service_id (name)`;
+    selectColumns += `, services(name)`;
   }
 
   let query = supabase
     .from('referrals')
     .select(selectColumns)
-    .order('date', { ascending: false });
+    .order('created_at', { ascending: false });
 
   if (staffId) {
-    query = query.eq('staff_id', staffId);
+    query = query.eq('created_by', staffId);
   }
   
   if (branch && branch !== 'all') {
@@ -1597,7 +1798,7 @@ app.get("/api/referrals", async (req, res) => {
     ...r,
     staff_name: r.staff?.name,
     promo_code: r.staff?.promo_code,
-    service_name: r.service?.name
+    service_name: r.services?.name
   }));
   
   res.json(formattedReferrals);
@@ -1628,15 +1829,15 @@ app.post("/api/referrals", async (req, res) => {
     .from('referrals')
     .select(Array.from(referralColumns).length > 0 ? Array.from(referralColumns).join(',') : '*', { count: 'exact', head: true })
     .ilike('patient_name', `%${surname}`)
-    .eq('staff_id', staff_id);
+    .eq('created_by', staff_id);
     
   if (similarCount && similarCount >= 3) fraudFlags.push("Repeated surname pattern");
 
   const { count: dailyCount } = await supabase
     .from('referrals')
     .select(Array.from(referralColumns).length > 0 ? Array.from(referralColumns).join(',') : '*', { count: 'exact', head: true })
-    .eq('staff_id', staff_id)
-    .eq('date', date);
+    .eq('created_by', staff_id)
+    .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
     
   if (dailyCount && dailyCount >= 5) fraudFlags.push("High daily volume (>5)");
 
@@ -1653,13 +1854,12 @@ app.post("/api/referrals", async (req, res) => {
   if (serviceError || !service) return res.status(400).json({ error: "Service not found" });
 
   const insertData: any = {
-    staff_id,
     service_id,
     patient_name,
-    date,
-    status: 'entered',
-    commission_amount: service.commission_rate
+    status: 'entered'
   };
+
+  if (referralColumns.has('created_by')) insertData.created_by = staff_id;
 
   if (referralColumns.has('patient_phone')) insertData.patient_phone = patient_phone || null;
   if (referralColumns.has('patient_ic')) insertData.patient_ic = patient_ic || null;
@@ -1761,14 +1961,17 @@ app.patch("/api/referrals/:id", async (req, res) => {
   // Logic for status transitions
   const staffSelectColumns = Array.from(staffColumns).length > 0 ? Array.from(staffColumns).join(',') : 'id';
 
-  const { data: staff } = await supabase.from('staff').select(staffSelectColumns).eq('id', referral.staff_id).single();
+  const { data: staff } = await supabase.from('staff').select(staffSelectColumns).eq('id', referral.created_by).single();
   if (!staff) return res.json({ success: true });
+
+  const { data: service } = await supabase.from('services').select('commission_rate').eq('id', referral.service_id).single();
 
   if (status === 'approved' && referral.status !== 'approved') {
     const staffUpdate: any = {};
-    if (staffColumns.has('pending_earnings')) staffUpdate.pending_earnings = (staff.pending_earnings || 0) - referral.commission_amount;
-    if (staffColumns.has('approved_earnings')) staffUpdate.approved_earnings = (staff.approved_earnings || 0) + referral.commission_amount;
-    if (staffColumns.has('lifetime_earnings')) staffUpdate.lifetime_earnings = (staff.lifetime_earnings || 0) + referral.commission_amount;
+    const commission = service?.commission_rate || 0;
+    if (staffColumns.has('pending_earnings')) staffUpdate.pending_earnings = (staff.pending_earnings || 0) - commission;
+    if (staffColumns.has('approved_earnings')) staffUpdate.approved_earnings = (staff.approved_earnings || 0) + commission;
+    if (staffColumns.has('lifetime_earnings')) staffUpdate.lifetime_earnings = (staff.lifetime_earnings || 0) + commission;
     
     // Only update aracoins if the column existed in the referral record and staff table
     if (referral.aracoins_perk !== undefined && staffColumns.has('aracoins')) {
@@ -1779,27 +1982,29 @@ app.patch("/api/referrals/:id", async (req, res) => {
       await supabase
         .from('staff')
         .update(staffUpdate)
-        .eq('id', referral.staff_id);
+        .eq('id', referral.created_by);
     }
   } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
     const staffUpdate: any = {};
-    if (staffColumns.has('approved_earnings')) staffUpdate.approved_earnings = (staff.approved_earnings || 0) - referral.commission_amount;
-    if (staffColumns.has('paid_earnings')) staffUpdate.paid_earnings = (staff.paid_earnings || 0) + referral.commission_amount;
+    const commission = service?.commission_rate || 0;
+    if (staffColumns.has('approved_earnings')) staffUpdate.approved_earnings = (staff.approved_earnings || 0) - commission;
+    if (staffColumns.has('paid_earnings')) staffUpdate.paid_earnings = (staff.paid_earnings || 0) + commission;
     if (staffColumns.has('last_payout_date')) staffUpdate.last_payout_date = new Date().toISOString();
 
     if (Object.keys(staffUpdate).length > 0) {
       await supabase
         .from('staff')
         .update(staffUpdate)
-        .eq('id', referral.staff_id);
+        .eq('id', referral.created_by);
     }
   } else if (status === 'rejected' && referral.status !== 'rejected') {
     if (['entered', 'completed', 'paid_completed'].includes(referral.status)) {
       if (staffColumns.has('pending_earnings')) {
+        const commission = service?.commission_rate || 0;
         await supabase
           .from('staff')
-          .update({ pending_earnings: (staff.pending_earnings || 0) - referral.commission_amount })
-          .eq('id', referral.staff_id);
+          .update({ pending_earnings: (staff.pending_earnings || 0) - commission })
+          .eq('id', referral.created_by);
       }
     }
   }
@@ -1860,9 +2065,16 @@ async function startServer() {
       console.log('Attempting to run database migrations...');
       // Standard Supabase doesn't have a direct SQL RPC by default, but some templates do.
       supabase.rpc('exec_sql', { sql: migrationSql }).then(({ error }: any) => {
-        if (error) console.warn('Migration RPC failed (this is expected if exec_sql is not defined):', error.message);
-        else console.log('Migration RPC succeeded');
-      }).catch((err: any) => console.warn('Migration RPC error:', err));
+        if (error && !error.message?.includes('Could not find the function')) {
+          console.warn('Migration RPC failed:', error.message);
+        } else if (!error) {
+          console.log('Migration RPC succeeded');
+        }
+      }).catch((err: any) => {
+        if (!err.message?.includes('Could not find the function')) {
+          console.warn('Migration RPC error:', err);
+        }
+      });
     }
 
     supabase.from('referrals').select('*').limit(1).then(({ data, error }) => {
