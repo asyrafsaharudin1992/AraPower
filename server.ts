@@ -1704,11 +1704,19 @@ app.post("/api/services", async (req, res) => {
   const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category, target_url } = req.body;
   
   const insertData: any = {
-    name,
-    base_price: base_price || 0,
-    commission_rate: commission_rate || 0,
-    allowances_json: JSON.stringify(allowances || {})
+    name
   };
+
+  if (serviceColumns.has('base_price')) insertData.base_price = base_price || 0;
+  if (serviceColumns.has('commission_rate')) insertData.commission_rate = commission_rate || 0;
+  
+  if (allowances !== undefined) {
+    if (serviceColumns.has('allowances_json')) {
+      insertData.allowances_json = JSON.stringify(allowances || {});
+    } else if (serviceColumns.has('allowances')) {
+      insertData.allowances = JSON.stringify(allowances || {});
+    }
+  }
 
   if (category !== undefined && serviceColumns.has('category')) insertData.category = category;
   if (description !== undefined && serviceColumns.has('description')) insertData.description = description;
@@ -1758,9 +1766,16 @@ app.patch("/api/services/:id", async (req, res) => {
   const updateData: any = {};
 
   if (name !== undefined) updateData.name = name;
-  if (base_price !== undefined) updateData.base_price = base_price;
-  if (commission_rate !== undefined) updateData.commission_rate = commission_rate;
-  if (allowances !== undefined) updateData.allowances_json = JSON.stringify(allowances);
+  if (base_price !== undefined && serviceColumns.has('base_price')) updateData.base_price = base_price;
+  if (commission_rate !== undefined && serviceColumns.has('commission_rate')) updateData.commission_rate = commission_rate;
+  
+  if (allowances !== undefined) {
+    if (serviceColumns.has('allowances_json')) {
+      updateData.allowances_json = JSON.stringify(allowances);
+    } else if (serviceColumns.has('allowances')) {
+      updateData.allowances = JSON.stringify(allowances);
+    }
+  }
   if (category !== undefined && serviceColumns.has('category')) updateData.category = category;
   if (description !== undefined && serviceColumns.has('description')) updateData.description = description;
   if (image_url !== undefined && serviceColumns.has('image_url')) updateData.image_url = image_url;
