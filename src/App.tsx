@@ -833,6 +833,24 @@ export default function App() {
     }
   }, [currentUser]);
 
+  // Refetch user profile on load to ensure latest status
+  useEffect(() => {
+    const fetchLatestUser = async () => {
+      if (currentUser?.id) {
+        try {
+          const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser.id}`);
+          if (res.ok && data) {
+            setCurrentUser(data);
+            localStorage.setItem('currentUser', JSON.stringify(data));
+          }
+        } catch (error) {
+          console.error('Error refetching user on load:', error);
+        }
+      }
+    };
+    fetchLatestUser();
+  }, []); // Run once on mount
+
   // Clinic & Roles State
   const [clinicProfile, setClinicProfile] = useState<ClinicProfile>({
     name: 'AraPower',
@@ -3372,6 +3390,7 @@ export default function App() {
   }
   
   if (currentUser.is_approved === 0 && currentUser.role !== 'admin') {
+    console.log('Current User State (Pending Screen):', currentUser);
     return (
       <div className="min-h-screen w-full overflow-x-hidden bg-eggshell flex items-center justify-center p-4 font-sans relative overflow-hidden">
         <motion.div 
@@ -3739,7 +3758,10 @@ export default function App() {
           )}
 
           {!currentUser.is_approved && currentUser.role !== 'admin' && activeTab !== 'profile' ? (
-            <motion.div 
+            (() => {
+              console.log('Current User State (Main Content Pending):', currentUser);
+              return (
+                <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-8 relative z-10"
@@ -3786,7 +3808,9 @@ export default function App() {
                   Sign Out
                 </button>
               </div>
-            </motion.div>
+                </motion.div>
+              );
+            })()
           ) : (
             <>
               <header className={`flex flex-row items-center justify-between gap-4 z-[100] ${isMobile ? `sticky top-0 bg-eggshell/80 backdrop-blur-xl py-4 -mx-4 px-4 border-b border-twilight-indigo/10 mb-6` : 'mb-8 relative'}`}>
