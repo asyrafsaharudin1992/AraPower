@@ -915,9 +915,9 @@ export default function App() {
   };
   const [rolesConfig, setRolesConfig] = useState<RolesConfig>({
     admin: { canApprove: true, canEditServices: true, canEditStaff: true, canViewAnalytics: true, canManagePayouts: true, canManageSettings: true, canManageCommunication: true },
+    manager: { canApprove: true, canEditServices: true, canEditStaff: true, canViewAnalytics: true, canManagePayouts: true, canManageSettings: false, canManageCommunication: true },
     receptionist: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: false, canManageSettings: false, canManageCommunication: true },
-    staff: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: false, canManageSettings: false, canManageCommunication: false },
-    dispensary: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: true, canManageSettings: false, canManageCommunication: false }
+    affiliate: { canApprove: false, canEditServices: false, canEditStaff: false, canViewAnalytics: false, canManagePayouts: false, canManageSettings: false, canManageCommunication: false }
   });
 
   // Staff Detail State
@@ -1511,7 +1511,7 @@ export default function App() {
   useEffect(() => {
     if (currentUser) {
       fetchStaff();
-      if (currentUser.role === 'admin') {
+      if (currentUser.role === 'admin' || currentUser.role === 'manager') {
         fetchBranchChangeRequests();
       }
     }
@@ -1519,7 +1519,7 @@ export default function App() {
 
   useEffect(() => {
     let interval: any;
-    if (activeTab === 'admin' && currentUser?.role === 'admin') {
+    if (activeTab === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'manager')) {
       // Poll every 30 seconds for new applications
       interval = setInterval(fetchStaff, 30000);
     }
@@ -1529,7 +1529,7 @@ export default function App() {
   }, [activeTab, currentUser?.role]);
 
   useEffect(() => {
-    if (activeTab === 'communication' && currentUser?.role === 'admin') {
+    if (activeTab === 'communication' && rolesConfig[currentUser?.role || '']?.canManageCommunication) {
       safeFetch(`${apiBaseUrl}/api/feedback`).then(({ res, data }) => {
         if (res.ok && data) setFeedbackList(data);
       });
@@ -1551,7 +1551,7 @@ export default function App() {
 
   const checkBranchAccess = (item: Service) => {
     if (!currentUser) return true;
-    if (currentUser.role === 'admin') return true;
+    if (currentUser.role === 'admin' || currentUser.role === 'manager') return true;
     
     let branches: any = item.branches;
     
@@ -1650,7 +1650,7 @@ export default function App() {
   const fetchReferrals = async () => {
     if (!currentUser) return;
     
-    let url = (currentUser.role === 'admin' || currentUser.role === 'receptionist') 
+    let url = (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') 
       ? `${apiBaseUrl}/api/referrals?requesterRole=${currentUser.role}&requesterBranch=${currentUser.branch}` 
       : `${apiBaseUrl}/api/referrals?staffId=${currentUser.id}`;
     
@@ -1658,7 +1658,7 @@ export default function App() {
       url += '&upcoming=true';
     }
     
-    if (branchFilter !== 'all' && (currentUser.role === 'admin' || currentUser.role === 'receptionist')) {
+    if (branchFilter !== 'all' && (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist')) {
       url += `&branch=${branchFilter}`;
     }
 
@@ -1676,10 +1676,10 @@ export default function App() {
       fetchNotifications(),
       fetchStaff()
     ];
-    if (currentUser.role === 'admin' || currentUser.role === 'receptionist') {
+    if (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') {
       promises.push(fetchBranches());
     }
-    if (currentUser.role === 'admin') {
+    if (currentUser.role === 'admin' || currentUser.role === 'manager') {
       promises.push(fetchSettings(), fetchBranchChangeRequests());
     }
     await Promise.all(promises);
@@ -2152,7 +2152,7 @@ export default function App() {
       const payload = { 
         status,
         ...additionalData,
-        verified_by: (currentUser?.role === 'receptionist' || currentUser?.role === 'admin') ? currentUser.id : undefined
+        verified_by: (currentUser?.role === 'receptionist' || currentUser?.role === 'manager' || currentUser?.role === 'admin') ? currentUser.id : undefined
       };
       
       console.log('Updating status:', { id, payload });
@@ -3901,9 +3901,9 @@ export default function App() {
               className="space-y-8"
             >
               {/* Top Stats Section - Unified for Admin/Receptionist/Dispensary */}
-              {(currentUser.role === 'admin' || currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && (
+              {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {currentUser.role === 'admin' ? (
+                  {(currentUser.role === 'admin' || currentUser.role === 'manager') ? (
                     <>
                       {/* Total Referrals Card */}
                       <div className="bg-white p-6 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group flex items-center gap-6">
@@ -3993,7 +3993,7 @@ export default function App() {
                 {/* Left Column: Form & Toolkit */}
                 <div className="lg:col-span-1 space-y-6">
                 {/* Stats & Services Column */}
-                {(currentUser.role === 'staff' || currentUser.role === 'admin') && (
+                {(currentUser.role === 'affiliate' || currentUser.role === 'admin' || currentUser.role === 'manager') && (
                   <div className="space-y-6">
                     {/* Main Card: Earnings Breakdown - Dark Design */}
                     {isMobile && (
@@ -4035,14 +4035,14 @@ export default function App() {
                     <div className="pt-4">
                       <h3 className="text-xl font-black text-twilight-indigo tracking-tight">Service Performance</h3>
                       <p className="text-twilight-indigo/60 text-[10px] font-bold uppercase tracking-wider">
-                        {currentUser.role === 'admin' ? 'Global Approved Commissions' : 'Your Approved Commissions'}
+                        { (currentUser.role === 'admin' || currentUser.role === 'manager') ? 'Global Approved Commissions' : 'Your Approved Commissions'}
                       </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       {services.map(service => {
                         const filteredReferrals = referrals.filter(r => 
-                          (currentUser.role === 'admin' ? true : String(r.staff_id) === String(currentUser.id)) && 
+                          (currentUser.role === 'admin' || currentUser.role === 'manager' ? true : String(r.staff_id) === String(currentUser.id)) && 
                           r.service_id === service.id && 
                           ['paid_completed', 'approved', 'payout_processed'].includes(r.status)
                         );
@@ -4066,7 +4066,7 @@ export default function App() {
                       })}
                       
                       {services.filter(service => 
-                        referrals.some(r => (currentUser.role === 'admin' ? true : String(r.staff_id) === String(currentUser.id)) && r.service_id === service.id && ['paid_completed', 'approved', 'payout_processed'].includes(r.status))
+                        referrals.some(r => (currentUser.role === 'admin' || currentUser.role === 'manager' ? true : String(r.staff_id) === String(currentUser.id)) && r.service_id === service.id && ['paid_completed', 'approved', 'payout_processed'].includes(r.status))
                       ).length === 0 && (
                         <div className="col-span-2 p-10 rounded-[2.5rem] bg-zinc-50 border border-zinc-200 text-center">
                           <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
@@ -4074,7 +4074,7 @@ export default function App() {
                           </div>
                           <p className="text-zinc-500 text-xs font-black uppercase tracking-widest">No approved or processed commissions</p>
                           <p className="text-zinc-500 text-[10px] font-bold mt-1">
-                            {currentUser.role === 'admin' 
+                            {currentUser.role === 'admin' || currentUser.role === 'manager' 
                               ? 'Referrals must be marked as "Approved" or "Paid" to appear here.' 
                               : 'Your approved or processed referrals will appear here.'}
                           </p>
@@ -4087,7 +4087,7 @@ export default function App() {
 
 
                 {/* Tier Progress Card (Staff Only - Desktop) */}
-                {!isMobile && currentUser.role === 'staff' && (
+                {!isMobile && currentUser.role === 'affiliate' && (
                   <div className="bg-violet-500 p-6 rounded-3xl border border-violet-500 shadow-sm overflow-hidden relative">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
@@ -4141,7 +4141,7 @@ export default function App() {
               {/* Recent Activity & Admin Insights */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Dedicated Analytics Chart for Admin */}
-                {currentUser.role === 'admin' && (
+                { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                   <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
                     <div className="flex items-center justify-between mb-8">
                       <div>
@@ -4214,7 +4214,7 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                {currentUser.role === 'admin' && (
+                { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                   <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
                     <div className="p-6 border-b border-zinc-100">
                       <h3 className="font-semibold">Staff Performance</h3>
@@ -4273,7 +4273,7 @@ export default function App() {
                             <p className="text-sm font-bold">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</p>
                             <p className={`text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status).split(' ')[1]}`}>{getStatusLabel(ref.status)}</p>
                           </div>
-                          {currentUser.role === 'admin' && (
+                          { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -4580,7 +4580,7 @@ export default function App() {
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Staff</th>
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Incentive</th>
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Status</th>
-                      {(currentUser.role === 'admin' || currentUser.role === 'receptionist') && <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Actions</th>}
+                      {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-50">
@@ -4620,7 +4620,7 @@ export default function App() {
                             {getStatusLabel(ref.status)}
                           </span>
                         </td>
-                        {(currentUser.role === 'admin' || currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && (
+                        {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
                           <td className="p-4">
                             <div className="flex gap-2">
                               {ref.patient_phone && (
@@ -4650,7 +4650,7 @@ export default function App() {
                                   </button>
                                 </>
                               )}
-                              {(currentUser.role === 'receptionist' || currentUser.role === 'dispensary') && ref.status === 'completed' && (
+                              {currentUser.role === 'receptionist' && ref.status === 'completed' && (
                                 <button 
                                   onClick={() => handleUpdateStatus(ref.id, 'paid_completed', { payment_status: 'completed' })}
                                   className="text-[10px] font-bold text-zinc-900 hover:underline"
@@ -4658,7 +4658,7 @@ export default function App() {
                                   Paid
                                 </button>
                               )}
-                              {currentUser.role === 'admin' && ref.status === 'paid_completed' && (
+                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.status === 'paid_completed' && (
                                 <button 
                                   onClick={() => handleUpdateStatus(ref.id, 'approved')}
                                   className="text-[10px] font-bold text-zinc-900 hover:underline"
@@ -4666,7 +4666,7 @@ export default function App() {
                                   Approve
                                 </button>
                               )}
-                              {currentUser.role === 'admin' && ref.status === 'approved' && (
+                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.status === 'approved' && (
                                 <button 
                                   onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
                                   className="text-[10px] font-bold text-zinc-900 hover:underline"
@@ -4674,7 +4674,7 @@ export default function App() {
                                   Pay
                                 </button>
                               )}
-                              {currentUser.role === 'admin' && (
+                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                                 <button 
                                   onClick={() => handleDeleteReferral(ref.id)}
                                   className="p-2 text-zinc-500 hover:text-rose-500 transition-colors"
@@ -4694,7 +4694,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'admin' && currentUser.role === 'admin' && (
+          {activeTab === 'admin' && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
             <motion.div 
               key="admin"
               initial={{ opacity: 0, y: 10 }}
@@ -5232,7 +5232,7 @@ export default function App() {
                                         <span className="text-xs font-bold">Processed</span>
                                       </div>
                                     )}
-                                    {currentUser.role === 'admin' && (
+                                    { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                                       <button 
                                         onClick={() => handleDeleteReferral(ref.id)}
                                         className="p-2 text-zinc-500 hover:text-rose-500 transition-colors"
@@ -5371,7 +5371,7 @@ export default function App() {
             );
           })()}
 
-          {activeTab === 'receptionist' && (currentUser.role === 'receptionist' || currentUser.role === 'dispensary' || currentUser.role === 'admin') && (
+          {activeTab === 'receptionist' && (currentUser.role === 'receptionist' || currentUser.role === 'manager' || currentUser.role === 'admin') && (
             <motion.div 
               key="receptionist"
               initial={{ opacity: 0, y: 10 }}
@@ -5461,7 +5461,7 @@ export default function App() {
                     <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <h3 className="font-semibold">{currentUser.role === 'receptionist' ? `Patient Arrivals (${branchFilter === 'all' ? 'All Branches' : branchFilter})` : 'Pending Payouts'}</h3>
                       <div className="flex flex-col sm:flex-row gap-2">
-                        {(currentUser.role === 'admin' || currentUser.role === 'receptionist') && (
+                        {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
                           <select 
                             value={branchFilter}
                             onChange={(e) => setBranchFilter(e.target.value)}
@@ -5500,7 +5500,7 @@ export default function App() {
                       {referrals
                         .filter(r => r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()))
                         .filter(r => statusFilter === 'all' ? true : r.status === statusFilter)
-                        .filter(r => currentUser.role === 'dispensary' ? r.status === 'completed' : true)
+                        .filter(r => currentUser.role === 'receptionist' ? r.status === 'completed' : true)
                         .map((ref) => (
                         <div key={ref.id} className="p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors">
                           <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
@@ -5512,13 +5512,13 @@ export default function App() {
                               <p className="text-xs font-medium text-zinc-500">{ref.service_name}</p>
                               <p className="text-[10px] text-zinc-500">Service</p>
                             </div>
-                            {currentUser.role === 'admin' && (
+                            { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                               <div className="flex flex-col">
                                 <p className="text-xs font-bold text-zinc-900">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</p>
                                 <p className="text-[10px] text-zinc-500">Commission</p>
                               </div>
                             )}
-                            {currentUser.role === 'admin' && (
+                            { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                               <div>
                                 <p className="text-xs font-medium text-zinc-900">{ref.staff_name}</p>
                                 <p className="text-[10px] text-zinc-500">Staff</p>
@@ -5550,7 +5550,7 @@ export default function App() {
                               <option value="completed">Arrived</option>
                               <option value="paid_completed">Paid</option>
                               <option value="rejected">Rejected</option>
-                              { (currentUser.role === 'admin' || currentUser.role === 'receptionist') && (
+                              { (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
                                 <>
                                   <option value="approved">Approved</option>
                                   <option value="payout_processed">Payout Processed</option>
@@ -5578,7 +5578,7 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               className="max-w-2xl mx-auto space-y-8"
             >
-              {currentUser.role === 'admin' ? (
+              { (currentUser.role === 'admin' || currentUser.role === 'manager') ? (
                 <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-zinc-200">
                   <div className="w-20 h-20 bg-zinc-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
                     <Users size={32} className="text-zinc-500" />
@@ -5692,7 +5692,7 @@ export default function App() {
                   </div>
 
                   {/* Log New Referral (Staff Only) */}
-                  {currentUser.role === 'staff' && !isMobile && (
+                  {currentUser.role === 'affiliate' && !isMobile && (
                 <div className={`${darkMode ? 'bg-white border-zinc-200 rotate-[-1deg]' : 'bg-violet-500 border-violet-500'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.02)]`}>
                   <div className="flex items-center gap-2 mb-6">
                     <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${darkMode ? 'bg-brand-accent text-brand-primary shadow-brand-accent/20 rotate-[5deg]' : 'bg-violet-500 text-white shadow-violet-500'}`}>
@@ -5933,8 +5933,8 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className={`p-6 rounded-3xl border ${currentUser.role === 'staff' ? 'bg-violet-500 border-violet-500' : 'bg-white border-black/5'}`}>
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'staff' ? 'bg-violet-500 text-white' : 'bg-zinc-50 text-zinc-500'}`}>
+                <div className={`p-6 rounded-3xl border ${currentUser.role === 'affiliate' ? 'bg-violet-500 border-violet-500' : 'bg-white border-black/5'}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'affiliate' ? 'bg-violet-500 text-white' : 'bg-zinc-50 text-zinc-500'}`}>
                     <Users size={24} />
                   </div>
                   <h4 className="font-bold mb-2">For Staff Members</h4>
@@ -5983,8 +5983,8 @@ export default function App() {
                   </ul>
                 </div>
 
-                <div className={`p-6 rounded-3xl border ${currentUser.role === 'admin' ? 'bg-violet-500 border-violet-500' : 'bg-white border-black/5'}`}>
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'admin' ? 'bg-violet-500 text-white' : 'bg-zinc-50 text-zinc-500'}`}>
+                <div className={`p-6 rounded-3xl border ${ (currentUser.role === 'admin' || currentUser.role === 'manager') ? 'bg-violet-500 border-violet-500' : 'bg-white border-black/5'}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${ (currentUser.role === 'admin' || currentUser.role === 'manager') ? 'bg-violet-500 text-white' : 'bg-zinc-50 text-zinc-500'}`}>
                     <ShieldCheck size={24} />
                   </div>
                   <h4 className="font-bold mb-2">For Administrators</h4>
@@ -6507,7 +6507,7 @@ export default function App() {
                   <h2 className="text-3xl font-black tracking-tighter text-zinc-900">Task Management</h2>
                   <p className="text-zinc-500 text-sm font-medium">Track and manage clinic operations</p>
                 </div>
-                {currentUser.role === 'admin' && (
+                { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                   <button 
                     onClick={() => {
                       setEditingTask(null);
@@ -6574,7 +6574,7 @@ export default function App() {
                           <option value="completed">Completed</option>
                         </select>
 
-                        {currentUser.role === 'admin' && (
+                        { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                           <div className="flex items-center gap-2 pl-3 border-l border-zinc-100">
                             <button 
                               onClick={() => {
@@ -6616,7 +6616,7 @@ export default function App() {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`mx-auto space-y-8 px-4 pb-32 ${currentUser.role === 'admin' ? 'max-w-6xl' : 'max-w-md'}`}
+              className={`mx-auto space-y-8 px-4 pb-32 ${ (currentUser.role === 'admin' || currentUser.role === 'manager') ? 'max-w-6xl' : 'max-w-md'}`}
             >
               <div className={`mb-8 ${darkMode ? 'bg-brand-primary p-8 rounded-[2.5rem] shadow-2xl shadow-brand-primary/20 relative overflow-hidden' : ''}`}>
                 {darkMode && <div className="absolute top-0 right-0 w-32 h-32 bg-brand-accent/10 rounded-full blur-3xl -mr-16 -mt-16" />}
@@ -6624,7 +6624,7 @@ export default function App() {
                 <p className={`${darkMode ? 'text-zinc-900/70 relative z-10' : 'text-zinc-500'} text-sm font-medium`}>Download posters to share with your network</p>
               </div>
 
-              {currentUser.role === 'admin' && (
+              { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                 <div className="space-y-12">
                   <div className={`flex items-center gap-4 border-b pb-4 ${darkMode ? 'border-zinc-800' : 'border-zinc-100'}`}>
                     <button 
@@ -6838,7 +6838,7 @@ export default function App() {
                 })}
 
                 {(services.length > 0 ? services : promotions).filter((item: any) => {
-                  return currentUser.role === 'admin' || 
+                  return currentUser.role === 'admin' || currentUser.role === 'manager' || 
                     !item.branches ||
                     (Array.isArray(item.branches) && (item.branches.length === 0 || !currentUser.branch || item.branches.includes(currentUser.branch))) ||
                     (!Array.isArray(item.branches) && (Object.keys(item.branches).length === 0 || !currentUser.branch || (item.branches[currentUser.branch] && item.branches[currentUser.branch].active)));
@@ -7092,13 +7092,14 @@ export default function App() {
                           <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Role</label>
                           <select 
                             required
-                            value={editingStaff?.role || 'staff'}
+                            value={editingStaff?.role || 'affiliate'}
                             onChange={(e) => setEditingStaff(prev => ({...(prev || {}), role: e.target.value}))}
                             className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 appearance-none"
                           >
-                            <option value="staff">Staff</option>
-                            <option value="receptionist">Receptionist</option>
                             <option value="admin">Admin</option>
+                            <option value="manager">Manager</option>
+                            <option value="receptionist">Receptionist</option>
+                            <option value="affiliate">Affiliate</option>
                           </select>
                         </div>
                         <div>
@@ -8269,7 +8270,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {currentUser.role === 'admin' && (
+                      { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                         <>
                           <button 
                             onClick={() => {
@@ -8351,7 +8352,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                                   <p className="text-sm font-bold text-zinc-900">{ref.patient_name}</p>
                                   <p className="text-[10px] text-zinc-500 uppercase font-medium">{ref.service_name} • {ref.date}</p>
                                 </div>
-                                {currentUser.role === 'admin' && (
+                                { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                                   <button 
                                     onClick={(e) => {
                                       e.stopPropagation();
