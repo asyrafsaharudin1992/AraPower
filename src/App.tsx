@@ -249,15 +249,22 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
 const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, currentUser }: { item: Service | null, isOpen: boolean, onClose: () => void, clinicProfile: ClinicProfile, darkMode: boolean, currentUser: Staff | null }) => {
   if (!item) return null;
 
+  const referralCode = currentUser?.referral_code || currentUser?.promo_code;
+
   const generateAffiliateLink = () => {
+    if (!referralCode) return '';
     const baseUrl = item.target_url || getShareUrl(clinicProfile.customDomain);
     const separator = baseUrl.includes('?') ? '&' : '?';
-    return `${baseUrl}${separator}ref=${currentUser?.promo_code || ''}`;
+    return `${baseUrl}${separator}ref=${referralCode}`;
   };
 
   const shareLink = generateAffiliateLink();
 
   const handleCopyLink = async () => {
+    if (!shareLink) {
+      alert('Code not generated yet');
+      return;
+    }
     try {
       await navigator.clipboard.writeText(shareLink);
       alert('Link copied!');
@@ -267,6 +274,10 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
   };
 
   const handleWhatsAppShare = () => {
+    if (!shareLink) {
+      alert('Code not generated yet');
+      return;
+    }
     const message = `Check out this promotion at our clinic: ${shareLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
@@ -5584,13 +5595,19 @@ export default function App() {
                     <div className="space-y-8">
                       <div className={`flex flex-col items-center p-8 rounded-[2.5rem] border ${darkMode ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
                         <div className={`p-6 rounded-[2rem] shadow-sm mb-6 bg-white`}>
-                          <QRCodeCanvas 
-                            value={`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`}
-                            size={180}
-                            level="H"
-                            includeMargin={false}
-                            className="rounded-lg"
-                          />
+                          {currentUser.referral_code || currentUser.promo_code ? (
+                            <QRCodeCanvas 
+                              value={`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.referral_code || currentUser.promo_code}`}
+                              size={180}
+                              level="H"
+                              includeMargin={false}
+                              className="rounded-lg"
+                            />
+                          ) : (
+                            <div className="w-[180px] h-[180px] flex items-center justify-center bg-zinc-100 rounded-lg text-zinc-500 text-sm font-bold text-center px-4">
+                              Code not generated yet
+                            </div>
+                          )}
                         </div>
                         <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Personal QR Code</p>
                         <p className={`text-xs mt-2 text-center max-w-[200px] ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Patients can scan this to book directly with your referral code.</p>
@@ -8563,12 +8580,18 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                     {/* QR Code Section */}
                     <div className="bg-zinc-50 p-6 rounded-3xl border border-zinc-100 flex flex-col items-center text-center">
                       <div className="p-3 bg-white rounded-2xl shadow-sm mb-4">
-                        <QRCodeCanvas 
-                          value={`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`}
-                          size={120}
-                          level="H"
-                          includeMargin={false}
-                        />
+                        {currentUser.referral_code || currentUser.promo_code ? (
+                          <QRCodeCanvas 
+                            value={`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.referral_code || currentUser.promo_code}`}
+                            size={120}
+                            level="H"
+                            includeMargin={false}
+                          />
+                        ) : (
+                          <div className="w-[120px] h-[120px] flex items-center justify-center bg-zinc-100 rounded-lg text-zinc-500 text-xs font-bold text-center px-2">
+                            Code not generated yet
+                          </div>
+                        )}
                       </div>
                       <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Your Personal QR</p>
                       <p className="text-[9px] font-bold text-zinc-500 leading-tight">Patients can scan this to book directly under your name</p>

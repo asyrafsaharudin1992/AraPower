@@ -858,40 +858,50 @@ app.post("/api/auth/register", async (req, res) => {
       return res.status(403).json({ error: "Self-registration is currently disabled. Please contact an administrator." });
     }
 
-    // Generate a random promo code (void of user identity)
-    const generateRandomCode = () => {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-      let result = 'ARA-';
-      for (let i = 0; i < 6; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return result;
+    // Generate a referral code based on first name and a random 3-digit number
+    const generateReferralCode = (fullName: string) => {
+      const firstName = fullName.split(' ')[0].toUpperCase().replace(/[^A-Z]/g, '');
+      const randomNum = Math.floor(100 + Math.random() * 900); // 100 to 999
+      return `${firstName}${randomNum}`;
     };
 
-    let promo_code = generateRandomCode();
+    let referral_code = generateReferralCode(name);
     
-    // Try to ensure unique promo code
+    // Try to ensure unique referral code
     let attempts = 0;
-    if (staffColumns.has('promo_code')) {
+    if (staffColumns.has('referral_code')) {
       while (attempts < 10) {
         const { data: existing } = await supabase
           .from('staff')
           .select('id')
-          .eq('promo_code', promo_code)
+          .eq('referral_code', referral_code)
           .single();
         if (!existing) break;
-        promo_code = generateRandomCode();
+        referral_code = generateReferralCode(name);
+        attempts++;
+      }
+    } else if (staffColumns.has('promo_code')) {
+      // Fallback to promo_code if referral_code doesn't exist yet
+      while (attempts < 10) {
+        const { data: existing } = await supabase
+          .from('staff')
+          .select('id')
+          .eq('promo_code', referral_code)
+          .single();
+        if (!existing) break;
+        referral_code = generateReferralCode(name);
         attempts++;
       }
     }
 
-    console.log(`Inserting new staff member: ${email} with promo code ${promo_code}`);
+    console.log(`Inserting new staff member: ${email} with referral code ${referral_code}`);
     const insertData: any = {
       name,
       email,
       role: 'staff',
     };
-    if (staffColumns.has('promo_code')) insertData.promo_code = promo_code;
+    if (staffColumns.has('referral_code')) insertData.referral_code = referral_code;
+    else if (staffColumns.has('promo_code')) insertData.promo_code = referral_code;
     
     if (staffColumns.has('branch')) insertData.branch = branch;
     if (staffColumns.has('phone')) insertData.phone = phone || null;
@@ -1326,19 +1336,16 @@ app.get("/api/staff", async (req, res) => {
 app.post("/api/staff", async (req, res) => {
   const { name, email, role, promo_code, staff_id_code, branch, department, position, date_joined, phone, password } = req.body;
   
-  // Generate a random promo code if not provided (void of user identity)
-  const generateRandomCode = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let result = 'ARA-';
-    for (let i = 0; i < 6; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
+  // Generate a referral code based on first name and a random 3-digit number
+  const generateReferralCode = (fullName: string) => {
+    const firstName = fullName.split(' ')[0].toUpperCase().replace(/[^A-Z]/g, '');
+    const randomNum = Math.floor(100 + Math.random() * 900); // 100 to 999
+    return `${firstName}${randomNum}`;
   };
 
-  let final_promo_code = promo_code;
-  if (!final_promo_code) {
-    final_promo_code = generateRandomCode();
+  let final_referral_code = promo_code;
+  if (!final_referral_code) {
+    final_referral_code = generateReferralCode(name);
   }
 
   try {
@@ -1397,7 +1404,8 @@ app.post("/api/staff", async (req, res) => {
     };
 
     if (auth_id && staffColumns.has('auth_id')) insertData.auth_id = auth_id;
-    if (staffColumns.has('promo_code')) insertData.promo_code = final_promo_code;
+    if (staffColumns.has('referral_code')) insertData.referral_code = final_referral_code;
+    else if (staffColumns.has('promo_code')) insertData.promo_code = final_referral_code;
     if (staffColumns.has('staff_id_code')) insertData.staff_id_code = staff_id_code;
     if (staffColumns.has('branch')) insertData.branch = branch;
     if (staffColumns.has('department')) insertData.department = department;
