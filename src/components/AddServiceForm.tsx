@@ -90,6 +90,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
   const [existingServices, setExistingServices] = useState<any[]>([]);
 
   // --- Fetch Existing Offers (As requested) ---
@@ -258,6 +259,34 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
     }
   };
 
+  const handleAutoFill = async () => {
+    if (!targetUrl) return;
+    setIsAutoFilling(true);
+    try {
+      const { res, data } = await safeFetch('/api/import-service', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: targetUrl })
+      });
+
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || 'Failed to auto-fill from website');
+      }
+
+      if (data.name) setName(data.name);
+      if (data.description) setDescription(data.description);
+      if (data.price) setBasePrice(String(data.price));
+      if (data.image) setPosterUrl(data.image);
+      
+      alert('✨ Magic Import successful!');
+    } catch (error: any) {
+      console.error('Auto-fill error:', error);
+      alert(`Magic Import failed: ${error.message}`);
+    } finally {
+      setIsAutoFilling(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!name.trim()) {
       alert('Please enter a Name/Title for the service.');
@@ -412,13 +441,33 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
 
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-2">TARGET WEBSITE URL (OPTIONAL)</label>
-                  <input 
-                    type="text" 
-                    value={targetUrl} 
-                    onChange={(e) => setTargetUrl(e.target.value)} 
-                    placeholder="https://klinikara24jam.hsohealthcare.com/share?service=..." 
-                    className="w-full border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" 
-                  />
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={targetUrl} 
+                      onChange={(e) => setTargetUrl(e.target.value)} 
+                      placeholder="https://klinikara24jam.hsohealthcare.com/share?service=..." 
+                      className="flex-1 border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" 
+                    />
+                    <button
+                      onClick={handleAutoFill}
+                      disabled={!targetUrl || isAutoFilling}
+                      className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 whitespace-nowrap ${
+                        !targetUrl || isAutoFilling
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'
+                      }`}
+                    >
+                      {isAutoFilling ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Importing...
+                        </>
+                      ) : (
+                        '✨ Auto-Fill from Website'
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div>

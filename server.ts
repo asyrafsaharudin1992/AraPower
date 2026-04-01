@@ -5,8 +5,9 @@ import { fileURLToPath } from "url";
 import { Resend } from 'resend';
 import cors from 'cors';
 import dotenv from 'dotenv';
-
 import fs from 'fs';
+import { GoogleGenAI, Type } from "@google/genai";
+import * as cheerio from 'cheerio';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -185,7 +186,7 @@ let serviceColumns: Set<string> = new Set([
   'id', 'name', 'category', 'type', 'description', 'base_price',
   'promo_price', 'aracoins_perk', 'is_featured', 'image_url',
   'branches', 'start_date', 'end_date', 'start_time', 'end_time',
-  'duration_mins', 'created_at'
+  'duration_mins', 'created_at', 'target_url'
 ]);
 let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'created_at']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
@@ -523,6 +524,54 @@ app.delete("/api/branches/:id", async (req, res) => {
   const { error } = await supabase.from('branches').delete().eq('id', id);
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
+});
+
+app.post("/api/import-service", async (req, res) => {
+  const { url } = req.body;
+  if (!url) {
+    return res.status(400).json({ error: "URL is required" });
+  }
+
+  try {
+    // 1. Fetch the website content
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch website: ${response.statusText}`);
+    }
+    const html = await response.text();
+
+    // 2. Parse HTML with Cheerio
+    const $ = cheerio.load(html);
+
+    // Extract Metadata
+    const name = $('meta[property="og:title"]').attr('content') || $('title').text() || '';
+    const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
+    const image = $('meta[property="og:image"]').attr('content') || '';
+
+    // Extract Price using Regex (RM\s*\d+)
+    // We look for RM followed by digits, potentially with decimals
+    const priceMatch = html.match(/RM\s*(\d+(?:[.,]\d{2})?)/i);
+    let price = 0;
+    if (priceMatch && priceMatch[1]) {
+      price = parseFloat(priceMatch[1].replace(',', '.'));
+    }
+
+    res.json({
+      name: name.trim(),
+      description: description.trim(),
+      image: image,
+      price: price
+    });
+
+  } catch (error: any) {
+    console.error('Import Error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get("/api/branches/:name/performance", async (req, res) => {
@@ -1652,7 +1701,7 @@ app.get("/api/services", async (req, res) => {
 });
 
 app.post("/api/services", async (req, res) => {
-  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category, target_url } = req.body;
   
   const insertData: any = {
     name,
@@ -1672,6 +1721,7 @@ app.post("/api/services", async (req, res) => {
   if (serviceColumns.has('start_time')) insertData.start_time = start_time || null;
   if (serviceColumns.has('end_time')) insertData.end_time = end_time || null;
   if (is_featured !== undefined && serviceColumns.has('is_featured')) insertData.is_featured = is_featured;
+  if (target_url !== undefined && serviceColumns.has('target_url')) insertData.target_url = target_url;
   if (serviceColumns.has('aracoins_perk')) {
     insertData.aracoins_perk = aracoins_perk || 0;
   }
@@ -1703,7 +1753,7 @@ app.post("/api/services", async (req, res) => {
 
 app.patch("/api/services/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category, target_url } = req.body;
   
   const updateData: any = {};
 
@@ -1723,6 +1773,7 @@ app.patch("/api/services/:id", async (req, res) => {
   if (end_time !== undefined && serviceColumns.has('end_time')) updateData.end_time = end_time;
   if (is_featured !== undefined && serviceColumns.has('is_featured')) updateData.is_featured = is_featured;
   if (aracoins_perk !== undefined && serviceColumns.has('aracoins_perk')) updateData.aracoins_perk = aracoins_perk;
+  if (target_url !== undefined && serviceColumns.has('target_url')) updateData.target_url = target_url;
 
   console.log(`PATCH /api/services/${id} - Update Data:`, JSON.stringify(updateData, null, 2));
 
