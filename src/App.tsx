@@ -249,7 +249,7 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
 const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, currentUser }: { item: Service | null, isOpen: boolean, onClose: () => void, clinicProfile: ClinicProfile, darkMode: boolean, currentUser: Staff | null }) => {
   if (!item) return null;
 
-  const referralCode = currentUser?.referral_code || currentUser?.promo_code;
+  const referralCode = currentUser?.promo_code;
 
   const generateAffiliateLink = () => {
     if (!referralCode) return '';
@@ -1338,8 +1338,10 @@ export default function App() {
     // Check for public booking link
     const params = new URLSearchParams(window.location.search);
     const refCode = params.get('ref');
-    if (refCode) {
-      handlePublicBooking(refCode);
+    const serviceId = params.get('serviceId');
+    
+    if (refCode || serviceId) {
+      handlePublicBooking(refCode, serviceId);
     }
 
     fetchPromotions();
@@ -1466,11 +1468,16 @@ export default function App() {
     return slots;
   };
 
-  const handlePublicBooking = async (code: string) => {
+  const handlePublicBooking = async (code: string | null, serviceId: string | null) => {
     setIsPublicBooking(true);
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff?promoCode=${code}`);
-    if (res.ok && data) {
-      setReferringStaff(data);
+    if (code) {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff?promoCode=${code}`);
+      if (res.ok && data) {
+        setReferringStaff(data);
+      }
+    }
+    if (serviceId) {
+      setSelectedService(serviceId);
     }
   };
 
@@ -5595,9 +5602,9 @@ export default function App() {
                     <div className="space-y-8">
                       <div className={`flex flex-col items-center p-8 rounded-[2.5rem] border ${darkMode ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
                         <div className={`p-6 rounded-[2rem] shadow-sm mb-6 bg-white`}>
-                          {currentUser.referral_code || currentUser.promo_code ? (
+                          {currentUser.promo_code ? (
                             <QRCodeCanvas 
-                              value={`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.referral_code || currentUser.promo_code}`}
+                              value={`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`}
                               size={180}
                               level="H"
                               includeMargin={false}
@@ -8580,9 +8587,9 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                     {/* QR Code Section */}
                     <div className="bg-zinc-50 p-6 rounded-3xl border border-zinc-100 flex flex-col items-center text-center">
                       <div className="p-3 bg-white rounded-2xl shadow-sm mb-4">
-                        {currentUser.referral_code || currentUser.promo_code ? (
+                        {currentUser.promo_code ? (
                           <QRCodeCanvas 
-                            value={`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.referral_code || currentUser.promo_code}`}
+                            value={`${getShareUrl(clinicProfile.customDomain)}?ref=${currentUser.promo_code}`}
                             size={120}
                             level="H"
                             includeMargin={false}

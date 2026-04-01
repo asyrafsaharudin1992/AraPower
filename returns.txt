@@ -1,0 +1,28 @@
+221:  return (
+319:  return (
+360:                      return (
+436:  return (
+499:  return (
+553:                return (activeBranches.length > 0 ? activeBranches : ['Main Branch, Bangi', 'Damansara']).map((branch, idx) => (
+702:    return (
+715:  return (
+843:      return () => clearInterval(interval);
+1077:    return () => clearInterval(timer);
+1087:    return () => clearInterval(timer);
+1277:    return () => subscription.unsubscribe();
+1285:      return () => clearTimeout(timer);
+1326:    return () => window.removeEventListener('resize', handleResize);
+1532:    return () => {
+1588:        if (typeof b === 'object' && b !== null) return (b.name || b.id || '').toString().trim().toLowerCase() === userBranch.toLowerCase();
+2641:    return (
+2848:    return (
+2860:    return (
+3359:    return (
+3412:    return (
+3559:    return (
+3781:              return (
+4054:                        return (
+5059:            return (
+6670:                                      return (
+6788:                  return (
+8340:                          return (
