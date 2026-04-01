@@ -246,8 +246,30 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
   );
 };
 
-const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode }: { item: Service | null, isOpen: boolean, onClose: () => void, clinicProfile: ClinicProfile, darkMode: boolean }) => {
+const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, currentUser }: { item: Service | null, isOpen: boolean, onClose: () => void, clinicProfile: ClinicProfile, darkMode: boolean, currentUser: Staff | null }) => {
   if (!item) return null;
+
+  const generateAffiliateLink = () => {
+    const baseUrl = item.target_url || getShareUrl(clinicProfile.customDomain);
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    return `${baseUrl}${separator}ref=${currentUser?.promo_code || ''}`;
+  };
+
+  const shareLink = generateAffiliateLink();
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      alert('Link copied!');
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleWhatsAppShare = () => {
+    const message = `Check out this promotion at our clinic: ${shareLink}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+  };
 
   const handleDownloadPoster = async (url: string, fileName: string) => {
     try {
@@ -372,6 +394,24 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode }
                   <Download size={20} />
                   Download Poster to Share
                 </button>
+
+                {/* Share Buttons */}
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <button
+                    onClick={handleCopyLink}
+                    className="py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <Copy size={16} />
+                    Copy Link
+                  </button>
+                  <button
+                    onClick={handleWhatsAppShare}
+                    className="py-4 bg-emerald-500 text-white rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <MessageCircle size={16} />
+                    WhatsApp
+                  </button>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -6765,6 +6805,7 @@ export default function App() {
                 onClose={() => setIsPromoModalOpen(false)} 
                 clinicProfile={clinicProfile}
                 darkMode={darkMode}
+                currentUser={currentUser}
               />
             </motion.div>
           )}

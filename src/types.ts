@@ -42,6 +42,7 @@ export interface Service {
   require_deposit?: boolean;
   deposit_amount?: number;
   category_carousel?: boolean;
+  target_url?: string;
 }
 
 export interface Promotion {
