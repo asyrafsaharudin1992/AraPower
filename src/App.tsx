@@ -1380,7 +1380,10 @@ export default function App() {
   };
 
   const fetchTasks = async () => {
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks`);
+    if (!currentUser) return;
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks`, {
+      headers: { 'x-user-id': currentUser.id.toString() }
+    });
     if (res.ok && Array.isArray(data)) setTasks(data);
   };
 

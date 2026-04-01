@@ -1054,6 +1054,11 @@ app.post("/api/settings", async (req, res) => {
 
 // Tasks API
 app.get("/api/tasks", async (req, res) => {
+  const userId = req.headers['x-user-id'] || req.headers['authorization'] || req.headers['x-supabase-auth'];
+  if (!userId) {
+    return res.status(401).json([]);
+  }
+
   const selectColumns = Array.from(taskColumns).length > 0 ? Array.from(taskColumns).join(',') : '*';
   const fullSelect = `${selectColumns}, staff:assigned_to (name)`;
   const { data: tasks, error } = await supabase
