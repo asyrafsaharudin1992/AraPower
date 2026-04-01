@@ -56,6 +56,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
   const [visibility, setVisibility] = useState<'Public' | 'New Patients Only' | 'Hidden (VIP Link)'>('Public');
   const [category, setCategory] = useState(categories.length > 0 ? categories[0] : 'Cosmetic Dentistry');
   const [description, setDescription] = useState('');
+  const [targetUrl, setTargetUrl] = useState(initialData?.target_url || '');
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
 
@@ -116,6 +117,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
       setVisibility(initialData.visibility || 'Public');
       setCategory(initialData.category || (categories.length > 0 ? categories[0] : 'Cosmetic Dentistry'));
       setDescription(initialData.description || '');
+      setTargetUrl(initialData.target_url || '');
       setTags(initialData.tags || []);
       setDuration(initialData.duration || '30 Mins');
       if (initialData.branches) setBranches(initialData.branches);
@@ -142,6 +144,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
       setVisibility('Public');
       setCategory(categories.length > 0 ? categories[0] : 'Cosmetic Dentistry');
       setDescription('');
+      setTargetUrl('');
       setTags([]);
       setDuration('30 Mins');
       setBranches({
@@ -269,6 +272,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
         visibility,
         category,
         description,
+        target_url: targetUrl,
         tags,
         duration,
         branches, // Backend expects 'branches' which it will stringify to the 'branches' column
@@ -403,6 +407,17 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
                     onChange={(e) => setDescription(e.target.value)} 
                     placeholder="Add details, terms, and conditions here..." 
                     className="w-full border border-gray-200 rounded-lg p-3 text-sm h-24 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-2">TARGET WEBSITE URL (OPTIONAL)</label>
+                  <input 
+                    type="text" 
+                    value={targetUrl} 
+                    onChange={(e) => setTargetUrl(e.target.value)} 
+                    placeholder="https://klinikara24jam.hsohealthcare.com/share?service=..." 
+                    className="w-full border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" 
                   />
                 </div>
 
