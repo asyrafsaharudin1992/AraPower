@@ -3657,15 +3657,22 @@ export default function App() {
         {/* Supabase Configuration Warning */}
         {!isSupabaseConfigured && (
           <div 
-            onClick={() => {
+            onClick={async () => {
               console.log('--- Supabase Diagnostic ---');
               console.log('isPlaceholder:', isPlaceholder);
-              fetch('/api/check-env')
-                .then(r => r.json())
-                .then(data => console.log('Server Env Check:', data))
-                .catch(err => console.error('Server Env Check Failed:', err));
+              console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+              console.log('Supabase Key Length:', import.meta.env.VITE_SUPABASE_ANON_KEY?.length);
+              
+              try {
+                const r = await fetch('/api/health');
+                const data = await r.json();
+                console.log('Server Health Check:', data);
+                alert(`Diagnostic info logged to browser console (F12).\n\nServer DB Status: ${data.db}\nServer Config: ${JSON.stringify(data.config, null, 2)}`);
+              } catch (err: any) {
+                console.error('Server Health Check Failed:', err);
+                alert(`Diagnostic info logged to browser console (F12).\n\nServer Health Check Failed: ${err.message}`);
+              }
               console.log('---------------------------');
-              alert('Diagnostic info logged to browser console (F12). Please check the console for details.');
             }}
             className="fixed top-0 left-0 w-full z-[200] bg-amber-500 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-center shadow-lg cursor-pointer hover:bg-amber-600 transition-colors"
           >

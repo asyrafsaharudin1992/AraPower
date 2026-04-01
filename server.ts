@@ -244,14 +244,18 @@ const checkSupabase = (res: express.Response) => {
 
 const isPlaceholderUrl = (url: string) => {
   if (!url || url.length === 0) return true;
-  const placeholders = ['placeholder', 'your-project-url', 'your-project-id', 'your-supabase-url'];
-  return placeholders.some(p => url.toLowerCase().includes(p));
+  const placeholders = ['placeholder', 'your-project-url', 'your-project-id', 'your-supabase-url', 'https://.supabase.co'];
+  const isPlaceholder = placeholders.some(p => url.toLowerCase().includes(p));
+  const isInvalidFormat = !url.toLowerCase().startsWith('http');
+  return isPlaceholder || isInvalidFormat;
 };
 
 const isPlaceholderKey = (key: string) => {
   if (!key || key.length === 0) return true;
-  const placeholders = ['placeholder', 'your-anon-key', 'your-supabase-key'];
-  return placeholders.some(p => key.toLowerCase().includes(p));
+  const placeholders = ['placeholder', 'your-anon-key', 'your-supabase-key', 'your-service-role-key'];
+  const isPlaceholder = placeholders.some(p => key.toLowerCase().includes(p));
+  const isTooShort = key.length < 20;
+  return isPlaceholder || isTooShort;
 };
 
 if (isPlaceholderUrl(supabaseUrl) || isPlaceholderKey(supabaseKey)) {
@@ -616,31 +620,43 @@ app.put("/api/branch-change-requests/:id", async (req, res) => {
 });
 app.get("/api/health", async (req, res) => {
   let dbStatus = "unknown";
+  let errorDetails = null;
+  
   if (!supabase) {
     dbStatus = "not_initialized";
+  } else if (supabase instanceof MockSupabase) {
+    dbStatus = "mock_mode";
   } else {
     try {
-      const { error } = await supabase.from('staff').select('*', { count: 'exact', head: true });
-      if (error) throw error;
-      dbStatus = "connected";
+      const { error } = await supabase.from('staff').select('id', { count: 'exact', head: true });
+      if (error) {
+        dbStatus = "error";
+        errorDetails = error.message;
+      } else {
+        dbStatus = "connected";
+      }
     } catch (e: any) {
-      dbStatus = `error: ${e.message}`;
+      dbStatus = "exception";
+      errorDetails = e.message;
     }
   }
 
   res.json({ 
     status: "ok", 
     db: dbStatus,
+    error: errorDetails,
     time: new Date().toISOString(),
     vercel: !!process.env.VERCEL,
     env: process.env.NODE_ENV,
     config: {
-      url: supabaseUrl ? 'SET' : 'MISSING',
-      key: supabaseKey ? 'SET' : 'MISSING'
-    },
-    referralColumns: Array.from(referralColumns),
-    serviceColumns: Array.from(serviceColumns),
-    staffColumns: Array.from(staffColumns)
+      url: supabaseUrl ? `SET (${supabaseUrl.substring(0, 20)}...)` : 'MISSING',
+      key: supabaseKey ? `SET (Length: ${supabaseKey.length})` : 'MISSING',
+      isPlaceholder: isPlaceholderUrl(supabaseUrl) || isPlaceholderKey(supabaseKey),
+      urlValidFormat: supabaseUrl ? supabaseUrl.startsWith('http') : false,
+      viteUrl: process.env.VITE_SUPABASE_URL ? 'SET' : 'MISSING',
+      viteAnonKey: process.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'MISSING',
+      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING'
+    }
   });
 });
 
