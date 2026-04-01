@@ -2146,11 +2146,11 @@ export default function App() {
           fetchReferrals();
         }
       } else {
-        alert(data.error || 'Submission failed');
+        alert('Submission Failed: ' + (data.error || 'Unknown Error') + (data.details ? ' | Details: ' + JSON.stringify(data.details) : ''));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Network error. Please try again.');
+      alert('Submission Failed: ' + error.message);
     } finally {
       setIsSubmitting(false);
     }

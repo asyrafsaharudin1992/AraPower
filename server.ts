@@ -1968,7 +1968,7 @@ app.post("/api/referrals", async (req, res) => {
     .eq('id', service_id)
     .single();
     
-  if (serviceError || !service) return res.status(400).json({ error: "Service not found" });
+  if (serviceError || !service) return res.status(400).json({ error: "Service not found", details: serviceError });
 
   const insertData: any = {
     service_id,
@@ -1976,7 +1976,10 @@ app.post("/api/referrals", async (req, res) => {
     status: 'entered'
   };
 
-  if (staff_id && referralColumns.has('created_by')) insertData.created_by = staff_id;
+  if (staff_id) {
+    if (referralColumns.has('created_by')) insertData.created_by = staff_id;
+    if (referralColumns.has('staff_id')) insertData.staff_id = staff_id;
+  }
 
   if (referralColumns.has('patient_phone')) insertData.patient_phone = patient_phone || null;
   if (referralColumns.has('patient_ic')) insertData.patient_ic = patient_ic || null;
@@ -1985,7 +1988,12 @@ app.post("/api/referrals", async (req, res) => {
   if (referralColumns.has('appointment_date')) insertData.appointment_date = appointment_date || null;
   if (referralColumns.has('booking_time')) insertData.booking_time = booking_time || null;
   if (referralColumns.has('fraud_flags')) insertData.fraud_flags = JSON.stringify(fraudFlags);
-  if (created_by && referralColumns.has('created_by')) insertData.created_by = created_by;
+  
+  if (created_by) {
+    if (referralColumns.has('created_by')) insertData.created_by = created_by;
+    if (referralColumns.has('staff_id')) insertData.staff_id = created_by;
+  }
+  
   if (staff && referralColumns.has('branch')) insertData.branch = staff.branch;
   else if (branch && referralColumns.has('branch')) insertData.branch = branch;
 
@@ -2000,13 +2008,15 @@ app.post("/api/referrals", async (req, res) => {
     .select()
     .single();
 
-  if (insertError) return res.status(500).json({ error: insertError.message });
+  if (insertError) return res.status(500).json({ error: insertError.message, details: insertError });
 
   // Update staff pending earnings
-  await supabase
-    .from('staff')
-    .update({ pending_earnings: (staff.pending_earnings || 0) + service.commission_rate })
-    .eq('id', staff_id);
+  if (staff_id && staff) {
+    await supabase
+      .from('staff')
+      .update({ pending_earnings: (staff.pending_earnings || 0) + service.commission_rate })
+      .eq('id', staff_id);
+  }
 
   res.json({ id: referral.id, fraudFlags });
 });
