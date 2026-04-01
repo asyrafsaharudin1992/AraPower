@@ -1853,12 +1853,14 @@ app.get("/api/referrals", async (req, res) => {
     .select(selectColumns)
     .order('created_at', { ascending: false });
 
-  if (staffId) {
+  if (staffId && staffId !== 'undefined' && staffId !== 'null') {
     query = query.eq('created_by', staffId);
   }
   
-  if (branch && branch !== 'all') {
+  if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
     query = query.eq('branch', branch);
+  } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
+    query = query.eq('branch', requesterBranch);
   }
 
   const { data: referrals, error } = await query;
