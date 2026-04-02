@@ -4008,7 +4008,7 @@ export default function App() {
         
         {/* Main Content */}
         <MobilePullToRefreshWrapper isMobile={isMobile} onRefresh={handleRefresh}>
-          <main className={`${!isMobile ? `ml-64 bg-eggshell` : `pb-32 min-h-screen bg-eggshell`} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
+          <main className={`${!isMobile ? `ml-64 bg-eggshell` : `pb-44 min-h-screen bg-eggshell`} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
           {isMobile && (
             <>
               <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-muted-teal/10 to-transparent -z-10" />
@@ -6793,7 +6793,7 @@ export default function App() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 gap-4 pb-24">
+              <div className="grid grid-cols-1 gap-4 pb-44">
                 {tasks.map((task) => (
                   <motion.div 
                     key={task.id}
@@ -6887,7 +6887,7 @@ export default function App() {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`mx-auto space-y-8 px-4 pb-32 ${ (currentUser.role === 'admin' || currentUser.role === 'manager') ? 'max-w-6xl' : 'max-w-md'}`}
+              className={`mx-auto space-y-8 px-4 pb-44 ${ (currentUser.role === 'admin' || currentUser.role === 'manager') ? 'max-w-6xl' : 'max-w-md'}`}
             >
               <div className={`mb-8 ${darkMode ? 'bg-brand-primary p-8 rounded-[2.5rem] shadow-2xl shadow-brand-primary/20 relative overflow-hidden' : ''}`}>
                 {darkMode && <div className="absolute top-0 right-0 w-32 h-32 bg-brand-accent/10 rounded-full blur-3xl -mr-16 -mt-16" />}
