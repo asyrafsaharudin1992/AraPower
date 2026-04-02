@@ -337,7 +337,7 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
           >
             <div className="w-12 h-1.5 bg-violet-500/40 rounded-full mx-auto my-4" />
             
-            <div className="px-6 pb-12 space-y-8">
+            <div className="px-6 pb-36 space-y-8">
               {/* Poster */}
               {item.image_url ? (
                 <div className="rounded-2xl overflow-hidden shadow-2xl">
