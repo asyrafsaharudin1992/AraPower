@@ -836,6 +836,8 @@ app.post("/api/auth/register", async (req, res) => {
     // Initialize admin client to bypass RLS for registration
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     let dbClient = supabase;
+    let final_auth_id = auth_id;
+
     if (serviceRoleKey) {
       dbClient = createClient(
         supabaseUrl,
@@ -847,6 +849,24 @@ app.post("/api/auth/register", async (req, res) => {
           }
         }
       );
+
+      // Auto-create and confirm user in Supabase Auth if not provided
+      if (!final_auth_id) {
+        const { data: usersData } = await dbClient.auth.admin.listUsers();
+        let authUser = usersData?.users?.find((u: any) => u.email === email);
+        
+        if (!authUser) {
+          const { data: newAuthUser, error: createAuthError } = await dbClient.auth.admin.createUser({
+            email,
+            password: password || 'password123',
+            email_confirm: true,
+            user_metadata: { full_name: name, branch }
+          });
+          if (newAuthUser.user) final_auth_id = newAuthUser.user.id;
+        } else {
+          final_auth_id = authUser.id;
+        }
+      }
     }
 
     // Check if registration is allowed
@@ -922,7 +942,7 @@ app.post("/api/auth/register", async (req, res) => {
       console.log(`Staff member ${email} already exists. Updating auth_id.`);
       
       const updateData: any = {};
-      if (auth_id && staffColumns.has('auth_id')) updateData.auth_id = auth_id;
+      if (final_auth_id && staffColumns.has('auth_id')) updateData.auth_id = final_auth_id;
       if (staffColumns.has('password')) updateData.password = password || 'password123';
       
       if (Object.keys(updateData).length > 0) {
@@ -954,7 +974,7 @@ app.post("/api/auth/register", async (req, res) => {
     if (staffColumns.has('date_joined')) insertData.date_joined = new Date().toISOString();
     if (staffColumns.has('is_approved')) insertData.is_approved = 0;
     if (staffColumns.has('password')) insertData.password = password || 'password123';
-    if (auth_id && staffColumns.has('auth_id')) insertData.auth_id = auth_id;
+    if (final_auth_id && staffColumns.has('auth_id')) insertData.auth_id = final_auth_id;
 
     const { data: newStaff, error: insertError } = await dbClient
       .from('staff')
@@ -1183,11 +1203,15 @@ app.get("/api/staff/email", async (req, res) => {
     ? Array.from(staffColumns).join(',') 
     : 'id, name, email, role';
 
-  const { data: staff, error } = await supabase
-    .from('staff')
-    .select(selectColumns)
-    .eq('email', email)
-    .single();
+  let query = supabase.from('staff').select(selectColumns);
+  
+  if (auth_id && staffColumns.has('auth_id')) {
+    query = query.or(`auth_id.eq.${auth_id},email.eq.${email}`);
+  } else {
+    query = query.eq('email', email);
+  }
+
+  const { data: staff, error } = await query.single();
 
   if (staff && staff.employment_status === 'deleted') {
     return res.status(403).json({ error: "This account has been deleted. Please contact an administrator." });

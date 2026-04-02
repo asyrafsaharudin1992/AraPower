@@ -1791,7 +1791,9 @@ export default function App() {
     setAuthError('');
     setResendStatus(null);
     setShowResendButton(false);
+    setIsSubmitting(true);
     console.log('Login attempt started', { email: authEmail, apiBaseUrl });
+    
     try {
       // Strictly use Supabase for authentication
       if (!isSupabaseConfigured) {
@@ -1805,8 +1807,9 @@ export default function App() {
 
       if (error) {
         if (error.message === 'Email not confirmed') {
-          setShowResendButton(true);
-          throw new Error('Please confirm your email address before logging in.');
+          // If for some reason they are still unconfirmed, we can auto-confirm them via the backend
+          // But for now, we'll just show the error and let them know they need to register properly
+          throw new Error('Please confirm your email address before logging in, or re-register to auto-confirm.');
         }
         
         if (error.message === 'Failed to fetch' || error.message?.includes('aborted')) {
@@ -1818,6 +1821,9 @@ export default function App() {
       if (data.user?.email) {
         await fetchStaffByEmail(data.user.email, data.user);
         setShowWelcome(true);
+        setActiveTab('dashboard');
+        // Reliable redirect as requested
+        window.location.href = '/';
       }
     } catch (error: any) {
       console.error('Login error:', error);
@@ -1837,6 +1843,8 @@ export default function App() {
       } else {
         setAuthError(error.message || 'Login failed');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1879,31 +1887,7 @@ export default function App() {
         throw new Error('Authentication service is not configured. Please check your settings.');
       }
 
-      // 1. Register in Supabase
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: authEmail,
-        password: authPassword,
-        options: {
-          data: {
-            full_name: authName,
-            branch: authBranch
-          }
-        }
-      });
-
-      if (authError) throw authError;
-
-      let authId = authData?.user?.id;
-      let requiresEmailConfirmation = false;
-
-      if (authData?.user) {
-        // If user is created but no session is returned, email confirmation is required
-        if (!authData.session && authData.user.identities && authData.user.identities.length > 0) {
-          requiresEmailConfirmation = true;
-        }
-      }
-
-      // 2. Register in our backend
+      // 1. Register in our backend
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1912,28 +1896,32 @@ export default function App() {
           email: authEmail, 
           branch: authBranch, 
           phone: authPhone,
-          password: authPassword,
-          auth_id: authId
+          password: authPassword
         })
       });
 
-      if (res.ok) {
-        console.log('Registration successful', data);
-        if (requiresEmailConfirmation) {
-          setAuthError('Registration successful! Please check your email to confirm your account. You can also try signing in now.');
-          setAuthMode('login');
-        } else if (data && !data.error) {
-          setCurrentUser(data);
-          localStorage.setItem('currentUser', JSON.stringify(data));
-          setShowWelcome(true);
-          setActiveTab('dashboard');
-        } else {
-          setAuthError('Registration successful! You can now log in.');
-          setAuthMode('login');
-        }
+      if (!res.ok) {
+        throw new Error(data?.error || 'Registration failed');
+      }
+
+      // 2. Sign in with Supabase
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password: authPassword,
+      });
+
+      if (signInError) {
+        // If sign in fails, still show success but ask to login
+        console.warn('Auto-login failed after registration:', signInError);
+        setAuthError('Registration successful! Please log in.');
+        setAuthMode('login');
       } else {
-        console.error('Registration failed:', data);
-        setAuthError(data.error || 'Registration failed. Please try again.');
+        // Sign in successful
+        console.log('Registration and auto-login successful');
+        setCurrentUser(data);
+        localStorage.setItem('currentUser', JSON.stringify(data));
+        setShowWelcome(true);
+        setActiveTab('dashboard');
       }
     } catch (error: any) {
       console.error('Registration error:', error);
