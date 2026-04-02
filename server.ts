@@ -833,9 +833,25 @@ app.post("/api/auth/register", async (req, res) => {
   console.log(`Registration attempt for: ${email}`, { name, branch, phone, auth_id });
   
   try {
+    // Initialize admin client to bypass RLS for registration
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    let dbClient = supabase;
+    if (serviceRoleKey) {
+      dbClient = createClient(
+        supabaseUrl,
+        serviceRoleKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        }
+      );
+    }
+
     // Check if registration is allowed
     console.log('Checking registration settings...');
-    const { data: authSetting, error: settingsError } = await supabase
+    const { data: authSetting, error: settingsError } = await dbClient
       .from('settings')
       .select('value')
       .eq('key', 'auth')
@@ -872,7 +888,7 @@ app.post("/api/auth/register", async (req, res) => {
     let attempts = 0;
     if (staffColumns.has('referral_code')) {
       while (attempts < 10) {
-        const { data: existing } = await supabase
+        const { data: existing } = await dbClient
           .from('staff')
           .select('id')
           .eq('referral_code', referral_code)
@@ -884,7 +900,7 @@ app.post("/api/auth/register", async (req, res) => {
     } else if (staffColumns.has('promo_code')) {
       // Fallback to promo_code if referral_code doesn't exist yet
       while (attempts < 10) {
-        const { data: existing } = await supabase
+        const { data: existing } = await dbClient
           .from('staff')
           .select('id')
           .eq('promo_code', referral_code)
@@ -896,7 +912,7 @@ app.post("/api/auth/register", async (req, res) => {
     }
 
     console.log(`Checking if staff member already exists: ${email}`);
-    const { data: existingStaff } = await supabase
+    const { data: existingStaff } = await dbClient
       .from('staff')
       .select('*')
       .eq('email', email)
@@ -910,7 +926,7 @@ app.post("/api/auth/register", async (req, res) => {
       if (staffColumns.has('password')) updateData.password = password || 'password123';
       
       if (Object.keys(updateData).length > 0) {
-        const { error: updateError } = await supabase
+        const { error: updateError } = await dbClient
           .from('staff')
           .update(updateData)
           .eq('id', existingStaff.id);
@@ -940,7 +956,7 @@ app.post("/api/auth/register", async (req, res) => {
     if (staffColumns.has('password')) insertData.password = password || 'password123';
     if (auth_id && staffColumns.has('auth_id')) insertData.auth_id = auth_id;
 
-    const { data: newStaff, error: insertError } = await supabase
+    const { data: newStaff, error: insertError } = await dbClient
       .from('staff')
       .insert(insertData)
       .select()
@@ -1469,7 +1485,21 @@ app.post("/api/staff", async (req, res) => {
     if (staffColumns.has('phone')) insertData.phone = phone || null;
     if (staffColumns.has('is_approved')) insertData.is_approved = 1;
 
-    const { data, error } = await supabase
+    let dbClient = supabase;
+    if (serviceRoleKey) {
+      dbClient = createClient(
+        process.env.VITE_SUPABASE_URL || supabaseUrl,
+        serviceRoleKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        }
+      );
+    }
+
+    const { data, error } = await dbClient
       .from('staff')
       .insert(insertData)
       .select()
