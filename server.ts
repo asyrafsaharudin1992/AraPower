@@ -1203,7 +1203,23 @@ app.get("/api/staff/email", async (req, res) => {
     ? Array.from(staffColumns).join(',') 
     : 'id, name, email, role';
 
-  let query = supabase.from('staff').select(selectColumns);
+  // Use service role key if available to bypass RLS (in case of broken policies like infinite recursion)
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  let dbClient = supabase;
+  if (serviceRoleKey) {
+    dbClient = createClient(
+      process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+      serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+  }
+
+  let query = dbClient.from('staff').select(selectColumns);
   
   if (auth_id && staffColumns.has('auth_id')) {
     query = query.or(`auth_id.eq.${auth_id},email.eq.${email}`);
@@ -1213,13 +1229,18 @@ app.get("/api/staff/email", async (req, res) => {
 
   const { data: staff, error } = await query.single();
 
+  if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+    console.error('Error fetching staff by email:', error);
+    return res.status(500).json({ error: `Database error: ${error.message}` });
+  }
+
   if (staff && staff.employment_status === 'deleted') {
     return res.status(403).json({ error: "This account has been deleted. Please contact an administrator." });
   }
     
   if (staff && auth_id && !staff.auth_id && staffColumns.has('auth_id')) {
     // Update the staff record with the new auth_id
-    const { data: updatedStaff } = await supabase
+    const { data: updatedStaff } = await dbClient
       .from('staff')
       .update({ auth_id })
       .eq('id', staff.id)

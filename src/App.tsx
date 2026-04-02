@@ -1280,6 +1280,11 @@ export default function App() {
     try {
       const authIdQuery = user?.id ? `&auth_id=${user.id}` : '';
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${email}${authIdQuery}`);
+      
+      if (!res.ok && res.status >= 500) {
+        throw new Error(data?.error || `Server error: ${res.status}`);
+      }
+      
       if (res.ok && data) {
         localStorage.setItem('currentUser', JSON.stringify(data));
         setCurrentUser(data);
