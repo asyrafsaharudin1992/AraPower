@@ -1109,6 +1109,7 @@ export default function App() {
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [resetPasswordNewPassword, setResetPasswordNewPassword] = useState('');
+  const [confirmResetPasswordNewPassword, setConfirmResetPasswordNewPassword] = useState('');
   const [isSendingForgotPassword, setIsSendingForgotPassword] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [forgotPasswordStatus, setForgotPasswordStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -1215,6 +1216,15 @@ export default function App() {
   useEffect(() => {
     const randomQuote = welcomeQuotes[Math.floor(Math.random() * welcomeQuotes.length)];
     setWelcomeQuote(randomQuote);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path === '/update-password') {
+        setShowResetPasswordModal(true);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -1812,9 +1822,50 @@ export default function App() {
     }
   };
 
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotPasswordEmail) return;
+    
+    setIsSendingForgotPassword(true);
+    setForgotPasswordStatus(null);
+    
+    try {
+      if (isSupabaseConfigured) {
+        const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
+          redirectTo: `${window.location.origin}/update-password`,
+        });
+        
+        if (error) throw error;
+        
+        setForgotPasswordStatus({ 
+          type: 'success', 
+          message: 'Password reset link sent! Please check your inbox (and spam folder).' 
+        });
+      } else {
+        setForgotPasswordStatus({ 
+          type: 'error', 
+          message: 'Authentication service is not configured.' 
+        });
+      }
+    } catch (error: any) {
+      console.error('Forgot password error:', error);
+      setForgotPasswordStatus({ 
+        type: 'error', 
+        message: error.message || 'Failed to send reset link.' 
+      });
+    } finally {
+      setIsSendingForgotPassword(false);
+    }
+  };
+
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetPasswordNewPassword) return;
+    
+    if (resetPasswordNewPassword !== confirmResetPasswordNewPassword) {
+      setResetPasswordStatus({ type: 'error', message: 'Passwords do not match.' });
+      return;
+    }
     
     setIsUpdatingPassword(true);
     setResetPasswordStatus(null);
@@ -1827,19 +1878,29 @@ export default function App() {
         
         if (error) throw error;
         
-        setResetPasswordStatus({ type: 'success', message: 'Password updated successfully.' });
+        setResetPasswordStatus({ type: 'success', message: 'Password updated successfully. Redirecting to login...' });
         setTimeout(() => {
           setShowResetPasswordModal(false);
           setResetPasswordNewPassword('');
           setResetPasswordStatus(null);
+          // Redirect to login and clear URL
+          if (typeof window !== 'undefined') {
+            window.history.pushState({}, '', '/');
+          }
+          setAuthMode('login');
         }, 3000);
       } else {
         // Local fallback
-        setResetPasswordStatus({ type: 'success', message: 'Password updated successfully.' });
+        setResetPasswordStatus({ type: 'success', message: 'Password updated successfully. Redirecting to login...' });
         setTimeout(() => {
           setShowResetPasswordModal(false);
           setResetPasswordNewPassword('');
           setResetPasswordStatus(null);
+          // Redirect to login and clear URL
+          if (typeof window !== 'undefined') {
+            window.history.pushState({}, '', '/');
+          }
+          setAuthMode('login');
         }, 3000);
       }
     } catch (error: any) {
@@ -3372,28 +3433,61 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-2xl font-black text-zinc-900 tracking-tight">Forgot Password</h3>
                   <button 
-                    onClick={() => setShowForgotPasswordModal(false)}
+                    onClick={() => {
+                      setShowForgotPasswordModal(false);
+                      setForgotPasswordStatus(null);
+                      setForgotPasswordEmail('');
+                    }}
                     className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center hover:bg-zinc-200 transition-colors"
                   >
                     <X size={20} className="text-zinc-500" />
                   </button>
                 </div>
                 <p className="text-sm text-zinc-500 font-medium leading-relaxed">
-                  For security reasons, password resets must be handled by your clinic administrator.
+                  Enter your email address below and we'll send you a link to reset your password.
                 </p>
                 
-                <div className="bg-violet-50 p-6 rounded-2xl border border-violet-100">
-                  <p className="text-sm font-bold text-violet-900 mb-2">What to do next:</p>
-                  <ol className="list-decimal list-inside text-sm text-violet-800 space-y-2 font-medium">
-                    <li>Contact your Clinic Administrator or Receptionist.</li>
-                    <li>Ask them to reset your password from the Staff Management dashboard.</li>
-                    <li>They will provide you with a temporary password (e.g., <span className="font-mono bg-white px-1.5 py-0.5 rounded text-violet-900">Welcome123!</span>).</li>
-                    <li>Log in with the temporary password and change it immediately.</li>
-                  </ol>
-                </div>
+                {forgotPasswordStatus && (
+                  <div className={`p-4 rounded-2xl text-sm font-bold ${forgotPasswordStatus.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                    {forgotPasswordStatus.message}
+                  </div>
+                )}
+
+                <form onSubmit={handleForgotPasswordSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-zinc-700">Email Address</label>
+                    <div className="flex items-center gap-3 border border-zinc-200 rounded-2xl px-4 py-3 bg-white focus-within:ring-2 focus-within:ring-burnt-peach transition-all">
+                      <Mail size={18} className="text-zinc-400" />
+                      <input 
+                        type="email"
+                        required
+                        value={forgotPasswordEmail}
+                        onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                        placeholder="your@email.com"
+                        className="w-full bg-transparent focus:outline-none text-zinc-900 text-sm font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    type="submit"
+                    disabled={isSendingForgotPassword}
+                    className="w-full py-4 bg-burnt-peach text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-burnt-peach/30 hover:shadow-burnt-peach/40 transition-all active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {isSendingForgotPassword ? 'Sending...' : 'Send Reset Link'}
+                  </button>
+                </form>
 
                 <div className="pt-2">
-                  <button type="button" onClick={() => setShowForgotPasswordModal(false)} className="w-full px-6 py-4 bg-zinc-100 text-zinc-900 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setShowForgotPasswordModal(false);
+                      setForgotPasswordStatus(null);
+                      setForgotPasswordEmail('');
+                    }} 
+                    className="w-full px-6 py-4 bg-zinc-100 text-zinc-900 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors"
+                  >
                     Back to Login
                   </button>
                 </div>
@@ -3441,17 +3535,53 @@ export default function App() {
                 )}
 
                 <form onSubmit={handleUpdatePassword} className="space-y-6">
-                  <input 
-                    type="password"
-                    required
-                    value={resetPasswordNewPassword}
-                    onChange={(e) => setResetPasswordNewPassword(e.target.value)}
-                    placeholder="New password (min. 6 characters)"
-                    className="w-full px-5 py-4 bg-white border border-zinc-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-burnt-peach focus:border-transparent transition-all"
-                  />
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-zinc-700">New Password</label>
+                      <input 
+                        type="password"
+                        required
+                        minLength={6}
+                        value={resetPasswordNewPassword}
+                        onChange={(e) => setResetPasswordNewPassword(e.target.value)}
+                        placeholder="Min. 6 characters"
+                        className="w-full px-5 py-4 bg-white border border-zinc-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-burnt-peach focus:border-transparent transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-zinc-700">Confirm New Password</label>
+                      <input 
+                        type="password"
+                        required
+                        minLength={6}
+                        value={confirmResetPasswordNewPassword}
+                        onChange={(e) => setConfirmResetPasswordNewPassword(e.target.value)}
+                        placeholder="Repeat new password"
+                        className="w-full px-5 py-4 bg-white border border-zinc-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-burnt-peach focus:border-transparent transition-all"
+                      />
+                    </div>
+                  </div>
                   <div className="flex gap-4 pt-2">
-                    <button type="button" onClick={() => setShowResetPasswordModal(false)} className="flex-1 px-6 py-4 bg-zinc-100 text-zinc-900 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors">Cancel</button>
-                    <button type="submit" disabled={isUpdatingPassword || !resetPasswordNewPassword || resetPasswordNewPassword.length < 6} className="flex-1 px-6 py-4 bg-burnt-peach text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-burnt-peach/90 shadow-lg shadow-burnt-peach/20 transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2">
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setShowResetPasswordModal(false);
+                        setResetPasswordNewPassword('');
+                        setConfirmResetPasswordNewPassword('');
+                        setResetPasswordStatus(null);
+                        if (typeof window !== 'undefined' && window.location.pathname === '/update-password') {
+                          window.history.pushState({}, '', '/');
+                        }
+                      }} 
+                      className="flex-1 px-6 py-4 bg-zinc-100 text-zinc-900 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      disabled={isUpdatingPassword || !resetPasswordNewPassword || resetPasswordNewPassword.length < 6 || resetPasswordNewPassword !== confirmResetPasswordNewPassword} 
+                      className="flex-1 px-6 py-4 bg-burnt-peach text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-burnt-peach/90 shadow-lg shadow-burnt-peach/20 transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
+                    >
                       {isUpdatingPassword ? <RefreshCw size={18} className="animate-spin" /> : 'Update'}
                     </button>
                   </div>
