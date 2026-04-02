@@ -335,7 +335,15 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[32px] z-[101] max-h-[90vh] overflow-y-auto custom-scrollbar"
           >
-            <div className="w-12 h-1.5 bg-violet-500/40 rounded-full mx-auto my-4" />
+            <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 flex flex-col items-center">
+              <div className="w-12 h-1.5 bg-violet-500/40 rounded-full my-4" />
+              <button 
+                onClick={onClose}
+                className="absolute top-2 right-6 w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:bg-zinc-200 transition-colors active:scale-90"
+              >
+                <X size={20} />
+              </button>
+            </div>
             
             <div className="px-6 pb-36 space-y-8">
               {/* Poster */}
@@ -422,6 +430,16 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
                   >
                     <MessageCircle size={16} />
                     WhatsApp
+                  </button>
+                </div>
+
+                <div className="pt-4">
+                  <button
+                    onClick={onClose}
+                    className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <ArrowLeft size={16} />
+                    Back to Promotions
                   </button>
                 </div>
               </div>
