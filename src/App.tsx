@@ -1254,7 +1254,17 @@ export default function App() {
       }
       
       if (session?.user?.email) {
-        fetchStaffByEmail(session.user.email, session.user);
+        fetchStaffByEmail(session.user.email, session.user).then((userProfile) => {
+          if (userProfile) {
+            if (userProfile.role === 'admin' || userProfile.role === 'manager') {
+              setActiveTab('admin');
+            } else if (userProfile.role === 'receptionist') {
+              setActiveTab('receptionist');
+            } else {
+              setActiveTab('dashboard');
+            }
+          }
+        }).catch(e => console.error('Error fetching staff on session check:', e));
       } else {
         setIsAuthChecking(false);
       }
@@ -1286,7 +1296,17 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state change:', event, session?.user?.email);
       if (session?.user?.email) {
-        fetchStaffByEmail(session.user.email, session.user);
+        fetchStaffByEmail(session.user.email, session.user).then((userProfile) => {
+          if (userProfile && event === 'SIGNED_IN') {
+            if (userProfile.role === 'admin' || userProfile.role === 'manager') {
+              setActiveTab('admin');
+            } else if (userProfile.role === 'receptionist') {
+              setActiveTab('receptionist');
+            } else {
+              setActiveTab('dashboard');
+            }
+          }
+        }).catch(e => console.error('Error fetching staff on auth change:', e));
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         
@@ -1328,30 +1348,7 @@ export default function App() {
       if (res.ok && data) {
         localStorage.setItem('currentUser', JSON.stringify(data));
         setCurrentUser(data);
-      } else if (user) {
-        // User exists in Supabase but not in our local DB (likely due to DB reset)
-        // Attempt to auto-recreate the record using Supabase metadata
-        console.log('User not found in local DB, attempting to recreate from Supabase metadata');
-        const metadata = user.user_metadata || {};
-        const { res: regRes, data: regData } = await safeFetch(`${apiBaseUrl}/api/auth/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: metadata.full_name || email.split('@')[0],
-            email: email,
-            branch: metadata.branch || 'HQ',
-            phone: metadata.phone || '',
-            password: 'password123', // Default password since we can't get it from Supabase
-            auth_id: user.id
-          })
-        });
-        if (regRes.ok && regData) {
-          localStorage.setItem('currentUser', JSON.stringify(regData));
-          setCurrentUser(regData);
-        } else {
-          console.error('Failed to auto-recreate user:', regData);
-          throw new Error('Failed to sync user profile. Please contact support.');
-        }
+        return data;
       } else {
         throw new Error('User profile not found.');
       }
@@ -1885,25 +1882,22 @@ export default function App() {
       }
 
       if (data.user?.email) {
-        await fetchStaffByEmail(data.user.email, data.user);
+        const userProfile = await fetchStaffByEmail(data.user.email, data.user);
         setShowWelcome(true);
-        setActiveTab('dashboard');
+        if (userProfile?.role === 'admin' || userProfile?.role === 'manager') {
+          setActiveTab('admin');
+        } else if (userProfile?.role === 'receptionist') {
+          setActiveTab('receptionist');
+        } else {
+          setActiveTab('dashboard');
+        }
       }
     } catch (error: any) {
       console.error('Login error:', error);
       if (error.message === 'Failed to fetch' || error.message?.includes('aborted') || error.message?.includes('Connection failed')) {
         setAuthError('Connection failed. If you are using a custom domain, please add it to your Supabase Dashboard under Authentication -> URL Configuration -> Site URL. Otherwise, check your Supabase URL and Key in Settings.');
       } else if (error.message === 'Invalid login credentials') {
-        try {
-          const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${authEmail}`);
-          if (res.ok && data) {
-            setAuthError(`This account exists but hasn't been registered in the new authentication system. Please go to the Sign Up tab and register with ${authEmail}.`);
-          } else {
-            setAuthError('Invalid login credentials');
-          }
-        } catch (e) {
-          setAuthError('Invalid login credentials');
-        }
+        setAuthError('Invalid login credentials');
       } else {
         setAuthError(error.message || 'Login failed');
       }
@@ -1985,7 +1979,13 @@ export default function App() {
         setCurrentUser(data);
         localStorage.setItem('currentUser', JSON.stringify(data));
         setShowWelcome(true);
-        setActiveTab('dashboard');
+        if (data.role === 'admin' || data.role === 'manager') {
+          setActiveTab('admin');
+        } else if (data.role === 'receptionist') {
+          setActiveTab('receptionist');
+        } else {
+          setActiveTab('dashboard');
+        }
       }
     } catch (error: any) {
       console.error('Registration error:', error);
