@@ -1303,8 +1303,19 @@ export default function App() {
         if (regRes.ok && regData) {
           localStorage.setItem('currentUser', JSON.stringify(regData));
           setCurrentUser(regData);
+        } else {
+          console.error('Failed to auto-recreate user:', regData);
+          throw new Error('Failed to sync user profile. Please contact support.');
         }
+      } else {
+        throw new Error('User profile not found.');
       }
+    } catch (error: any) {
+      console.error('Error in fetchStaffByEmail:', error);
+      setAuthError(error.message || 'Failed to load user profile.');
+      // If we fail to load the profile, we should probably sign them out so they aren't stuck in a weird state
+      supabase.auth.signOut();
+      throw error;
     } finally {
       setIsAuthChecking(false);
     }
@@ -1813,7 +1824,7 @@ export default function App() {
         }
         
         if (error.message === 'Failed to fetch' || error.message?.includes('aborted')) {
-          throw new Error('Database connection failed. Please check your Supabase URL and Key in the Settings.');
+          throw new Error('Connection failed. If you are on a custom domain, ensure it is added to your Supabase Site URLs. Otherwise, check your Supabase URL and Key.');
         }
         throw error;
       }
@@ -1822,13 +1833,11 @@ export default function App() {
         await fetchStaffByEmail(data.user.email, data.user);
         setShowWelcome(true);
         setActiveTab('dashboard');
-        // Reliable redirect as requested
-        window.location.href = '/';
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      if (error.message === 'Failed to fetch' || error.message?.includes('aborted')) {
-        setAuthError('Database connection failed. Please check your Supabase URL and Key in the Settings.');
+      if (error.message === 'Failed to fetch' || error.message?.includes('aborted') || error.message?.includes('Connection failed')) {
+        setAuthError('Connection failed. If you are using a custom domain, please add it to your Supabase Dashboard under Authentication -> URL Configuration -> Site URL. Otherwise, check your Supabase URL and Key in Settings.');
       } else if (error.message === 'Invalid login credentials') {
         try {
           const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${authEmail}`);
