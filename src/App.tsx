@@ -1228,7 +1228,31 @@ export default function App() {
       return;
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (error) {
+        console.warn('Supabase session check error:', error);
+        if (error.message?.includes('Refresh Token Not Found') || error.message?.includes('invalid_refresh_token') || error.message?.includes('Invalid Refresh Token')) {
+          console.log('Clearing invalid Supabase session...');
+          try {
+            await supabase.auth.signOut();
+          } catch (e) {
+            console.error('Error during signOut:', e);
+          }
+          
+          // Manually clear Supabase auth tokens from local storage just in case signOut failed
+          Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+              localStorage.removeItem(key);
+            }
+          });
+          
+          localStorage.removeItem('currentUser');
+          setCurrentUser(null);
+        }
+        setIsAuthChecking(false);
+        return;
+      }
+      
       if (session?.user?.email) {
         fetchStaffByEmail(session.user.email, session.user);
       } else {
@@ -1237,13 +1261,21 @@ export default function App() {
     }).catch(async (err: any) => {
       console.warn('Supabase session check failed:', err);
       // Handle invalid refresh token by clearing the session
-      if (err.message?.includes('Refresh Token Not Found') || err.message?.includes('invalid_refresh_token')) {
+      if (err.message?.includes('Refresh Token Not Found') || err.message?.includes('invalid_refresh_token') || err.message?.includes('Invalid Refresh Token')) {
         console.log('Clearing invalid Supabase session...');
         try {
           await supabase.auth.signOut();
         } catch (e) {
           console.error('Error during signOut:', e);
         }
+        
+        // Manually clear Supabase auth tokens from local storage just in case signOut failed
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+            localStorage.removeItem(key);
+          }
+        });
+        
         localStorage.removeItem('currentUser');
         setCurrentUser(null);
       }
@@ -1257,6 +1289,14 @@ export default function App() {
         fetchStaffByEmail(session.user.email, session.user);
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
+        
+        // Manually clear Supabase auth tokens from local storage
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+            localStorage.removeItem(key);
+          }
+        });
+        
         localStorage.removeItem('currentUser');
         setIsAuthChecking(false);
       } else if (event === 'INITIAL_SESSION' && !session) {
@@ -1319,7 +1359,17 @@ export default function App() {
       console.error('Error in fetchStaffByEmail:', error);
       setAuthError(error.message || 'Failed to load user profile.');
       // If we fail to load the profile, we should probably sign them out so they aren't stuck in a weird state
-      supabase.auth.signOut();
+      supabase.auth.signOut().catch(e => console.warn('Error during auto-signOut:', e));
+      
+      // Manually clear Supabase auth tokens from local storage just in case signOut failed
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      localStorage.removeItem('currentUser');
+      setCurrentUser(null);
       throw error;
     } finally {
       setIsAuthChecking(false);
@@ -1946,16 +1996,28 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    localStorage.removeItem('currentUser');
-    setCurrentUser(null);
-    setActiveTab('dashboard');
-    setAuthEmail('');
-    setAuthPassword('');
-    setAuthName('');
-    setAuthBranch('');
-    setAuthPhone('');
-    setAuthError('');
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn('Error during Supabase signOut:', error);
+    } finally {
+      // Manually clear Supabase auth tokens from local storage just in case signOut failed
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      localStorage.removeItem('currentUser');
+      setCurrentUser(null);
+      setActiveTab('dashboard');
+      setAuthEmail('');
+      setAuthPassword('');
+      setAuthName('');
+      setAuthBranch('');
+      setAuthPhone('');
+      setAuthError('');
+    }
   };
 
   const generatePayoutCSV = (metadata: typeof payoutMetadata) => {
@@ -2190,6 +2252,35 @@ export default function App() {
     }
   };
 
+  const handleClinicStatusUpdate = async (id: number, newStatus: string) => {
+    try {
+      const payload = { 
+        status: newStatus,
+        verified_by: (currentUser?.role === 'receptionist' || currentUser?.role === 'manager' || currentUser?.role === 'admin') ? currentUser.id : undefined
+      };
+      
+      console.log('Updating clinic status:', { id, payload });
+      
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (res.ok) {
+        fetchReferrals();
+        fetchStaff();
+      } else {
+        const errorMsg = data.error || 'Update failed';
+        console.error('Status update failed:', { id, newStatus, data });
+        alert(`Status update failed: ${errorMsg}\n\nDetails: ${JSON.stringify(data)}`);
+      }
+    } catch (error) {
+      console.error('Error in handleClinicStatusUpdate:', error);
+      alert(`An error occurred while updating status: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
   const handleDeleteReferral = async (id: number) => {
     showConfirm(
       'Delete Referral',
@@ -2240,9 +2331,16 @@ export default function App() {
     }
 
     // Check if user has a Supabase session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      console.warn('No active Supabase session. Upload might fail if RLS policies require authentication.');
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.warn('Supabase session check error during upload:', error);
+      }
+      if (!session) {
+        console.warn('No active Supabase session. Upload might fail if RLS policies require authentication.');
+      }
+    } catch (err) {
+      console.warn('Failed to get Supabase session:', err);
     }
 
     setIsUploading(true);
@@ -4696,6 +4794,22 @@ export default function App() {
                                   <Trash2 size={14} />
                                 </button>
                               )}
+                              {currentUser.role === 'receptionist' && (
+                                <select 
+                                  value=""
+                                  onChange={(e) => {
+                                    if (e.target.value) handleClinicStatusUpdate(ref.id, e.target.value);
+                                  }}
+                                  className="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                                >
+                                  <option value="" disabled>Set Status</option>
+                                  <option value="Pending">Pending</option>
+                                  <option value="Arrived">Arrived</option>
+                                  <option value="In Session">In Session</option>
+                                  <option value="Completed">Completed</option>
+                                  <option value="Cancelled">Cancelled</option>
+                                </select>
+                              )}
                             </div>
                           </td>
                         )}
@@ -5569,6 +5683,20 @@ export default function App() {
                                   <option value="payout_processed">Payout Processed</option>
                                 </>
                               )}
+                            </select>
+                            <select 
+                              value=""
+                              onChange={(e) => {
+                                if (e.target.value) handleClinicStatusUpdate(ref.id, e.target.value);
+                              }}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            >
+                              <option value="" disabled>Set Status</option>
+                              <option value="Pending">Pending</option>
+                              <option value="Arrived">Arrived</option>
+                              <option value="In Session">In Session</option>
+                              <option value="Completed">Completed</option>
+                              <option value="Cancelled">Cancelled</option>
                             </select>
                           </div>
                         </div>
