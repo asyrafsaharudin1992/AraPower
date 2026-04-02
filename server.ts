@@ -895,11 +895,40 @@ app.post("/api/auth/register", async (req, res) => {
       }
     }
 
+    console.log(`Checking if staff member already exists: ${email}`);
+    const { data: existingStaff } = await supabase
+      .from('staff')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (existingStaff) {
+      console.log(`Staff member ${email} already exists. Updating auth_id.`);
+      
+      const updateData: any = {};
+      if (auth_id && staffColumns.has('auth_id')) updateData.auth_id = auth_id;
+      if (staffColumns.has('password')) updateData.password = password || 'password123';
+      
+      if (Object.keys(updateData).length > 0) {
+        const { error: updateError } = await supabase
+          .from('staff')
+          .update(updateData)
+          .eq('id', existingStaff.id);
+          
+        if (updateError) {
+          logError('Supabase Registration Update', updateError);
+          throw updateError;
+        }
+      }
+      
+      return res.json({ ...existingStaff, ...updateData });
+    }
+
     console.log(`Inserting new staff member: ${email} with referral code ${referral_code}`);
     const insertData: any = {
       name,
       email,
-      role: 'staff',
+      role: 'affiliate',
     };
     if (staffColumns.has('referral_code')) insertData.referral_code = referral_code;
     else if (staffColumns.has('promo_code')) insertData.promo_code = referral_code;

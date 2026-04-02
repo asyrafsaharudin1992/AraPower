@@ -1823,6 +1823,17 @@ export default function App() {
       console.error('Login error:', error);
       if (error.message === 'Failed to fetch' || error.message?.includes('aborted')) {
         setAuthError('Database connection failed. Please check your Supabase URL and Key in the Settings.');
+      } else if (error.message === 'Invalid login credentials') {
+        try {
+          const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${authEmail}`);
+          if (res.ok && data) {
+            setAuthError(`This account exists but hasn't been registered in the new authentication system. Please go to the Sign Up tab and register with ${authEmail}.`);
+          } else {
+            setAuthError('Invalid login credentials');
+          }
+        } catch (e) {
+          setAuthError('Invalid login credentials');
+        }
       } else {
         setAuthError(error.message || 'Login failed');
       }
