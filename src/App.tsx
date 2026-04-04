@@ -4,6 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 import React, { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import { PromotionsCarousel } from './components/PromotionsCarousel';
+import { BookingForm } from './components/BookingForm';
 import AddServiceForm from './components/AddServiceForm';
 import { Service } from './types';
 import { 
@@ -247,7 +248,32 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
   );
 };
 
-const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, currentUser }: { item: Service | null, isOpen: boolean, onClose: () => void, clinicProfile: ClinicProfile, darkMode: boolean, currentUser: Staff | null }) => {
+const PromotionDetailModal = ({ 
+  item, 
+  isOpen, 
+  onClose, 
+  clinicProfile, 
+  darkMode, 
+  currentUser,
+  services,
+  branches,
+  onSubmit,
+  getAvailableTimeSlots,
+  isSubmitting
+}: { 
+  item: Service | null, 
+  isOpen: boolean, 
+  onClose: () => void, 
+  clinicProfile: ClinicProfile, 
+  darkMode: boolean, 
+  currentUser: Staff | null,
+  services: Service[],
+  branches: any[],
+  onSubmit: (payload: any) => Promise<void>,
+  getAvailableTimeSlots: (serviceId: string, branchName: string, date: string) => string[],
+  isSubmitting: boolean
+}) => {
+  const [showBookingForm, setShowBookingForm] = useState(false);
   if (!item) return null;
 
   const referralCode = currentUser?.referral_code || currentUser?.promo_code;
@@ -329,7 +355,10 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={() => {
+              setShowBookingForm(false);
+              onClose();
+            }}
             className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]"
           />
           <motion.div
@@ -342,7 +371,10 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
             <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 flex flex-col items-center">
               <div className="w-12 h-1.5 bg-violet-500/40 rounded-full my-4" />
               <button 
-                onClick={onClose}
+                onClick={() => {
+                  setShowBookingForm(false);
+                  onClose();
+                }}
                 className="absolute top-2 right-6 w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:bg-zinc-200 transition-colors active:scale-90"
               >
                 <X size={20} />
@@ -350,103 +382,132 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
             </div>
             
             <div className="px-6 pb-36 space-y-8">
-              {/* Poster */}
-              {item.image_url ? (
-                <div className="rounded-2xl overflow-hidden shadow-2xl">
-                  <img src={item.image_url} alt={item.name} className="w-full aspect-[4/5] object-cover" />
-                </div>
-              ) : (
-                <div className="w-full aspect-[4/5] bg-gradient-to-br from-brand-primary to-violet-500 rounded-2xl flex items-center justify-center">
-                  <Zap size={48} className="text-zinc-900" />
-                </div>
-              )}
+              {!showBookingForm ? (
+                <>
+                  {/* Poster */}
+                  {item.image_url ? (
+                    <div className="rounded-2xl overflow-hidden shadow-2xl">
+                      <img src={item.image_url} alt={item.name} className="w-full aspect-[4/5] object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-full aspect-[4/5] bg-gradient-to-br from-brand-primary to-violet-500 rounded-2xl flex items-center justify-center">
+                      <Zap size={48} className="text-zinc-900" />
+                    </div>
+                  )}
 
-              {/* Info */}
-              <div className="space-y-6">
-                <div>
-                  <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <span className="px-2 py-1 rounded-md bg-violet-500/20 text-[10px] font-black text-zinc-900 uppercase tracking-widest border border-violet-500">
-                      {item.type || 'SERVICE'}
-                    </span>
-                    {(() => {
-                      const status = getServiceStatus(item);
-                      return (
-                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border border-violet-500 ${
-                          status === 'active' ? 'bg-emerald-500 text-white' : 
-                          status === 'upcoming' ? 'bg-brand-surface text-zinc-900' : 
-                          'bg-rose-500 text-white'
-                        }`}>
-                          {status}
+                  {/* Info */}
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        <span className="px-2 py-1 rounded-md bg-violet-500/20 text-[10px] font-black text-zinc-900 uppercase tracking-widest border border-violet-500">
+                          {item.type || 'SERVICE'}
                         </span>
-                      );
-                    })()}
-                  </div>
-                  <h2 className="text-3xl font-black text-zinc-900 tracking-tight mb-2">{item.name}</h2>
-                  <p className="text-zinc-500 text-sm leading-relaxed">{item.description || 'No description provided'}</p>
-                </div>
+                        {(() => {
+                          const status = getServiceStatus(item);
+                          return (
+                            <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border border-violet-500 ${
+                              status === 'active' ? 'bg-emerald-500 text-white' : 
+                              status === 'upcoming' ? 'bg-brand-surface text-zinc-900' : 
+                              'bg-rose-500 text-white'
+                            }`}>
+                              {status}
+                            </span>
+                          );
+                        })()}
+                      </div>
+                      <h2 className="text-3xl font-black text-zinc-900 tracking-tight mb-2">{item.name}</h2>
+                      <p className="text-zinc-500 text-sm leading-relaxed">{item.description || 'No description provided'}</p>
+                    </div>
 
-                {/* Pricing */}
-                <div className={`${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-transparent border-violet-500/20'} rounded-3xl p-6 border space-y-4`}>
-                  <div className="flex justify-between items-center">
-                    <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Base Price</span>
-                    <span className="text-zinc-500 text-lg line-through font-medium">
-                      {clinicProfile.currency}{(item.base_price || 0).toFixed(0)}
-                    </span>
+                    {/* Pricing */}
+                    <div className={`${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-transparent border-violet-500/20'} rounded-3xl p-6 border space-y-4`}>
+                      <div className="flex justify-between items-center">
+                        <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Base Price</span>
+                        <span className="text-zinc-500 text-lg line-through font-medium">
+                          {clinicProfile.currency}{(item.base_price || 0).toFixed(0)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Promo Price</span>
+                        <span className="text-zinc-900 text-3xl font-black">
+                          {clinicProfile.currency}{(item.promo_price || item.base_price || 0).toFixed(0)}
+                        </span>
+                      </div>
+
+                      <div className="pt-4 border-t border-violet-500 flex justify-between items-center">
+                        <span className="text-brand-accent text-xs font-bold uppercase tracking-widest">Agent Incentive</span>
+                        <span className="text-brand-accent text-xl font-black">
+                          {clinicProfile.currency}{(item.commission_rate || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <button
+                      onClick={() => setShowBookingForm(true)}
+                      className="w-full py-5 bg-violet-500 text-zinc-900 rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all shadow-xl shadow-violet-500/20"
+                    >
+                      <Calendar size={20} />
+                      Log Referral Now
+                    </button>
+
+                    {/* Share Buttons */}
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <button
+                        onClick={handleCopyLink}
+                        className="py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                      >
+                        <Copy size={16} />
+                        Copy Link
+                      </button>
+                      <button
+                        onClick={handleWhatsAppShare}
+                        className="py-4 bg-emerald-500 text-white rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                      >
+                        <MessageCircle size={16} />
+                        WhatsApp
+                      </button>
+                    </div>
+
+                    <div className="pt-4">
+                      <button
+                        onClick={onClose}
+                        className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                      >
+                        <ArrowLeft size={16} />
+                        Back to Promotions
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <button 
+                      onClick={() => setShowBookingForm(false)}
+                      className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-900"
+                    >
+                      <ArrowLeft size={20} />
+                    </button>
+                    <h3 className="text-xl font-black tracking-tight">Log Referral</h3>
                   </div>
                   
-                  <div className="flex justify-between items-center">
-                    <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Promo Price</span>
-                    <span className="text-zinc-900 text-3xl font-black">
-                      {clinicProfile.currency}{(item.promo_price || item.base_price || 0).toFixed(0)}
-                    </span>
-                  </div>
-
-                  <div className="pt-4 border-t border-violet-500 flex justify-between items-center">
-                    <span className="text-brand-accent text-xs font-bold uppercase tracking-widest">Agent Incentive</span>
-                    <span className="text-brand-accent text-xl font-black">
-                      {clinicProfile.currency}{(item.commission_rate || 0).toFixed(2)}
-                    </span>
-                  </div>
+                  <BookingForm 
+                    selectedService={{ id: item.id, name: item.name }}
+                    services={services}
+                    branches={branches}
+                    onSubmit={async (payload) => {
+                      await onSubmit(payload);
+                      setShowBookingForm(false);
+                      onClose();
+                    }}
+                    isSubmitting={isSubmitting}
+                    getAvailableTimeSlots={getAvailableTimeSlots}
+                    darkMode={darkMode}
+                  />
                 </div>
-
-                {/* Action Button */}
-                <button
-                  onClick={() => item.image_url && handleDownloadPoster(item.image_url, `${item.name}-poster.jpg`)}
-                  disabled={!item.image_url}
-                  className="w-full py-5 bg-white text-zinc-900 rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
-                >
-                  <Download size={20} />
-                  Download Poster to Share
-                </button>
-
-                {/* Share Buttons */}
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <button
-                    onClick={handleCopyLink}
-                    className="py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
-                  >
-                    <Copy size={16} />
-                    Copy Link
-                  </button>
-                  <button
-                    onClick={handleWhatsAppShare}
-                    className="py-4 bg-emerald-500 text-white rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
-                  >
-                    <MessageCircle size={16} />
-                    WhatsApp
-                  </button>
-                </div>
-
-                <div className="pt-4">
-                  <button
-                    onClick={onClose}
-                    className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
-                  >
-                    <ArrowLeft size={16} />
-                    Back to Promotions
-                  </button>
-                </div>
-              </div>
+              )}
             </div>
           </motion.div>
         </>
@@ -2218,9 +2279,22 @@ export default function App() {
     }
   };
 
-  const handleSubmitReferral = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitReferral = async (e?: React.FormEvent, payload?: any) => {
+    if (e) e.preventDefault();
     
+    const formData = payload || {
+      patient_name: patientName,
+      patient_phone: patientPhone,
+      patient_type: patientType,
+      service_id: selectedService,
+      service_name: selectedServiceName || (selectedService ? services.find(s => s.id === parseInt(selectedService))?.name : 'General Consultation'),
+      branch: selectedBranch,
+      appointment_date: appointmentDate,
+      booking_time: bookingTime,
+      patient_ic: patientIC,
+      patient_address: patientAddress,
+    };
+
     let staffId = isPublicBooking ? referringStaff?.id : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id);
     let referralCode = isPublicBooking ? providedRefCode : null;
 
@@ -2242,10 +2316,10 @@ export default function App() {
     }
     
     // For public bookings, staffId is optional. For staff/receptionist, it's required.
-    if ((!isPublicBooking && !staffId) || (!selectedService && !selectedServiceName) || !patientName) return;
+    if ((!isPublicBooking && !staffId) || (!formData.service_id && !formData.service_name) || !formData.patient_name) return;
 
     // Check overall limit
-    const s = selectedService ? services.find(srv => srv.id === parseInt(selectedService)) : null;
+    const s = formData.service_id ? services.find(srv => srv.id === parseInt(formData.service_id)) : null;
     if (s?.overall_limit_enabled && s.overall_limit !== null) {
       const totalBookings = referrals.filter(r => r.service_id === s.id && r.status !== 'cancelled').length;
       if (totalBookings >= s.overall_limit) {
@@ -2256,31 +2330,31 @@ export default function App() {
 
     setIsSubmitting(true);
     try {
-      const payload: any = {
+      const submissionPayload: any = {
         staff_id: staffId,
-        service_id: selectedService ? parseInt(selectedService) : null,
-        service_name: selectedServiceName || (s ? s.name : null),
-        patient_name: patientName,
-        patient_phone: patientPhone,
-        patient_ic: patientIC,
-        patient_address: patientAddress,
-        patient_type: patientType,
-        appointment_date: appointmentDate,
-        booking_time: bookingTime,
+        service_id: formData.service_id ? parseInt(formData.service_id) : null,
+        service_name: formData.service_name || (s ? s.name : null),
+        patient_name: formData.patient_name,
+        patient_phone: formData.patient_phone,
+        patient_ic: formData.patient_ic,
+        patient_address: formData.patient_address,
+        patient_type: formData.patient_type,
+        appointment_date: formData.appointment_date,
+        booking_time: formData.booking_time,
         status: 'pending',
         date: new Date().toISOString().split('T')[0],
         created_by: currentUser?.id,
-        branch: selectedBranch || (isPublicBooking ? referringStaff?.branch : currentUser?.branch)
+        branch: formData.branch || (isPublicBooking ? referringStaff?.branch : currentUser?.branch)
       };
 
       if (referralCode) {
-        payload.referral_code = referralCode;
+        submissionPayload.referral_code = referralCode;
       }
 
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(submissionPayload)
       });
       
       if (res.ok) {
@@ -2882,150 +2956,18 @@ export default function App() {
                 </div>
               ) : null}
 
-              <form onSubmit={handleSubmitReferral} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Your Full Name</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={patientName}
-                    onChange={(e) => setPatientName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
-                    placeholder="Enter your name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">WhatsApp Number</label>
-                  <input 
-                    type="tel" 
-                    required
-                    value={patientPhone}
-                    onChange={(e) => setPatientPhone(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
-                    placeholder="e.g. +60123456789"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Patient Type</label>
-                  <select 
-                    required
-                    value={patientType}
-                    onChange={(e) => setPatientType(e.target.value as 'new' | 'existing')}
-                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all appearance-none"
-                  >
-                    <option value="new">New Patient</option>
-                    <option value="existing">Existing Patient</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Service Required</label>
-                  <div className="w-full px-4 py-3 rounded-xl bg-zinc-100 border border-zinc-200 text-zinc-700 text-sm font-medium">
-                    {selectedServiceName || (selectedService ? services.find(s => s.id === parseInt(selectedService))?.name : 'General Consultation')}
-                  </div>
-                </div>
-
-                {(selectedService || selectedServiceName) && (
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Select Branch</label>
-                    <select 
-                      required
-                      value={selectedBranch}
-                      onChange={(e) => {
-                        setSelectedBranch(e.target.value);
-                        setAppointmentDate('');
-                        setBookingTime('');
-                      }}
-                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all appearance-none"
-                    >
-                      <option value="">Select a branch</option>
-                      {(() => {
-                        const s = selectedService ? services.find(srv => srv.id === parseInt(selectedService)) : null;
-                        if (!s || !s.branches) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
-                        const activeBranches = Object.keys(s.branches).filter(bName => s.branches![bName].active);
-                        if (activeBranches.length === 0) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
-                        return activeBranches.map(bName => <option key={bName} value={bName}>{bName}</option>);
-                      })()}
-                    </select>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Booking Date</label>
-                    <input 
-                      type="date" 
-                      required
-                      min={(() => {
-                        const s = services.find(srv => srv.id === parseInt(selectedService));
-                        const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
-                        const today = new Date().toISOString().split('T')[0];
-                        if (bSched?.startDate && bSched.startDate > today) return bSched.startDate;
-                        return today;
-                      })()}
-                      max={(() => {
-                        const s = services.find(srv => srv.id === parseInt(selectedService));
-                        const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
-                        return bSched?.endDate || undefined;
-                      })()}
-                      value={appointmentDate}
-                      onChange={(e) => {
-                        const date = e.target.value;
-                        const s = services.find(srv => srv.id === parseInt(selectedService));
-                        const bSched = (s?.branches && selectedBranch) ? (s.branches as any)[selectedBranch] : null;
-                        
-                        if (bSched && bSched.days && bSched.days.length > 0 && date) {
-                          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                          const [y, m, d] = date.split('-').map(Number);
-                          const selectedDay = dayNames[new Date(y, m - 1, d).getDay()];
-                          if (!bSched.days.includes(selectedDay)) {
-                            alert(`This service is only available on: ${bSched.days.join(', ')}`);
-                            setAppointmentDate('');
-                            return;
-                          }
-                        }
-
-                        if (bSched && bSched.blockedDates && date) {
-                          const isBlocked = bSched.blockedDates.some((bd: any) => bd.date === date && bd.type === 'all-day');
-                          if (isBlocked) {
-                            alert('This date is fully booked or unavailable.');
-                            setAppointmentDate('');
-                            return;
-                          }
-                        }
-
-                        setAppointmentDate(date);
-                        setBookingTime('');
-                      }}
-                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Booking Time</label>
-                    <select 
-                      required
-                      value={bookingTime}
-                      onChange={(e) => setBookingTime(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all appearance-none"
-                    >
-                      <option value="">Select time</option>
-                      {(() => {
-                        const slots = getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate);
-                        if (slots.length === 0) return <option disabled>No slots available</option>;
-                        return slots.map(time => (
-                          <option key={time} value={time}>{time}</option>
-                        ));
-                      })()}
-                    </select>
-                  </div>
-                </div>
-                <button 
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 py-4 rounded-xl font-bold hover:from-violet-500 hover:to-rose-500 transition-colors disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Processing...' : 'Confirm Appointment'}
-                </button>
-              </form>
+              <BookingForm 
+                selectedService={{ 
+                  id: selectedService ? parseInt(selectedService) : null, 
+                  name: selectedServiceName || (selectedService ? services.find(s => s.id === parseInt(selectedService))?.name : 'General Consultation')
+                }}
+                services={services}
+                branches={branches}
+                onSubmit={(payload) => handleSubmitReferral(undefined, payload)}
+                isSubmitting={isSubmitting}
+                getAvailableTimeSlots={getAvailableTimeSlots}
+                darkMode={false}
+              />
             </>
           )}
         </motion.div>
@@ -7151,6 +7093,11 @@ export default function App() {
                 clinicProfile={clinicProfile}
                 darkMode={darkMode}
                 currentUser={currentUser}
+                services={services}
+                branches={branches}
+                onSubmit={handleSubmitReferral}
+                getAvailableTimeSlots={getAvailableTimeSlots}
+                isSubmitting={isSubmitting}
               />
             </motion.div>
           )}
