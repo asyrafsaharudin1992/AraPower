@@ -2912,6 +2912,35 @@ export default function App() {
   };
 
   if (isPublicBooking) {
+    const params = new URLSearchParams(window.location.search);
+    const serviceIdFromUrl = params.get('serviceId');
+    const serviceNameFromUrl = params.get('serviceName');
+    
+    // Use URL params if available, otherwise fallback to state
+    const finalServiceId = serviceIdFromUrl || selectedService;
+    const finalServiceName = serviceNameFromUrl || selectedServiceName;
+
+    // Fallback: If no service info in URL and no state info, show error
+    if (!finalServiceId && !finalServiceName) {
+      return (
+        <div className="min-h-screen w-full bg-zinc-50 flex items-center justify-center p-4">
+          <div className="bg-white p-8 rounded-3xl shadow-sm max-w-md w-full border border-black/5 text-center">
+            <div className="bg-rose-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Logo className="w-8 h-8 opacity-50" logoUrl={clinicProfile.logoUrl} />
+            </div>
+            <h2 className="text-2xl font-bold mb-2">Invalid Booking Link</h2>
+            <p className="text-zinc-500 mb-8">This booking link is missing required service information. Please contact the person who shared this link with you.</p>
+            <button 
+              onClick={() => setIsPublicBooking(false)}
+              className="w-full bg-zinc-900 text-white py-3 rounded-xl font-medium"
+            >
+              Go to Homepage
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen w-full overflow-x-hidden bg-zinc-50 flex items-center justify-center p-4 font-sans">
         <motion.div 
@@ -2958,8 +2987,8 @@ export default function App() {
 
               <BookingForm 
                 selectedService={{ 
-                  id: selectedService ? parseInt(selectedService) : null, 
-                  name: selectedServiceName || (selectedService ? services.find(s => s.id === parseInt(selectedService))?.name : 'General Consultation')
+                  id: finalServiceId ? parseInt(finalServiceId) : null, 
+                  name: finalServiceName || (finalServiceId ? services.find(s => s.id === parseInt(finalServiceId))?.name : 'General Consultation')
                 }}
                 services={services}
                 branches={branches}
