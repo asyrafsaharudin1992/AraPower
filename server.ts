@@ -2042,7 +2042,7 @@ app.get("/api/referrals", async (req, res) => {
 });
 
 app.post("/api/referrals", async (req, res) => {
-  const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch, referral_code } = req.body;
+  const { staff_id, service_id, service_name, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch, referral_code } = req.body;
   
   let staff = null;
   const fraudFlags = [];
@@ -2083,49 +2083,69 @@ app.post("/api/referrals", async (req, res) => {
     if (dailyCount && dailyCount >= 5) fraudFlags.push("High daily volume (>5)");
   }
 
-  const serviceSelect = Array.from(serviceColumns).length > 0 
-    ? Array.from(serviceColumns).join(',') 
-    : 'commission_rate, aracoins_perk';
+  let service = null;
+  if (service_id) {
+    const serviceSelect = Array.from(serviceColumns).length > 0 
+      ? Array.from(serviceColumns).join(',') 
+      : 'commission_rate, aracoins_perk';
 
-  const { data: service, error: serviceError } = await supabase
-    .from('services')
-    .select(serviceSelect)
-    .eq('id', service_id)
-    .single();
-    
-  if (serviceError || !service) return res.status(400).json({ error: "Service not found", details: serviceError });
+    const { data, error: serviceError } = await supabase
+      .from('services')
+      .select(serviceSelect)
+      .eq('id', service_id)
+      .single();
+      
+    if (!serviceError && data) {
+      service = data;
+    }
+  }
 
   const insertData: any = {
-    service_id,
     patient_name,
     status: 'pending'
   };
 
-  if (staff_id) {
-    if (referralColumns.has('created_by')) insertData.created_by = staff_id;
-    if (referralColumns.has('staff_id')) insertData.staff_id = staff_id;
+  if (service_id && service) {
+    insertData.service_id = service_id;
+  }
+  
+  if (referralColumns.size === 0 || referralColumns.has('service_name')) {
+    if (service_name) insertData.service_name = service_name;
   }
 
-  if (referralColumns.has('patient_phone')) insertData.patient_phone = patient_phone || null;
-  if (referralColumns.has('patient_ic')) insertData.patient_ic = patient_ic || null;
-  if (referralColumns.has('patient_address')) insertData.patient_address = patient_address || null;
-  if (referralColumns.has('patient_type')) insertData.patient_type = patient_type || 'new';
-  if (referralColumns.has('appointment_date')) insertData.appointment_date = appointment_date || null;
-  if (referralColumns.has('booking_time')) insertData.booking_time = booking_time || null;
-  if (referralColumns.has('fraud_flags')) insertData.fraud_flags = JSON.stringify(fraudFlags);
-  if (referralColumns.has('referral_code') && referral_code) insertData.referral_code = referral_code;
+  if (staff_id) {
+    if (referralColumns.size === 0 || referralColumns.has('created_by')) insertData.created_by = staff_id;
+    if (referralColumns.size === 0 || referralColumns.has('staff_id')) insertData.staff_id = staff_id;
+  }
+
+  if (referralColumns.size === 0 || referralColumns.has('patient_phone')) insertData.patient_phone = patient_phone || null;
+  if (referralColumns.size === 0 || referralColumns.has('patient_ic')) insertData.patient_ic = patient_ic || null;
+  if (referralColumns.size === 0 || referralColumns.has('patient_address')) insertData.patient_address = patient_address || null;
+  if (referralColumns.size === 0 || referralColumns.has('patient_type')) insertData.patient_type = patient_type || 'new';
+  if (referralColumns.size === 0 || referralColumns.has('appointment_date')) insertData.appointment_date = appointment_date || null;
+  if (referralColumns.size === 0 || referralColumns.has('booking_time')) insertData.booking_time = booking_time || null;
+  if (referralColumns.size === 0 || referralColumns.has('fraud_flags')) insertData.fraud_flags = JSON.stringify(fraudFlags);
+  if ((referralColumns.size === 0 || referralColumns.has('referral_code')) && referral_code) insertData.referral_code = referral_code;
   
   if (created_by) {
-    if (referralColumns.has('created_by')) insertData.created_by = created_by;
-    if (referralColumns.has('staff_id')) insertData.staff_id = created_by;
+    if (referralColumns.size === 0 || referralColumns.has('created_by')) insertData.created_by = created_by;
+    if (referralColumns.size === 0 || referralColumns.has('staff_id')) insertData.staff_id = created_by;
   }
   
-  if (staff && referralColumns.has('branch')) insertData.branch = staff.branch;
-  else if (branch && referralColumns.has('branch')) insertData.branch = branch;
+  if (staff && (referralColumns.size === 0 || referralColumns.has('branch'))) insertData.branch = staff.branch;
+  else if (branch && (referralColumns.size === 0 || referralColumns.has('branch'))) insertData.branch = branch;
 
-  // Only include aracoins_perk if the column exists in the database
-  if (referralColumns.has('aracoins_perk')) {
-    insertData.aracoins_perk = service.aracoins_perk || 0;
+  // Reward Logic
+  if (service) {
+    // Condition A: AraPower Service
+    if (referralColumns.size === 0 || referralColumns.has('reward_type')) insertData.reward_type = 'cash';
+    if (referralColumns.size === 0 || referralColumns.has('commission_earned')) insertData.commission_earned = service.commission_rate || 0;
+    if (referralColumns.size === 0 || referralColumns.has('aracoins_perk')) insertData.aracoins_perk = service.aracoins_perk || 0;
+  } else {
+    // Condition B: Non-AraPower Service
+    if (referralColumns.size === 0 || referralColumns.has('reward_type')) insertData.reward_type = 'aracoins';
+    if (referralColumns.size === 0 || referralColumns.has('aracoins_earned')) insertData.aracoins_earned = 5;
+    if (referralColumns.size === 0 || referralColumns.has('aracoins_perk')) insertData.aracoins_perk = 5; // fallback
   }
 
   const { data: referral, error: insertError } = await supabase
@@ -2137,10 +2157,10 @@ app.post("/api/referrals", async (req, res) => {
   if (insertError) return res.status(500).json({ error: insertError.message, details: insertError });
 
   // Update staff pending earnings
-  if (staff_id && staff) {
+  if (staff_id && staff && service) {
     await supabase
       .from('staff')
-      .update({ pending_earnings: (staff.pending_earnings || 0) + service.commission_rate })
+      .update({ pending_earnings: (staff.pending_earnings || 0) + (service.commission_rate || 0) })
       .eq('id', staff_id);
   }
 
@@ -2310,6 +2330,18 @@ async function startServer() {
         END IF;
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='payment_status') THEN
           ALTER TABLE referrals ADD COLUMN payment_status TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='reward_type') THEN
+          ALTER TABLE referrals ADD COLUMN reward_type TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='commission_earned') THEN
+          ALTER TABLE referrals ADD COLUMN commission_earned NUMERIC;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='aracoins_earned') THEN
+          ALTER TABLE referrals ADD COLUMN aracoins_earned NUMERIC;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='service_name') THEN
+          ALTER TABLE referrals ADD COLUMN service_name TEXT;
         END IF;
       END $$;
     `;
