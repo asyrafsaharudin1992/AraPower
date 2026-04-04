@@ -3,8 +3,11 @@
 import { GoogleGenAI } from "@google/genai";
 import React, { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
+import { useLocation } from 'react-router-dom';
+import { PublicBookingPage } from './components/PublicBookingPage';
 import { PromotionsCarousel } from './components/PromotionsCarousel';
 import { BookingForm } from './components/BookingForm';
+import { Logo } from './components/Logo';
 import AddServiceForm from './components/AddServiceForm';
 import { Service } from './types';
 import { 
@@ -778,31 +781,6 @@ const safeFetch = async (url: string, options?: RequestInit, retries = 3, backof
 };
 
 // Reusable Logo Component with Fallback
-const Logo = ({ className = "w-8 h-8", logoUrl }: { className?: string, logoUrl?: string }) => {
-  const [error, setError] = useState(false);
-  const size = parseInt(className.match(/\d+/)?.[0] || "24");
-  
-  if (logoUrl && !error) {
-    return (
-      <div className={`${className} flex items-center justify-center bg-white rounded-xl shadow-inner overflow-hidden`}>
-        <img 
-          src={logoUrl} 
-          alt="Logo" 
-          className="w-full h-full object-cover" 
-          referrerPolicy="no-referrer"
-          onError={() => setError(true)}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className={`${className} flex items-center justify-center bg-violet-500 rounded-xl shadow-inner overflow-hidden`}>
-      <Activity className="text-zinc-900" size={size * 0.7} strokeWidth={2.5} />
-    </div>
-  );
-};
-
 const TERMS_OF_SERVICE = `
 # User Agreement & Privacy Policy
 
@@ -855,6 +833,7 @@ const MobilePullToRefreshWrapper = ({ isMobile, onRefresh, children }: { isMobil
 };
 
 export default function App() {
+  const location = useLocation();
   const [currentUser, setCurrentUser] = useState<Staff | null>(() => {
     const saved = localStorage.getItem('currentUser');
     if (!saved) return null;
@@ -2911,96 +2890,18 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  if (isPublicBooking) {
-    const params = new URLSearchParams(window.location.search);
-    const serviceIdFromUrl = params.get('serviceId');
-    const serviceNameFromUrl = params.get('serviceName');
-    
-    // Use URL params if available, otherwise fallback to state
-    const finalServiceId = serviceIdFromUrl || selectedService;
-    const finalServiceName = serviceNameFromUrl || selectedServiceName;
-
-    // Fallback: If no service info in URL and no state info, show error
-    if (!finalServiceId && !finalServiceName) {
-      return (
-        <div className="min-h-screen w-full bg-zinc-50 flex items-center justify-center p-4">
-          <div className="bg-white p-8 rounded-3xl shadow-sm max-w-md w-full border border-black/5 text-center">
-            <div className="bg-rose-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Logo className="w-8 h-8 opacity-50" logoUrl={clinicProfile.logoUrl} />
-            </div>
-            <h2 className="text-2xl font-bold mb-2">Invalid Booking Link</h2>
-            <p className="text-zinc-500 mb-8">This booking link is missing required service information. Please contact the person who shared this link with you.</p>
-            <button 
-              onClick={() => setIsPublicBooking(false)}
-              className="w-full bg-zinc-900 text-white py-3 rounded-xl font-medium"
-            >
-              Go to Homepage
-            </button>
-          </div>
-        </div>
-      );
-    }
-
+  if (location.pathname === '/book') {
     return (
-      <div className="min-h-screen w-full overflow-x-hidden bg-zinc-50 flex items-center justify-center p-4 font-sans">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-white p-8 rounded-3xl shadow-sm max-w-md w-full border border-black/5"
-        >
-          {bookingSuccess ? (
-            <div className="text-center py-8">
-              <div className="bg-violet-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="text-zinc-900 w-8 h-8" />
-              </div>
-              <h2 className="text-2xl font-bold mb-2">Booking Confirmed!</h2>
-              <p className="text-zinc-500 mb-8">Thank you for your referral. We will contact you shortly to finalize your appointment.</p>
-              <button 
-                onClick={() => setBookingSuccess(false)}
-                className="w-full bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 py-3 rounded-xl font-medium shadow-lg shadow-violet-500"
-              >
-                Book Another
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-3 mb-8">
-                <div className="bg-white p-1 rounded-xl border border-zinc-100 shadow-sm">
-                  <Logo className="w-8 h-8" logoUrl={clinicProfile.logoUrl} />
-                </div>
-                <h1 className="text-2xl font-semibold text-zinc-900 tracking-tight">Clinic Booking</h1>
-              </div>
-              
-              {referringStaff ? (
-                <div className="bg-emerald-500 p-4 rounded-2xl mb-6 border border-emerald-600">
-                  <p className="text-xs text-emerald-950 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <CheckCircle2 size={14} /> Referred By
-                  </p>
-                  <p className="font-semibold text-emerald-950">{referringStaff.name}</p>
-                </div>
-              ) : providedRefCode ? (
-                <div className="bg-rose-500 p-4 rounded-2xl mb-6 border border-brand-accent">
-                  <p className="text-xs text-zinc-900 font-bold uppercase tracking-wider mb-1">Notice</p>
-                  <p className="text-sm text-zinc-900">Referral code not found, but you can still book below.</p>
-                </div>
-              ) : null}
-
-              <BookingForm 
-                selectedService={{ 
-                  id: finalServiceId ? parseInt(finalServiceId) : null, 
-                  name: finalServiceName || (finalServiceId ? services.find(s => s.id === parseInt(finalServiceId))?.name : 'General Consultation')
-                }}
-                services={services}
-                branches={branches}
-                onSubmit={(payload) => handleSubmitReferral(undefined, payload)}
-                isSubmitting={isSubmitting}
-                getAvailableTimeSlots={getAvailableTimeSlots}
-                darkMode={false}
-              />
-            </>
-          )}
-        </motion.div>
-      </div>
+      <PublicBookingPage 
+        services={services}
+        branches={branches}
+        clinicProfile={clinicProfile}
+        handleSubmitReferral={handleSubmitReferral}
+        getAvailableTimeSlots={getAvailableTimeSlots}
+        isSubmitting={isSubmitting}
+        apiBaseUrl={apiBaseUrl}
+        safeFetch={safeFetch}
+      />
     );
   }
 
