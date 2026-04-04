@@ -256,7 +256,11 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
     if (!referralCode) return '';
     const baseUrl = item.target_url || getShareUrl(clinicProfile.customDomain);
     const separator = baseUrl.includes('?') ? '&' : '?';
-    return `${baseUrl}${separator}ref=${referralCode}`;
+    let link = `${baseUrl}${separator}ref=${referralCode}`;
+    if (!item.target_url) {
+      link += `&serviceId=${item.id}&serviceName=${encodeURIComponent(item.name)}`;
+    }
+    return link;
   };
 
   const shareLink = generateAffiliateLink();
@@ -1074,6 +1078,7 @@ export default function App() {
   const [bookingTime, setBookingTime] = useState('');
   const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [selectedService, setSelectedService] = useState<string>('');
+  const [selectedServiceName, setSelectedServiceName] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [serviceSlideshowIndex, setServiceSlideshowIndex] = useState(0);
@@ -1420,9 +1425,10 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const refCode = params.get('ref');
     const serviceId = params.get('serviceId');
+    const serviceName = params.get('serviceName');
     
-    if (refCode || serviceId) {
-      handlePublicBooking(refCode, serviceId);
+    if (refCode || serviceId || serviceName) {
+      handlePublicBooking(refCode, serviceId, serviceName);
     }
 
     fetchPromotions();
@@ -1478,8 +1484,11 @@ export default function App() {
   };
 
   const getAvailableTimeSlots = (serviceId: string, branchName: string, date: string) => {
+    const defaultSlots = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
+    if (!serviceId) return defaultSlots;
+    
     const s = services.find(srv => srv.id === parseInt(serviceId));
-    if (!s) return [];
+    if (!s) return defaultSlots;
     
     const bSched = (s.branches && branchName) ? (s.branches as any)[branchName] : null;
     
@@ -1552,7 +1561,7 @@ export default function App() {
     return slots;
   };
 
-  const handlePublicBooking = async (code: string | null, serviceId: string | null) => {
+  const handlePublicBooking = async (code: string | null, serviceId: string | null, serviceName: string | null = null) => {
     setIsPublicBooking(true);
     if (code) {
       setProvidedRefCode(code);
@@ -1563,6 +1572,9 @@ export default function App() {
     }
     if (serviceId) {
       setSelectedService(serviceId);
+    }
+    if (serviceName) {
+      setSelectedServiceName(serviceName);
     }
   };
 
@@ -2230,10 +2242,10 @@ export default function App() {
     }
     
     // For public bookings, staffId is optional. For staff/receptionist, it's required.
-    if ((!isPublicBooking && !staffId) || !selectedService || !patientName) return;
+    if ((!isPublicBooking && !staffId) || (!selectedService && !selectedServiceName) || !patientName) return;
 
     // Check overall limit
-    const s = services.find(srv => srv.id === parseInt(selectedService));
+    const s = selectedService ? services.find(srv => srv.id === parseInt(selectedService)) : null;
     if (s?.overall_limit_enabled && s.overall_limit !== null) {
       const totalBookings = referrals.filter(r => r.service_id === s.id && r.status !== 'cancelled').length;
       if (totalBookings >= s.overall_limit) {
@@ -2246,7 +2258,8 @@ export default function App() {
     try {
       const payload: any = {
         staff_id: staffId,
-        service_id: parseInt(selectedService),
+        service_id: selectedService ? parseInt(selectedService) : null,
+        service_name: selectedServiceName || (s ? s.name : null),
         patient_name: patientName,
         patient_phone: patientPhone,
         patient_ic: patientIC,
@@ -2283,6 +2296,7 @@ export default function App() {
         setAppointmentDate('');
         setBookingTime('');
         setSelectedService('');
+        setSelectedServiceName('');
         setWalkInPromoCode('');
         setWalkInStaff(null);
         if (isPublicBooking) {
@@ -2905,25 +2919,12 @@ export default function App() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Service Required</label>
-                  <select 
-                    required
-                    value={selectedService}
-                    onChange={(e) => {
-                      setSelectedService(e.target.value);
-                      setSelectedBranch('');
-                      setAppointmentDate('');
-                      setBookingTime('');
-                    }}
-                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all appearance-none"
-                  >
-                    <option value="">Select a service</option>
-                    {services.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+                  <div className="w-full px-4 py-3 rounded-xl bg-zinc-100 border border-zinc-200 text-zinc-700 text-sm font-medium">
+                    {selectedServiceName || (selectedService ? services.find(s => s.id === parseInt(selectedService))?.name : 'General Consultation')}
+                  </div>
                 </div>
 
-                {selectedService && (
+                {(selectedService || selectedServiceName) && (
                   <div>
                     <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Select Branch</label>
                     <select 
@@ -2938,7 +2939,7 @@ export default function App() {
                     >
                       <option value="">Select a branch</option>
                       {(() => {
-                        const s = services.find(srv => srv.id === parseInt(selectedService));
+                        const s = selectedService ? services.find(srv => srv.id === parseInt(selectedService)) : null;
                         if (!s || !s.branches) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
                         const activeBranches = Object.keys(s.branches).filter(bName => s.branches![bName].active);
                         if (activeBranches.length === 0) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
