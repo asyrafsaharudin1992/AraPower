@@ -1195,64 +1195,72 @@ app.delete("/api/tasks/:id", async (req, res) => {
 });
 
 app.get("/api/staff/email", async (req, res) => {
-  if (!checkSupabase(res)) return;
-  const { email, auth_id } = req.query;
-  if (!email) return res.status(400).json({ error: "Email is required" });
-  
-  const selectColumns = Array.from(staffColumns).length > 0 
-    ? Array.from(staffColumns).join(',') 
-    : 'id, name, email, role';
+  try {
+    if (!checkSupabase(res)) return;
+    const { email, auth_id } = req.query;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+    
+    const selectColumns = Array.from(staffColumns).length > 0 
+      ? Array.from(staffColumns).join(',') 
+      : 'id, name, email, role';
 
-  // Use service role key if available to bypass RLS (in case of broken policies like infinite recursion)
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  let dbClient = supabase;
-  if (serviceRoleKey) {
-    dbClient = createClient(
-      process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
+    // Use service role key if available to bypass RLS (in case of broken policies like infinite recursion)
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    let dbClient = supabase;
+    if (serviceRoleKey) {
+      const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      if (url) {
+        dbClient = createClient(
+          url,
+          serviceRoleKey,
+          {
+            auth: {
+              autoRefreshToken: false,
+              persistSession: false
+            }
+          }
+        );
       }
-    );
-  }
-
-  let query = dbClient.from('staff').select(selectColumns);
-  
-  if (auth_id && staffColumns.has('auth_id')) {
-    query = query.or(`auth_id.eq.${auth_id},email.eq.${email}`);
-  } else {
-    query = query.eq('email', email);
-  }
-
-  const { data: staff, error } = await query.single();
-
-  if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-    console.error('Error fetching staff by email:', error);
-    return res.status(500).json({ error: `Database error: ${error.message}` });
-  }
-
-  if (staff && staff.employment_status === 'deleted') {
-    return res.status(403).json({ error: "This account has been deleted. Please contact an administrator." });
-  }
-    
-  if (staff && auth_id && !staff.auth_id && staffColumns.has('auth_id')) {
-    // Update the staff record with the new auth_id
-    const { data: updatedStaff } = await dbClient
-      .from('staff')
-      .update({ auth_id })
-      .eq('id', staff.id)
-      .select()
-      .single();
-      
-    if (updatedStaff) {
-      return res.json(updatedStaff);
     }
-  }
+
+    let query = dbClient.from('staff').select(selectColumns);
     
-  res.json(staff || null);
+    if (auth_id && staffColumns.has('auth_id')) {
+      query = query.or(`auth_id.eq.${auth_id},email.eq.${email}`);
+    } else {
+      query = query.eq('email', email);
+    }
+
+    const { data: staff, error } = await query.single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      console.error('Error fetching staff by email:', error);
+      return res.status(500).json({ error: `Database error: ${error.message}` });
+    }
+
+    if (staff && staff.employment_status === 'deleted') {
+      return res.status(403).json({ error: "This account has been deleted. Please contact an administrator." });
+    }
+      
+    if (staff && auth_id && !staff.auth_id && staffColumns.has('auth_id')) {
+      // Update the staff record with the new auth_id
+      const { data: updatedStaff } = await dbClient
+        .from('staff')
+        .update({ auth_id })
+        .eq('id', staff.id)
+        .select()
+        .single();
+        
+      if (updatedStaff) {
+        return res.json(updatedStaff);
+      }
+    }
+      
+    res.json(staff || null);
+  } catch (err: any) {
+    console.error('CRITICAL: Error in /api/staff/email:', err);
+    res.status(500).json({ error: 'Internal server error', details: err.message });
+  }
 });
 
 // Notifications API

@@ -2318,31 +2318,37 @@ export default function App() {
     }
   };
 
-  const handleProceedLead = async () => {
+  const handleProceedLead = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) e.preventDefault();
     if (!patientName || !patientPhone) return;
-    setIsSubmitting(true);
+    
+    // Unblock UI immediately
+    setPublicBookingStep('choice');
+    
     try {
       const payload = {
         patient_name: patientName,
         patient_phone: patientPhone,
+        service_id: selectedService || null,
         status: 'warm_lead',
         date: new Date().toISOString().split('T')[0],
         staff_id: referringStaff?.id,
-        referral_code: providedRefCode
+        referral_code: providedRefCode,
+        branch: null
       };
+      
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (res.ok) {
+      
+      if (res.ok && data?.id) {
         setDraftReferralId(data.id);
-        setPublicBookingStep('choice');
       }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSubmitting(false);
+    } catch (err) {
+      console.error('Failed to save warm lead:', err);
+      // Graceful catch: do not revert step
     }
   };
 
@@ -2966,7 +2972,7 @@ export default function App() {
             className="bg-white rounded-3xl shadow-xl shadow-zinc-200/50 p-6 border border-zinc-100"
           >
             {publicBookingStep === 'lead' && (
-              <div className="space-y-6">
+              <form onSubmit={handleProceedLead} className="space-y-6">
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Nama Pesakit</label>
@@ -2974,6 +2980,7 @@ export default function App() {
                       <User className="absolute left-4 top-3.5 text-zinc-400" size={18} />
                       <input 
                         type="text" 
+                        required
                         value={patientName}
                         onChange={(e) => setPatientName(e.target.value)}
                         className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
@@ -2988,6 +2995,7 @@ export default function App() {
                       <Phone className="absolute left-4 top-3.5 text-zinc-400" size={18} />
                       <input 
                         type="tel" 
+                        required
                         value={patientPhone}
                         onChange={(e) => setPatientPhone(e.target.value)}
                         className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
@@ -2998,14 +3006,14 @@ export default function App() {
                 </div>
 
                 <button 
-                  onClick={handleProceedLead}
-                  disabled={isSubmitting || !patientName || !patientPhone}
+                  type="submit"
+                  disabled={!patientName || !patientPhone}
                   className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Memproses...' : 'Teruskan proses'}
+                  Teruskan proses
                   <ChevronRight size={20} />
                 </button>
-              </div>
+              </form>
             )}
 
             {publicBookingStep === 'choice' && (
