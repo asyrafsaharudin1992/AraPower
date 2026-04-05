@@ -1,5 +1,5 @@
 export interface Service {
-  id: string | number;
+  id: number;
   name: string;
   base_price: number;
   commission_rate: number;
@@ -54,4 +54,79 @@ export interface Promotion {
   end_date: string;
   is_active: boolean;
   created_at: string;
+}
+
+export interface Staff {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  promo_code: string;
+  referral_code?: string;
+  staff_id_code?: string;
+  branch?: string;
+  department?: string;
+  position?: string;
+  employment_status?: string;
+  date_joined?: string;
+  pending_earnings: number;
+  approved_earnings: number;
+  paid_earnings: number;
+  lifetime_earnings: number;
+  last_payout_date?: string;
+  referrer_type: string;
+  phone?: string;
+  aracoins?: number;
+  is_approved?: number;
+  nickname?: string;
+  profile_picture?: string;
+  bank_name?: string;
+  bank_account_number?: string;
+  id_type?: string;
+  id_number?: string;
+  tier?: { name: string; bonus: number; color: string; bg: string };
+  monthlySuccessfulRefs?: number;
+  earned?: number;
+}
+
+export interface Referral {
+  id: number;
+  staff_id: number;
+  staff_name: string;
+  promo_code: string;
+  service_id: number;
+  service_name: string;
+  patient_name: string;
+  patient_phone: string;
+  patient_ic?: string;
+  patient_address?: string;
+  appointment_date: string;
+  booking_time: string;
+  visit_date?: string;
+  date: string;
+  status: 'entered' | 'completed' | 'paid_completed' | 'approved' | 'payout_processed' | 'rejected' | 'cancelled' | 'warm_lead' | 'whatsapp_redirected' | 'pending';
+  payment_status: 'pending' | 'completed';
+  commission_amount: number;
+  fraud_flags?: string;
+  rejection_reason?: string;
+  branch?: string;
+  patient_type?: 'new' | 'existing';
+  aracoins_perk?: number;
+  created_at?: string;
+}
+
+export interface AppSettings {
+  blockedDates: string[];
+  blockedTimes: string[];
+  workingHours: { start: string; end: string };
+}
+
+export interface ClinicProfile {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  currency: string;
+  logoUrl?: string;
+  customDomain?: string;
 }

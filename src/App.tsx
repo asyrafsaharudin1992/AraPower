@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import { PromotionsCarousel } from './components/PromotionsCarousel';
 import AddServiceForm from './components/AddServiceForm';
-import { Service } from './types';
+import { Service, Promotion, Staff, Referral, AppSettings, ClinicProfile } from './types';
 import { 
   Users, 
   PlusCircle, 
@@ -83,94 +83,9 @@ import {
   Area
 } from 'recharts';
 import { supabase, isPlaceholder } from './supabase';
+import PublicBookingUI from './components/PublicBookingUI';
 
-interface Promotion {
-  id: number;
-  title: string;
-  description: string;
-  image_url?: string;
-  start_date: string;
-  end_date: string;
-  is_active: boolean;
-  created_at: string;
-}
-
-interface Staff {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  promo_code: string;
-  referral_code?: string;
-  staff_id_code?: string;
-  branch?: string;
-  department?: string;
-  position?: string;
-  employment_status?: string;
-  date_joined?: string;
-  pending_earnings: number;
-  approved_earnings: number;
-  paid_earnings: number;
-  lifetime_earnings: number;
-  last_payout_date?: string;
-  referrer_type: string;
-  phone?: string;
-  aracoins?: number;
-  is_approved?: number;
-  nickname?: string;
-  profile_picture?: string;
-  bank_name?: string;
-  bank_account_number?: string;
-  id_type?: string;
-  id_number?: string;
-  tier?: { name: string; bonus: number; color: string; bg: string };
-  monthlySuccessfulRefs?: number;
-  earned?: number;
-}
-
-
-
-interface Referral {
-  id: number;
-  staff_id: number;
-  staff_name: string;
-  promo_code: string;
-  service_id: number;
-  service_name: string;
-  patient_name: string;
-  patient_phone: string;
-  patient_ic?: string;
-  patient_address?: string;
-  appointment_date: string;
-  booking_time: string;
-  visit_date?: string;
-  date: string;
-  status: 'entered' | 'completed' | 'paid_completed' | 'approved' | 'payout_processed' | 'rejected' | 'cancelled' | 'warm_lead' | 'whatsapp_redirected' | 'pending';
-  payment_status: 'pending' | 'completed';
-  commission_amount: number;
-  fraud_flags?: string;
-  rejection_reason?: string;
-  branch?: string;
-  patient_type?: 'new' | 'existing';
-  aracoins_perk?: number;
-  created_at?: string;
-}
-
-interface AppSettings {
-  blockedDates: string[];
-  blockedTimes: string[];
-  workingHours: { start: string; end: string };
-}
-
-interface ClinicProfile {
-  name: string;
-  address: string;
-  phone: string;
-  email: string;
-  currency: string;
-  logoUrl?: string;
-  customDomain?: string;
-}
+// Interfaces moved to types.ts
 
 const getServiceStatus = (item: Service) => {
   if (!item.start_date && !item.end_date) return 'active';
@@ -954,12 +869,6 @@ export default function App() {
     bulkPaymentType: 'SALARY'
   });
   const [isPublicBooking, setIsPublicBooking] = useState(false);
-  const [publicBookingStep, setPublicBookingStep] = useState<'lead' | 'choice' | 'form' | 'whatsapp'>('lead');
-  const [selectedWaBranch, setSelectedWaBranch] = useState('');
-  const [draftReferralId, setDraftReferralId] = useState<number | null>(null);
-  const [referringStaff, setReferringStaff] = useState<Staff | null>(null);
-  const [providedRefCode, setProvidedRefCode] = useState<string | null>(null);
-  const [bookingSuccess, setBookingSuccess] = useState(false);
 
   // Receptionist state
   const [searchQuery, setSearchQuery] = useState('');
@@ -1427,7 +1336,9 @@ export default function App() {
     const serviceName = params.get('serviceName');
     
     if (refCode || serviceId) {
-      handlePublicBooking(refCode, serviceId, serviceName);
+      if (refCode || serviceId) {
+      setIsPublicBooking(true);
+    }
     }
 
     fetchPromotions();
@@ -1555,23 +1466,6 @@ export default function App() {
       slots.push(time);
     }
     return slots;
-  };
-
-  const handlePublicBooking = async (code: string | null, serviceId: string | null, serviceName: string | null = null) => {
-    setIsPublicBooking(true);
-    if (code) {
-      setProvidedRefCode(code);
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${code}`);
-      if (res.ok && data) {
-        setReferringStaff(data);
-      }
-    }
-    if (serviceId) {
-      setSelectedService(serviceId);
-    }
-    if (serviceName) {
-      setUrlServiceName(serviceName);
-    }
   };
 
   const fetchPromotions = async () => {
@@ -2245,11 +2139,23 @@ export default function App() {
     }
   };
 
-  const handleSubmitReferral = async (e: React.FormEvent) => {
+  const handleSubmitReferral = async (e: React.FormEvent, publicFormData?: any) => {
     e.preventDefault();
     
-    let staffId = isPublicBooking ? referringStaff?.id : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id);
-    let referralCode = isPublicBooking ? providedRefCode : null;
+    const data = publicFormData || {
+      patientName,
+      patientPhone,
+      patientIC,
+      patientAddress,
+      patientType,
+      appointmentDate,
+      bookingTime,
+      selectedService,
+      selectedBranch
+    };
+
+    let staffId = isPublicBooking ? data.referringStaff?.id : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id);
+    let referralCode = isPublicBooking ? data.providedRefCode : null;
 
     // If public booking and we don't have staffId but we have a ref code in URL, try to fetch it right now
     if (isPublicBooking) {
@@ -2258,9 +2164,9 @@ export default function App() {
       if (ref) {
         referralCode = ref;
         try {
-          const { res, data } = await safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${ref}`);
-          if (res.ok && data && data.id) {
-            staffId = data.id;
+          const { res, data: lookupData } = await safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${ref}`);
+          if (res.ok && lookupData && lookupData.id) {
+            staffId = lookupData.id;
           }
         } catch (err) {
           console.error('Failed to lookup affiliate during submission:', err);
@@ -2269,15 +2175,15 @@ export default function App() {
     }
     
     // For public bookings, staffId is optional. For staff/receptionist, it's required.
-    if ((!isPublicBooking && !staffId) || !selectedService || !patientName) return;
+    if ((!isPublicBooking && !staffId) || !data.selectedService || !data.patientName) return false;
 
     // Check overall limit
-    const s = services.find(srv => String(srv.id) === String(selectedService));
+    const s = services.find(srv => String(srv.id) === String(data.selectedService));
     if (s?.overall_limit_enabled && s.overall_limit !== null) {
       const totalBookings = referrals.filter(r => r.service_id === s.id && r.status !== 'cancelled').length;
       if (totalBookings >= s.overall_limit) {
         alert('This service has reached its overall booking limit.');
-        return;
+        return false;
       }
     }
 
@@ -2285,90 +2191,67 @@ export default function App() {
     try {
       const payload: any = {
         staff_id: staffId,
-        service_id: selectedService,
-        patient_name: patientName,
-        patient_phone: patientPhone,
-        patient_ic: patientIC,
-        patient_address: patientAddress,
-        patient_type: patientType,
-        appointment_date: appointmentDate,
-        booking_time: bookingTime,
+        service_id: data.selectedService,
+        patient_name: data.patientName,
+        patient_phone: data.patientPhone,
+        patient_ic: data.patientIC,
+        patient_address: data.patientAddress,
+        patient_type: data.patientType,
+        appointment_date: data.appointmentDate,
+        booking_time: data.bookingTime,
         status: 'pending',
         date: new Date().toISOString().split('T')[0],
         created_by: currentUser?.id,
-        branch: selectedBranch || (isPublicBooking ? referringStaff?.branch : currentUser?.branch)
+        branch: data.selectedBranch || (isPublicBooking ? data.referringStaff?.branch : currentUser?.branch)
       };
 
       if (referralCode) {
         payload.referral_code = referralCode;
       }
 
-      const url = draftReferralId ? `${apiBaseUrl}/api/referrals/${draftReferralId}` : `${apiBaseUrl}/api/referrals`;
-      const method = draftReferralId ? 'PATCH' : 'POST';
+      const url = data.draftReferralId ? `${apiBaseUrl}/api/referrals/${data.draftReferralId}` : `${apiBaseUrl}/api/referrals`;
+      const method = data.draftReferralId ? 'PATCH' : 'POST';
 
-      const { res, data } = await safeFetch(url, {
+      const { res, data: resultData } = await safeFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       
       if (res.ok) {
-        if (data.fraudFlags && data.fraudFlags.length > 0) {
-          alert(`Referral submitted with flags: ${data.fraudFlags.join(', ')}`);
+        if (resultData.fraudFlags && resultData.fraudFlags.length > 0) {
+          alert(`Referral submitted with flags: ${resultData.fraudFlags.join(', ')}`);
         }
 
-        setPatientName('');
-        setPatientPhone('');
-        setPatientIC('');
-        setPatientAddress('');
-        setPatientType('new');
-        setAppointmentDate('');
-        setBookingTime('');
-        setSelectedService('');
-        setWalkInPromoCode('');
-        setWalkInStaff(null);
-        setDraftReferralId(null);
-        setPublicBookingStep('lead');
-        if (isPublicBooking) {
-          setBookingSuccess(true);
-        } else {
+        if (!isPublicBooking) {
+          setPatientName('');
+          setPatientPhone('');
+          setPatientIC('');
+          setPatientAddress('');
+          setPatientType('new');
+          setAppointmentDate('');
+          setBookingTime('');
+          setSelectedService('');
+          setWalkInPromoCode('');
+          setWalkInStaff(null);
           fetchReferrals();
         }
+        return true;
       } else {
-        alert('Submission Failed: ' + (data.error || 'Unknown Error') + (data.details ? ' | Details: ' + JSON.stringify(data.details) : ''));
+        alert('Submission Failed: ' + (resultData.error || 'Unknown Error') + (resultData.details ? ' | Details: ' + JSON.stringify(resultData.details) : ''));
+        return false;
       }
     } catch (error: any) {
       console.error(error);
       alert('Submission Failed: ' + error.message);
+      return false;
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleProceedLead = async (e?: React.FormEvent | React.MouseEvent) => {
-    if (e) e.preventDefault();
-    if (!patientName || !patientPhone) return;
-    
-    // Unblock UI immediately
-    setPublicBookingStep('choice');
-    
-    try {
-      const payload = {
-        patient_name: patientName,
-        patient_phone: patientPhone,
-        service_id: selectedService || null
-      };
-      
-      // Fire and forget to the new warm-leads endpoint
-      safeFetch(`${apiBaseUrl}/api/warm-leads`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(err => console.error('Silent fail for warm lead:', err));
-      
-    } catch (err) {
-      console.error('Failed to initiate warm lead process:', err);
-    }
+    // This function has been moved to PublicBookingUI.tsx
   };
 
 
@@ -2896,322 +2779,18 @@ export default function App() {
   };
 
   if (isPublicBooking) {
-    if (bookingSuccess) {
-      return (
-        <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-zinc-200/50 p-8 text-center"
-          >
-            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle size={40} className="text-emerald-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-zinc-900 mb-2">Tempahan Berjaya!</h2>
-            <p className="text-zinc-500 mb-8">Terima kasih kerana memilih kami. Pihak kami akan menghubungi anda dalam masa terdekat untuk pengesahan.</p>
-            <button 
-              onClick={() => {
-                setBookingSuccess(false);
-                setPublicBookingStep('lead');
-                setDraftReferralId(null);
-                setPatientName('');
-                setPatientPhone('');
-              }}
-              className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200"
-            >
-              Buat Tempahan Baru
-            </button>
-          </motion.div>
-        </div>
-      );
-    }
-
-    if (!referringStaff && providedRefCode) {
-      return (
-        <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 text-center">
-            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <AlertCircle size={40} className="text-red-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-zinc-900 mb-2">Kod Tidak Sah</h2>
-            <p className="text-zinc-500 mb-8">Maaf, kod rujukan ini tidak wujud atau telah tamat tempoh.</p>
-          </div>
-        </div>
-      );
-    }
-
     return (
-      <div className="min-h-screen bg-zinc-50 pb-12">
-        <div className="bg-white border-b border-zinc-100 sticky top-0 z-50">
-          <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
-            <Logo />
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
-                <User size={16} className="text-violet-600" />
-              </div>
-              <div className="text-left">
-                <p className="text-[10px] font-bold text-zinc-400 uppercase leading-none">Rujukan Oleh</p>
-                <p className="text-xs font-bold text-zinc-900">{referringStaff?.name || 'Pusat Rawatan'}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-md mx-auto px-4 py-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-zinc-900 mb-2">Tempahan Rawatan</h1>
-            <p className="text-zinc-500">Sila lengkapkan maklumat di bawah untuk temujanji anda.</p>
-          </div>
-
-          <motion.div 
-            key={publicBookingStep}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-white rounded-3xl shadow-xl shadow-zinc-200/50 p-6 border border-zinc-100"
-          >
-            {publicBookingStep === 'lead' && (
-              <form onSubmit={handleProceedLead} className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Nama Pesakit</label>
-                    <div className="relative">
-                      <User className="absolute left-4 top-3.5 text-zinc-400" size={18} />
-                      <input 
-                        type="text" 
-                        required
-                        value={patientName}
-                        onChange={(e) => setPatientName(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                        placeholder="Nama penuh anda"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Nombor Telefon</label>
-                    <div className="relative">
-                      <Phone className="absolute left-4 top-3.5 text-zinc-400" size={18} />
-                      <input 
-                        type="tel" 
-                        required
-                        value={patientPhone}
-                        onChange={(e) => setPatientPhone(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                        placeholder="Contoh: 0123456789"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <button 
-                  type="submit"
-                  disabled={!patientName || !patientPhone}
-                  className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  Teruskan proses
-                  <ChevronRight size={20} />
-                </button>
-              </form>
-            )}
-
-            {publicBookingStep === 'choice' && (
-              <div className="space-y-6">
-                <div className="text-center mb-6">
-                  <p className="text-zinc-600 font-medium">Terima kasih {patientName}! Bagaimana anda ingin meneruskan?</p>
-                </div>
-                
-                <div className="grid gap-4">
-                  <button 
-                    onClick={() => setPublicBookingStep('form')}
-                    className="p-6 rounded-2xl border-2 border-violet-100 hover:border-violet-500 hover:bg-violet-50 transition-all text-left group"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-all">
-                        <FileText size={24} />
-                      </div>
-                      <ChevronRight size={20} className="text-zinc-300 group-hover:text-violet-500" />
-                    </div>
-                    <h3 className="font-bold text-zinc-900">Isi Borang Temujanji</h3>
-                    <p className="text-xs text-zinc-500">Lengkapkan maklumat untuk pengesahan pantas.</p>
-                  </button>
-
-                  <button 
-                    onClick={() => setPublicBookingStep('whatsapp')}
-                    className="p-6 rounded-2xl border-2 border-emerald-100 hover:border-emerald-500 hover:bg-emerald-50 transition-all text-left group"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                        <MessageCircle size={24} />
-                      </div>
-                      <ChevronRight size={20} className="text-zinc-300 group-hover:text-emerald-500" />
-                    </div>
-                    <h3 className="font-bold text-zinc-900">Hubungi Melalui WhatsApp</h3>
-                    <p className="text-xs text-zinc-500">Berbual dengan pegawai kami secara terus.</p>
-                  </button>
-                </div>
-
-                <button 
-                  onClick={() => setPublicBookingStep('lead')}
-                  className="w-full py-3 text-zinc-400 text-sm font-bold hover:text-zinc-600"
-                >
-                  Kembali
-                </button>
-              </div>
-            )}
-
-            {publicBookingStep === 'form' && (
-              <form onSubmit={handleSubmitReferral} className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Perkhidmatan</label>
-                    <select 
-                      value={selectedService}
-                      onChange={(e) => setSelectedService(e.target.value)}
-                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                      required
-                    >
-                      <option value="">Pilih satu...</option>
-                      {services.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                      {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
-                        <option value={selectedService}>{urlServiceName}</option>
-                      )}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Cawangan</label>
-                    <select 
-                      value={selectedBranch}
-                      onChange={(e) => setSelectedBranch(e.target.value)}
-                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                      required
-                    >
-                      <option value="">Pilih cawangan...</option>
-                      {branches.map(b => (
-                        <option key={b.id} value={b.name}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Tarikh Temujanji</label>
-                    <input 
-                      type="date" 
-                      value={appointmentDate}
-                      onChange={(e) => setAppointmentDate(e.target.value)}
-                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Waktu Temujanji</label>
-                    <input 
-                      type="time" 
-                      value={bookingTime}
-                      onChange={(e) => setBookingTime(e.target.value)}
-                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <button 
-                    type="button"
-                    onClick={() => setPublicBookingStep('choice')}
-                    className="flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
-                  >
-                    Kembali
-                  </button>
-                  <button 
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-[2] py-4 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Menghantar...' : 'Hantar Tempahan'}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {publicBookingStep === 'whatsapp' && (() => {
-              const waNum = branches.find(b => b.name === selectedWaBranch)?.whatsapp_number || '60123456789';
-              const srv = services.find(s => String(s.id) === String(selectedService));
-              const serviceName = srv?.name || urlServiceName || 'perkhidmatan kami';
-              const waUrl = `https://wa.me/${waNum}?text=Hi/Salam,%20Saya%20${encodeURIComponent(patientName)},%20saya%20berminat%20dengan%20${encodeURIComponent(serviceName)}`;
-              
-              return (
-                <div className="space-y-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Cawangan Terdekat</label>
-                      <select 
-                        value={selectedWaBranch}
-                        onChange={(e) => setSelectedWaBranch(e.target.value)}
-                        className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                      >
-                        <option value="">Pilih cawangan...</option>
-                        {branches.map(b => (
-                          <option key={b.id} value={b.name}>{b.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Perkhidmatan (Opsional)</label>
-                      <select 
-                        value={selectedService}
-                        onChange={(e) => setSelectedService(e.target.value)}
-                        className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                      >
-                        <option value="">Pilih satu...</option>
-                        {services.map(s => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
-                        ))}
-                        {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
-                          <option value={selectedService}>{urlServiceName}</option>
-                        )}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button 
-                      type="button"
-                      onClick={() => setPublicBookingStep('choice')}
-                      className="flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
-                    >
-                      Kembali
-                    </button>
-                    <a 
-                      href={waUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => {
-                        if (draftReferralId) {
-                          safeFetch(`${apiBaseUrl}/api/referrals/${draftReferralId}`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ status: 'whatsapp_redirected', branch: selectedWaBranch })
-                          }).catch(console.error);
-                        }
-                        setBookingSuccess(true);
-                      }}
-                      className={`flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 ${!selectedWaBranch ? 'opacity-50 pointer-events-none' : ''}`}
-                    >
-                      <MessageCircle size={20} />
-                      Buka WhatsApp
-                    </a>
-                  </div>
-                </div>
-              );
-            })()}
-          </motion.div>
-        </div>
-      </div>
+      <PublicBookingUI 
+        services={services}
+        branches={branches}
+        clinicProfile={clinicProfile}
+        handleSubmitReferral={handleSubmitReferral}
+        apiBaseUrl={apiBaseUrl}
+        getAvailableTimeSlots={getAvailableTimeSlots}
+        Logo={Logo}
+        isSubmitting={isSubmitting}
+        safeFetch={safeFetch}
+      />
     );
   }
 
