@@ -249,6 +249,11 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                 Teruskan proses
                 <ChevronRight size={20} />
               </button>
+
+              {/* Add this disclaimer right here! */}
+              <p className="text-[10px] text-zinc-500 text-center mt-3 px-4 leading-relaxed">
+                By pressing proceed, you agree to share your contact information with our clinic for booking purposes.
+              </p>
             </form>
           )}
 
