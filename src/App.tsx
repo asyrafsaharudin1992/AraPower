@@ -11,7 +11,10 @@ import {
   PlusCircle, 
   Phone,
   TrendingUp, 
-  CheckCircle2, 
+  CheckCircle2,
+  CheckCircle,
+  AlertCircle,
+  FileText,
   XCircle,
   Clock, 
   DollarSign, 
@@ -142,7 +145,7 @@ interface Referral {
   booking_time: string;
   visit_date?: string;
   date: string;
-  status: 'entered' | 'completed' | 'paid_completed' | 'approved' | 'payout_processed' | 'rejected' | 'cancelled';
+  status: 'entered' | 'completed' | 'paid_completed' | 'approved' | 'payout_processed' | 'rejected' | 'cancelled' | 'warm_lead' | 'whatsapp_redirected' | 'pending';
   payment_status: 'pending' | 'completed';
   commission_amount: number;
   fraud_flags?: string;
@@ -150,6 +153,7 @@ interface Referral {
   branch?: string;
   patient_type?: 'new' | 'existing';
   aracoins_perk?: number;
+  created_at?: string;
 }
 
 interface AppSettings {
@@ -954,6 +958,9 @@ export default function App() {
     bulkPaymentType: 'SALARY'
   });
   const [isPublicBooking, setIsPublicBooking] = useState(false);
+  const [publicBookingStep, setPublicBookingStep] = useState<'lead' | 'choice' | 'form' | 'whatsapp'>('lead');
+  const [selectedWaBranch, setSelectedWaBranch] = useState('');
+  const [draftReferralId, setDraftReferralId] = useState<number | null>(null);
   const [referringStaff, setReferringStaff] = useState<Staff | null>(null);
   const [providedRefCode, setProvidedRefCode] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
@@ -2264,8 +2271,11 @@ export default function App() {
         payload.referral_code = referralCode;
       }
 
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals`, {
-        method: 'POST',
+      const url = draftReferralId ? `${apiBaseUrl}/api/referrals/${draftReferralId}` : `${apiBaseUrl}/api/referrals`;
+      const method = draftReferralId ? 'PATCH' : 'POST';
+
+      const { res, data } = await safeFetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
@@ -2285,6 +2295,8 @@ export default function App() {
         setSelectedService('');
         setWalkInPromoCode('');
         setWalkInStaff(null);
+        setDraftReferralId(null);
+        setPublicBookingStep('lead');
         if (isPublicBooking) {
           setBookingSuccess(true);
         } else {
@@ -2296,6 +2308,57 @@ export default function App() {
     } catch (error: any) {
       console.error(error);
       alert('Submission Failed: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleProceedLead = async () => {
+    if (!patientName || !patientPhone) return;
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        patient_name: patientName,
+        patient_phone: patientPhone,
+        status: 'warm_lead',
+        date: new Date().toISOString().split('T')[0],
+        staff_id: referringStaff?.id,
+        referral_code: providedRefCode
+      };
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        setDraftReferralId(data.id);
+        setPublicBookingStep('choice');
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleProceedWhatsApp = async () => {
+    if (!selectedWaBranch || !draftReferralId) return;
+    setIsSubmitting(true);
+    try {
+      const waNum = branches.find(b => b.name === selectedWaBranch)?.whatsapp_number || '60123456789';
+      const serviceName = services.find(s => String(s.id) === String(selectedService))?.name || 'perkhidmatan kami';
+      const url = `https://wa.me/${waNum}?text=Hi/Salam,%20Saya%20${encodeURIComponent(patientName)},%20saya%20berminat%20dengan%20${encodeURIComponent(serviceName)}`;
+      
+      await safeFetch(`${apiBaseUrl}/api/referrals/${draftReferralId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'whatsapp_redirected', branch: selectedWaBranch })
+      });
+      
+      window.open(url, '_blank');
+      setBookingSuccess(true);
+    } catch (e) {
+      console.error(e);
     } finally {
       setIsSubmitting(false);
     }
@@ -2824,210 +2887,294 @@ export default function App() {
   };
 
   if (isPublicBooking) {
-    return (
-      <div className="min-h-screen w-full overflow-x-hidden bg-zinc-50 flex items-center justify-center p-4 font-sans">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-white p-8 rounded-3xl shadow-sm max-w-md w-full border border-black/5"
-        >
-          {bookingSuccess ? (
-            <div className="text-center py-8">
-              <div className="bg-violet-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="text-zinc-900 w-8 h-8" />
-              </div>
-              <h2 className="text-2xl font-bold mb-2">Booking Confirmed!</h2>
-              <p className="text-zinc-500 mb-8">Thank you for your referral. We will contact you shortly to finalize your appointment.</p>
-              <button 
-                onClick={() => setBookingSuccess(false)}
-                className="w-full bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 py-3 rounded-xl font-medium shadow-lg shadow-violet-500"
-              >
-                Book Another
-              </button>
+    if (bookingSuccess) {
+      return (
+        <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-zinc-200/50 p-8 text-center"
+          >
+            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle size={40} className="text-emerald-600" />
             </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-3 mb-8">
-                <div className="bg-white p-1 rounded-xl border border-zinc-100 shadow-sm">
-                  <Logo className="w-8 h-8" logoUrl={clinicProfile.logoUrl} />
-                </div>
-                <h1 className="text-2xl font-semibold text-zinc-900 tracking-tight">Clinic Booking</h1>
+            <h2 className="text-2xl font-bold text-zinc-900 mb-2">Tempahan Berjaya!</h2>
+            <p className="text-zinc-500 mb-8">Terima kasih kerana memilih kami. Pihak kami akan menghubungi anda dalam masa terdekat untuk pengesahan.</p>
+            <button 
+              onClick={() => {
+                setBookingSuccess(false);
+                setPublicBookingStep('lead');
+                setDraftReferralId(null);
+                setPatientName('');
+                setPatientPhone('');
+              }}
+              className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200"
+            >
+              Buat Tempahan Baru
+            </button>
+          </motion.div>
+        </div>
+      );
+    }
+
+    if (!referringStaff && providedRefCode) {
+      return (
+        <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle size={40} className="text-red-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-zinc-900 mb-2">Kod Tidak Sah</h2>
+            <p className="text-zinc-500 mb-8">Maaf, kod rujukan ini tidak wujud atau telah tamat tempoh.</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-zinc-50 pb-12">
+        <div className="bg-white border-b border-zinc-100 sticky top-0 z-50">
+          <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
+            <Logo />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
+                <User size={16} className="text-violet-600" />
               </div>
-              
-              {referringStaff ? (
-                <div className="bg-emerald-500 p-4 rounded-2xl mb-6 border border-emerald-600">
-                  <p className="text-xs text-emerald-950 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <CheckCircle2 size={14} /> Referred By
-                  </p>
-                  <p className="font-semibold text-emerald-950">{referringStaff.name}</p>
-                </div>
-              ) : providedRefCode ? (
-                <div className="bg-rose-500 p-4 rounded-2xl mb-6 border border-brand-accent">
-                  <p className="text-xs text-zinc-900 font-bold uppercase tracking-wider mb-1">Notice</p>
-                  <p className="text-sm text-zinc-900">Referral code not found, but you can still book below.</p>
-                </div>
-              ) : null}
+              <div className="text-left">
+                <p className="text-[10px] font-bold text-zinc-400 uppercase leading-none">Rujukan Oleh</p>
+                <p className="text-xs font-bold text-zinc-900">{referringStaff?.name || 'Pusat Rawatan'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
-              <form onSubmit={handleSubmitReferral} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Your Full Name</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={patientName}
-                    onChange={(e) => setPatientName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
-                    placeholder="Enter your name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">WhatsApp Number</label>
-                  <input 
-                    type="tel" 
-                    required
-                    value={patientPhone}
-                    onChange={(e) => setPatientPhone(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
-                    placeholder="e.g. +60123456789"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Patient Type</label>
-                  <select 
-                    required
-                    value={patientType}
-                    onChange={(e) => setPatientType(e.target.value as 'new' | 'existing')}
-                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all appearance-none"
-                  >
-                    <option value="new">New Patient</option>
-                    <option value="existing">Existing Patient</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Service Required</label>
-                  <select 
-                    required
-                    value={selectedService}
-                    onChange={(e) => {
-                      setSelectedService(e.target.value);
-                      setSelectedBranch('');
-                      setAppointmentDate('');
-                      setBookingTime('');
-                    }}
-                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all appearance-none"
-                  >
-                    <option value="">Select a service</option>
-                    {services.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
+        <div className="max-w-md mx-auto px-4 py-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-zinc-900 mb-2">Tempahan Rawatan</h1>
+            <p className="text-zinc-500">Sila lengkapkan maklumat di bawah untuk temujanji anda.</p>
+          </div>
 
-                {selectedService && (
+          <motion.div 
+            key={publicBookingStep}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="bg-white rounded-3xl shadow-xl shadow-zinc-200/50 p-6 border border-zinc-100"
+          >
+            {publicBookingStep === 'lead' && (
+              <div className="space-y-6">
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Select Branch</label>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Nama Pesakit</label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-3.5 text-zinc-400" size={18} />
+                      <input 
+                        type="text" 
+                        value={patientName}
+                        onChange={(e) => setPatientName(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                        placeholder="Nama penuh anda"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Nombor Telefon</label>
+                    <div className="relative">
+                      <Phone className="absolute left-4 top-3.5 text-zinc-400" size={18} />
+                      <input 
+                        type="tel" 
+                        value={patientPhone}
+                        onChange={(e) => setPatientPhone(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                        placeholder="Contoh: 0123456789"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={handleProceedLead}
+                  disabled={isSubmitting || !patientName || !patientPhone}
+                  className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Memproses...' : 'Teruskan proses'}
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+            )}
+
+            {publicBookingStep === 'choice' && (
+              <div className="space-y-6">
+                <div className="text-center mb-6">
+                  <p className="text-zinc-600 font-medium">Terima kasih {patientName}! Bagaimana anda ingin meneruskan?</p>
+                </div>
+                
+                <div className="grid gap-4">
+                  <button 
+                    onClick={() => setPublicBookingStep('form')}
+                    className="p-6 rounded-2xl border-2 border-violet-100 hover:border-violet-500 hover:bg-violet-50 transition-all text-left group"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-all">
+                        <FileText size={24} />
+                      </div>
+                      <ChevronRight size={20} className="text-zinc-300 group-hover:text-violet-500" />
+                    </div>
+                    <h3 className="font-bold text-zinc-900">Isi Borang Temujanji</h3>
+                    <p className="text-xs text-zinc-500">Lengkapkan maklumat untuk pengesahan pantas.</p>
+                  </button>
+
+                  <button 
+                    onClick={() => setPublicBookingStep('whatsapp')}
+                    className="p-6 rounded-2xl border-2 border-emerald-100 hover:border-emerald-500 hover:bg-emerald-50 transition-all text-left group"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                        <MessageCircle size={24} />
+                      </div>
+                      <ChevronRight size={20} className="text-zinc-300 group-hover:text-emerald-500" />
+                    </div>
+                    <h3 className="font-bold text-zinc-900">Hubungi Melalui WhatsApp</h3>
+                    <p className="text-xs text-zinc-500">Berbual dengan pegawai kami secara terus.</p>
+                  </button>
+                </div>
+
+                <button 
+                  onClick={() => setPublicBookingStep('lead')}
+                  className="w-full py-3 text-zinc-400 text-sm font-bold hover:text-zinc-600"
+                >
+                  Kembali
+                </button>
+              </div>
+            )}
+
+            {publicBookingStep === 'form' && (
+              <form onSubmit={handleSubmitReferral} className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Perkhidmatan</label>
                     <select 
+                      value={selectedService}
+                      onChange={(e) => setSelectedService(e.target.value)}
+                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                       required
-                      value={selectedBranch}
-                      onChange={(e) => {
-                        setSelectedBranch(e.target.value);
-                        setAppointmentDate('');
-                        setBookingTime('');
-                      }}
-                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all appearance-none"
                     >
-                      <option value="">Select a branch</option>
-                      {(() => {
-                        const s = services.find(srv => srv.id === parseInt(selectedService));
-                        if (!s || !s.branches) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
-                        const activeBranches = Object.keys(s.branches).filter(bName => s.branches![bName].active);
-                        if (activeBranches.length === 0) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
-                        return activeBranches.map(bName => <option key={bName} value={bName}>{bName}</option>);
-                      })()}
+                      <option value="">Pilih satu...</option>
+                      {services.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
                     </select>
                   </div>
-                )}
 
-                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Booking Date</label>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Cawangan</label>
+                    <select 
+                      value={selectedBranch}
+                      onChange={(e) => setSelectedBranch(e.target.value)}
+                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                      required
+                    >
+                      <option value="">Pilih cawangan...</option>
+                      {branches.map(b => (
+                        <option key={b.id} value={b.name}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Tarikh Temujanji</label>
                     <input 
                       type="date" 
-                      required
-                      min={(() => {
-                        const s = services.find(srv => srv.id === parseInt(selectedService));
-                        const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
-                        const today = new Date().toISOString().split('T')[0];
-                        if (bSched?.startDate && bSched.startDate > today) return bSched.startDate;
-                        return today;
-                      })()}
-                      max={(() => {
-                        const s = services.find(srv => srv.id === parseInt(selectedService));
-                        const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
-                        return bSched?.endDate || undefined;
-                      })()}
                       value={appointmentDate}
-                      onChange={(e) => {
-                        const date = e.target.value;
-                        const s = services.find(srv => srv.id === parseInt(selectedService));
-                        const bSched = (s?.branches && selectedBranch) ? (s.branches as any)[selectedBranch] : null;
-                        
-                        if (bSched && bSched.days && bSched.days.length > 0 && date) {
-                          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                          const [y, m, d] = date.split('-').map(Number);
-                          const selectedDay = dayNames[new Date(y, m - 1, d).getDay()];
-                          if (!bSched.days.includes(selectedDay)) {
-                            alert(`This service is only available on: ${bSched.days.join(', ')}`);
-                            setAppointmentDate('');
-                            return;
-                          }
-                        }
-
-                        if (bSched && bSched.blockedDates && date) {
-                          const isBlocked = bSched.blockedDates.some((bd: any) => bd.date === date && bd.type === 'all-day');
-                          if (isBlocked) {
-                            alert('This date is fully booked or unavailable.');
-                            setAppointmentDate('');
-                            return;
-                          }
-                        }
-
-                        setAppointmentDate(date);
-                        setBookingTime('');
-                      }}
-                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
+                      onChange={(e) => setAppointmentDate(e.target.value)}
+                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                      required
                     />
                   </div>
+
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Booking Time</label>
-                    <select 
-                      required
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Waktu Temujanji</label>
+                    <input 
+                      type="time" 
                       value={bookingTime}
                       onChange={(e) => setBookingTime(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all appearance-none"
+                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button 
+                    type="button"
+                    onClick={() => setPublicBookingStep('choice')}
+                    className="flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
+                  >
+                    Kembali
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex-[2] py-4 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Menghantar...' : 'Hantar Tempahan'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {publicBookingStep === 'whatsapp' && (
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Cawangan Terdekat</label>
+                    <select 
+                      value={selectedWaBranch}
+                      onChange={(e) => setSelectedWaBranch(e.target.value)}
+                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                     >
-                      <option value="">Select time</option>
-                      {(() => {
-                        const slots = getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate);
-                        if (slots.length === 0) return <option disabled>No slots available</option>;
-                        return slots.map(time => (
-                          <option key={time} value={time}>{time}</option>
-                        ));
-                      })()}
+                      <option value="">Pilih cawangan...</option>
+                      {branches.map(b => (
+                        <option key={b.id} value={b.name}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Perkhidmatan (Opsional)</label>
+                    <select 
+                      value={selectedService}
+                      onChange={(e) => setSelectedService(e.target.value)}
+                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                    >
+                      <option value="">Pilih satu...</option>
+                      {services.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
-                <button 
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 py-4 rounded-xl font-bold hover:from-violet-500 hover:to-rose-500 transition-colors disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Processing...' : 'Confirm Appointment'}
-                </button>
-              </form>
-            </>
-          )}
-        </motion.div>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setPublicBookingStep('choice')}
+                    className="flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
+                  >
+                    Kembali
+                  </button>
+                  <button 
+                    onClick={handleProceedWhatsApp}
+                    disabled={isSubmitting || !selectedWaBranch}
+                    className="flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <MessageCircle size={20} />
+                    {isSubmitting ? 'Memproses...' : 'Buka WhatsApp'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </div>
       </div>
     );
   }
@@ -4245,6 +4392,74 @@ export default function App() {
                       </div>
                     </>
                   )}
+                </div>
+              )}
+
+              {/* Warm Leads Section for Admin/Manager */}
+              {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
+                <div className="bg-white rounded-[2.5rem] border border-black/5 shadow-sm overflow-hidden">
+                  <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-black text-zinc-900 tracking-tight">Warm Leads & Drop-offs</h3>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Potential patients who haven't completed booking</p>
+                    </div>
+                    <div className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                      {referrals.filter(r => r.status === 'warm_lead' || r.status === 'whatsapp_redirected').length} Leads
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="bg-zinc-50 border-b border-zinc-100">
+                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Date</th>
+                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Patient Name</th>
+                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Phone</th>
+                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Status</th>
+                          <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100">
+                        {referrals
+                          .filter(r => r.status === 'warm_lead' || r.status === 'whatsapp_redirected')
+                          .sort((a, b) => new Date(b.created_at || b.date).getTime() - new Date(a.created_at || a.date).getTime())
+                          .slice(0, 10)
+                          .map(lead => (
+                            <tr key={lead.id} className="hover:bg-zinc-50 transition-colors">
+                              <td className="p-4 text-xs text-zinc-500">{new Date(lead.created_at || lead.date).toLocaleDateString()}</td>
+                              <td className="p-4 text-sm font-bold text-zinc-900">{lead.patient_name}</td>
+                              <td className="p-4 text-sm text-zinc-500">{lead.patient_phone}</td>
+                              <td className="p-4">
+                                <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+                                  lead.status === 'warm_lead' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
+                                }`}>
+                                  {lead.status.replace('_', ' ')}
+                                </span>
+                              </td>
+                              <td className="p-4 text-right">
+                                <a 
+                                  href={`https://wa.me/${lead.patient_phone?.replace(/\D/g, '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-200"
+                                >
+                                  <MessageCircle size={16} />
+                                </a>
+                              </td>
+                            </tr>
+                          ))}
+                        {referrals.filter(r => r.status === 'warm_lead' || r.status === 'whatsapp_redirected').length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="p-12 text-center">
+                              <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                <Users className="text-zinc-300" size={24} />
+                              </div>
+                              <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest">No warm leads found</p>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
@@ -7824,6 +8039,16 @@ export default function App() {
                             placeholder="e.g. Selangor"
                           />
                         </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">WhatsApp Number</label>
+                          <input 
+                            type="tel" 
+                            value={editingBranch?.whatsapp_number || ''}
+                            onChange={(e) => setEditingBranch(prev => ({...(prev || {}), whatsapp_number: e.target.value}))}
+                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            placeholder="e.g. 60123456789"
+                          />
+                        </div>
                         <div className="flex gap-2 pt-2">
                           <button 
                             type="submit"
@@ -7854,6 +8079,7 @@ export default function App() {
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">No.</th>
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Branch Name</th>
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Location</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">WhatsApp</th>
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Members</th>
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-right">Actions</th>
                           </tr>
@@ -7876,6 +8102,7 @@ export default function App() {
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   location TEXT,
+  whatsapp_number TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -7906,6 +8133,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   location TEXT,
+  whatsapp_number TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -7950,6 +8178,19 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                                   <span className="font-bold text-zinc-900">{branch.name}</span>
                                 </td>
                                 <td className="p-4 text-sm text-zinc-500">{branch.location || 'N/A'}</td>
+                                <td className="p-4 text-sm text-zinc-500">
+                                  {branch.whatsapp_number ? (
+                                    <a 
+                                      href={`https://wa.me/${branch.whatsapp_number}`} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-emerald-600 hover:underline font-bold"
+                                    >
+                                      <MessageCircle size={14} />
+                                      {branch.whatsapp_number}
+                                    </a>
+                                  ) : 'N/A'}
+                                </td>
                                 <td className="p-4">
                                   <span className="px-2 py-1 bg-zinc-50 text-zinc-500 rounded-lg text-[10px] font-bold">
                                     {activeStaffList.filter(s => s.branch === branch.name).length} members

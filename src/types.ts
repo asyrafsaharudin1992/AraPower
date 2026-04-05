@@ -1,5 +1,5 @@
 export interface Service {
-  id: number;
+  id: string | number;
   name: string;
   base_price: number;
   commission_rate: number;

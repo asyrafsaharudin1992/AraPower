@@ -191,7 +191,7 @@ let serviceColumns: Set<string> = new Set([
 ]);
 let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'created_at']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
-let branchColumns: Set<string> = new Set(['id', 'name', 'location']);
+let branchColumns: Set<string> = new Set(['id', 'name', 'location', 'whatsapp_number']);
 let settingsColumns: Set<string> = new Set(['key', 'value']);
 let notificationColumns: Set<string> = new Set(['id', 'user_id', 'title', 'message', 'type', 'is_read', 'created_at']);
 let branchChangeRequestColumns: Set<string> = new Set(['id', 'staff_id', 'status']);
@@ -499,8 +499,8 @@ app.get("/api/branches", async (req, res) => {
 
 app.post("/api/branches", async (req, res) => {
   if (!checkSupabase(res)) return;
-  const { name, location } = req.body;
-  const { data, error } = await supabase.from('branches').insert({ name, location }).select().single();
+  const { name, location, whatsapp_number } = req.body;
+  const { data, error } = await supabase.from('branches').insert({ name, location, whatsapp_number }).select().single();
   if (error) {
     logError('POST /api/branches', error);
     return res.status(500).json({ error: error.message, details: error });
@@ -511,8 +511,8 @@ app.post("/api/branches", async (req, res) => {
 app.put("/api/branches/:id", async (req, res) => {
   if (!checkSupabase(res)) return;
   const { id } = req.params;
-  const { name, location } = req.body;
-  const { data, error } = await supabase.from('branches').update({ name, location }).eq('id', id).select().single();
+  const { name, location, whatsapp_number } = req.body;
+  const { data, error } = await supabase.from('branches').update({ name, location, whatsapp_number }).eq('id', id).select().single();
   if (error) {
     logError('PUT /api/branches', error);
     return res.status(500).json({ error: error.message, details: error });
@@ -2042,7 +2042,7 @@ app.get("/api/referrals", async (req, res) => {
 });
 
 app.post("/api/referrals", async (req, res) => {
-  const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch, referral_code } = req.body;
+  const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch, referral_code, status } = req.body;
   
   let staff = null;
   const fraudFlags = [];
@@ -2098,7 +2098,7 @@ app.post("/api/referrals", async (req, res) => {
   const insertData: any = {
     service_id,
     patient_name,
-    status: 'pending'
+    status: status || 'pending'
   };
 
   if (staff_id) {
@@ -2149,7 +2149,7 @@ app.post("/api/referrals", async (req, res) => {
 
 app.patch("/api/referrals/:id", async (req, res) => {
   const { id } = req.params;
-  const { status, payment_status, visit_date, verified_by, rejection_reason } = req.body;
+  const { status, payment_status, visit_date, verified_by, rejection_reason, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, branch, service_id } = req.body;
   
   const { data: referral, error: fetchError } = await supabase
     .from('referrals')
@@ -2190,6 +2190,42 @@ app.patch("/api/referrals/:id", async (req, res) => {
   if (rejection_reason) {
     if (referralColumns.has('rejection_reason')) updateData.rejection_reason = rejection_reason;
     else missingColumns.push('rejection_reason');
+  }
+  if (patient_name) {
+    if (referralColumns.has('patient_name')) updateData.patient_name = patient_name;
+    else missingColumns.push('patient_name');
+  }
+  if (patient_phone) {
+    if (referralColumns.has('patient_phone')) updateData.patient_phone = patient_phone;
+    else missingColumns.push('patient_phone');
+  }
+  if (patient_ic) {
+    if (referralColumns.has('patient_ic')) updateData.patient_ic = patient_ic;
+    else missingColumns.push('patient_ic');
+  }
+  if (patient_address) {
+    if (referralColumns.has('patient_address')) updateData.patient_address = patient_address;
+    else missingColumns.push('patient_address');
+  }
+  if (patient_type) {
+    if (referralColumns.has('patient_type')) updateData.patient_type = patient_type;
+    else missingColumns.push('patient_type');
+  }
+  if (appointment_date) {
+    if (referralColumns.has('appointment_date')) updateData.appointment_date = appointment_date;
+    else missingColumns.push('appointment_date');
+  }
+  if (booking_time) {
+    if (referralColumns.has('booking_time')) updateData.booking_time = booking_time;
+    else missingColumns.push('booking_time');
+  }
+  if (branch) {
+    if (referralColumns.has('branch')) updateData.branch = branch;
+    else missingColumns.push('branch');
+  }
+  if (service_id) {
+    if (referralColumns.has('service_id')) updateData.service_id = service_id;
+    else missingColumns.push('service_id');
   }
 
   if (missingColumns.length > 0) {
