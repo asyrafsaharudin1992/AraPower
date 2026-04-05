@@ -85,22 +85,38 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     setPublicBookingStep('choice');
     
     try {
-      // 1. Force lookup of the real name
-      const matchedService = services.find(s => String(s.id) === String(selectedService));
-      const finalName = matchedService?.name || urlServiceName || selectedService || 'Unknown Service';
-
-      // 2. Save the real name to the database instead of the ID
-      const payload = {
-        patient_name: patientName,
-        patient_phone: patientPhone,
-        service_id: finalName 
-      };
+      // 1. Grab the name DIRECTLY from the URL to avoid React state delays
+      const params = new URLSearchParams(window.location.search);
+      const rawName = params.get('sName') || params.get('serviceName');
       
-      safeFetch(`${apiBaseUrl}/api/warm-leads`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(err => console.error('Silent fail for warm lead:', err));
+      let finalName = selectedService || 'Unknown Service';
+      
+      if (rawName) {
+        // Safely turn "AraSihat+Plus" into "AraSihat Plus"
+        finalName = decodeURIComponent(rawName.replace(/\+/g, ' '));
+      } else {
+        // Final fallback to services array just in case
+        const matchedService = services.find(s => String(s.id) === String(selectedService));
+        if (matchedService) finalName = matchedService.name;
+      }
+
+      // 2. Insert directly into Supabase (Bypassing the 404 API error)
+      const { data, error } = await supabase
+        .from('warm_leads')
+        .insert([{
+          patient_name: patientName,
+          patient_phone: patientPhone,
+          service_id: finalName,
+          status: 'new'
+        }])
+        .select();
+
+      if (error) {
+        console.error('Supabase Insert Error:', error);
+      } else if (data && data[0]) {
+        // Save the ID so the WhatsApp button can update this exact record later
+        setDraftReferralId(data[0].id);
+      }
       
     } catch (err) {
       console.error('Failed to initiate warm lead process:', err);
