@@ -56,8 +56,8 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
-    const serviceId = params.get('service');
-    const sName = params.get('sName');
+    const serviceId = params.get('service') || params.get('serviceId');
+    const sName = params.get('sName') || params.get('serviceName');
 
     if (ref) {
       setProvidedRefCode(ref);
@@ -74,7 +74,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
       setSelectedService(serviceId);
     }
     if (sName) {
-      setUrlServiceName(sName);
+      setUrlServiceName(decodeURIComponent(sName));
     }
   }, [apiBaseUrl, safeFetch]);
 
