@@ -278,14 +278,7 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
     }
   };
 
-  const handleWhatsAppShare = () => {
-    if (!shareLink) {
-      alert('Code not generated yet');
-      return;
-    }
-    const message = `Check out this promotion at our clinic: ${shareLink}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-  };
+
 
   const handleDownloadPoster = async (url: string, fileName: string) => {
     try {
@@ -428,13 +421,15 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
                     <Copy size={16} />
                     Copy Link
                   </button>
-                  <button
-                    onClick={handleWhatsAppShare}
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`Check out this promotion at our clinic: ${shareLink}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="py-4 bg-emerald-500 text-white rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
                   >
                     <MessageCircle size={16} />
                     WhatsApp
-                  </button>
+                  </a>
                 </div>
 
                 <div className="pt-4">
@@ -2376,28 +2371,7 @@ export default function App() {
     }
   };
 
-  const handleProceedWhatsApp = async () => {
-    if (!selectedWaBranch || !draftReferralId) return;
-    setIsSubmitting(true);
-    try {
-      const waNum = branches.find(b => b.name === selectedWaBranch)?.whatsapp_number || '60123456789';
-      const serviceName = services.find(s => String(s.id) === String(selectedService))?.name || 'perkhidmatan kami';
-      const url = `https://wa.me/${waNum}?text=Hi/Salam,%20Saya%20${encodeURIComponent(patientName)},%20saya%20berminat%20dengan%20${encodeURIComponent(serviceName)}`;
-      
-      await safeFetch(`${apiBaseUrl}/api/referrals/${draftReferralId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'whatsapp_redirected', branch: selectedWaBranch })
-      });
-      
-      window.open(url, '_blank');
-      setBookingSuccess(true);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+
 
   const handleUpdateStatus = async (id: number, status: string, additionalData: any = {}) => {
     try {
@@ -3163,59 +3137,78 @@ export default function App() {
               </form>
             )}
 
-            {publicBookingStep === 'whatsapp' && (
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Cawangan Terdekat</label>
-                    <select 
-                      value={selectedWaBranch}
-                      onChange={(e) => setSelectedWaBranch(e.target.value)}
-                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                    >
-                      <option value="">Pilih cawangan...</option>
-                      {branches.map(b => (
-                        <option key={b.id} value={b.name}>{b.name}</option>
-                      ))}
-                    </select>
+            {publicBookingStep === 'whatsapp' && (() => {
+              const waNum = branches.find(b => b.name === selectedWaBranch)?.whatsapp_number || '60123456789';
+              const srv = services.find(s => String(s.id) === String(selectedService));
+              const serviceName = srv?.name || urlServiceName || 'perkhidmatan kami';
+              const waUrl = `https://wa.me/${waNum}?text=Hi/Salam,%20Saya%20${encodeURIComponent(patientName)},%20saya%20berminat%20dengan%20${encodeURIComponent(serviceName)}`;
+              
+              return (
+                <div className="space-y-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Cawangan Terdekat</label>
+                      <select 
+                        value={selectedWaBranch}
+                        onChange={(e) => setSelectedWaBranch(e.target.value)}
+                        className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                      >
+                        <option value="">Pilih cawangan...</option>
+                        {branches.map(b => (
+                          <option key={b.id} value={b.name}>{b.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Perkhidmatan (Opsional)</label>
+                      <select 
+                        value={selectedService}
+                        onChange={(e) => setSelectedService(e.target.value)}
+                        className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                      >
+                        <option value="">Pilih satu...</option>
+                        {services.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                        {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
+                          <option value={selectedService}>{urlServiceName}</option>
+                        )}
+                      </select>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Perkhidmatan (Opsional)</label>
-                    <select 
-                      value={selectedService}
-                      onChange={(e) => setSelectedService(e.target.value)}
-                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  <div className="flex gap-3">
+                    <button 
+                      type="button"
+                      onClick={() => setPublicBookingStep('choice')}
+                      className="flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
                     >
-                      <option value="">Pilih satu...</option>
-                      {services.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                      {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
-                        <option value={selectedService}>{urlServiceName}</option>
-                      )}
-                    </select>
+                      Kembali
+                    </button>
+                    <a 
+                      href={waUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
+                        if (draftReferralId) {
+                          safeFetch(`${apiBaseUrl}/api/referrals/${draftReferralId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: 'whatsapp_redirected', branch: selectedWaBranch })
+                          }).catch(console.error);
+                        }
+                        setBookingSuccess(true);
+                      }}
+                      className={`flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 ${!selectedWaBranch ? 'opacity-50 pointer-events-none' : ''}`}
+                    >
+                      <MessageCircle size={20} />
+                      Buka WhatsApp
+                    </a>
                   </div>
                 </div>
-
-                <div className="flex gap-3">
-                  <button 
-                    onClick={() => setPublicBookingStep('choice')}
-                    className="flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
-                  >
-                    Kembali
-                  </button>
-                  <button 
-                    onClick={handleProceedWhatsApp}
-                    disabled={isSubmitting || !selectedWaBranch}
-                    className="flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    <MessageCircle size={20} />
-                    {isSubmitting ? 'Memproses...' : 'Buka WhatsApp'}
-                  </button>
-                </div>
-              </div>
-            )}
+              );
+            })()}
           </motion.div>
         </div>
       </div>
@@ -5066,17 +5059,16 @@ export default function App() {
                                   <p className="text-[10px] font-medium text-zinc-500">Referred by {ref.staff_name}</p>
                                 </div>
                                 {ref.patient_phone && (
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const text = `Hi ${ref.patient_name}! This is ${ref.staff_name} from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`;
-                                      window.open(`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
-                                    }}
+                                  <a 
+                                    href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${ref.patient_name}! This is ${ref.staff_name} from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-transform"
                                   >
                                     <MessageCircle size={12} />
                                     WhatsApp
-                                  </button>
+                                  </a>
                                 )}
                               </div>
                             </div>
@@ -5365,13 +5357,15 @@ export default function App() {
                             <td className="p-4">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium text-zinc-600">{lead.patient_phone}</span>
-                                <button 
-                                  onClick={() => window.open(`https://wa.me/${lead.patient_phone.replace(/\D/g, '')}`, '_blank')}
+                                <a 
+                                  href={`https://wa.me/${lead.patient_phone.replace(/\D/g, '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                   className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors"
                                   title="Chat on WhatsApp"
                                 >
                                   <MessageCircle size={14} />
-                                </button>
+                                </a>
                               </div>
                             </td>
                             <td className="p-4">
@@ -6302,17 +6296,15 @@ export default function App() {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <button 
-                            onClick={() => {
-                              const url = `${getShareUrl(clinicProfile.customDomain)}?ref=${(currentUser.referral_code || currentUser.promo_code)}`;
-                              const text = `Hi! Book your appointment at our clinic using my referral link: ${url}`;
-                              window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                            }}
+                          <a 
+                            href={`https://wa.me/?text=${encodeURIComponent(`Hi! Book your appointment at our clinic using my referral link: ${getShareUrl(clinicProfile.customDomain)}?ref=${(currentUser.referral_code || currentUser.promo_code)}`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className={`flex items-center justify-center gap-3 p-5 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg ${darkMode ? 'bg-brand-accent text-brand-primary shadow-brand-accent/10 hover:bg-brand-accent/90' : 'bg-gradient-to-r from-brand-accent to-rose-500 text-zinc-900 shadow-brand-accent hover:from-brand-accent hover:to-rose-500'}`}
                           >
                             <MessageCircle size={18} />
                             Share on WhatsApp
-                          </button>
+                          </a>
                           <button 
                             onClick={() => {
                               const url = `${getShareUrl(clinicProfile.customDomain)}?ref=${(currentUser.referral_code || currentUser.promo_code)}`;
