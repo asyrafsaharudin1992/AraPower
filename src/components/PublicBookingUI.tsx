@@ -85,19 +85,23 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     setPublicBookingStep('choice');
     
     try {
-      const { data } = await supabase
-        .from('warm_leads')
-        .insert([{ 
-          patient_name: patientName, 
-          patient_phone: patientPhone, 
-          service_id: selectedService || null, 
-          status: 'new' 
-        }])
-        .select();
-        
-      if (data && data[0]) {
-        setDraftReferralId(data[0].id);
-      }
+      // 1. Force lookup of the real name
+      const matchedService = services.find(s => String(s.id) === String(selectedService));
+      const finalName = matchedService?.name || urlServiceName || selectedService || 'Unknown Service';
+
+      // 2. Save the real name to the database instead of the ID
+      const payload = {
+        patient_name: patientName,
+        patient_phone: patientPhone,
+        service_id: finalName 
+      };
+      
+      safeFetch(`${apiBaseUrl}/api/warm-leads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(err => console.error('Silent fail for warm lead:', err));
+      
     } catch (err) {
       console.error('Failed to initiate warm lead process:', err);
     }
