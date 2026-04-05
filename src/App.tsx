@@ -1665,25 +1665,17 @@ export default function App() {
   const fetchWarmLeads = async () => {
     if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'manager')) return;
     try {
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/warm-leads`);
-      if (res.ok && Array.isArray(data)) {
-        setWarmLeads(data);
-      }
+      const { data } = await supabase.from('warm_leads').select('*').order('created_at', { ascending: false });
+      if (data) setWarmLeads(data);
     } catch (error) {
       console.error('Error fetching warm leads:', error);
     }
   };
 
-  const handleUpdateWarmLeadStatus = async (id: number, status: string) => {
+  const handleUpdateWarmLeadStatus = async (id: any, status: string) => {
     try {
-      const { res } = await safeFetch(`${apiBaseUrl}/api/warm-leads/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-      if (res.ok) {
-        fetchWarmLeads();
-      }
+      await supabase.from('warm_leads').update({ status }).eq('id', id);
+      fetchWarmLeads();
     } catch (error) {
       console.error('Error updating warm lead status:', error);
     }

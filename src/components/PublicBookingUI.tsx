@@ -10,6 +10,7 @@ import {
   AlertCircle 
 } from 'lucide-react';
 import { Service, Staff, ClinicProfile } from '../types';
+import { supabase } from '../supabase';
 
 interface PublicBookingUIProps {
   services: Service[];
@@ -36,7 +37,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 }) => {
   const [publicBookingStep, setPublicBookingStep] = useState<'lead' | 'choice' | 'form' | 'whatsapp'>('lead');
   const [selectedWaBranch, setSelectedWaBranch] = useState('');
-  const [draftReferralId, setDraftReferralId] = useState<number | null>(null);
+  const [draftReferralId, setDraftReferralId] = useState<string | null>(null);
   const [referringStaff, setReferringStaff] = useState<Staff | null>(null);
   const [providedRefCode, setProvidedRefCode] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
@@ -84,18 +85,19 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     setPublicBookingStep('choice');
     
     try {
-      const payload = {
-        patient_name: patientName,
-        patient_phone: patientPhone,
-        service_id: selectedService || null
-      };
-      
-      safeFetch(`${apiBaseUrl}/api/warm-leads`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(err => console.error('Silent fail for warm lead:', err));
-      
+      const { data } = await supabase
+        .from('warm_leads')
+        .insert([{ 
+          patient_name: patientName, 
+          patient_phone: patientPhone, 
+          service_id: selectedService || null, 
+          status: 'new' 
+        }])
+        .select();
+        
+      if (data && data[0]) {
+        setDraftReferralId(data[0].id);
+      }
     } catch (err) {
       console.error('Failed to initiate warm lead process:', err);
     }
@@ -437,11 +439,15 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                       e.preventDefault();
                       window.open(waUrl, '_blank', 'noopener,noreferrer');
                       if (draftReferralId) {
-                        safeFetch(`${apiBaseUrl}/api/referrals/${draftReferralId}`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ status: 'whatsapp_redirected', branch: selectedWaBranch })
-                        }).catch(console.error);
+                        supabase
+                          .from('warm_leads')
+                          .update({ 
+                            status: 'whatsapp_redirected', 
+                            branch_preference: selectedWaBranch 
+                          })
+                          .eq('id', draftReferralId)
+                          .then(() => {})
+                          .catch(console.error);
                       }
                       setBookingSuccess(true);
                     }}
