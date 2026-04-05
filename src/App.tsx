@@ -1320,6 +1320,11 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const handlePublicBooking = async (code: string | null, serviceId: string | null, serviceName: string | null = null) => {
+    setIsPublicBooking(true);
+    // Any additional logic for public booking initialization can go here
+  };
+
   useEffect(() => {
     console.log('App mounted', {
       apiBaseUrl,
@@ -1332,13 +1337,12 @@ export default function App() {
     // Check for public booking link
     const params = new URLSearchParams(window.location.search);
     const refCode = params.get('ref');
-    const serviceId = params.get('serviceId');
-    const serviceName = params.get('serviceName');
+    const serviceId = params.get('service') || params.get('serviceId');
+    const serviceName = params.get('sName') || params.get('serviceName');
     
     if (refCode || serviceId) {
-      if (refCode || serviceId) {
-      setIsPublicBooking(true);
-    }
+      const decodedServiceName = serviceName ? decodeURIComponent(serviceName) : null;
+      handlePublicBooking(refCode, serviceId, decodedServiceName);
     }
 
     fetchPromotions();
