@@ -1081,6 +1081,7 @@ export default function App() {
   const [bookingTime, setBookingTime] = useState('');
   const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [selectedService, setSelectedService] = useState<string>('');
+  const [urlServiceName, setUrlServiceName] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [serviceSlideshowIndex, setServiceSlideshowIndex] = useState(0);
@@ -1427,9 +1428,10 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const refCode = params.get('ref');
     const serviceId = params.get('serviceId');
+    const serviceName = params.get('serviceName');
     
     if (refCode || serviceId) {
-      handlePublicBooking(refCode, serviceId);
+      handlePublicBooking(refCode, serviceId, serviceName);
     }
 
     fetchPromotions();
@@ -1485,7 +1487,7 @@ export default function App() {
   };
 
   const getAvailableTimeSlots = (serviceId: string, branchName: string, date: string) => {
-    const s = services.find(srv => srv.id === parseInt(serviceId));
+    const s = services.find(srv => String(srv.id) === String(serviceId));
     if (!s) return [];
     
     const bSched = (s.branches && branchName) ? (s.branches as any)[branchName] : null;
@@ -1559,7 +1561,7 @@ export default function App() {
     return slots;
   };
 
-  const handlePublicBooking = async (code: string | null, serviceId: string | null) => {
+  const handlePublicBooking = async (code: string | null, serviceId: string | null, serviceName: string | null = null) => {
     setIsPublicBooking(true);
     if (code) {
       setProvidedRefCode(code);
@@ -1570,6 +1572,9 @@ export default function App() {
     }
     if (serviceId) {
       setSelectedService(serviceId);
+    }
+    if (serviceName) {
+      setUrlServiceName(serviceName);
     }
   };
 
@@ -2240,7 +2245,7 @@ export default function App() {
     if ((!isPublicBooking && !staffId) || !selectedService || !patientName) return;
 
     // Check overall limit
-    const s = services.find(srv => srv.id === parseInt(selectedService));
+    const s = services.find(srv => String(srv.id) === String(selectedService));
     if (s?.overall_limit_enabled && s.overall_limit !== null) {
       const totalBookings = referrals.filter(r => r.service_id === s.id && r.status !== 'cancelled').length;
       if (totalBookings >= s.overall_limit) {
@@ -2253,7 +2258,7 @@ export default function App() {
     try {
       const payload: any = {
         staff_id: staffId,
-        service_id: parseInt(selectedService),
+        service_id: selectedService,
         patient_name: patientName,
         patient_phone: patientPhone,
         patient_ic: patientIC,
@@ -3063,6 +3068,9 @@ export default function App() {
                       {services.map(s => (
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
+                      {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
+                        <option value={selectedService}>{urlServiceName}</option>
+                      )}
                     </select>
                   </div>
 
@@ -3151,6 +3159,9 @@ export default function App() {
                       {services.map(s => (
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
+                      {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
+                        <option value={selectedService}>{urlServiceName}</option>
+                      )}
                     </select>
                   </div>
                 </div>
@@ -5931,6 +5942,9 @@ export default function App() {
                             {services.map(s => (
                               <option key={s.id} value={s.id}>{s.name}</option>
                             ))}
+                            {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
+                              <option value={selectedService}>{urlServiceName}</option>
+                            )}
                           </select>
                         </div>
                         <button 
@@ -6280,6 +6294,9 @@ export default function App() {
                           {services.map(s => (
                             <option key={s.id} value={s.id}>{s.name} ({clinicProfile.currency}{s.commission_rate} incentive {(s.aracoins_perk || 0) > 0 ? `+ ${s.aracoins_perk} Coins` : ''})</option>
                           ))}
+                          {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
+                            <option value={selectedService}>{urlServiceName}</option>
+                          )}
                         </select>
                         <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
                           <ChevronRight size={16} className="rotate-90" />
@@ -6300,7 +6317,7 @@ export default function App() {
                       >
                         <option value="">Select Branch</option>
                         {(() => {
-                          const s = services.find(srv => srv.id === parseInt(selectedService));
+                          const s = services.find(srv => String(srv.id) === String(selectedService));
                           if (!s || !s.branches) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
                           const activeBranches = Object.keys(s.branches).filter(bName => s.branches![bName].active);
                           if (activeBranches.length === 0) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
@@ -6315,21 +6332,21 @@ export default function App() {
                           type="date" 
                           required
                           min={(() => {
-                            const s = services.find(srv => srv.id === parseInt(selectedService));
+                            const s = services.find(srv => String(srv.id) === String(selectedService));
                             const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
                             const today = new Date().toISOString().split('T')[0];
                             if (bSched?.startDate && bSched.startDate > today) return bSched.startDate;
                             return today;
                           })()}
                           max={(() => {
-                            const s = services.find(srv => srv.id === parseInt(selectedService));
+                            const s = services.find(srv => String(srv.id) === String(selectedService));
                             const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
                             return bSched?.endDate || undefined;
                           })()}
                           value={appointmentDate}
                           onChange={(e) => {
                             const date = e.target.value;
-                            const s = services.find(srv => srv.id === parseInt(selectedService));
+                            const s = services.find(srv => String(srv.id) === String(selectedService));
                             const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
                             
                             if (bSched && bSched.days && bSched.days.length > 0) {
@@ -9194,6 +9211,9 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                         {services.map(s => (
                           <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
+                        {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
+                          <option value={selectedService}>{urlServiceName}</option>
+                        )}
                       </select>
                     </div>
                     <div>
@@ -9210,7 +9230,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                       >
                         <option value="">Select Branch</option>
                         {(() => {
-                          const s = services.find(srv => srv.id === parseInt(selectedService));
+                          const s = services.find(srv => String(srv.id) === String(selectedService));
                           if (!s || !s.branches) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
                           const activeBranches = Object.keys(s.branches).filter(bName => s.branches![bName].active);
                           if (activeBranches.length === 0) return branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>);
@@ -9225,21 +9245,21 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                           type="date" 
                           required
                           min={(() => {
-                            const s = services.find(srv => srv.id === parseInt(selectedService));
+                            const s = services.find(srv => String(srv.id) === String(selectedService));
                             const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
                             const today = new Date().toISOString().split('T')[0];
                             if (bSched?.startDate && bSched.startDate > today) return bSched.startDate;
                             return today;
                           })()}
                           max={(() => {
-                            const s = services.find(srv => srv.id === parseInt(selectedService));
+                            const s = services.find(srv => String(srv.id) === String(selectedService));
                             const bSched = (s?.branches && selectedBranch) ? s.branches[selectedBranch] : null;
                             return bSched?.endDate || undefined;
                           })()}
                           value={appointmentDate}
                           onChange={(e) => {
                             const date = e.target.value;
-                            const s = services.find(srv => srv.id === parseInt(selectedService));
+                            const s = services.find(srv => String(srv.id) === String(selectedService));
                             const bSched = (s?.branches && selectedBranch) ? (s.branches as any)[selectedBranch] : null;
                             
                             if (bSched && bSched.days && bSched.days.length > 0 && date) {
