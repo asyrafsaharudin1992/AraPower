@@ -39,6 +39,7 @@ class MockSupabase {
       { key: 'auth', value: JSON.stringify({ allowRegistration: true }) }
     ],
     referrals: [],
+    warm_leads: [],
     tasks: [],
     notifications: [],
     branch_change_requests: [],
@@ -1298,6 +1299,67 @@ app.get("/api/check-env", (req, res) => {
     NODE_ENV: process.env.NODE_ENV,
     npm_lifecycle_event: process.env.npm_lifecycle_event
   });
+});
+
+// Warm Leads API
+app.get("/api/warm-leads", async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not initialized' });
+    const { data, error } = await supabase
+      .from('warm_leads')
+      .select('*')
+      .neq('status', 'archived')
+      .order('created_at', { ascending: false });
+    
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/warm-leads", async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not initialized' });
+    const { patient_name, patient_phone, service_id } = req.body;
+    
+    const { data, error } = await supabase
+      .from('warm_leads')
+      .insert([{
+        patient_name,
+        patient_phone,
+        service_id,
+        status: 'new',
+        created_at: new Date().toISOString()
+      }])
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/api/warm-leads/:id", async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not initialized' });
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    const { data, error } = await supabase
+      .from('warm_leads')
+      .update({ status })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get("/api/check-tables", async (req, res) => {

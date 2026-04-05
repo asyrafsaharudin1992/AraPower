@@ -806,6 +806,7 @@ export default function App() {
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [warmLeads, setWarmLeads] = useState<any[]>([]);
   const [promoServices, setPromoServices] = useState<PromoService[]>([]);
 
   const [branches, setBranches] = useState<any[]>([]);
@@ -1608,6 +1609,9 @@ export default function App() {
     if (currentUser) {
       console.log('Current user detected:', currentUser.email, currentUser.role, currentUser.branch);
       fetchReferrals();
+      if (currentUser.role === 'admin' || currentUser.role === 'manager') {
+        fetchWarmLeads();
+      }
     }
   }, [currentUser?.id, currentUser?.role, currentUser?.branch, branchFilter]);
 
@@ -1769,6 +1773,33 @@ export default function App() {
     if (res.ok && Array.isArray(data)) setReferrals(data);
   };
 
+  const fetchWarmLeads = async () => {
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'manager')) return;
+    try {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/warm-leads`);
+      if (res.ok && Array.isArray(data)) {
+        setWarmLeads(data);
+      }
+    } catch (error) {
+      console.error('Error fetching warm leads:', error);
+    }
+  };
+
+  const handleUpdateWarmLeadStatus = async (id: number, status: string) => {
+    try {
+      const { res } = await safeFetch(`${apiBaseUrl}/api/warm-leads/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        fetchWarmLeads();
+      }
+    } catch (error) {
+      console.error('Error updating warm lead status:', error);
+    }
+  };
+
   const handleRefresh = async () => {
     if (!currentUser) return;
     const promises = [
@@ -1777,7 +1808,8 @@ export default function App() {
       fetchServices(),
       fetchTasks(),
       fetchNotifications(),
-      fetchStaff()
+      fetchStaff(),
+      fetchWarmLeads()
     ];
     if (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') {
       promises.push(fetchBranches());
@@ -2329,26 +2361,18 @@ export default function App() {
       const payload = {
         patient_name: patientName,
         patient_phone: patientPhone,
-        service_id: selectedService || null,
-        status: 'warm_lead',
-        date: new Date().toISOString().split('T')[0],
-        staff_id: referringStaff?.id,
-        referral_code: providedRefCode,
-        branch: null
+        service_id: selectedService || null
       };
       
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals`, {
+      // Fire and forget to the new warm-leads endpoint
+      safeFetch(`${apiBaseUrl}/api/warm-leads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-      });
+      }).catch(err => console.error('Silent fail for warm lead:', err));
       
-      if (res.ok && data?.id) {
-        setDraftReferralId(data.id);
-      }
     } catch (err) {
-      console.error('Failed to save warm lead:', err);
-      // Graceful catch: do not revert step
+      console.error('Failed to initiate warm lead process:', err);
     }
   };
 
@@ -5300,6 +5324,94 @@ export default function App() {
                   </div>
                 </div>
               )}
+
+              {/* Warm Leads Engine */}
+              <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-zinc-900">Warm Leads Engine</h3>
+                    <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Early drop-offs from booking form</p>
+                  </div>
+                  <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                    <Zap size={20} />
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-zinc-50 border-b border-zinc-100">
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Date</th>
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Patient</th>
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Phone</th>
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Service</th>
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Status</th>
+                        <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-50">
+                      {warmLeads.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-zinc-500 text-sm italic">No active warm leads found.</td>
+                        </tr>
+                      ) : (
+                        warmLeads.map((lead) => (
+                          <tr key={lead.id} className="hover:bg-zinc-50/50 transition-colors">
+                            <td className="p-4 text-xs text-zinc-600">
+                              {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : 'N/A'}
+                            </td>
+                            <td className="p-4">
+                              <span className="text-sm font-bold text-zinc-900">{lead.patient_name}</span>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-zinc-600">{lead.patient_phone}</span>
+                                <button 
+                                  onClick={() => window.open(`https://wa.me/${lead.patient_phone.replace(/\D/g, '')}`, '_blank')}
+                                  className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors"
+                                  title="Chat on WhatsApp"
+                                >
+                                  <MessageCircle size={14} />
+                                </button>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <span className="text-xs font-medium text-zinc-500">
+                                {services.find(s => String(s.id) === String(lead.service_id))?.name || lead.service_id || 'N/A'}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                lead.status === 'new' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {lead.status}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {lead.status === 'new' && (
+                                  <button 
+                                    onClick={() => handleUpdateWarmLeadStatus(lead.id, 'contacted')}
+                                    className="px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all"
+                                  >
+                                    Mark Contacted
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={() => handleUpdateWarmLeadStatus(lead.id, 'archived')}
+                                  className="p-1.5 text-zinc-400 hover:text-rose-500 transition-colors"
+                                  title="Archive Lead"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
               {/* Staff Performance Analytics */}
               <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
