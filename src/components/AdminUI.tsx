@@ -2,38 +2,44 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { ShieldCheck, Search, Trash2, Users, DollarSign, Zap, MessageCircle } from 'lucide-react';
 
-export interface AdminDashboardUIProps {
+export interface AdminUIProps {
+  currentUser: any;
   referrals: any[];
+  clinicProfile: any;
   staffPerformance: any[];
   activeStaffList: any[];
-  clinicProfile: any;
+  staffList: any[];
   warmLeads: any[];
   services: any[];
   adminSearch: string;
   setAdminSearch: (search: string) => void;
-  setSelectedStaffDetail: (staff: any) => void;
-  setShowStaffModal: (show: boolean) => void;
   handleApproveStaff: (staffId: number, isApproved: boolean) => void;
   handleRejectStaff: (staffId: number) => void;
   handleDeleteStaff: (staffId: number) => void;
+  setSelectedStaffDetail: (staff: any) => void;
+  setShowStaffModal: (show: boolean) => void;
   handleUpdateWarmLeadStatus: (leadId: number, status: string) => void;
+  handleAdminResetPassword: (staffId: number, email: string) => void;
 }
 
-export const AdminDashboardUI: React.FC<AdminDashboardUIProps> = ({
+export const AdminUI: React.FC<AdminUIProps> = ({
+  currentUser,
   referrals,
+  clinicProfile,
   staffPerformance,
   activeStaffList,
-  clinicProfile,
+  staffList,
   warmLeads,
   services,
   adminSearch,
   setAdminSearch,
-  setSelectedStaffDetail,
-  setShowStaffModal,
   handleApproveStaff,
   handleRejectStaff,
   handleDeleteStaff,
-  handleUpdateWarmLeadStatus
+  setSelectedStaffDetail,
+  setShowStaffModal,
+  handleUpdateWarmLeadStatus,
+  handleAdminResetPassword
 }) => {
   return (
     <motion.div 

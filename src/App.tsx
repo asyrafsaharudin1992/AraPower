@@ -4,7 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 import React, { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import { PromotionsCarousel } from './components/PromotionsCarousel';
-import { AdminDashboardUI } from './components/AdminDashboardUI';
+import { AdminUI } from './components/AdminUI';
 import AddServiceForm from './components/AddServiceForm';
 import { Service, Promotion, Staff, Referral, AppSettings, ClinicProfile } from './types';
 import { 
@@ -4907,21 +4907,24 @@ export default function App() {
           )}
 
           {activeTab === 'admin' && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
-            <AdminDashboardUI 
+            <AdminUI 
+              currentUser={currentUser}
               referrals={referrals}
+              clinicProfile={clinicProfile}
               staffPerformance={staffPerformance}
               activeStaffList={activeStaffList}
-              clinicProfile={clinicProfile}
+              staffList={staffList}
               warmLeads={warmLeads}
               services={services}
               adminSearch={adminSearch}
               setAdminSearch={setAdminSearch}
-              setSelectedStaffDetail={setSelectedStaffDetail}
-              setShowStaffModal={setShowStaffModal}
               handleApproveStaff={handleApproveStaff}
               handleRejectStaff={handleRejectStaff}
               handleDeleteStaff={handleDeleteStaff}
+              setSelectedStaffDetail={setSelectedStaffDetail}
+              setShowStaffModal={setShowStaffModal}
               handleUpdateWarmLeadStatus={handleUpdateWarmLeadStatus}
+              handleAdminResetPassword={handleAdminResetPassword}
             />
           )}
 
