@@ -254,7 +254,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 
               {/* Add this disclaimer right here! */}
               <p className="text-[10px] text-zinc-500 text-center mt-3 px-4 leading-relaxed">
-                By pressing proceed, you agree to share your contact information with our clinic for booking purposes.
+                Dengan menekan 'Teruskan proses', anda bersetuju untuk berkongsi butiran perhubungan anda dengan klinik kami bagi tujuan tempahan.
               </p>
             </form>
           )}
