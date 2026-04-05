@@ -718,7 +718,19 @@ export default function App() {
       created_at: new Date().toISOString()
     }
   ]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'kit' | 'promotions' | 'payouts' | 'inbox' | 'communication' | 'warm-leads'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'kit' | 'promotions' | 'payouts' | 'inbox' | 'communication' | 'warm-leads'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('lastActiveTab');
+      if (saved) return saved as any;
+    }
+    return 'dashboard';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lastActiveTab', activeTab);
+    }
+  }, [activeTab]);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const isMobile = windowWidth < 1024;
   const [darkMode, setDarkMode] = useState(() => {
@@ -1171,17 +1183,7 @@ export default function App() {
       }
       
       if (session?.user?.email) {
-        fetchStaffByEmail(session.user.email, session.user).then((userProfile) => {
-          if (userProfile) {
-            if (userProfile.role === 'admin' || userProfile.role === 'manager') {
-              setActiveTab('admin');
-            } else if (userProfile.role === 'receptionist') {
-              setActiveTab('receptionist');
-            } else {
-              setActiveTab('dashboard');
-            }
-          }
-        }).catch(e => console.error('Error fetching staff on session check:', e));
+        fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on session check:', e));
       } else {
         setIsAuthChecking(false);
       }
@@ -1213,17 +1215,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state change:', event, session?.user?.email);
       if (session?.user?.email) {
-        fetchStaffByEmail(session.user.email, session.user).then((userProfile) => {
-          if (userProfile && event === 'SIGNED_IN') {
-            if (userProfile.role === 'admin' || userProfile.role === 'manager') {
-              setActiveTab('admin');
-            } else if (userProfile.role === 'receptionist') {
-              setActiveTab('receptionist');
-            } else {
-              setActiveTab('dashboard');
-            }
-          }
-        }).catch(e => console.error('Error fetching staff on auth change:', e));
+        fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on auth change:', e));
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         
