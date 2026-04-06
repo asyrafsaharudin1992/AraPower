@@ -694,6 +694,7 @@ export default function App() {
   const [services, setServices] = useState<Service[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [warmLeads, setWarmLeads] = useState<any[]>([]);
+  const [showArchivedLeads, setShowArchivedLeads] = useState(false);
   const [promoServices, setPromoServices] = useState<PromoService[]>([]);
 
   const [branches, setBranches] = useState<any[]>([]);
@@ -1653,7 +1654,10 @@ export default function App() {
   const fetchWarmLeads = async () => {
     if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'manager')) return;
     try {
-      const { data } = await supabase.from('warm_leads').select('*').order('created_at', { ascending: false });
+      const { data } = await supabase
+        .from('warm_leads')
+        .select('*')
+        .order('created_at', { ascending: false });
       if (data) setWarmLeads(data);
     } catch (error) {
       console.error('Error fetching warm leads:', error);
@@ -4351,19 +4355,41 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              <div className="mb-8">
-                <h2 className="text-3xl font-black text-zinc-900 tracking-tight">Warm Leads CRM</h2>
-                <p className="text-zinc-500 text-sm">Manage early drop-offs and unconverted inquiries.</p>
+              <div className="mb-8 flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-black text-zinc-900 tracking-tight">Warm Leads CRM</h2>
+                  <p className="text-zinc-500 text-sm">Manage early drop-offs and unconverted inquiries.</p>
+                </div>
+                <div className="flex bg-zinc-100 p-1 rounded-xl">
+                  <button 
+                    onClick={() => setShowArchivedLeads(false)}
+                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${!showArchivedLeads ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                  >
+                    Active
+                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${!showArchivedLeads ? 'bg-zinc-900 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
+                      {warmLeads.filter(l => l.status !== 'archived').length}
+                    </span>
+                  </button>
+                  <button 
+                    onClick={() => setShowArchivedLeads(true)}
+                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${showArchivedLeads ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                  >
+                    Archived
+                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${showArchivedLeads ? 'bg-zinc-900 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
+                      {warmLeads.filter(l => l.status === 'archived').length}
+                    </span>
+                  </button>
+                </div>
               </div>
 
               <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
                   <div>
-                    <h3 className="font-bold text-zinc-900">Warm Leads Engine</h3>
-                    <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Early drop-offs from booking form</p>
+                    <h3 className="font-bold text-zinc-900">{showArchivedLeads ? 'Archived Leads' : 'Warm Leads Engine'}</h3>
+                    <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">{showArchivedLeads ? 'Previously archived inquiries' : 'Early drop-offs from booking form'}</p>
                   </div>
-                  <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
-                    <Zap size={20} />
+                  <div className={`w-10 h-10 ${showArchivedLeads ? 'bg-zinc-100 text-zinc-600' : 'bg-amber-50 text-amber-600'} rounded-xl flex items-center justify-center`}>
+                    {showArchivedLeads ? <Trash2 size={20} /> : <Zap size={20} />}
                   </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -4379,12 +4405,14 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-50">
-                      {warmLeads.length === 0 ? (
+                      {warmLeads.filter(l => showArchivedLeads ? l.status === 'archived' : l.status !== 'archived').length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-zinc-500 text-sm italic">No active warm leads found.</td>
+                          <td colSpan={6} className="p-8 text-center text-zinc-500 text-sm italic">No {showArchivedLeads ? 'archived' : 'active'} warm leads found.</td>
                         </tr>
                       ) : (
-                        warmLeads.map((lead) => (
+                        warmLeads
+                          .filter(l => showArchivedLeads ? l.status === 'archived' : l.status !== 'archived')
+                          .map((lead) => (
                           <tr key={lead.id} className="hover:bg-zinc-50/50 transition-colors">
                             <td className="p-4 text-xs text-zinc-600">
                               {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : 'N/A'}
@@ -4413,7 +4441,8 @@ export default function App() {
                             </td>
                             <td className="p-4">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                lead.status === 'new' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                                lead.status === 'new' ? 'bg-amber-100 text-amber-700' : 
+                                lead.status === 'archived' ? 'bg-zinc-100 text-zinc-600' : 'bg-blue-100 text-blue-700'
                               }`}>
                                 {lead.status}
                               </span>
@@ -4428,13 +4457,22 @@ export default function App() {
                                     Mark Contacted
                                   </button>
                                 )}
-                                <button 
-                                  onClick={() => handleUpdateWarmLeadStatus(lead.id, 'archived')}
-                                  className="p-1.5 text-zinc-400 hover:text-rose-500 transition-colors"
-                                  title="Archive Lead"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
+                                {lead.status === 'archived' ? (
+                                  <button 
+                                    onClick={() => handleUpdateWarmLeadStatus(lead.id, 'new')}
+                                    className="px-3 py-1.5 bg-violet-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-violet-600 transition-all"
+                                  >
+                                    Restore
+                                  </button>
+                                ) : (
+                                  <button 
+                                    onClick={() => handleUpdateWarmLeadStatus(lead.id, 'archived')}
+                                    className="p-1.5 text-zinc-400 hover:text-rose-500 transition-colors"
+                                    title="Archive Lead"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>

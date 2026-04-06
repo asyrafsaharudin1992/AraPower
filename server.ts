@@ -2223,6 +2223,31 @@ app.post("/api/referrals", async (req, res) => {
 
   if (insertError) return res.status(500).json({ error: insertError.message, details: insertError });
 
+  // Three-Factor Match for Warm Lead conversion
+  if (patient_phone && service_id) {
+    try {
+      // Find the most recent active lead matching phone and service
+      const { data: matchingLeads } = await supabase
+        .from('warm_leads')
+        .select('id')
+        .eq('patient_phone', patient_phone)
+        .eq('service_id', service_id)
+        .in('status', ['new', 'pending', 'uncontacted'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (matchingLeads && matchingLeads.length > 0) {
+        // Update that specific lead to 'converted'
+        await supabase
+          .from('warm_leads')
+          .update({ status: 'converted' })
+          .eq('id', matchingLeads[0].id);
+      }
+    } catch (err) {
+      console.error('Error during warm lead conversion:', err);
+    }
+  }
+
   // Update staff pending earnings
   if (staff_id && staff) {
     await supabase
