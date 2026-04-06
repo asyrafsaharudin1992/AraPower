@@ -623,15 +623,25 @@ app.get("/api/branch-change-requests", async (req, res) => {
   const selectColumns = Array.from(branchChangeRequestColumns).length > 0 
     ? Array.from(branchChangeRequestColumns).join(',') 
     : '*';
-  const fullSelect = `${selectColumns}, staff(name, email)`;
 
-  const { data, error } = await supabase
+  const { data: requests, error } = await supabase
     .from('branch_change_requests')
-    .select(fullSelect)
+    .select(selectColumns)
     .order('created_at', { ascending: false });
   
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  if (!requests || requests.length === 0) return res.json([]);
+
+  const staffIds = [...new Set(requests.map(r => r.staff_id).filter(Boolean))];
+  const { data: staffData } = await supabase.from('staff').select('id, name, email').in('id', staffIds);
+  const staffMap = Object.fromEntries((staffData || []).map(s => [s.id, s]));
+
+  const formattedRequests = requests.map(r => ({
+    ...r,
+    staff: staffMap[r.staff_id] || null
+  }));
+
+  res.json(formattedRequests);
 });
 
 app.put("/api/branch-change-requests/:id", async (req, res) => {
@@ -1127,21 +1137,26 @@ app.get("/api/tasks", async (req, res) => {
   }
 
   const selectColumns = Array.from(taskColumns).length > 0 ? Array.from(taskColumns).join(',') : '*';
-  const fullSelect = `${selectColumns}, staff:assigned_to (name)`;
   const { data: tasks, error } = await supabase
     .from('tasks')
-    .select(fullSelect)
+    .select(selectColumns)
     .order('due_date', { ascending: true });
 
   if (error) return res.status(500).json({ error: error.message });
+  if (!tasks || tasks.length === 0) return res.json([]);
   
   if (tasks && tasks.length > 0) {
     Object.keys(tasks[0]).forEach(key => taskColumns.add(key));
   }
 
+  const staffIds = [...new Set(tasks.map(t => t.assigned_to).filter(Boolean))];
+  const { data: staffData } = await supabase.from('staff').select('id, name').in('id', staffIds);
+  const staffMap = Object.fromEntries((staffData || []).map(s => [s.id, s]));
+
   const formattedTasks = tasks.map(t => ({
     ...t,
-    assigned_to_name: t.staff?.name
+    staff: staffMap[t.assigned_to] || null,
+    assigned_to_name: staffMap[t.assigned_to]?.name
   }));
   
   res.json(formattedTasks);
@@ -2046,19 +2061,10 @@ app.get("/api/referrals", async (req, res) => {
     ? filteredColumns.join(',') 
     : 'id, patient_name, status, created_by';
   
-  let selectColumns = baseColumns;
-
-  // Add joins
-  if (referralColumns.has('created_by')) {
-    selectColumns += `, staff!created_by(name)`;
-  }
-  if (referralColumns.has('service_id')) {
-    selectColumns += `, services(name)`;
-  }
-
+  // Fetch referrals first without joins to avoid relationship errors
   let query = supabase
     .from('referrals')
-    .select(selectColumns)
+    .select(baseColumns)
     .order('created_at', { ascending: false });
 
   if (staffId && staffId !== 'undefined' && staffId !== 'null') {
@@ -2087,26 +2093,37 @@ app.get("/api/referrals", async (req, res) => {
 
   const { data: referrals, error } = await query;
   if (error) {
-    console.error('Error fetching referrals - message:', error.message);
-    console.error('Error fetching referrals - code:', error.code);
-    console.error('Error fetching referrals - details:', error.details);
-    console.error('Error fetching referrals - hint:', error.hint);
+    logError('GET /api/referrals', error);
     return res.status(500).json({ error: error.message });
   }
   
-  console.log(`Fetched ${referrals?.length || 0} referrals.`);
-  
-  if (referrals && referrals.length > 0) {
-    Object.keys(referrals[0]).forEach(key => referralColumns.add(key));
+  if (!referrals || referrals.length === 0) {
+    return res.json([]);
   }
 
-  const formattedReferrals = referrals.map(r => ({
-    ...r,
-    staff_id: r.staff_id || r.created_by,
-    staff_name: r.staff?.name,
-    promo_code: r.staff?.promo_code,
-    service_name: r.services?.name
-  }));
+  // Fetch related staff and services separately
+  const staffIds = [...new Set(referrals.map(r => r.staff_id || r.created_by).filter(Boolean))];
+  const serviceIds = [...new Set(referrals.map(r => r.service_id).filter(Boolean))];
+
+  const [staffRes, servicesRes] = await Promise.all([
+    staffIds.length > 0 ? supabase.from('staff').select('id, name, referral_code, promo_code').in('id', staffIds) : Promise.resolve({ data: [] }),
+    serviceIds.length > 0 ? supabase.from('services').select('id, name').in('id', serviceIds) : Promise.resolve({ data: [] })
+  ]);
+
+  const staffMap = Object.fromEntries((staffRes.data || []).map(s => [s.id, s]));
+  const servicesMap = Object.fromEntries((servicesRes.data || []).map(s => [s.id, s]));
+
+  const formattedReferrals = referrals.map(r => {
+    const staff = staffMap[r.staff_id || r.created_by];
+    const service = servicesMap[r.service_id];
+    return {
+      ...r,
+      staff_id: r.staff_id || r.created_by,
+      staff_name: staff?.name,
+      promo_code: staff?.referral_code || staff?.promo_code,
+      service_name: service?.name
+    };
+  });
   
   res.json(formattedReferrals);
 });

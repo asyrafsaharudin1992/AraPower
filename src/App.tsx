@@ -2173,8 +2173,8 @@ export default function App() {
         payload.referral_code = referralCode;
       }
 
-      const url = data.draftReferralId ? `${apiBaseUrl}/api/referrals/${data.draftReferralId}` : `${apiBaseUrl}/api/referrals`;
-      const method = data.draftReferralId ? 'PATCH' : 'POST';
+      const url = `${apiBaseUrl}/api/referrals`;
+      const method = 'POST';
 
       const { res, data: resultData } = await safeFetch(url, {
         method,
@@ -2183,6 +2183,10 @@ export default function App() {
       });
       
       if (res.ok) {
+        if (data.draftReferralId) {
+          supabase.from('warm_leads').update({ status: 'converted' }).eq('id', data.draftReferralId).catch(console.error);
+        }
+        
         if (resultData.fraudFlags && resultData.fraudFlags.length > 0) {
           alert(`Referral submitted with flags: ${resultData.fraudFlags.join(', ')}`);
         }
