@@ -2173,9 +2173,13 @@ export default function App() {
 
     setIsSubmitting(true);
     try {
+      const serviceData = services.find(srv => String(srv.id) === String(data.selectedService));
+
       const payload: any = {
         staff_id: staffId,
         service_id: data.selectedService,
+        service_name: serviceData?.name || '',
+        commission_amount: serviceData?.commission_rate || 0,
         patient_name: data.patientName,
         patient_phone: data.patientPhone,
         patient_ic: data.patientIC,
@@ -2203,8 +2207,9 @@ export default function App() {
       });
       
       if (res.ok) {
-        if (draftReferralId) { 
-          const { error: warmLeadError } = await supabase.from('warm_leads').update({ status: 'converted' }).eq('id', draftReferralId);
+        const actualDraftId = draftReferralId || data.draftReferralId;
+        if (actualDraftId) { 
+          const { error: warmLeadError } = await supabase.from('warm_leads').update({ status: 'converted' }).eq('id', actualDraftId);
           if (warmLeadError) console.error("Error updating warm lead:", warmLeadError);
         }
         
@@ -4367,7 +4372,7 @@ export default function App() {
                   >
                     Active
                     <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${!showArchivedLeads ? 'bg-zinc-900 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
-                      {warmLeads.filter(l => l.status !== 'archived').length}
+                      {warmLeads.filter(l => l.status !== 'archived' && l.status !== 'converted').length}
                     </span>
                   </button>
                   <button 
@@ -4405,13 +4410,13 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-50">
-                      {warmLeads.filter(l => showArchivedLeads ? l.status === 'archived' : l.status !== 'archived').length === 0 ? (
+                      {warmLeads.filter(l => showArchivedLeads ? l.status === 'archived' : (l.status !== 'archived' && l.status !== 'converted')).length === 0 ? (
                         <tr>
                           <td colSpan={6} className="p-8 text-center text-zinc-500 text-sm italic">No {showArchivedLeads ? 'archived' : 'active'} warm leads found.</td>
                         </tr>
                       ) : (
                         warmLeads
-                          .filter(l => showArchivedLeads ? l.status === 'archived' : l.status !== 'archived')
+                          .filter(l => showArchivedLeads ? l.status === 'archived' : (l.status !== 'archived' && l.status !== 'converted'))
                           .map((lead) => (
                           <tr key={lead.id} className="hover:bg-zinc-50/50 transition-colors">
                             <td className="p-4 text-xs text-zinc-600">

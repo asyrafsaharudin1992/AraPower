@@ -182,13 +182,13 @@ let referralColumns: Set<string> = new Set([
   'patient_phone', 'patient_ic', 'patient_address', 'patient_type',
   'appointment_date', 'booking_time', 'fraud_flags', 'created_by',
   'branch', 'aracoins_perk', 'service_id', 'deposit_paid',
-  'staff_id', 'referral_code'
+  'staff_id', 'referral_code', 'commission_amount', 'service_name'
 ]);
 let serviceColumns: Set<string> = new Set([
   'id', 'name', 'category', 'type', 'description', 'base_price',
   'promo_price', 'aracoins_perk', 'is_featured', 'image_url',
   'branches', 'start_date', 'end_date', 'start_time', 'end_time',
-  'duration_mins', 'created_at', 'target_url'
+  'duration_mins', 'created_at', 'target_url', 'commission_rate'
 ]);
 let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'created_at']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
@@ -2129,7 +2129,7 @@ app.get("/api/referrals", async (req, res) => {
 });
 
 app.post("/api/referrals", async (req, res) => {
-  const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch, referral_code, status } = req.body;
+  const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch, referral_code, status, commission_amount, service_name } = req.body;
   
   let staff = null;
   const fraudFlags = [];
@@ -2188,6 +2188,9 @@ app.post("/api/referrals", async (req, res) => {
     status: status || 'pending'
   };
 
+  if (referralColumns.has('commission_amount')) insertData.commission_amount = commission_amount || 0;
+  if (referralColumns.has('service_name')) insertData.service_name = service_name || '';
+
   if (staff_id) {
     if (referralColumns.has('created_by')) insertData.created_by = staff_id;
     if (referralColumns.has('staff_id')) insertData.staff_id = staff_id;
@@ -2232,7 +2235,7 @@ app.post("/api/referrals", async (req, res) => {
         .select('id')
         .eq('patient_phone', patient_phone)
         .eq('service_id', service_id)
-        .in('status', ['new', 'pending', 'uncontacted'])
+        .in('status', ['new', 'pending', 'uncontacted', 'contacted'])
         .order('created_at', { ascending: false })
         .limit(1);
 
