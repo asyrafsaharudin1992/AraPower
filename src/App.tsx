@@ -2280,35 +2280,6 @@ export default function App() {
     }
   };
 
-  const handleClinicStatusUpdate = async (id: string, newStatus: string) => {
-    try {
-      const payload = { 
-        status: newStatus,
-        verified_by: (currentUser?.role === 'receptionist' || currentUser?.role === 'manager' || currentUser?.role === 'admin') ? currentUser.id : undefined
-      };
-      
-      console.log('Updating clinic status:', { id, payload });
-      
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      
-      if (res.ok) {
-        fetchReferrals();
-        fetchStaff();
-      } else {
-        const errorMsg = data.error || 'Update failed';
-        console.error('Status update failed:', { id, newStatus, data });
-        alert(`Status update failed: ${errorMsg}\n\nDetails: ${JSON.stringify(data)}`);
-      }
-    } catch (error) {
-      console.error('Error in handleClinicStatusUpdate:', error);
-      alert(`An error occurred while updating status: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  };
-
   const handleDeleteReferral = async (id: string) => {
     showConfirm(
       'Delete Referral',
@@ -3486,7 +3457,7 @@ export default function App() {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
     const staffRefs = referrals.filter(r => String(r.staff_id) === String(staff.id));
     const monthlySuccessfulRefs = staffRefs.filter(r => 
-      (r.status === 'completed' || r.status === 'paid_completed' || r.status === 'approved' || r.status === 'payout_processed') && 
+      (r.status === 'completed' || r.status === 'approved' || r.status === 'payout_processed') && 
       r.date.startsWith(currentMonth)
     ).length;
 
@@ -3496,7 +3467,7 @@ export default function App() {
     
     // Calculate dynamic earnings based on status
     const pending_earnings = staffRefs
-      .filter(r => r.status === 'completed' || r.status === 'paid_completed')
+      .filter(r => r.status === 'completed')
       .reduce((sum, r) => sum + (r.commission_amount * tier.bonus), 0);
     
     const approved_earnings = staffRefs
@@ -3548,12 +3519,12 @@ export default function App() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-burnt-peach/10 text-burnt-peach border border-burnt-peach/20';
-      case 'entered': return 'bg-apricot-cream text-twilight-indigo';
+      case 'arrived': return 'bg-apricot-cream text-twilight-indigo';
+      case 'in_session': return 'bg-violet-100 text-violet-700 border border-violet-200';
       case 'completed': return 'bg-muted-teal/20 text-muted-teal';
-      case 'paid_completed': return 'bg-muted-teal text-eggshell';
       case 'approved': return 'bg-burnt-peach text-white';
       case 'payout_processed': return 'bg-eggshell text-twilight-indigo border border-twilight-indigo/10';
-      case 'rejected': return 'bg-rose-500 text-white';
+      case 'cancelled': return 'bg-rose-500 text-white';
       default: return 'bg-eggshell text-twilight-indigo';
     }
   };
@@ -3561,12 +3532,12 @@ export default function App() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'pending': return 'Pending';
-      case 'entered': return 'Entered';
-      case 'completed': return 'Arrived';
-      case 'paid_completed': return 'Paid';
+      case 'arrived': return 'Arrived';
+      case 'in_session': return 'In Session';
+      case 'completed': return 'Completed (Paid)';
       case 'approved': return 'Approved';
       case 'payout_processed': return 'Payout Processed';
-      case 'rejected': return 'Rejected';
+      case 'cancelled': return 'Cancelled';
       default: return status;
     }
   };
@@ -3936,7 +3907,6 @@ export default function App() {
               setActiveTab={setActiveTab}
               handleDeleteReferral={handleDeleteReferral}
               handleUpdateStatus={handleUpdateStatus}
-              handleClinicStatusUpdate={handleClinicStatusUpdate}
               setSelectedPromo={setSelectedPromo}
               setIsPromoModalOpen={setIsPromoModalOpen}
               getStatusColor={getStatusColor}
@@ -4084,12 +4054,13 @@ export default function App() {
                       className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                     >
                       <option value="all">All Statuses</option>
-                      <option value="entered">Entered</option>
-                      <option value="completed">Arrived</option>
-                      <option value="paid_completed">Paid</option>
+                      <option value="pending">Pending</option>
+                      <option value="arrived">Arrived</option>
+                      <option value="in_session">In Session</option>
+                      <option value="completed">Completed (Paid)</option>
                       <option value="approved">Approved</option>
                       <option value="payout_processed">Payout Processed</option>
-                      <option value="rejected">Rejected</option>
+                      <option value="cancelled">Cancelled</option>
                     </select>
                   </div>
                 </div>
@@ -4331,16 +4302,16 @@ export default function App() {
                                 <select 
                                   value=""
                                   onChange={(e) => {
-                                    if (e.target.value) handleClinicStatusUpdate(ref.id, e.target.value);
+                                    if (e.target.value) handleUpdateStatus(ref.id, e.target.value);
                                   }}
                                   className="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
                                 >
                                   <option value="" disabled>Set Status</option>
-                                  <option value="Pending">Pending</option>
-                                  <option value="Arrived">Arrived</option>
-                                  <option value="In Session">In Session</option>
-                                  <option value="Completed">Completed</option>
-                                  <option value="Cancelled">Cancelled</option>
+                                  <option value="pending">Pending</option>
+                                  <option value="arrived">Arrived</option>
+                                  <option value="in_session">In Session</option>
+                                  <option value="completed">Completed (Paid)</option>
+                                  <option value="cancelled">Cancelled</option>
                                 </select>
                               )}
                             </div>
@@ -5122,11 +5093,13 @@ export default function App() {
                           className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
                         >
                           <option value="all">All Statuses</option>
-                          <option value="entered">Entered</option>
-                          <option value="completed">Arrived</option>
-                          <option value="paid_completed">Paid</option>
+                          <option value="pending">Pending</option>
+                          <option value="arrived">Arrived</option>
+                          <option value="in_session">In Session</option>
+                          <option value="completed">Completed (Paid)</option>
                           <option value="approved">Approved</option>
                           <option value="payout_processed">Payout Processed</option>
+                          <option value="cancelled">Cancelled</option>
                         </select>
                         <div className="relative">
                           <input 
@@ -5180,39 +5153,27 @@ export default function App() {
                           </div>
                           <div className="flex items-center gap-3 ml-4">
                             <select 
-                              value={ref.status}
+                              value=""
                               onChange={(e) => {
                                 const newStatus = e.target.value;
+                                if (!newStatus) return;
                                 const additionalData = newStatus === 'completed' ? { visit_date: new Date().toISOString().split('T')[0] } : {};
-                                handleUpdateStatus(ref.id, newStatus as any, additionalData);
+                                handleUpdateStatus(ref.id, newStatus, additionalData);
                               }}
                               className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                             >
+                              <option value="" disabled>Set Status</option>
                               <option value="pending">Pending</option>
-                              <option value="entered">Entered</option>
-                              <option value="completed">Arrived</option>
-                              <option value="paid_completed">Paid</option>
-                              <option value="rejected">Rejected</option>
-                              { (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
+                              <option value="arrived">Arrived</option>
+                              <option value="in_session">In Session</option>
+                              <option value="completed">Completed (Paid)</option>
+                              <option value="cancelled">Cancelled</option>
+                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                                 <>
                                   <option value="approved">Approved</option>
                                   <option value="payout_processed">Payout Processed</option>
                                 </>
                               )}
-                            </select>
-                            <select 
-                              value=""
-                              onChange={(e) => {
-                                if (e.target.value) handleClinicStatusUpdate(ref.id, e.target.value);
-                              }}
-                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500"
-                            >
-                              <option value="" disabled>Set Status</option>
-                              <option value="Pending">Pending</option>
-                              <option value="Arrived">Arrived</option>
-                              <option value="In Session">In Session</option>
-                              <option value="Completed">Completed</option>
-                              <option value="Cancelled">Cancelled</option>
                             </select>
                           </div>
                         </div>
