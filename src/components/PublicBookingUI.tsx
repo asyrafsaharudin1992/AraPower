@@ -85,22 +85,18 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     setPublicBookingStep('choice');
     
     try {
-      // 1. Grab the name DIRECTLY from the URL to avoid React state delays
       const params = new URLSearchParams(window.location.search);
       const rawName = params.get('sName') || params.get('serviceName');
       
       let finalName = selectedService || 'Unknown Service';
       
       if (rawName) {
-        // Safely turn "AraSihat+Plus" into "AraSihat Plus"
         finalName = decodeURIComponent(rawName.replace(/\+/g, ' '));
       } else {
-        // Final fallback to services array just in case
         const matchedService = services.find(s => String(s.id) === String(selectedService));
         if (matchedService) finalName = matchedService.name;
       }
 
-      // 2. Insert directly into Supabase (Bypassing the 404 API error)
       const { data, error } = await supabase
         .from('warm_leads')
         .insert([{
@@ -114,7 +110,6 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
       if (error) {
         console.error('Supabase Insert Error:', error);
       } else if (data && data[0]) {
-        // Save the ID so the WhatsApp button can update this exact record later
         setDraftReferralId(data[0].id);
       }
       
@@ -142,7 +137,6 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     const success = await handleSubmitReferral(e, formData);
     if (success) {
       setBookingSuccess(true);
-      // Reset local states if needed, though App.tsx might handle redirect/success UI
       setPatientName('');
       setPatientPhone('');
       setPatientIC('');
@@ -272,7 +266,6 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                 <ChevronRight size={20} />
               </button>
 
-              {/* Add this disclaimer right here! */}
               <p className="text-[10px] text-zinc-500 text-center mt-3 px-4 leading-relaxed">
                 Dengan menekan 'Teruskan proses', anda bersetuju untuk berkongsi butiran perhubungan anda dengan klinik kami bagi tujuan tempahan.
               </p>
@@ -455,19 +448,18 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                     href={waUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.preventDefault();
                       window.open(waUrl, '_blank', 'noopener,noreferrer');
                       if (draftReferralId) {
-                        supabase
+                        const { error } = await supabase
                           .from('warm_leads')
                           .update({ 
                             status: 'whatsapp_redirected', 
                             branch_preference: selectedWaBranch 
                           })
-                          .eq('id', draftReferralId)
-                          .then(() => {})
-                          .catch(console.error);
+                          .eq('id', draftReferralId);
+                        if (error) console.error("Error updating warm lead for WhatsApp:", error);
                       }
                       setBookingSuccess(true);
                     }}

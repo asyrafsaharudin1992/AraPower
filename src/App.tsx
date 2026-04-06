@@ -2183,9 +2183,10 @@ export default function App() {
       });
       
       if (res.ok) {
-        if (data.draftReferralId) {
-          supabase.from('warm_leads').update({ status: 'converted' }).eq('id', data.draftReferralId).catch(console.error);
-        }
+      if (draftReferralId) { 
+  const { error: warmLeadError } = await supabase.from('warm_leads').update({ status: 'converted' }).eq('id', draftReferralId);
+  if (warmLeadError) console.error("Error updating warm lead:", warmLeadError);
+}
         
         if (resultData.fraudFlags && resultData.fraudFlags.length > 0) {
           alert(`Referral submitted with flags: ${resultData.fraudFlags.join(', ')}`);
