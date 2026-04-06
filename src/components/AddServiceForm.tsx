@@ -51,6 +51,7 @@ interface AddServiceFormProps {
 
 const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, initialData, categories = [] }) => {
   // --- CARD 1: Basic Details & Rules ---
+  const [customId, setCustomId] = useState('');
   const [name, setName] = useState('');
   const [type, setType] = useState<'Standard Service' | '☆ Promo'>('Standard Service');
   const [visibility, setVisibility] = useState<'Public' | 'New Patients Only' | 'Hidden (VIP Link)'>('Public');
@@ -113,6 +114,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
 
   useEffect(() => {
     if (initialData) {
+      setCustomId(initialData.id || '');
       setName(initialData.name || '');
       setType(initialData.type === 'Promotion' ? '☆ Promo' : 'Standard Service');
       setVisibility(initialData.visibility || 'Public');
@@ -140,6 +142,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
       setCategoryCarousel(initialData.category_carousel || false);
     } else {
       // Reset form
+      setCustomId('');
       setName('');
       setType('Standard Service');
       setVisibility('Public');
@@ -288,6 +291,10 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
   };
 
   const handleSubmit = async () => {
+    if (!initialData && !customId.trim()) {
+      alert('Please enter the Website Service ID.');
+      return;
+    }
     if (!name.trim()) {
       alert('Please enter a Name/Title for the service.');
       return;
@@ -295,7 +302,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
 
     setIsSubmitting(true);
     try {
-      const payload = {
+      const payload: any = {
         name,
         type: type === 'Standard Service' ? 'Service' : 'Promotion',
         visibility,
@@ -322,6 +329,10 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
         is_featured: topFeatured,
         category_carousel: categoryCarousel,
       };
+
+      if (!initialData) {
+        payload.id = customId.trim();
+      }
 
       const url = initialData?.id ? `/api/services/${initialData.id}` : `/api/services`;
       const method = initialData?.id ? 'PATCH' : 'POST';
@@ -363,6 +374,19 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
               </h2>
 
               <div className="space-y-5">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-2">WEBSITE SERVICE ID *</label>
+                  <input 
+                    type="text" 
+                    value={customId} 
+                    onChange={(e) => setCustomId(e.target.value)} 
+                    placeholder="e.g. x0CgMhr8yT0Re82KnTkB" 
+                    disabled={!!initialData}
+                    className={`w-full border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition ${!!initialData ? 'bg-gray-50 cursor-not-allowed text-gray-500' : ''}`} 
+                  />
+                  <p className="mt-1 text-[10px] text-gray-400">Paste the unique alphanumeric ID from the external website URL (e.g., x0CgMhr8yT0Re82KnTkB).</p>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-2">NAME / TITLE *</label>
                   <input 
