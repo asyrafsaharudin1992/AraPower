@@ -13,13 +13,13 @@ export interface AdminUIProps {
   services: any[];
   adminSearch: string;
   setAdminSearch: (search: string) => void;
-  handleApproveStaff: (staffId: number, isApproved: boolean) => void;
-  handleRejectStaff: (staffId: number) => void;
-  handleDeleteStaff: (staffId: number) => void;
+  handleApproveStaff: (staffId: string, isApproved: boolean) => void;
+  handleRejectStaff: (staffId: string) => void;
+  handleDeleteStaff: (staffId: string) => void;
   setSelectedStaffDetail: (staff: any) => void;
   setShowStaffModal: (show: boolean) => void;
-  handleUpdateWarmLeadStatus: (leadId: number, status: string) => void;
-  handleAdminResetPassword: (staffId: number, email: string) => void;
+  handleUpdateWarmLeadStatus: (leadId: string, status: string) => void;
+  handleAdminResetPassword: (staffId: string, email: string) => void;
 }
 
 export const AdminUI: React.FC<AdminUIProps> = ({

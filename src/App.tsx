@@ -139,7 +139,8 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
     'from-brand-primary to-violet-500',
     'from-brand-surface to-emerald-500'
   ];
-  const gradient = gradients[(Number(item.id) || 0) % gradients.length];
+  const idHash = item.id?.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0;
+  const gradient = gradients[idHash % gradients.length];
 
   return (
     <motion.div
@@ -368,7 +369,7 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
   );
 };
 
-const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, darkMode: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: number) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
+const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, darkMode: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: string) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
   const handleDownloadPoster = async (url: string, fileName: string) => {
     try {
       const response = await fetch(url);
@@ -700,7 +701,7 @@ export default function App() {
 
   const [promotions, setPromotions] = useState<Promotion[]>([
     {
-      id: 1,
+      id: 'promo-1',
       title: "Ramadan Special 2026",
       description: "Get 20% off on all dental checkups during the month of Ramadan. Share the smile with your family!",
       start_date: "2026-03-01",
@@ -709,7 +710,7 @@ export default function App() {
       created_at: new Date().toISOString()
     },
     {
-      id: 2,
+      id: 'promo-2',
       title: "New Branch Opening: Bangi",
       description: "We are opening our new branch in Bangi! Refer 5 friends and get a free scaling session.",
       start_date: "2026-04-01",
@@ -848,7 +849,7 @@ export default function App() {
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [passwordError, setPasswordError] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [selectedPayoutStaff, setSelectedPayoutStaff] = useState<number[]>([]);
+  const [selectedPayoutStaff, setSelectedPayoutStaff] = useState<string[]>([]);
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [payoutMetadata, setPayoutMetadata] = useState({
     creditingDate: new Date().toLocaleDateString('en-GB'),
@@ -885,7 +886,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...notificationForm,
-          user_ids: notificationForm.user_ids.length === 0 ? [] : notificationForm.user_ids.map(id => id === 'all' ? null : parseInt(id))
+          user_ids: notificationForm.user_ids.length === 0 ? [] : notificationForm.user_ids.map(id => id === 'all' ? null : id)
         })
       });
 
@@ -1066,7 +1067,7 @@ export default function App() {
 
   const [resetPasswordModal, setResetPasswordModal] = useState<{
     isOpen: boolean;
-    staffId: number | null;
+    staffId: string | null;
     email: string;
     tempPassword?: string;
     isLoading?: boolean;
@@ -1118,7 +1119,7 @@ export default function App() {
   // Task State
   const [tasks, setTasks] = useState<any[]>([]);
   const [showReferralModal, setShowReferralModal] = useState(false);
-  const [expandedReferralIds, setExpandedReferralIds] = useState<number[]>([]);
+  const [expandedReferralIds, setExpandedReferralIds] = useState<string[]>([]);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [taskDueDate, setTaskDueDate] = useState<Date | null>(null);
@@ -1129,7 +1130,7 @@ export default function App() {
     types: ['Staff', 'Patient', 'Public'],
     defaultCommission: 5,
     eligibilityCriteria: 'Must be an active staff member with an approved account.',
-    quotas: {} as Record<number, number>
+    quotas: {} as Record<string, number>
   });
 
   useEffect(() => {
@@ -1150,6 +1151,37 @@ export default function App() {
     checkConnection();
   }, [apiBaseUrl]);
 
+  const handleAuthError = async (error: any) => {
+    if (!error) return false;
+    console.warn('Supabase auth error detected:', error);
+    const message = typeof error === 'string' ? error : (error.message || '');
+    if (message.includes('Refresh Token Not Found') || 
+        message.includes('invalid_refresh_token') || 
+        message.includes('Invalid Refresh Token') ||
+        message.includes('refresh_token_not_found')) {
+      
+      console.log('Clearing invalid Supabase session due to refresh token error...');
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {
+        console.error('Error during signOut:', e);
+      }
+      
+      // Manually clear Supabase auth tokens from local storage
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      localStorage.removeItem('currentUser');
+      setCurrentUser(null);
+      setIsAuthChecking(false);
+      return true;
+    }
+    return false;
+  };
+
   useEffect(() => {
     // Check for active session
     if (isPlaceholder) {
@@ -1157,79 +1189,62 @@ export default function App() {
       return;
     }
 
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      if (error) {
-        console.warn('Supabase session check error:', error);
-        if (error.message?.includes('Refresh Token Not Found') || error.message?.includes('invalid_refresh_token') || error.message?.includes('Invalid Refresh Token')) {
-          console.log('Clearing invalid Supabase session...');
-          try {
-            await supabase.auth.signOut();
-          } catch (e) {
-            console.error('Error during signOut:', e);
+    const checkSession = async () => {
+      try {
+        // Use getSession first as it's faster
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          if (await handleAuthError(sessionError)) return;
+        }
+
+        if (session?.user?.email) {
+          // If we have a session, verify it with getUser() to be sure
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          if (userError) {
+            if (await handleAuthError(userError)) return;
           }
           
-          // Manually clear Supabase auth tokens from local storage just in case signOut failed
-          Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-              localStorage.removeItem(key);
-            }
-          });
-          
-          localStorage.removeItem('currentUser');
-          setCurrentUser(null);
-        }
-        setIsAuthChecking(false);
-        return;
-      }
-      
-      if (session?.user?.email) {
-        fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on session check:', e));
-      } else {
-        setIsAuthChecking(false);
-      }
-    }).catch(async (err: any) => {
-      console.warn('Supabase session check failed:', err);
-      // Handle invalid refresh token by clearing the session
-      if (err.message?.includes('Refresh Token Not Found') || err.message?.includes('invalid_refresh_token') || err.message?.includes('Invalid Refresh Token')) {
-        console.log('Clearing invalid Supabase session...');
-        try {
-          await supabase.auth.signOut();
-        } catch (e) {
-          console.error('Error during signOut:', e);
-        }
-        
-        // Manually clear Supabase auth tokens from local storage just in case signOut failed
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-            localStorage.removeItem(key);
+          if (user?.email) {
+            fetchStaffByEmail(user.email, user).catch(e => console.error('Error fetching staff on session check:', e));
+          } else {
+            setIsAuthChecking(false);
           }
-        });
-        
-        localStorage.removeItem('currentUser');
-        setCurrentUser(null);
+        } else {
+          setIsAuthChecking(false);
+        }
+      } catch (err) {
+        if (await handleAuthError(err)) return;
+        setIsAuthChecking(false);
       }
-      setIsAuthChecking(false);
-    });
+    };
+
+    checkSession();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state change:', event, session?.user?.email);
-      if (session?.user?.email) {
-        fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on auth change:', e));
+      
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        if (session?.user?.email) {
+          fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on auth change:', e));
+        }
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
-        
         // Manually clear Supabase auth tokens from local storage
         Object.keys(localStorage).forEach(key => {
           if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
             localStorage.removeItem(key);
           }
         });
-        
         localStorage.removeItem('currentUser');
         setIsAuthChecking(false);
-      } else if (event === 'INITIAL_SESSION' && !session) {
-        setIsAuthChecking(false);
+      } else if (event === 'INITIAL_SESSION') {
+        if (!session) {
+          setIsAuthChecking(false);
+        } else if (session.user?.email) {
+          fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on initial session:', e));
+        }
       }
     });
 
@@ -1263,6 +1278,7 @@ export default function App() {
       }
     } catch (error: any) {
       console.error('Error in fetchStaffByEmail:', error);
+      if (await handleAuthError(error)) return;
       setAuthError(error.message || 'Failed to load user profile.');
       // If we fail to load the profile, we should probably sign them out so they aren't stuck in a weird state
       supabase.auth.signOut().catch(e => console.warn('Error during auto-signOut:', e));
@@ -1644,7 +1660,7 @@ export default function App() {
     }
   };
 
-  const handleUpdateWarmLeadStatus = async (id: any, status: string) => {
+  const handleUpdateWarmLeadStatus = async (id: string, status: string) => {
     try {
       await supabase.from('warm_leads').update({ status }).eq('id', id);
       fetchWarmLeads();
@@ -2103,7 +2119,7 @@ export default function App() {
     }
   };
 
-  const handleSubmitReferral = async (e: React.FormEvent, publicFormData?: any) => {
+  const handleSubmitReferral = async (e: React.FormEvent, publicFormData?: any, draftReferralId?: string | null) => {
     e.preventDefault();
     
     const data = publicFormData || {
@@ -2183,10 +2199,10 @@ export default function App() {
       });
       
       if (res.ok) {
-      if (draftReferralId) { 
-  const { error: warmLeadError } = await supabase.from('warm_leads').update({ status: 'converted' }).eq('id', draftReferralId);
-  if (warmLeadError) console.error("Error updating warm lead:", warmLeadError);
-}
+        if (draftReferralId) { 
+          const { error: warmLeadError } = await supabase.from('warm_leads').update({ status: 'converted' }).eq('id', draftReferralId);
+          if (warmLeadError) console.error("Error updating warm lead:", warmLeadError);
+        }
         
         if (resultData.fraudFlags && resultData.fraudFlags.length > 0) {
           alert(`Referral submitted with flags: ${resultData.fraudFlags.join(', ')}`);
@@ -2225,7 +2241,7 @@ export default function App() {
 
 
 
-  const handleUpdateStatus = async (id: number, status: string, additionalData: any = {}) => {
+  const handleUpdateStatus = async (id: string, status: string, additionalData: any = {}) => {
     try {
       const payload = { 
         status,
@@ -2255,7 +2271,7 @@ export default function App() {
     }
   };
 
-  const handleClinicStatusUpdate = async (id: number, newStatus: string) => {
+  const handleClinicStatusUpdate = async (id: string, newStatus: string) => {
     try {
       const payload = { 
         status: newStatus,
@@ -2284,7 +2300,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteReferral = async (id: number) => {
+  const handleDeleteReferral = async (id: string) => {
     showConfirm(
       'Delete Referral',
       'Are you sure you want to delete this referral? This action cannot be undone.',
@@ -2338,12 +2354,14 @@ export default function App() {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
         console.warn('Supabase session check error during upload:', error);
+        if (await handleAuthError(error)) return;
       }
       if (!session) {
         console.warn('No active Supabase session. Upload might fail if RLS policies require authentication.');
       }
     } catch (err) {
       console.warn('Failed to get Supabase session:', err);
+      if (await handleAuthError(err)) return;
     }
 
     setIsUploading(true);
@@ -2437,7 +2455,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteService = async (id: number) => {
+  const handleDeleteService = async (id: string) => {
     showConfirm(
       'Delete Service',
       'Are you sure you want to delete this service?',
@@ -2509,7 +2527,7 @@ export default function App() {
     }
   };
 
-  const handleAdminResetPassword = (staffId: number, email: string) => {
+  const handleAdminResetPassword = (staffId: string, email: string) => {
     setResetPasswordModal({ isOpen: true, staffId, email });
   };
 
@@ -2539,7 +2557,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteStaff = async (id: number) => {
+  const handleDeleteStaff = async (id: string) => {
     showConfirm(
       'Trash Staff',
       'Are you sure you want to move this staff member to the trash bin?',
@@ -2554,7 +2572,7 @@ export default function App() {
     );
   };
 
-  const handleRestoreStaff = async (id: number) => {
+  const handleRestoreStaff = async (id: string) => {
     showConfirm(
       'Restore Staff',
       'Are you sure you want to restore this staff member?',
@@ -2569,7 +2587,7 @@ export default function App() {
     );
   };
 
-  const handlePermanentDeleteStaff = async (id: number) => {
+  const handlePermanentDeleteStaff = async (id: string) => {
     showConfirm(
       'Permanent Delete',
       'Are you sure you want to PERMANENTLY delete this staff member? This action cannot be undone.',
@@ -2584,7 +2602,7 @@ export default function App() {
     );
   };
 
-  const handleRejectStaff = async (id: number) => {
+  const handleRejectStaff = async (id: string) => {
     showConfirm(
       'Reject Staff',
       'Reject this application? The user will not be able to access the portal.',
@@ -2604,7 +2622,7 @@ export default function App() {
     );
   };
 
-  const handleResetPassword = async (id: number) => {
+  const handleResetPassword = async (id: string) => {
     showConfirm(
       'Reset Password',
       'Reset password to default "password123"?',
@@ -2685,7 +2703,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteTask = async (id: number) => {
+  const handleDeleteTask = async (id: string) => {
     showConfirm(
       'Delete Task',
       'Delete this task?',
@@ -2707,7 +2725,7 @@ export default function App() {
     else alert(data.error || 'Update failed');
   };
 
-  const handleApproveStaff = async (id: number, isApproved: boolean) => {
+  const handleApproveStaff = async (id: string, isApproved: boolean) => {
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -6384,8 +6402,8 @@ export default function App() {
 
                   if (filteredServices.length === 0) {
                     filteredServices = [
-                      { id: -1, name: `${category.title} Coming Soon`, base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'Stay tuned for more services in this category.' },
-                      { id: -2, name: 'More info coming', base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'We are working on adding new services.' },
+                      { id: 'coming-soon-1', name: `${category.title} Coming Soon`, base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'Stay tuned for more services in this category.' },
+                      { id: 'coming-soon-2', name: 'More info coming', base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'We are working on adding new services.' },
                     ] as Service[];
                   }
 
@@ -6399,7 +6417,7 @@ export default function App() {
                             size={idx === 0 ? 'large' : 'small'}
                             items={filteredServices} 
                             onClick={(item) => {
-                              if (item.id > 0) {
+                              if (typeof item.id === 'string' && !item.id.startsWith('coming-soon')) {
                                 setSelectedPromo(item);
                                 setIsPromoModalOpen(true);
                               }
@@ -6413,7 +6431,7 @@ export default function App() {
                                   <ModernPromotionCard 
                                     item={item} 
                                     onClick={() => {
-                                      if (item.id > 0) {
+                                      if (typeof item.id === 'string' && !item.id.startsWith('coming-soon')) {
                                         setSelectedPromo(item);
                                         setIsPromoModalOpen(true);
                                       }

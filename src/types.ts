@@ -1,5 +1,5 @@
 export interface Service {
-  id: number;
+  id: string;
   name: string;
   base_price: number;
   commission_rate: number;
@@ -46,7 +46,7 @@ export interface Service {
 }
 
 export interface Promotion {
-  id: number;
+  id: string;
   title: string;
   description: string;
   image_url?: string;
@@ -57,7 +57,7 @@ export interface Promotion {
 }
 
 export interface Staff {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: string;
@@ -90,11 +90,11 @@ export interface Staff {
 }
 
 export interface Referral {
-  id: number;
-  staff_id: number;
+  id: string;
+  staff_id: string;
   staff_name: string;
   promo_code: string;
-  service_id: number;
+  service_id: string;
   service_name: string;
   patient_name: string;
   patient_phone: string;

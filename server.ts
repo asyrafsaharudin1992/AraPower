@@ -1418,7 +1418,7 @@ app.post("/api/notifications", async (req, res) => {
       const inserts = targetIds
         .filter((id: any) => id !== 'all') // Extra safety
         .map((id: any) => {
-          const userId = (id === null || isNaN(Number(id))) ? null : Number(id);
+          const userId = id || null;
           return {
             user_id: userId,
             title,
@@ -2018,7 +2018,7 @@ app.patch("/api/services/:id", async (req, res) => {
   const { error } = await supabase
     .from('services')
     .update(updateData)
-    .eq('id', Number(id));
+    .eq('id', id);
     
   if (error) {
     console.error('Supabase update error:', error);
@@ -2036,11 +2036,11 @@ app.patch("/api/services/:id", async (req, res) => {
 
 app.delete("/api/services/:id", async (req, res) => {
   const { id } = req.params;
-  const { error } = await supabase.from('services').delete().eq('id', Number(id));
+  const { error } = await supabase.from('services').delete().eq('id', id);
   if (error) {
     // If delete fails (likely due to foreign key constraints), soft delete by changing type
     if (serviceColumns.has('type')) {
-      const { error: updateError } = await supabase.from('services').update({ type: 'Deleted' }).eq('id', Number(id));
+      const { error: updateError } = await supabase.from('services').update({ type: 'Deleted' }).eq('id', id);
       if (updateError) return res.status(500).json({ error: updateError.message });
     } else {
       return res.status(500).json({ error: "Cannot delete service because it is referenced by existing referrals. Soft delete failed because 'type' column is missing." });
