@@ -2096,7 +2096,7 @@ export default function App() {
         const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && (s.approved_earnings > 0 || s.pending_earnings > 0));
         
         for (const staff of staffToPay) {
-          const payableRefs = referrals.filter(r => String(r.staff_id) === String(staff.id) && ['paid_completed', 'approved'].includes(r.status));
+          const payableRefs = referrals.filter(r => String(r.staff_id) === String(staff.id) && ['completed', 'approved'].includes(r.status));
           for (const ref of payableRefs) {
             await safeFetch(`${apiBaseUrl}/api/referrals/${ref.id}`, {
               method: 'PATCH',
@@ -3503,8 +3503,8 @@ export default function App() {
   };
 
   const receptionistStats = {
-    arrivedToday: referrals.filter(r => (r.status === 'completed' || r.status === 'paid_completed') && r.visit_date === new Date().toISOString().split('T')[0]).length,
-    pendingVerifications: referrals.filter(r => r.status === 'entered').length
+    arrivedToday: referrals.filter(r => (r.status === 'arrived' || r.status === 'in_session' || r.status === 'completed') && r.visit_date === new Date().toISOString().split('T')[0]).length,
+    pendingVerifications: referrals.filter(r => r.status === 'pending').length
   };
   
   const totalEarned = currentUserStats?.lifetime_earnings || 0;
@@ -4110,8 +4110,8 @@ export default function App() {
                               {clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}
                             </p>
                             <span className={`text-[9px] font-black uppercase tracking-widest ${
-                              ref.status === 'completed' || ref.status === 'paid_completed' ? 'text-emerald-600' :
-                              ref.status === 'rejected' ? 'text-rose-600' : 
+                              ref.status === 'completed' || ref.status === 'payout_processed' ? 'text-emerald-600' :
+                              ref.status === 'cancelled' ? 'text-rose-600' : 
                               ref.status === 'approved' ? 'text-orange-600' :
                               'text-zinc-400'
                             }`}>
@@ -4248,46 +4248,6 @@ export default function App() {
                                 >
                                   <Phone size={14} />
                                 </a>
-                              )}
-                              {currentUser.role === 'receptionist' && ref.status === 'entered' && (
-                                <>
-                                  <button 
-                                    onClick={() => handleUpdateStatus(ref.id, 'completed', { visit_date: new Date().toISOString().split('T')[0] })}
-                                    className="text-[10px] font-bold text-indigo-600 hover:underline"
-                                  >
-                                    Arrived
-                                  </button>
-                                  <button 
-                                    onClick={() => handleUpdateStatus(ref.id, 'rejected', { rejection_reason: 'Patient did not arrive' })}
-                                    className="text-[10px] font-bold text-zinc-900 hover:underline"
-                                  >
-                                    Reject
-                                  </button>
-                                </>
-                              )}
-                              {currentUser.role === 'receptionist' && ref.status === 'completed' && (
-                                <button 
-                                  onClick={() => handleUpdateStatus(ref.id, 'paid_completed', { payment_status: 'completed' })}
-                                  className="text-[10px] font-bold text-zinc-900 hover:underline"
-                                >
-                                  Paid
-                                </button>
-                              )}
-                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.status === 'paid_completed' && (
-                                <button 
-                                  onClick={() => handleUpdateStatus(ref.id, 'approved')}
-                                  className="text-[10px] font-bold text-zinc-900 hover:underline"
-                                >
-                                  Approve
-                                </button>
-                              )}
-                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.status === 'approved' && (
-                                <button 
-                                  onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
-                                  className="text-[10px] font-bold text-zinc-900 hover:underline"
-                                >
-                                  Pay
-                                </button>
                               )}
                               { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                                 <button 
@@ -4684,7 +4644,7 @@ export default function App() {
                     <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Pending</p>
                     <p className="text-xl font-black text-zinc-900">
                       {clinicProfile.currency}{referrals
-                        .filter(r => r.status === 'approved')
+                        .filter(r => ['completed', 'approved'].includes(r.status))
                         .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
                         .filter(r => payoutUserFilter === 'all' ? true : String(r.staff_id) === payoutUserFilter)
                         .reduce((sum, r) => sum + r.commission_amount, 0).toFixed(2)}
@@ -4793,7 +4753,7 @@ export default function App() {
                         </thead>
                         <tbody className="divide-y divide-zinc-50">
                           {referrals
-                            .filter(r => ['paid_completed', 'approved', 'payout_processed'].includes(r.status))
+                            .filter(r => ['completed', 'approved', 'payout_processed'].includes(r.status))
                             .filter(r => 
                               r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                               r.staff_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
