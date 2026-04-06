@@ -3458,7 +3458,7 @@ export default function App() {
     const staffRefs = referrals.filter(r => String(r.staff_id) === String(staff.id));
     const monthlySuccessfulRefs = staffRefs.filter(r => 
       (r.status === 'completed' || r.status === 'approved' || r.status === 'payout_processed') && 
-      r.date.startsWith(currentMonth)
+      (r.date || r.created_at || '').startsWith(currentMonth)
     ).length;
 
     const tier = getTier(monthlySuccessfulRefs);
