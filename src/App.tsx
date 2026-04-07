@@ -331,24 +331,36 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
                   Download Poster to Share
                 </button>
 
-                {/* Share Buttons */}
+                {/* Action Buttons */}
                 <div className="grid grid-cols-2 gap-4 mt-4">
+                  {item.is_arapower_linked ? (
+                    <a
+                      href={shareLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-4 bg-violet-600 text-white rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-violet-200"
+                    >
+                      <Calendar size={16} />
+                      Saya nak tempah slot
+                    </a>
+                  ) : (
+                    <a
+                      href={`https://wa.me/${clinicProfile.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi/Salam, saya berminat dengan ${item.name}. Kod rujukan: ${referralCode || 'N/A'}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-4 bg-emerald-500 text-white rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-emerald-200"
+                    >
+                      <MessageCircle size={16} />
+                      WhatsApp Kami
+                    </a>
+                  )}
                   <button
                     onClick={handleCopyLink}
                     className="py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
                   >
-                    <Copy size={16} />
-                    Copy Link
+                    <Share2 size={16} />
+                    Kongsi
                   </button>
-                  <a
-                    href={`https://wa.me/?text=${encodeURIComponent(`Check out this promotion at our clinic: ${shareLink}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="py-4 bg-emerald-500 text-white rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
-                  >
-                    <MessageCircle size={16} />
-                    WhatsApp
-                  </a>
                 </div>
 
                 <div className="pt-4">
@@ -2173,48 +2185,85 @@ export default function App() {
 
     setIsSubmitting(true);
     try {
-      const serviceData = services.find(srv => String(srv.id) === String(data.selectedService));
+      const isListedService = services.some(srv => String(srv.id) === String(data.selectedService));
 
-      const payload: any = {
-        staff_id: staffId,
-        service_id: data.selectedService,
-        service_name: serviceData?.name || '',
-        commission_amount: serviceData?.commission_rate || 0,
-        patient_name: data.patientName,
-        patient_phone: data.patientPhone,
-        patient_ic: data.patientIC,
-        patient_address: data.patientAddress,
-        patient_type: data.patientType,
-        appointment_date: data.appointmentDate,
-        booking_time: data.bookingTime,
-        status: 'pending',
-        date: new Date().toISOString().split('T')[0],
-        created_by: currentUser?.id,
-        branch: data.selectedBranch || (isPublicBooking ? data.referringStaff?.branch : currentUser?.branch)
-      };
+      if (isListedService) {
+        const serviceData = services.find(srv => String(srv.id) === String(data.selectedService));
 
-      if (referralCode) {
-        payload.referral_code = referralCode;
-      }
+        const payload: any = {
+          staff_id: staffId,
+          service_id: serviceData ? data.selectedService : null,
+          service_name: serviceData?.name || urlServiceName || data.urlServiceName || 'Custom Service',
+          commission_amount: serviceData?.commission_rate || 0,
+          patient_name: data.patientName,
+          patient_phone: data.patientPhone,
+          patient_ic: data.patientIC,
+          patient_address: data.patientAddress,
+          patient_type: data.patientType,
+          appointment_date: data.appointmentDate,
+          booking_time: data.bookingTime,
+          status: 'pending',
+          date: new Date().toISOString().split('T')[0],
+          created_by: currentUser?.id,
+          branch: data.selectedBranch || (isPublicBooking ? data.referringStaff?.branch : currentUser?.branch)
+        };
 
-      const url = `${apiBaseUrl}/api/referrals`;
-      const method = 'POST';
-
-      const { res, data: resultData } = await safeFetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      
-      if (res.ok) {
-        const actualDraftId = draftReferralId || data.draftReferralId;
-        if (actualDraftId) { 
-          const { error: warmLeadError } = await supabase.from('warm_leads').update({ status: 'converted' }).eq('id', actualDraftId);
-          if (warmLeadError) console.error("Error updating warm lead:", warmLeadError);
+        if (referralCode) {
+          payload.referral_code = referralCode;
         }
+
+        const url = `${apiBaseUrl}/api/referrals`;
+        const method = 'POST';
+
+        const { res, data: resultData } = await safeFetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
         
-        if (resultData.fraudFlags && resultData.fraudFlags.length > 0) {
-          alert(`Referral submitted with flags: ${resultData.fraudFlags.join(', ')}`);
+        if (res.ok) {
+          const actualDraftId = draftReferralId || data.draftReferralId;
+          if (actualDraftId) { 
+            const { error: warmLeadError } = await supabase.from('warm_leads').update({ status: 'converted' }).eq('id', actualDraftId);
+            if (warmLeadError) console.error("Error updating warm lead:", warmLeadError);
+          }
+          
+          if (resultData.fraudFlags && resultData.fraudFlags.length > 0) {
+            alert(`Referral submitted with flags: ${resultData.fraudFlags.join(', ')}`);
+          }
+
+          if (!isPublicBooking) {
+            setPatientName('');
+            setPatientPhone('');
+            setPatientIC('');
+            setPatientAddress('');
+            setPatientType('new');
+            setAppointmentDate('');
+            setBookingTime('');
+            setSelectedService('');
+            setWalkInPromoCode('');
+            setWalkInStaff(null);
+            fetchReferrals();
+          }
+          return true;
+        } else {
+          alert('Submission Failed: ' + (resultData.error || 'Unknown Error') + (resultData.details ? ' | Details: ' + JSON.stringify(resultData.details) : ''));
+          return false;
+        }
+      } else {
+        // NOT LISTED: Send to warm_leads directly
+        const { error: warmLeadError } = await supabase.from('warm_leads').insert({
+          patient_name: data.patientName,
+          patient_phone: data.patientPhone,
+          service_id: data.urlServiceName || data.selectedService || 'Custom Service',
+          branch_id: data.selectedBranch,
+          status: 'new'
+        });
+
+        if (warmLeadError) {
+          console.error("Error inserting warm lead:", warmLeadError);
+          alert('Submission Failed: ' + warmLeadError.message);
+          return false;
         }
 
         if (!isPublicBooking) {
@@ -2231,9 +2280,6 @@ export default function App() {
           fetchReferrals();
         }
         return true;
-      } else {
-        alert('Submission Failed: ' + (resultData.error || 'Unknown Error') + (resultData.details ? ' | Details: ' + JSON.stringify(resultData.details) : ''));
-        return false;
       }
     } catch (error: any) {
       console.error(error);

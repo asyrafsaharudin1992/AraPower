@@ -88,6 +88,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
   const [isUploading, setIsUploading] = useState(false);
   const [topFeatured, setTopFeatured] = useState(false);
   const [categoryCarousel, setCategoryCarousel] = useState(true);
+  const [isAraPowerLinked, setIsAraPowerLinked] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -140,6 +141,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
       setPosterUrl(initialData.image_url || '');
       setTopFeatured(initialData.is_featured || false);
       setCategoryCarousel(initialData.category_carousel || false);
+      setIsAraPowerLinked(initialData.is_arapower_linked !== undefined ? initialData.is_arapower_linked : true);
     } else {
       // Reset form
       setCustomId('');
@@ -171,6 +173,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
       setPosterUrl('');
       setTopFeatured(false);
       setCategoryCarousel(false);
+      setIsAraPowerLinked(true);
     }
   }, [initialData]);
 
@@ -328,6 +331,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
         image_url: posterUrl,
         is_featured: topFeatured,
         category_carousel: categoryCarousel,
+        is_arapower_linked: isAraPowerLinked,
       };
 
       if (!initialData) {
@@ -433,6 +437,22 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
                       )}
                     </select>
                   </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <label className="block text-xs font-bold text-gray-500 mb-3">BOOKING SYSTEM</label>
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div 
+                      onClick={() => setIsAraPowerLinked(!isAraPowerLinked)}
+                      className={`w-12 h-6 rounded-full transition-all relative ${isAraPowerLinked ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isAraPowerLinked ? 'left-7' : 'left-1'}`} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-gray-700">Linked to AraPower Booking</span>
+                      <span className="text-[10px] text-gray-500">Enable this if the service is listed on your booking system.</span>
+                    </div>
+                  </label>
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">

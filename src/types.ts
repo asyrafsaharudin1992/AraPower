@@ -43,6 +43,7 @@ export interface Service {
   deposit_amount?: number;
   category_carousel?: boolean;
   target_url?: string;
+  is_arapower_linked?: boolean;
 }
 
 export interface Promotion {
@@ -104,7 +105,7 @@ export interface Referral {
   booking_time: string;
   visit_date?: string;
   date: string;
-  status: 'entered' | 'completed' | 'paid_completed' | 'approved' | 'payout_processed' | 'rejected' | 'cancelled' | 'warm_lead' | 'whatsapp_redirected' | 'pending';
+  status: 'pending' | 'arrived' | 'in_session' | 'completed' | 'approved' | 'payout_processed' | 'cancelled' | 'entered' | 'paid_completed' | 'rejected' | 'warm_lead' | 'whatsapp_redirected';
   payment_status: 'pending' | 'completed';
   commission_amount: number;
   fraud_flags?: string;

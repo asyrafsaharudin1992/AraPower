@@ -1924,7 +1924,7 @@ app.get("/api/services", async (req, res) => {
 });
 
 app.post("/api/services", async (req, res) => {
-  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category, target_url } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category, target_url, is_arapower_linked } = req.body;
   
   const insertData: any = {
     name
@@ -1953,6 +1953,7 @@ app.post("/api/services", async (req, res) => {
   if (serviceColumns.has('end_time')) insertData.end_time = end_time || null;
   if (is_featured !== undefined && serviceColumns.has('is_featured')) insertData.is_featured = is_featured;
   if (target_url !== undefined && serviceColumns.has('target_url')) insertData.target_url = target_url;
+  if (is_arapower_linked !== undefined && serviceColumns.has('is_arapower_linked')) insertData.is_arapower_linked = is_arapower_linked;
   if (serviceColumns.has('aracoins_perk')) {
     insertData.aracoins_perk = aracoins_perk || 0;
   }
@@ -1984,7 +1985,7 @@ app.post("/api/services", async (req, res) => {
 
 app.patch("/api/services/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category, target_url } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category, target_url, is_arapower_linked } = req.body;
   
   const updateData: any = {};
 
@@ -2012,6 +2013,7 @@ app.patch("/api/services/:id", async (req, res) => {
   if (is_featured !== undefined && serviceColumns.has('is_featured')) updateData.is_featured = is_featured;
   if (aracoins_perk !== undefined && serviceColumns.has('aracoins_perk')) updateData.aracoins_perk = aracoins_perk;
   if (target_url !== undefined && serviceColumns.has('target_url')) updateData.target_url = target_url;
+  if (is_arapower_linked !== undefined && serviceColumns.has('is_arapower_linked')) updateData.is_arapower_linked = is_arapower_linked;
 
   console.log(`PATCH /api/services/${id} - Update Data:`, JSON.stringify(updateData, null, 2));
 
