@@ -2263,7 +2263,7 @@ export default function App() {
           patient_name: data.patientName,
           patient_phone: data.patientPhone,
           service_id: data.urlServiceName || data.selectedService || 'Custom Service',
-          branch_id: data.selectedBranch,
+          branch: data.selectedBranch,
           status: 'new'
         });
 
