@@ -2252,13 +2252,13 @@ export default function App() {
         }
       } else {
         // NOT LISTED: Send to warm_leads directly
-        const { error: warmLeadError } = await supabase.from('warm_leads').insert({
+        const { error: warmLeadError } = await supabase.from('warm_leads').insert([{
           patient_name: data.patientName,
           patient_phone: data.patientPhone,
           service_id: data.urlServiceName || data.selectedService || 'Custom Service',
-          branch_id: data.selectedBranch,
+          branch: data.selectedBranch, // <-- This MUST be 'branch', not 'branch_id'
           status: 'new'
-        });
+        }]);
 
         if (warmLeadError) {
           console.error("Error inserting warm lead:", warmLeadError);

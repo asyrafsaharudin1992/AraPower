@@ -44,6 +44,7 @@ export interface Service {
   category_carousel?: boolean;
   target_url?: string;
   is_arapower_linked?: boolean;
+  is_affiliate_enabled?: boolean;
 }
 
 export interface Promotion {
