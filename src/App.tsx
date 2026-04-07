@@ -754,7 +754,7 @@ export default function App() {
     if (saved !== null) return saved === 'true';
     return false;
   });
-  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash' | 'categories' | 'service-links'>('staff');
+  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash' | 'categories'>('staff');
   const [serviceCategories, setServiceCategories] = useState<string[]>(['Health screening', 'Diagnostic test', 'Vaccination']);
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
   const [editingCategoryValue, setEditingCategoryValue] = useState<string>('');
@@ -6582,12 +6582,6 @@ export default function App() {
                 >
                   Categories
                 </button>
-                <button 
-                  onClick={() => setSetupSubTab('service-links')}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'service-links' ? 'bg-brand-primary text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
-                >
-                  Service Routing
-                </button>
               </div>
 
               {setupSubTab === 'categories' && (
@@ -7588,79 +7582,6 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                       >
                         {isSavingSetup ? 'Saving...' : 'Save Permissions'}
                       </button>
-                    </div>
-                  </div>
-                </div>
-              ) : setupSubTab === 'service-links' ? (
-                <div className="space-y-6">
-                  <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
-                    <div className="flex items-center justify-between mb-8">
-                      <div>
-                        <h3 className="text-2xl font-black tracking-tighter text-zinc-900">Service Routing Dashboard</h3>
-                        <p className="text-zinc-500 text-sm font-medium">Manage which services use AraPower Booking vs WhatsApp Only</p>
-                      </div>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="text-left border-b border-zinc-100">
-                            <th className="pb-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest pl-4">Service Name</th>
-                            <th className="pb-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Category</th>
-                            <th className="pb-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-center">Incentive</th>
-                            <th className="pb-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right pr-4">Routing Toggle</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-50">
-                          {services.map((service) => (
-                            <tr key={service.id} className="group hover:bg-zinc-50/50 transition-colors">
-                              <td className="py-5 pl-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-500 group-hover:bg-brand-primary group-hover:text-white transition-colors">
-                                    <Tag size={18} />
-                                  </div>
-                                  <span className="font-bold text-zinc-900">{service.name}</span>
-                                </div>
-                              </td>
-                              <td className="py-5">
-                                <span className="px-3 py-1 bg-zinc-100 text-zinc-600 rounded-full text-[10px] font-black uppercase tracking-wider">
-                                  {service.category}
-                                </span>
-                              </td>
-                              <td className="py-5 text-center">
-                                <span className="font-bold text-emerald-600">RM{service.commission_rate || 0}</span>
-                              </td>
-                              <td className="py-5 pr-4 text-right">
-                                <div className="flex items-center justify-end gap-3">
-                                  <span className={`text-[10px] font-black uppercase tracking-widest ${service.is_arapower_linked ? 'text-violet-600' : 'text-zinc-400'}`}>
-                                    {service.is_arapower_linked ? 'AraPower' : 'WhatsApp'}
-                                  </span>
-                                  <button 
-                                    onClick={async () => {
-                                      const newVal = !service.is_arapower_linked;
-                                      try {
-                                        const { res } = await safeFetch(`${apiBaseUrl}/api/services/${service.id}`, {
-                                          method: 'PATCH',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({ is_arapower_linked: newVal })
-                                        });
-                                        if (res.ok) {
-                                          fetchServices();
-                                        }
-                                      } catch (e) {
-                                        console.error(e);
-                                      }
-                                    }}
-                                    className={`w-14 h-7 rounded-full transition-all relative shadow-inner ${service.is_arapower_linked ? 'bg-violet-500' : 'bg-zinc-200'}`}
-                                  >
-                                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-md ${service.is_arapower_linked ? 'left-8' : 'left-1'}`} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
                     </div>
                   </div>
                 </div>
