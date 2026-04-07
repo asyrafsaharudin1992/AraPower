@@ -754,7 +754,7 @@ export default function App() {
     if (saved !== null) return saved === 'true';
     return false;
   });
-  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash' | 'categories'>('staff');
+  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash' | 'categories' | 'service-links'>('staff');
   const [serviceCategories, setServiceCategories] = useState<string[]>(['Health screening', 'Diagnostic test', 'Vaccination']);
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
   const [editingCategoryValue, setEditingCategoryValue] = useState<string>('');
@@ -1001,7 +1001,7 @@ export default function App() {
   }, [reduceTranslucency]);
 
   useEffect(() => {
-    const featured = services.filter(s => s.is_featured);
+    const featured = services.filter(s => s.is_featured && s.is_affiliate_enabled !== false);
     setFeaturedIndex(0);
     if (featured.length <= 1) return;
 
@@ -1013,10 +1013,11 @@ export default function App() {
   }, [services]);
 
   useEffect(() => {
-    if (services.length <= 1) return;
+    const visibleServices = services.filter(s => s.is_affiliate_enabled !== false);
+    if (visibleServices.length <= 1) return;
 
     const timer = setInterval(() => {
-      setServiceSlideshowIndex(prev => (prev + 1) % services.length);
+      setServiceSlideshowIndex(prev => (prev + 1) % visibleServices.length);
     }, 6000);
 
     return () => clearInterval(timer);
@@ -1391,6 +1392,12 @@ export default function App() {
       if (data.clinic) setClinicProfile(data.clinic);
       if (data.roles) setRolesConfig(data.roles);
       if (data.referral) setReferralSettings(data.referral);
+      if (data.service_categories) {
+        setServiceCategories(prev => {
+          const filteredPrev = prev.filter(c => c !== 'Healthscreening' && c !== 'Health Screening');
+          return Array.from(new Set([...filteredPrev, ...data.service_categories]));
+        });
+      }
     }
   };
 
@@ -5425,10 +5432,10 @@ export default function App() {
                           className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium pr-12 focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500 focus:border-violet-500 text-zinc-900'}`}
                         >
                           <option value="">Select a service</option>
-                          {services.map(s => (
+                          {services.filter(s => s.is_affiliate_enabled !== false).map(s => (
                             <option key={s.id} value={s.id}>{s.name} ({clinicProfile.currency}{s.commission_rate} incentive {(s.aracoins_perk || 0) > 0 ? `+ ${s.aracoins_perk} Coins` : ''})</option>
                           ))}
-                          {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
+                          {selectedService && !services.filter(s => s.is_affiliate_enabled !== false).find(s => String(s.id) === String(selectedService)) && urlServiceName && (
                             <option value={selectedService}>{urlServiceName}</option>
                           )}
                         </select>
@@ -6437,7 +6444,8 @@ export default function App() {
                   } as Service));
 
                   let filteredServices = displayServices.filter(item => {
-                    return checkBranchAccess(item) && category.filter(item);
+                    const isAffiliateVisible = item.is_affiliate_enabled !== false; // Default to true if undefined
+                    return checkBranchAccess(item) && category.filter(item) && isAffiliateVisible;
                   });
 
                   if (filteredServices.length === 0) {
@@ -6582,6 +6590,12 @@ export default function App() {
                 >
                   Categories
                 </button>
+                <button 
+                  onClick={() => setSetupSubTab('service-links')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'service-links' ? 'bg-brand-primary text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  Service Routing
+                </button>
               </div>
 
               {setupSubTab === 'categories' && (
@@ -6594,10 +6608,15 @@ export default function App() {
                           <input 
                             value={editingCategoryValue}
                             onChange={(e) => setEditingCategoryValue(e.target.value)}
-                            onKeyDown={(e) => {
+                            onKeyDown={async (e) => {
                               if (e.key === 'Enter') {
-                                setServiceCategories(prev => prev.map((c, i) => i === idx ? editingCategoryValue : c));
+                                const newCategories = serviceCategories.map((c, i) => i === idx ? editingCategoryValue : c);
+                                setServiceCategories(newCategories);
                                 setEditingCategoryIndex(null);
+                                await safeFetch(`${apiBaseUrl}/api/settings`, {
+                                  method: 'POST',
+                                  body: JSON.stringify({ key: 'service_categories', value: newCategories })
+                                });
                               }
                             }}
                             className="px-2 py-1 rounded border"
@@ -6607,9 +6626,14 @@ export default function App() {
                         )}
                         <div className="flex gap-2">
                           {editingCategoryIndex === idx ? (
-                            <button onClick={() => {
-                              setServiceCategories(prev => prev.map((c, i) => i === idx ? editingCategoryValue : c));
+                            <button onClick={async () => {
+                              const newCategories = serviceCategories.map((c, i) => i === idx ? editingCategoryValue : c);
+                              setServiceCategories(newCategories);
                               setEditingCategoryIndex(null);
+                              await safeFetch(`${apiBaseUrl}/api/settings`, {
+                                method: 'POST',
+                                body: JSON.stringify({ key: 'service_categories', value: newCategories })
+                              });
                             }} className="text-emerald-600">Save</button>
                           ) : (
                             <button onClick={() => {
@@ -6617,7 +6641,14 @@ export default function App() {
                               setEditingCategoryValue(cat);
                             }} className="text-blue-600">Edit</button>
                           )}
-                          <button onClick={() => setServiceCategories(prev => prev.filter((_, i) => i !== idx))} className="text-rose-500">Remove</button>
+                          <button onClick={async () => {
+                            const newCategories = serviceCategories.filter((_, i) => i !== idx);
+                            setServiceCategories(newCategories);
+                            await safeFetch(`${apiBaseUrl}/api/settings`, {
+                              method: 'POST',
+                              body: JSON.stringify({ key: 'service_categories', value: newCategories })
+                            });
+                          }} className="text-rose-500">Remove</button>
                         </div>
                       </div>
                     ))}
@@ -6625,10 +6656,15 @@ export default function App() {
                       <input 
                         type="text" 
                         placeholder="New category name"
-                        onKeyDown={(e) => {
+                        onKeyDown={async (e) => {
                           if (e.key === 'Enter') {
-                            setServiceCategories(prev => [...prev, e.currentTarget.value]);
+                            const newCategories = [...serviceCategories, e.currentTarget.value];
+                            setServiceCategories(newCategories);
                             e.currentTarget.value = '';
+                            await safeFetch(`${apiBaseUrl}/api/settings`, {
+                              method: 'POST',
+                              body: JSON.stringify({ key: 'service_categories', value: newCategories })
+                            });
                           }
                         }}
                         className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100"
@@ -7585,6 +7621,79 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                     </div>
                   </div>
                 </div>
+              ) : setupSubTab === 'service-links' ? (
+                <div className="space-y-6">
+                  <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+                    <div className="flex items-center justify-between mb-8">
+                      <div>
+                        <h3 className="text-2xl font-black tracking-tighter text-zinc-900">Service Routing Dashboard</h3>
+                        <p className="text-zinc-500 text-sm font-medium">Manage which services use AraPower Booking vs WhatsApp Only</p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="text-left border-b border-zinc-100">
+                            <th className="pb-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest pl-4">Service Name</th>
+                            <th className="pb-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Category</th>
+                            <th className="pb-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-center">Incentive</th>
+                            <th className="pb-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right pr-4">Routing Toggle</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-50">
+                          {services.map((service) => (
+                            <tr key={service.id} className="group hover:bg-zinc-50/50 transition-colors">
+                              <td className="py-5 pl-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-500 group-hover:bg-brand-primary group-hover:text-white transition-colors">
+                                    <Tag size={18} />
+                                  </div>
+                                  <span className="font-bold text-zinc-900">{service.name}</span>
+                                </div>
+                              </td>
+                              <td className="py-5">
+                                <span className="px-3 py-1 bg-zinc-100 text-zinc-600 rounded-full text-[10px] font-black uppercase tracking-wider">
+                                  {service.category}
+                                </span>
+                              </td>
+                              <td className="py-5 text-center">
+                                <span className="font-bold text-emerald-600">RM{service.commission_rate || 0}</span>
+                              </td>
+                              <td className="py-5 pr-4 text-right">
+                                <div className="flex items-center justify-end gap-3">
+                                  <span className={`text-[10px] font-black uppercase tracking-widest ${service.is_arapower_linked ? 'text-violet-600' : 'text-zinc-400'}`}>
+                                    {service.is_arapower_linked ? 'AraPower' : 'WhatsApp'}
+                                  </span>
+                                  <button 
+                                    onClick={async () => {
+                                      const newVal = !service.is_arapower_linked;
+                                      try {
+                                        const { res } = await safeFetch(`${apiBaseUrl}/api/services/${service.id}`, {
+                                          method: 'PATCH',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ is_arapower_linked: newVal })
+                                        });
+                                        if (res.ok) {
+                                          fetchServices();
+                                        }
+                                      } catch (e) {
+                                        console.error(e);
+                                      }
+                                    }}
+                                    className={`w-14 h-7 rounded-full transition-all relative shadow-inner ${service.is_arapower_linked ? 'bg-violet-500' : 'bg-zinc-200'}`}
+                                  >
+                                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-md ${service.is_arapower_linked ? 'left-8' : 'left-1'}`} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
               ) : setupSubTab === 'auth' ? (
                 <div className="max-w-2xl mx-auto space-y-8">
                   <div className="bg-white p-10 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden">
@@ -8342,10 +8451,10 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                         className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900"
                       >
                         <option value="">Select a service</option>
-                        {services.map(s => (
+                        {services.filter(s => s.is_affiliate_enabled !== false).map(s => (
                           <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
-                        {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
+                        {selectedService && !services.filter(s => s.is_affiliate_enabled !== false).find(s => String(s.id) === String(selectedService)) && urlServiceName && (
                           <option value={selectedService}>{urlServiceName}</option>
                         )}
                       </select>
