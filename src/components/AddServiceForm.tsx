@@ -89,7 +89,6 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
   const [topFeatured, setTopFeatured] = useState(false);
   const [categoryCarousel, setCategoryCarousel] = useState(true);
   const [isAraPowerLinked, setIsAraPowerLinked] = useState(true);
-  const [isAffiliateEnabled, setIsAffiliateEnabled] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -143,7 +142,6 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
       setTopFeatured(initialData.is_featured || false);
       setCategoryCarousel(initialData.category_carousel || false);
       setIsAraPowerLinked(initialData.is_arapower_linked !== undefined ? initialData.is_arapower_linked : true);
-      setIsAffiliateEnabled(initialData.is_affiliate_enabled !== undefined ? initialData.is_affiliate_enabled : true);
     } else {
       // Reset form
       setCustomId('');
@@ -176,7 +174,6 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
       setTopFeatured(false);
       setCategoryCarousel(false);
       setIsAraPowerLinked(true);
-      setIsAffiliateEnabled(true);
     }
   }, [initialData]);
 
@@ -335,7 +332,6 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
         is_featured: topFeatured,
         category_carousel: categoryCarousel,
         is_arapower_linked: isAraPowerLinked,
-        is_affiliate_enabled: isAffiliateEnabled,
       };
 
       if (!initialData) {
@@ -423,59 +419,23 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-2">CATEGORY</label>
-                    <input 
-                      type="text"
-                      list="categories-list"
+                    <select 
                       value={category} 
                       onChange={(e) => setCategory(e.target.value)} 
-                      placeholder="Select or type a new category"
                       className="w-full border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white"
-                    />
-                    <datalist id="categories-list">
+                    >
                       {categories.map((cat, idx) => (
                         <option key={idx} value={cat}>{cat}</option>
                       ))}
                       {categories.length === 0 && (
                         <>
-                          <option value="Cosmetic Dentistry" />
-                          <option value="General Dentistry" />
-                          <option value="Orthodontics" />
-                          <option value="Surgery" />
+                          <option>Cosmetic Dentistry</option>
+                          <option>General Dentistry</option>
+                          <option>Orthodontics</option>
+                          <option>Surgery</option>
                         </>
                       )}
-                    </datalist>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <label className="block text-xs font-bold text-gray-500 mb-3">SERVICE TYPE</label>
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <input 
-                        type="radio" 
-                        name="affiliate_enabled" 
-                        checked={isAffiliateEnabled} 
-                        onChange={() => setIsAffiliateEnabled(true)} 
-                        className="accent-indigo-600 w-4 h-4" 
-                      />
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-gray-700">AraPower Incentive (Visible to Affiliates)</span>
-                        <span className="text-[10px] text-gray-500">Service will appear on the affiliate promo board.</span>
-                      </div>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <input 
-                        type="radio" 
-                        name="affiliate_enabled" 
-                        checked={!isAffiliateEnabled} 
-                        onChange={() => setIsAffiliateEnabled(false)} 
-                        className="accent-indigo-600 w-4 h-4" 
-                      />
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-gray-700">Non-AraPower Incentive (Hidden background service)</span>
-                        <span className="text-[10px] text-gray-500">Service is only visible in booking dropdowns and admin menus.</span>
-                      </div>
-                    </label>
+                    </select>
                   </div>
                 </div>
 

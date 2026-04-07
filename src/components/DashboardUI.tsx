@@ -253,7 +253,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
         </div>
         <CategoryScrollRow 
           title="All Services"
-          services={services.filter(s => s.is_affiliate_enabled !== false)} 
+          services={services} 
           onClick={(service) => {
             setSelectedPromo(service);
             setIsPromoModalOpen(true);

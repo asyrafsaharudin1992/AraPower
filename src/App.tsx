@@ -1001,7 +1001,7 @@ export default function App() {
   }, [reduceTranslucency]);
 
   useEffect(() => {
-    const featured = services.filter(s => s.is_featured && s.is_affiliate_enabled !== false);
+    const featured = services.filter(s => s.is_featured);
     setFeaturedIndex(0);
     if (featured.length <= 1) return;
 
@@ -1013,11 +1013,10 @@ export default function App() {
   }, [services]);
 
   useEffect(() => {
-    const visibleServices = services.filter(s => s.is_affiliate_enabled !== false);
-    if (visibleServices.length <= 1) return;
+    if (services.length <= 1) return;
 
     const timer = setInterval(() => {
-      setServiceSlideshowIndex(prev => (prev + 1) % visibleServices.length);
+      setServiceSlideshowIndex(prev => (prev + 1) % services.length);
     }, 6000);
 
     return () => clearInterval(timer);
@@ -1392,12 +1391,6 @@ export default function App() {
       if (data.clinic) setClinicProfile(data.clinic);
       if (data.roles) setRolesConfig(data.roles);
       if (data.referral) setReferralSettings(data.referral);
-      if (data.service_categories) {
-        setServiceCategories(prev => {
-          const filteredPrev = prev.filter(c => c !== 'Healthscreening' && c !== 'Health Screening');
-          return Array.from(new Set([...filteredPrev, ...data.service_categories]));
-        });
-      }
     }
   };
 
@@ -2263,7 +2256,7 @@ export default function App() {
           patient_name: data.patientName,
           patient_phone: data.patientPhone,
           service_id: data.urlServiceName || data.selectedService || 'Custom Service',
-          branch: data.selectedBranch,
+          branch_id: data.selectedBranch,
           status: 'new'
         });
 
@@ -5432,10 +5425,10 @@ export default function App() {
                           className={`w-full px-5 py-4 rounded-2xl border transition-all appearance-none text-sm font-medium pr-12 focus:outline-none focus:ring-4 ${darkMode ? 'bg-zinc-50 border-zinc-100 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900' : 'bg-white border-zinc-100 focus:ring-violet-500 focus:border-violet-500 text-zinc-900'}`}
                         >
                           <option value="">Select a service</option>
-                          {services.filter(s => s.is_affiliate_enabled !== false).map(s => (
+                          {services.map(s => (
                             <option key={s.id} value={s.id}>{s.name} ({clinicProfile.currency}{s.commission_rate} incentive {(s.aracoins_perk || 0) > 0 ? `+ ${s.aracoins_perk} Coins` : ''})</option>
                           ))}
-                          {selectedService && !services.filter(s => s.is_affiliate_enabled !== false).find(s => String(s.id) === String(selectedService)) && urlServiceName && (
+                          {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
                             <option value={selectedService}>{urlServiceName}</option>
                           )}
                         </select>
@@ -6444,8 +6437,7 @@ export default function App() {
                   } as Service));
 
                   let filteredServices = displayServices.filter(item => {
-                    const isAffiliateVisible = item.is_affiliate_enabled !== false; // Default to true if undefined
-                    return checkBranchAccess(item) && category.filter(item) && isAffiliateVisible;
+                    return checkBranchAccess(item) && category.filter(item);
                   });
 
                   if (filteredServices.length === 0) {
@@ -6608,15 +6600,10 @@ export default function App() {
                           <input 
                             value={editingCategoryValue}
                             onChange={(e) => setEditingCategoryValue(e.target.value)}
-                            onKeyDown={async (e) => {
+                            onKeyDown={(e) => {
                               if (e.key === 'Enter') {
-                                const newCategories = serviceCategories.map((c, i) => i === idx ? editingCategoryValue : c);
-                                setServiceCategories(newCategories);
+                                setServiceCategories(prev => prev.map((c, i) => i === idx ? editingCategoryValue : c));
                                 setEditingCategoryIndex(null);
-                                await safeFetch(`${apiBaseUrl}/api/settings`, {
-                                  method: 'POST',
-                                  body: JSON.stringify({ key: 'service_categories', value: newCategories })
-                                });
                               }
                             }}
                             className="px-2 py-1 rounded border"
@@ -6626,14 +6613,9 @@ export default function App() {
                         )}
                         <div className="flex gap-2">
                           {editingCategoryIndex === idx ? (
-                            <button onClick={async () => {
-                              const newCategories = serviceCategories.map((c, i) => i === idx ? editingCategoryValue : c);
-                              setServiceCategories(newCategories);
+                            <button onClick={() => {
+                              setServiceCategories(prev => prev.map((c, i) => i === idx ? editingCategoryValue : c));
                               setEditingCategoryIndex(null);
-                              await safeFetch(`${apiBaseUrl}/api/settings`, {
-                                method: 'POST',
-                                body: JSON.stringify({ key: 'service_categories', value: newCategories })
-                              });
                             }} className="text-emerald-600">Save</button>
                           ) : (
                             <button onClick={() => {
@@ -6641,14 +6623,7 @@ export default function App() {
                               setEditingCategoryValue(cat);
                             }} className="text-blue-600">Edit</button>
                           )}
-                          <button onClick={async () => {
-                            const newCategories = serviceCategories.filter((_, i) => i !== idx);
-                            setServiceCategories(newCategories);
-                            await safeFetch(`${apiBaseUrl}/api/settings`, {
-                              method: 'POST',
-                              body: JSON.stringify({ key: 'service_categories', value: newCategories })
-                            });
-                          }} className="text-rose-500">Remove</button>
+                          <button onClick={() => setServiceCategories(prev => prev.filter((_, i) => i !== idx))} className="text-rose-500">Remove</button>
                         </div>
                       </div>
                     ))}
@@ -6656,15 +6631,10 @@ export default function App() {
                       <input 
                         type="text" 
                         placeholder="New category name"
-                        onKeyDown={async (e) => {
+                        onKeyDown={(e) => {
                           if (e.key === 'Enter') {
-                            const newCategories = [...serviceCategories, e.currentTarget.value];
-                            setServiceCategories(newCategories);
+                            setServiceCategories(prev => [...prev, e.currentTarget.value]);
                             e.currentTarget.value = '';
-                            await safeFetch(`${apiBaseUrl}/api/settings`, {
-                              method: 'POST',
-                              body: JSON.stringify({ key: 'service_categories', value: newCategories })
-                            });
                           }
                         }}
                         className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100"
@@ -8451,10 +8421,10 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                         className="w-full px-5 py-4 rounded-2xl border border-zinc-100 bg-zinc-50 transition-all appearance-none text-sm font-medium focus:outline-none focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent/50 text-zinc-900"
                       >
                         <option value="">Select a service</option>
-                        {services.filter(s => s.is_affiliate_enabled !== false).map(s => (
+                        {services.map(s => (
                           <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
-                        {selectedService && !services.filter(s => s.is_affiliate_enabled !== false).find(s => String(s.id) === String(selectedService)) && urlServiceName && (
+                        {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
                           <option value={selectedService}>{urlServiceName}</option>
                         )}
                       </select>
