@@ -4231,9 +4231,39 @@ export default function App() {
                         <td className="p-4 text-sm font-medium text-zinc-900">{ref.staff_name}</td>
                         <td className="p-4 text-sm font-bold">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</td>
                         <td className="p-4">
-                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
-                            {getStatusLabel(ref.status)}
-                          </span>
+                          <div className="flex flex-col gap-2">
+                            <span className={`w-fit px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
+                              {getStatusLabel(ref.status)}
+                            </span>
+                            
+                            {/* Visual Pipeline Stepper */}
+                            <div className="flex items-center gap-1 mt-1">
+                              {['pending', 'arrived', 'in_session', 'completed', 'approved', 'payout_processed'].map((step, i, arr) => {
+                                const currentIndex = arr.indexOf(ref.status);
+                                const stepIndex = i;
+                                const isCompleted = stepIndex < currentIndex || ref.status === 'payout_processed';
+                                const isCurrent = stepIndex === currentIndex;
+                                const isCancelled = ref.status === 'cancelled';
+                                
+                                let bgColor = 'bg-zinc-200';
+                                if (isCancelled) {
+                                  bgColor = 'bg-rose-200';
+                                } else if (isCompleted) {
+                                  bgColor = 'bg-emerald-500';
+                                } else if (isCurrent) {
+                                  bgColor = 'bg-violet-500 animate-pulse';
+                                }
+                                
+                                return (
+                                  <div 
+                                    key={step}
+                                    className={`h-1.5 w-4 rounded-full ${bgColor}`}
+                                    title={getStatusLabel(step)}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
                         </td>
                         {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
                           <td className="p-4">
