@@ -7,7 +7,8 @@ import {
   FileText, 
   MessageCircle, 
   CheckCircle, 
-  AlertCircle 
+  AlertCircle,
+  Lock
 } from 'lucide-react';
 import { Service, Staff, ClinicProfile } from '../types';
 import { supabase } from '../supabase';
@@ -324,21 +325,32 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
             <form onSubmit={onFormSubmit} className="space-y-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Perkhidmatan</label>
-                  <select 
-                    value={selectedService}
-                    onChange={(e) => setSelectedService(e.target.value)}
-                    className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                    required
-                  >
-                    <option value="">Pilih satu...</option>
-                    {services.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                    {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
-                      <option value={selectedService}>{urlServiceName}</option>
-                    )}
-                  </select>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Perkhidmatan</label>
+                  {(selectedService || urlServiceName) ? (
+                    <div className="relative">
+                      <input 
+                        type="text"
+                        readOnly
+                        value={urlServiceName || services.find(s => String(s.id) === String(selectedService))?.name || 'Memuatkan...'}
+                        className="w-full px-4 py-3.5 rounded-2xl bg-zinc-100 border border-zinc-200 text-zinc-700 cursor-not-allowed font-bold"
+                      />
+                      <div className="absolute right-4 top-3.5">
+                        <Lock size={16} className="text-zinc-400" />
+                      </div>
+                    </div>
+                  ) : (
+                    <select 
+                      value={selectedService}
+                      onChange={(e) => setSelectedService(e.target.value)}
+                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                      required
+                    >
+                      <option value="">Pilih satu...</option>
+                      {services.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>
@@ -422,20 +434,32 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Perkhidmatan (Opsional)</label>
-                    <select 
-                      value={selectedService}
-                      onChange={(e) => setSelectedService(e.target.value)}
-                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                    >
-                      <option value="">Pilih satu...</option>
-                      {services.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                      {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
-                        <option value={selectedService}>{urlServiceName}</option>
-                      )}
-                    </select>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Perkhidmatan</label>
+                    {(selectedService || urlServiceName) ? (
+                      <div className="relative">
+                        <input 
+                          type="text"
+                          readOnly
+                          value={urlServiceName || services.find(s => String(s.id) === String(selectedService))?.name || 'Memuatkan...'}
+                          className="w-full px-4 py-3.5 rounded-2xl bg-zinc-100 border border-zinc-200 text-zinc-700 cursor-not-allowed font-bold"
+                        />
+                        <div className="absolute right-4 top-3.5">
+                          <Lock size={16} className="text-zinc-400" />
+                        </div>
+                      </div>
+                    ) : (
+                      <select 
+                        value={selectedService}
+                        onChange={(e) => setSelectedService(e.target.value)}
+                        className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                        required
+                      >
+                        <option value="">Pilih satu...</option>
+                        {services.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
 

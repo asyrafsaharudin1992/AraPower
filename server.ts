@@ -2196,21 +2196,25 @@ app.post("/api/referrals", async (req, res) => {
   const { data: service, error: serviceError } = await supabase
     .from('services')
     .select(serviceSelect)
-    .eq('id', service_id || '00000000-0000-0000-0000-000000000000') // Prevents crash on empty string
-    .maybeSingle(); // <-- Crucial: Changes from .single() to .maybeSingle()
+    .eq('id', service_id || '00000000-0000-0000-0000-000000000000')
+    .maybeSingle(); // Prevents PGRST116 crash
     
   if (serviceError) {
     console.warn("Service lookup error:", serviceError);
   }
   
-  // Safe fallback instead of throwing a 400 error
+  // REMOVED THE 400 ERROR KILL-SWITCH. WE PROCEED EVEN IF SERVICE IS NOT FOUND.
   const safeService = service || { commission_rate: 0, aracoins_perk: 0 };
 
   const insertData: any = {
-    service_id,
     patient_name,
     status: status || 'pending'
   };
+
+  // ONLY attach service_id if it actually exists in the DB, to prevent Foreign Key crashes
+  if (service) {
+    insertData.service_id = service_id;
+  }
 
   if (referralColumns.has('commission_amount')) insertData.commission_amount = commission_amount || 0;
   if (referralColumns.has('service_name')) insertData.service_name = service_name || '';

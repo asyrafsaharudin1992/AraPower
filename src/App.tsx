@@ -4441,7 +4441,14 @@ export default function App() {
                             </td>
                             <td className="p-4">
                               <span className="text-xs font-medium text-zinc-500">
-                                {services.find(s => String(s.id) === String(lead.service_id))?.name || lead.service_id || 'N/A'}
+                                {(() => {
+                                  const matchedService = services.find(s => 
+                                    String(s.id) === String(lead.service_id) || 
+                                    (s.target_url && String(s.target_url).includes(String(lead.service_id))) ||
+                                    String(s.name).toLowerCase() === String(lead.service_id).toLowerCase()
+                                  );
+                                  return matchedService ? matchedService.name : (lead.service_id || 'N/A');
+                                })()}
                               </span>
                             </td>
                             <td className="p-4">
