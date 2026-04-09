@@ -68,7 +68,8 @@ import {
   MessageSquare,
   Send,
   ArrowLeft,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -1490,6 +1491,15 @@ export default function App() {
       if (currentUser.role === 'admin' || currentUser.role === 'manager') {
         fetchWarmLeads();
       }
+      
+      const interval = setInterval(() => {
+        fetchReferrals();
+        if (currentUser.role === 'admin' || currentUser.role === 'manager') {
+          fetchWarmLeads();
+        }
+      }, 60000);
+      
+      return () => clearInterval(interval);
     }
   }, [currentUser?.id, currentUser?.role, currentUser?.branch, branchFilter]);
 
@@ -4093,13 +4103,24 @@ export default function App() {
                     </select>
                   </div>
                 </div>
-                <button 
-                  onClick={exportToCSV}
-                  className={`flex items-center gap-2 text-xs font-bold transition-colors self-start sm:self-auto px-3 py-2 rounded-xl ${darkMode ? 'text-brand-accent hover:bg-zinc-50' : 'text-zinc-900 hover:bg-violet-500 hover:text-white'}`}
-                >
-                  <Download size={14} />
-                  Export CSV
-                </button>
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <button 
+                    onClick={() => {
+                      if (fetchReferrals) fetchReferrals();
+                    }}
+                    className={`flex items-center gap-2 text-xs font-bold transition-colors px-3 py-2 rounded-xl ${darkMode ? 'text-brand-accent hover:bg-zinc-50' : 'text-zinc-900 hover:bg-violet-500 hover:text-white'}`}
+                  >
+                    <RefreshCw size={14} />
+                    Refresh
+                  </button>
+                  <button 
+                    onClick={exportToCSV}
+                    className={`flex items-center gap-2 text-xs font-bold transition-colors px-3 py-2 rounded-xl ${darkMode ? 'text-brand-accent hover:bg-zinc-50' : 'text-zinc-900 hover:bg-violet-500 hover:text-white'}`}
+                  >
+                    <Download size={14} />
+                    Export CSV
+                  </button>
+                </div>
               </div>
 
               {isMobile ? (
@@ -4365,25 +4386,36 @@ export default function App() {
                   <h2 className="text-3xl font-black text-zinc-900 tracking-tight">Warm Leads CRM</h2>
                   <p className="text-zinc-500 text-sm">Manage early drop-offs and unconverted inquiries.</p>
                 </div>
-                <div className="flex bg-zinc-100 p-1 rounded-xl">
+                <div className="flex items-center gap-4">
                   <button 
-                    onClick={() => setShowArchivedLeads(false)}
-                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${!showArchivedLeads ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                    onClick={() => {
+                      if (fetchWarmLeads) fetchWarmLeads();
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-zinc-600 rounded-xl hover:bg-zinc-50 transition-all font-medium text-sm"
                   >
-                    Active
-                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${!showArchivedLeads ? 'bg-zinc-900 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
-                      {warmLeads.filter(l => l.status !== 'archived' && l.status !== 'converted').length}
-                    </span>
+                    <RefreshCw size={16} />
+                    Refresh
                   </button>
-                  <button 
-                    onClick={() => setShowArchivedLeads(true)}
-                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${showArchivedLeads ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
-                  >
-                    Archived
-                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${showArchivedLeads ? 'bg-zinc-900 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
-                      {warmLeads.filter(l => l.status === 'archived').length}
-                    </span>
-                  </button>
+                  <div className="flex bg-zinc-100 p-1 rounded-xl">
+                    <button 
+                      onClick={() => setShowArchivedLeads(false)}
+                      className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${!showArchivedLeads ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                    >
+                      Active
+                      <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${!showArchivedLeads ? 'bg-zinc-900 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
+                        {warmLeads.filter(l => l.status !== 'archived' && l.status !== 'converted').length}
+                      </span>
+                    </button>
+                    <button 
+                      onClick={() => setShowArchivedLeads(true)}
+                      className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${showArchivedLeads ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                    >
+                      Archived
+                      <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${showArchivedLeads ? 'bg-zinc-900 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
+                        {warmLeads.filter(l => l.status === 'archived').length}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
