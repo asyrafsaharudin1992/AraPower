@@ -7,7 +7,8 @@ import {
   FileText, 
   MessageCircle, 
   CheckCircle, 
-  AlertCircle 
+  AlertCircle,
+  Lock
 } from 'lucide-react';
 import { Service, Staff, ClinicProfile } from '../types';
 import { supabase } from '../supabase';
@@ -85,22 +86,18 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     setPublicBookingStep('choice');
     
     try {
-      // 1. Grab the name DIRECTLY from the URL to avoid React state delays
       const params = new URLSearchParams(window.location.search);
       const rawName = params.get('sName') || params.get('serviceName');
       
       let finalName = selectedService || 'Unknown Service';
       
       if (rawName) {
-        // Safely turn "AraSihat+Plus" into "AraSihat Plus"
         finalName = decodeURIComponent(rawName.replace(/\+/g, ' '));
       } else {
-        // Final fallback to services array just in case
         const matchedService = services.find(s => String(s.id) === String(selectedService));
         if (matchedService) finalName = matchedService.name;
       }
 
-      // 2. Insert directly into Supabase (Bypassing the 404 API error)
       const { data, error } = await supabase
         .from('warm_leads')
         .insert([{
@@ -114,7 +111,6 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
       if (error) {
         console.error('Supabase Insert Error:', error);
       } else if (data && data[0]) {
-        // Save the ID so the WhatsApp button can update this exact record later
         setDraftReferralId(data[0].id);
       }
       
@@ -142,7 +138,6 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     const success = await handleSubmitReferral(e, formData);
     if (success) {
       setBookingSuccess(true);
-      // Reset local states if needed, though App.tsx might handle redirect/success UI
       setPatientName('');
       setPatientPhone('');
       setPatientIC('');
@@ -272,7 +267,6 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                 <ChevronRight size={20} />
               </button>
 
-              {/* Add this disclaimer right here! */}
               <p className="text-[10px] text-zinc-500 text-center mt-3 px-4 leading-relaxed">
                 Dengan menekan 'Teruskan proses', anda bersetuju untuk berkongsi butiran perhubungan anda dengan klinik kami bagi tujuan tempahan.
               </p>
@@ -329,20 +323,51 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Perkhidmatan</label>
-                  <select 
-                    value={selectedService}
-                    onChange={(e) => setSelectedService(e.target.value)}
-                    className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                    required
-                  >
-                    <option value="">Pilih satu...</option>
-                    {services.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                    {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
-                      <option value={selectedService}>{urlServiceName}</option>
-                    )}
-                  </select>
+                  {(() => {
+                    const params = new URLSearchParams(window.location.search);
+                    const paramServiceId = params.get('service') || params.get('serviceId');
+                    const paramServiceName = params.get('sName') || params.get('serviceName');
+                    
+                    // Use state selectedService, fallback to URL param
+                    const activeServiceId = selectedService || paramServiceId;
+                    
+                    // Translate the ID to the Name using the services array
+                    const matchedService = services.find(s => String(s.id) === String(activeServiceId));
+
+                    // If we have an ID or Name from the URL, lock the input and display the translated name
+                    if (paramServiceId || paramServiceName) {
+                      const displayName = matchedService?.name || (paramServiceName ? decodeURIComponent(paramServiceName) : (services.length === 0 ? 'Memuatkan perkhidmatan...' : activeServiceId));
+                      
+                      return (
+                        <div className="relative">
+                          <input 
+                            type="text"
+                            readOnly
+                            value={displayName}
+                            className="w-full px-4 py-3.5 rounded-2xl bg-zinc-100 border border-zinc-100 text-zinc-500 cursor-not-allowed font-medium"
+                          />
+                          <div className="absolute right-4 top-3.5">
+                            <Lock size={16} className="text-zinc-400" />
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    // Otherwise, render the standard dropdown
+                    return (
+                      <select 
+                        value={selectedService}
+                        onChange={(e) => setSelectedService(e.target.value)}
+                        className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                        required
+                      >
+                        <option value="">Pilih satu...</option>
+                        {services.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    );
+                  })()}
                 </div>
 
                 <div>
@@ -455,19 +480,18 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                     href={waUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.preventDefault();
                       window.open(waUrl, '_blank', 'noopener,noreferrer');
                       if (draftReferralId) {
-                        supabase
+                        const { error } = await supabase
                           .from('warm_leads')
                           .update({ 
                             status: 'whatsapp_redirected', 
                             branch_preference: selectedWaBranch 
                           })
-                          .eq('id', draftReferralId)
-                          .then(() => {})
-                          .catch(console.error);
+                          .eq('id', draftReferralId);
+                        if (error) console.error("Error updating warm lead for WhatsApp:", error);
                       }
                       setBookingSuccess(true);
                     }}

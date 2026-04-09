@@ -623,15 +623,36 @@ app.get("/api/branch-change-requests", async (req, res) => {
   const selectColumns = Array.from(branchChangeRequestColumns).length > 0 
     ? Array.from(branchChangeRequestColumns).join(',') 
     : '*';
-  const fullSelect = `${selectColumns}, staff(name, email)`;
 
   const { data, error } = await supabase
     .from('branch_change_requests')
-    .select(fullSelect)
+    .select(selectColumns)
     .order('created_at', { ascending: false });
   
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  if (error) {
+    console.error('Error fetching branch change requests:', error.message);
+    if (error.message.includes('Could not find the table')) {
+      return res.json([]);
+    }
+    return res.status(500).json({ error: error.message });
+  }
+
+  const staffIds = [...new Set(data?.map(r => r.staff_id).filter(Boolean))];
+  let staffMap: Record<string, any> = {};
+
+  if (staffIds.length > 0) {
+    const { data: staffData } = await supabase.from('staff').select('id, name, email').in('id', staffIds);
+    if (staffData) {
+      staffData.forEach(s => staffMap[s.id] = s);
+    }
+  }
+
+  const formattedData = data?.map(r => ({
+    ...r,
+    staff: staffMap[r.staff_id] || r.staff
+  })) || [];
+
+  res.json(formattedData);
 });
 
 app.put("/api/branch-change-requests/:id", async (req, res) => {
@@ -1127,22 +1148,37 @@ app.get("/api/tasks", async (req, res) => {
   }
 
   const selectColumns = Array.from(taskColumns).length > 0 ? Array.from(taskColumns).join(',') : '*';
-  const fullSelect = `${selectColumns}, staff:assigned_to (name)`;
   const { data: tasks, error } = await supabase
     .from('tasks')
-    .select(fullSelect)
+    .select(selectColumns)
     .order('due_date', { ascending: true });
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('Error fetching tasks:', error.message);
+    if (error.message.includes('Could not find the table')) {
+      return res.json([]);
+    }
+    return res.status(500).json({ error: error.message });
+  }
   
   if (tasks && tasks.length > 0) {
     Object.keys(tasks[0]).forEach(key => taskColumns.add(key));
   }
 
-  const formattedTasks = tasks.map(t => ({
+  const staffIds = [...new Set(tasks?.map(t => t.assigned_to).filter(Boolean))];
+  let staffMap: Record<string, any> = {};
+
+  if (staffIds.length > 0) {
+    const { data: staffData } = await supabase.from('staff').select('id, name').in('id', staffIds);
+    if (staffData) {
+      staffData.forEach(s => staffMap[s.id] = s);
+    }
+  }
+
+  const formattedTasks = tasks?.map(t => ({
     ...t,
-    assigned_to_name: t.staff?.name
-  }));
+    assigned_to_name: staffMap[t.assigned_to]?.name || t.staff?.name
+  })) || [];
   
   res.json(formattedTasks);
 });
@@ -2048,13 +2084,14 @@ app.get("/api/referrals", async (req, res) => {
   
   let selectColumns = baseColumns;
 
-  // Add joins
-  if (referralColumns.has('created_by')) {
-    selectColumns += `, staff!created_by(name)`;
-  }
-  if (referralColumns.has('service_id')) {
-    selectColumns += `, services(name)`;
-  }
+  // We will fetch staff and services manually to avoid foreign key hint errors
+  // if the schema is not perfectly aligned.
+  // if (referralColumns.has('created_by')) {
+  //   selectColumns += `, staff!created_by(name)`;
+  // }
+  // if (referralColumns.has('service_id')) {
+  //   selectColumns += `, services(name)`;
+  // }
 
   let query = supabase
     .from('referrals')
@@ -2100,13 +2137,38 @@ app.get("/api/referrals", async (req, res) => {
     Object.keys(referrals[0]).forEach(key => referralColumns.add(key));
   }
 
-  const formattedReferrals = referrals.map(r => ({
-    ...r,
-    staff_id: r.staff_id || r.created_by,
-    staff_name: r.staff?.name,
-    promo_code: r.staff?.promo_code,
-    service_name: r.services?.name
-  }));
+  // Fetch staff and services manually
+  const staffIds = [...new Set(referrals?.map(r => r.staff_id || r.created_by).filter(Boolean))];
+  const serviceIds = [...new Set(referrals?.map(r => r.service_id).filter(Boolean))];
+
+  let staffMap: Record<string, any> = {};
+  let servicesMap: Record<string, any> = {};
+
+  if (staffIds.length > 0) {
+    const { data: staffData } = await supabase.from('staff').select('id, name, promo_code').in('id', staffIds);
+    if (staffData) {
+      staffData.forEach(s => staffMap[s.id] = s);
+    }
+  }
+
+  if (serviceIds.length > 0) {
+    const { data: servicesData } = await supabase.from('services').select('id, name').in('id', serviceIds);
+    if (servicesData) {
+      servicesData.forEach(s => servicesMap[s.id] = s);
+    }
+  }
+
+  const formattedReferrals = referrals?.map(r => {
+    const sId = r.staff_id || r.created_by;
+    const srvId = r.service_id;
+    return {
+      ...r,
+      staff_id: sId,
+      staff_name: staffMap[sId]?.name || r.staff?.name,
+      promo_code: staffMap[sId]?.promo_code || r.staff?.promo_code,
+      service_name: servicesMap[srvId]?.name || r.services?.name
+    };
+  }) || [];
   
   res.json(formattedReferrals);
 });

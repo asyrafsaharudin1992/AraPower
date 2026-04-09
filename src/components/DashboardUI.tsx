@@ -37,9 +37,8 @@ export interface DashboardUIProps {
   isMobile: boolean;
   checkBranchAccess: (item: any) => boolean;
   setActiveTab: (tab: any) => void;
-  handleDeleteReferral: (id: number) => void;
-  handleUpdateStatus: (id: number, status: string) => void;
-  handleClinicStatusUpdate: (id: number, status: string) => void;
+  handleDeleteReferral: (id: string) => void;
+  handleUpdateStatus: (id: string, status: string) => void;
   setSelectedPromo: (promo: any) => void;
   setIsPromoModalOpen: (isOpen: boolean) => void;
   getStatusColor: (status: string) => string;
@@ -65,7 +64,6 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
   setActiveTab,
   handleDeleteReferral,
   handleUpdateStatus,
-  handleClinicStatusUpdate,
   setSelectedPromo,
   setIsPromoModalOpen,
   getStatusColor,
@@ -255,7 +253,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
         </div>
         <CategoryScrollRow 
           title="All Services"
-          services={services} 
+          services={services.filter(s => s.is_affiliate_enabled !== false)} 
           onClick={(service) => {
             setSelectedPromo(service);
             setIsPromoModalOpen(true);

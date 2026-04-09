@@ -51,6 +51,7 @@ interface AddServiceFormProps {
 
 const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, initialData, categories = [] }) => {
   // --- CARD 1: Basic Details & Rules ---
+  const [customId, setCustomId] = useState('');
   const [name, setName] = useState('');
   const [type, setType] = useState<'Standard Service' | '☆ Promo'>('Standard Service');
   const [visibility, setVisibility] = useState<'Public' | 'New Patients Only' | 'Hidden (VIP Link)'>('Public');
@@ -87,6 +88,8 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
   const [isUploading, setIsUploading] = useState(false);
   const [topFeatured, setTopFeatured] = useState(false);
   const [categoryCarousel, setCategoryCarousel] = useState(true);
+  const [isAraPowerLinked, setIsAraPowerLinked] = useState(true);
+  const [isAffiliateEnabled, setIsAffiliateEnabled] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -113,6 +116,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
 
   useEffect(() => {
     if (initialData) {
+      setCustomId(initialData.id || '');
       setName(initialData.name || '');
       setType(initialData.type === 'Promotion' ? '☆ Promo' : 'Standard Service');
       setVisibility(initialData.visibility || 'Public');
@@ -138,8 +142,11 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
       setPosterUrl(initialData.image_url || '');
       setTopFeatured(initialData.is_featured || false);
       setCategoryCarousel(initialData.category_carousel || false);
+      setIsAraPowerLinked(initialData.is_arapower_linked !== undefined ? initialData.is_arapower_linked : true);
+      setIsAffiliateEnabled(initialData.is_affiliate_enabled !== undefined ? initialData.is_affiliate_enabled : true);
     } else {
       // Reset form
+      setCustomId('');
       setName('');
       setType('Standard Service');
       setVisibility('Public');
@@ -168,6 +175,8 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
       setPosterUrl('');
       setTopFeatured(false);
       setCategoryCarousel(false);
+      setIsAraPowerLinked(true);
+      setIsAffiliateEnabled(true);
     }
   }, [initialData]);
 
@@ -288,6 +297,10 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
   };
 
   const handleSubmit = async () => {
+    if (!initialData && !customId.trim()) {
+      alert('Please enter the Website Service ID.');
+      return;
+    }
     if (!name.trim()) {
       alert('Please enter a Name/Title for the service.');
       return;
@@ -295,7 +308,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
 
     setIsSubmitting(true);
     try {
-      const payload = {
+      const payload: any = {
         name,
         type: type === 'Standard Service' ? 'Service' : 'Promotion',
         visibility,
@@ -321,7 +334,13 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
         image_url: posterUrl,
         is_featured: topFeatured,
         category_carousel: categoryCarousel,
+        is_arapower_linked: isAraPowerLinked,
+        is_affiliate_enabled: isAffiliateEnabled,
       };
+
+      if (!initialData) {
+        payload.id = customId.trim();
+      }
 
       const url = initialData?.id ? `/api/services/${initialData.id}` : `/api/services`;
       const method = initialData?.id ? 'PATCH' : 'POST';
@@ -364,6 +383,19 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
 
               <div className="space-y-5">
                 <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-2">WEBSITE SERVICE ID *</label>
+                  <input 
+                    type="text" 
+                    value={customId} 
+                    onChange={(e) => setCustomId(e.target.value)} 
+                    placeholder="e.g. x0CgMhr8yT0Re82KnTkB" 
+                    disabled={!!initialData}
+                    className={`w-full border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition ${!!initialData ? 'bg-gray-50 cursor-not-allowed text-gray-500' : ''}`} 
+                  />
+                  <p className="mt-1 text-[10px] text-gray-400">Paste the unique alphanumeric ID from the external website URL (e.g., x0CgMhr8yT0Re82KnTkB).</p>
+                </div>
+
+                <div>
                   <label className="block text-xs font-bold text-gray-500 mb-2">NAME / TITLE *</label>
                   <input 
                     type="text" 
@@ -391,24 +423,76 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-2">CATEGORY</label>
-                    <select 
+                    <input 
+                      type="text"
+                      list="categories-list"
                       value={category} 
                       onChange={(e) => setCategory(e.target.value)} 
+                      placeholder="Select or type a new category"
                       className="w-full border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white"
-                    >
+                    />
+                    <datalist id="categories-list">
                       {categories.map((cat, idx) => (
                         <option key={idx} value={cat}>{cat}</option>
                       ))}
                       {categories.length === 0 && (
                         <>
-                          <option>Cosmetic Dentistry</option>
-                          <option>General Dentistry</option>
-                          <option>Orthodontics</option>
-                          <option>Surgery</option>
+                          <option value="Cosmetic Dentistry" />
+                          <option value="General Dentistry" />
+                          <option value="Orthodontics" />
+                          <option value="Surgery" />
                         </>
                       )}
-                    </select>
+                    </datalist>
                   </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <label className="block text-xs font-bold text-gray-500 mb-3">SERVICE TYPE</label>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <input 
+                        type="radio" 
+                        name="affiliate_enabled" 
+                        checked={isAffiliateEnabled} 
+                        onChange={() => setIsAffiliateEnabled(true)} 
+                        className="accent-indigo-600 w-4 h-4" 
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-gray-700">AraPower Incentive (Visible to Affiliates)</span>
+                        <span className="text-[10px] text-gray-500">Service will appear on the affiliate promo board.</span>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <input 
+                        type="radio" 
+                        name="affiliate_enabled" 
+                        checked={!isAffiliateEnabled} 
+                        onChange={() => setIsAffiliateEnabled(false)} 
+                        className="accent-indigo-600 w-4 h-4" 
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-gray-700">Non-AraPower Incentive (Hidden background service)</span>
+                        <span className="text-[10px] text-gray-500">Service is only visible in booking dropdowns and admin menus.</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <label className="block text-xs font-bold text-gray-500 mb-3">BOOKING SYSTEM</label>
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div 
+                      onClick={() => setIsAraPowerLinked(!isAraPowerLinked)}
+                      className={`w-12 h-6 rounded-full transition-all relative ${isAraPowerLinked ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isAraPowerLinked ? 'left-7' : 'left-1'}`} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-gray-700">Linked to AraPower Booking</span>
+                      <span className="text-[10px] text-gray-500">Enable this if the service is listed on your booking system.</span>
+                    </div>
+                  </label>
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">

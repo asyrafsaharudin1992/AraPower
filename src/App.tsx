@@ -139,7 +139,8 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
     'from-brand-primary to-violet-500',
     'from-brand-surface to-emerald-500'
   ];
-  const gradient = gradients[(Number(item.id) || 0) % gradients.length];
+  const idHash = item.id?.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0;
+  const gradient = gradients[idHash % gradients.length];
 
   return (
     <motion.div
@@ -368,7 +369,7 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
   );
 };
 
-const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, darkMode: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: number) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
+const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, darkMode: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: string) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
   const handleDownloadPoster = async (url: string, fileName: string) => {
     try {
       const response = await fetch(url);
@@ -653,9 +654,9 @@ We reserve the right to modify these terms at any time. Your continued use of th
 `;
 
 const getShareUrl = (customDomain?: string) => {
-  if (customDomain) {
+  if (customDomain && typeof customDomain === 'string') {
     let domain = customDomain.trim();
-    if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+    if (domain && !domain.startsWith('http://') && !domain.startsWith('https://')) {
       domain = 'https://' + domain;
     }
     if (domain.endsWith('/')) {
@@ -693,6 +694,7 @@ export default function App() {
   const [services, setServices] = useState<Service[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [warmLeads, setWarmLeads] = useState<any[]>([]);
+  const [showArchivedLeads, setShowArchivedLeads] = useState(false);
   const [promoServices, setPromoServices] = useState<PromoService[]>([]);
 
   const [branches, setBranches] = useState<any[]>([]);
@@ -700,7 +702,7 @@ export default function App() {
 
   const [promotions, setPromotions] = useState<Promotion[]>([
     {
-      id: 1,
+      id: 'promo-1',
       title: "Ramadan Special 2026",
       description: "Get 20% off on all dental checkups during the month of Ramadan. Share the smile with your family!",
       start_date: "2026-03-01",
@@ -709,7 +711,7 @@ export default function App() {
       created_at: new Date().toISOString()
     },
     {
-      id: 2,
+      id: 'promo-2',
       title: "New Branch Opening: Bangi",
       description: "We are opening our new branch in Bangi! Refer 5 friends and get a free scaling session.",
       start_date: "2026-04-01",
@@ -848,7 +850,7 @@ export default function App() {
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [passwordError, setPasswordError] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [selectedPayoutStaff, setSelectedPayoutStaff] = useState<number[]>([]);
+  const [selectedPayoutStaff, setSelectedPayoutStaff] = useState<string[]>([]);
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [payoutMetadata, setPayoutMetadata] = useState({
     creditingDate: new Date().toLocaleDateString('en-GB'),
@@ -885,7 +887,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...notificationForm,
-          user_ids: notificationForm.user_ids.length === 0 ? [] : notificationForm.user_ids.map(id => id === 'all' ? null : parseInt(id))
+          user_ids: notificationForm.user_ids.length === 0 ? [] : notificationForm.user_ids.map(id => id === 'all' ? null : id)
         })
       });
 
@@ -1066,7 +1068,7 @@ export default function App() {
 
   const [resetPasswordModal, setResetPasswordModal] = useState<{
     isOpen: boolean;
-    staffId: number | null;
+    staffId: string | null;
     email: string;
     tempPassword?: string;
     isLoading?: boolean;
@@ -1118,7 +1120,7 @@ export default function App() {
   // Task State
   const [tasks, setTasks] = useState<any[]>([]);
   const [showReferralModal, setShowReferralModal] = useState(false);
-  const [expandedReferralIds, setExpandedReferralIds] = useState<number[]>([]);
+  const [expandedReferralIds, setExpandedReferralIds] = useState<string[]>([]);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [taskDueDate, setTaskDueDate] = useState<Date | null>(null);
@@ -1129,7 +1131,7 @@ export default function App() {
     types: ['Staff', 'Patient', 'Public'],
     defaultCommission: 5,
     eligibilityCriteria: 'Must be an active staff member with an approved account.',
-    quotas: {} as Record<number, number>
+    quotas: {} as Record<string, number>
   });
 
   useEffect(() => {
@@ -1150,6 +1152,37 @@ export default function App() {
     checkConnection();
   }, [apiBaseUrl]);
 
+  const handleAuthError = async (error: any) => {
+    if (!error) return false;
+    console.warn('Supabase auth error detected:', error);
+    const message = typeof error === 'string' ? error : (error.message || '');
+    if (message.includes('Refresh Token Not Found') || 
+        message.includes('invalid_refresh_token') || 
+        message.includes('Invalid Refresh Token') ||
+        message.includes('refresh_token_not_found')) {
+      
+      console.log('Clearing invalid Supabase session due to refresh token error...');
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {
+        console.error('Error during signOut:', e);
+      }
+      
+      // Manually clear Supabase auth tokens from local storage
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      localStorage.removeItem('currentUser');
+      setCurrentUser(null);
+      setIsAuthChecking(false);
+      return true;
+    }
+    return false;
+  };
+
   useEffect(() => {
     // Check for active session
     if (isPlaceholder) {
@@ -1157,79 +1190,62 @@ export default function App() {
       return;
     }
 
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      if (error) {
-        console.warn('Supabase session check error:', error);
-        if (error.message?.includes('Refresh Token Not Found') || error.message?.includes('invalid_refresh_token') || error.message?.includes('Invalid Refresh Token')) {
-          console.log('Clearing invalid Supabase session...');
-          try {
-            await supabase.auth.signOut();
-          } catch (e) {
-            console.error('Error during signOut:', e);
+    const checkSession = async () => {
+      try {
+        // Use getSession first as it's faster
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          if (await handleAuthError(sessionError)) return;
+        }
+
+        if (session?.user?.email) {
+          // If we have a session, verify it with getUser() to be sure
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          if (userError) {
+            if (await handleAuthError(userError)) return;
           }
           
-          // Manually clear Supabase auth tokens from local storage just in case signOut failed
-          Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-              localStorage.removeItem(key);
-            }
-          });
-          
-          localStorage.removeItem('currentUser');
-          setCurrentUser(null);
-        }
-        setIsAuthChecking(false);
-        return;
-      }
-      
-      if (session?.user?.email) {
-        fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on session check:', e));
-      } else {
-        setIsAuthChecking(false);
-      }
-    }).catch(async (err: any) => {
-      console.warn('Supabase session check failed:', err);
-      // Handle invalid refresh token by clearing the session
-      if (err.message?.includes('Refresh Token Not Found') || err.message?.includes('invalid_refresh_token') || err.message?.includes('Invalid Refresh Token')) {
-        console.log('Clearing invalid Supabase session...');
-        try {
-          await supabase.auth.signOut();
-        } catch (e) {
-          console.error('Error during signOut:', e);
-        }
-        
-        // Manually clear Supabase auth tokens from local storage just in case signOut failed
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-            localStorage.removeItem(key);
+          if (user?.email) {
+            fetchStaffByEmail(user.email, user).catch(e => console.error('Error fetching staff on session check:', e));
+          } else {
+            setIsAuthChecking(false);
           }
-        });
-        
-        localStorage.removeItem('currentUser');
-        setCurrentUser(null);
+        } else {
+          setIsAuthChecking(false);
+        }
+      } catch (err) {
+        if (await handleAuthError(err)) return;
+        setIsAuthChecking(false);
       }
-      setIsAuthChecking(false);
-    });
+    };
+
+    checkSession();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state change:', event, session?.user?.email);
-      if (session?.user?.email) {
-        fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on auth change:', e));
+      
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        if (session?.user?.email) {
+          fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on auth change:', e));
+        }
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
-        
         // Manually clear Supabase auth tokens from local storage
         Object.keys(localStorage).forEach(key => {
           if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
             localStorage.removeItem(key);
           }
         });
-        
         localStorage.removeItem('currentUser');
         setIsAuthChecking(false);
-      } else if (event === 'INITIAL_SESSION' && !session) {
-        setIsAuthChecking(false);
+      } else if (event === 'INITIAL_SESSION') {
+        if (!session) {
+          setIsAuthChecking(false);
+        } else if (session.user?.email) {
+          fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on initial session:', e));
+        }
       }
     });
 
@@ -1263,6 +1279,7 @@ export default function App() {
       }
     } catch (error: any) {
       console.error('Error in fetchStaffByEmail:', error);
+      if (await handleAuthError(error)) return;
       setAuthError(error.message || 'Failed to load user profile.');
       // If we fail to load the profile, we should probably sign them out so they aren't stuck in a weird state
       supabase.auth.signOut().catch(e => console.warn('Error during auto-signOut:', e));
@@ -1327,7 +1344,7 @@ export default function App() {
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/health`);
       if (res.ok) {
         setConnectionStatus('online');
-        if (data.db && data.db.startsWith('error')) {
+        if (data.db && typeof data.db === 'string' && data.db.startsWith('error')) {
           setConnectionError(`Database Error: ${data.db}`);
           setConnectionStatus('offline');
         }
@@ -1637,14 +1654,17 @@ export default function App() {
   const fetchWarmLeads = async () => {
     if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'manager')) return;
     try {
-      const { data } = await supabase.from('warm_leads').select('*').order('created_at', { ascending: false });
+      const { data } = await supabase
+        .from('warm_leads')
+        .select('*')
+        .order('created_at', { ascending: false });
       if (data) setWarmLeads(data);
     } catch (error) {
       console.error('Error fetching warm leads:', error);
     }
   };
 
-  const handleUpdateWarmLeadStatus = async (id: any, status: string) => {
+  const handleUpdateWarmLeadStatus = async (id: string, status: string) => {
     try {
       await supabase.from('warm_leads').update({ status }).eq('id', id);
       fetchWarmLeads();
@@ -2103,7 +2123,7 @@ export default function App() {
     }
   };
 
-  const handleSubmitReferral = async (e: React.FormEvent, publicFormData?: any) => {
+  const handleSubmitReferral = async (e: React.FormEvent, publicFormData?: any, draftReferralId?: string | null) => {
     e.preventDefault();
     
     const data = publicFormData || {
@@ -2153,9 +2173,13 @@ export default function App() {
 
     setIsSubmitting(true);
     try {
+      const serviceData = services.find(srv => String(srv.id) === String(data.selectedService));
+
       const payload: any = {
         staff_id: staffId,
         service_id: data.selectedService,
+        service_name: serviceData?.name || '',
+        commission_amount: serviceData?.commission_rate || 0,
         patient_name: data.patientName,
         patient_phone: data.patientPhone,
         patient_ic: data.patientIC,
@@ -2183,8 +2207,10 @@ export default function App() {
       });
       
       if (res.ok) {
-        if (data.draftReferralId) {
-          supabase.from('warm_leads').update({ status: 'converted' }).eq('id', data.draftReferralId).catch(console.error);
+        const actualDraftId = draftReferralId || data.draftReferralId;
+        if (actualDraftId) { 
+          const { error: warmLeadError } = await supabase.from('warm_leads').update({ status: 'converted' }).eq('id', actualDraftId);
+          if (warmLeadError) console.error("Error updating warm lead:", warmLeadError);
         }
         
         if (resultData.fraudFlags && resultData.fraudFlags.length > 0) {
@@ -2224,7 +2250,7 @@ export default function App() {
 
 
 
-  const handleUpdateStatus = async (id: number, status: string, additionalData: any = {}) => {
+  const handleUpdateStatus = async (id: string, status: string, additionalData: any = {}) => {
     try {
       const payload = { 
         status,
@@ -2254,7 +2280,7 @@ export default function App() {
     }
   };
 
-  const handleClinicStatusUpdate = async (id: number, newStatus: string) => {
+  const handleClinicStatusUpdate = async (id: string, newStatus: string) => {
     try {
       const payload = { 
         status: newStatus,
@@ -2283,7 +2309,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteReferral = async (id: number) => {
+  const handleDeleteReferral = async (id: string) => {
     showConfirm(
       'Delete Referral',
       'Are you sure you want to delete this referral? This action cannot be undone.',
@@ -2337,12 +2363,14 @@ export default function App() {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
         console.warn('Supabase session check error during upload:', error);
+        if (await handleAuthError(error)) return;
       }
       if (!session) {
         console.warn('No active Supabase session. Upload might fail if RLS policies require authentication.');
       }
     } catch (err) {
       console.warn('Failed to get Supabase session:', err);
+      if (await handleAuthError(err)) return;
     }
 
     setIsUploading(true);
@@ -2436,7 +2464,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteService = async (id: number) => {
+  const handleDeleteService = async (id: string) => {
     showConfirm(
       'Delete Service',
       'Are you sure you want to delete this service?',
@@ -2508,7 +2536,7 @@ export default function App() {
     }
   };
 
-  const handleAdminResetPassword = (staffId: number, email: string) => {
+  const handleAdminResetPassword = (staffId: string, email: string) => {
     setResetPasswordModal({ isOpen: true, staffId, email });
   };
 
@@ -2538,7 +2566,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteStaff = async (id: number) => {
+  const handleDeleteStaff = async (id: string) => {
     showConfirm(
       'Trash Staff',
       'Are you sure you want to move this staff member to the trash bin?',
@@ -2553,7 +2581,7 @@ export default function App() {
     );
   };
 
-  const handleRestoreStaff = async (id: number) => {
+  const handleRestoreStaff = async (id: string) => {
     showConfirm(
       'Restore Staff',
       'Are you sure you want to restore this staff member?',
@@ -2568,7 +2596,7 @@ export default function App() {
     );
   };
 
-  const handlePermanentDeleteStaff = async (id: number) => {
+  const handlePermanentDeleteStaff = async (id: string) => {
     showConfirm(
       'Permanent Delete',
       'Are you sure you want to PERMANENTLY delete this staff member? This action cannot be undone.',
@@ -2583,7 +2611,7 @@ export default function App() {
     );
   };
 
-  const handleRejectStaff = async (id: number) => {
+  const handleRejectStaff = async (id: string) => {
     showConfirm(
       'Reject Staff',
       'Reject this application? The user will not be able to access the portal.',
@@ -2603,7 +2631,7 @@ export default function App() {
     );
   };
 
-  const handleResetPassword = async (id: number) => {
+  const handleResetPassword = async (id: string) => {
     showConfirm(
       'Reset Password',
       'Reset password to default "password123"?',
@@ -2684,7 +2712,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteTask = async (id: number) => {
+  const handleDeleteTask = async (id: string) => {
     showConfirm(
       'Delete Task',
       'Delete this task?',
@@ -2706,7 +2734,7 @@ export default function App() {
     else alert(data.error || 'Update failed');
   };
 
-  const handleApproveStaff = async (id: number, isApproved: boolean) => {
+  const handleApproveStaff = async (id: string, isApproved: boolean) => {
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3459,7 +3487,7 @@ export default function App() {
     const staffRefs = referrals.filter(r => String(r.staff_id) === String(staff.id));
     const monthlySuccessfulRefs = staffRefs.filter(r => 
       (r.status === 'completed' || r.status === 'paid_completed' || r.status === 'approved' || r.status === 'payout_processed') && 
-      r.date.startsWith(currentMonth)
+      r.date && typeof r.date === 'string' && r.date.startsWith(currentMonth)
     ).length;
 
     const tier = getTier(monthlySuccessfulRefs);
@@ -4332,19 +4360,41 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              <div className="mb-8">
-                <h2 className="text-3xl font-black text-zinc-900 tracking-tight">Warm Leads CRM</h2>
-                <p className="text-zinc-500 text-sm">Manage early drop-offs and unconverted inquiries.</p>
+              <div className="mb-8 flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-black text-zinc-900 tracking-tight">Warm Leads CRM</h2>
+                  <p className="text-zinc-500 text-sm">Manage early drop-offs and unconverted inquiries.</p>
+                </div>
+                <div className="flex bg-zinc-100 p-1 rounded-xl">
+                  <button 
+                    onClick={() => setShowArchivedLeads(false)}
+                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${!showArchivedLeads ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                  >
+                    Active
+                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${!showArchivedLeads ? 'bg-zinc-900 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
+                      {warmLeads.filter(l => l.status !== 'archived' && l.status !== 'converted').length}
+                    </span>
+                  </button>
+                  <button 
+                    onClick={() => setShowArchivedLeads(true)}
+                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${showArchivedLeads ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                  >
+                    Archived
+                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${showArchivedLeads ? 'bg-zinc-900 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
+                      {warmLeads.filter(l => l.status === 'archived').length}
+                    </span>
+                  </button>
+                </div>
               </div>
 
               <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
                   <div>
-                    <h3 className="font-bold text-zinc-900">Warm Leads Engine</h3>
-                    <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Early drop-offs from booking form</p>
+                    <h3 className="font-bold text-zinc-900">{showArchivedLeads ? 'Archived Leads' : 'Warm Leads Engine'}</h3>
+                    <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">{showArchivedLeads ? 'Previously archived inquiries' : 'Early drop-offs from booking form'}</p>
                   </div>
-                  <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
-                    <Zap size={20} />
+                  <div className={`w-10 h-10 ${showArchivedLeads ? 'bg-zinc-100 text-zinc-600' : 'bg-amber-50 text-amber-600'} rounded-xl flex items-center justify-center`}>
+                    {showArchivedLeads ? <Trash2 size={20} /> : <Zap size={20} />}
                   </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -4360,12 +4410,14 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-50">
-                      {warmLeads.length === 0 ? (
+                      {warmLeads.filter(l => showArchivedLeads ? l.status === 'archived' : (l.status !== 'archived' && l.status !== 'converted')).length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-zinc-500 text-sm italic">No active warm leads found.</td>
+                          <td colSpan={6} className="p-8 text-center text-zinc-500 text-sm italic">No {showArchivedLeads ? 'archived' : 'active'} warm leads found.</td>
                         </tr>
                       ) : (
-                        warmLeads.map((lead) => (
+                        warmLeads
+                          .filter(l => showArchivedLeads ? l.status === 'archived' : (l.status !== 'archived' && l.status !== 'converted'))
+                          .map((lead) => (
                           <tr key={lead.id} className="hover:bg-zinc-50/50 transition-colors">
                             <td className="p-4 text-xs text-zinc-600">
                               {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : 'N/A'}
@@ -4394,7 +4446,8 @@ export default function App() {
                             </td>
                             <td className="p-4">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                lead.status === 'new' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                                lead.status === 'new' ? 'bg-amber-100 text-amber-700' : 
+                                lead.status === 'archived' ? 'bg-zinc-100 text-zinc-600' : 'bg-blue-100 text-blue-700'
                               }`}>
                                 {lead.status}
                               </span>
@@ -4409,13 +4462,22 @@ export default function App() {
                                     Mark Contacted
                                   </button>
                                 )}
-                                <button 
-                                  onClick={() => handleUpdateWarmLeadStatus(lead.id, 'archived')}
-                                  className="p-1.5 text-zinc-400 hover:text-rose-500 transition-colors"
-                                  title="Archive Lead"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
+                                {lead.status === 'archived' ? (
+                                  <button 
+                                    onClick={() => handleUpdateWarmLeadStatus(lead.id, 'new')}
+                                    className="px-3 py-1.5 bg-violet-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-violet-600 transition-all"
+                                  >
+                                    Restore
+                                  </button>
+                                ) : (
+                                  <button 
+                                    onClick={() => handleUpdateWarmLeadStatus(lead.id, 'archived')}
+                                    className="p-1.5 text-zinc-400 hover:text-rose-500 transition-colors"
+                                    title="Archive Lead"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -6383,8 +6445,8 @@ export default function App() {
 
                   if (filteredServices.length === 0) {
                     filteredServices = [
-                      { id: -1, name: `${category.title} Coming Soon`, base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'Stay tuned for more services in this category.' },
-                      { id: -2, name: 'More info coming', base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'We are working on adding new services.' },
+                      { id: 'coming-soon-1', name: `${category.title} Coming Soon`, base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'Stay tuned for more services in this category.' },
+                      { id: 'coming-soon-2', name: 'More info coming', base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'We are working on adding new services.' },
                     ] as Service[];
                   }
 
@@ -6398,7 +6460,7 @@ export default function App() {
                             size={idx === 0 ? 'large' : 'small'}
                             items={filteredServices} 
                             onClick={(item) => {
-                              if (item.id > 0) {
+                              if (typeof item.id === 'string' && !item.id.startsWith('coming-soon')) {
                                 setSelectedPromo(item);
                                 setIsPromoModalOpen(true);
                               }
@@ -6412,7 +6474,7 @@ export default function App() {
                                   <ModernPromotionCard 
                                     item={item} 
                                     onClick={() => {
-                                      if (item.id > 0) {
+                                      if (typeof item.id === 'string' && !item.id.startsWith('coming-soon')) {
                                         setSelectedPromo(item);
                                         setIsPromoModalOpen(true);
                                       }
