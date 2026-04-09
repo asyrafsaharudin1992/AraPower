@@ -2400,46 +2400,50 @@ app.patch("/api/referrals/:id", async (req, res) => {
 
   const { data: service } = await supabase.from('services').select('commission_rate').eq('id', referral.service_id).single();
 
-  if (status === 'approved' && referral.status !== 'approved') {
+  const isEarningStatus = (s: string) => ['approved', 'completed'].includes(s);
+  const oldStatus = referral.status;
+
+  if (isEarningStatus(status) && !isEarningStatus(oldStatus)) {
     const staffUpdate: any = {};
     const commission = service?.commission_rate || 0;
-    if (staffColumns.has('pending_earnings')) staffUpdate.pending_earnings = (staff.pending_earnings || 0) - commission;
+    
+    if (staffColumns.has('pending_earnings')) staffUpdate.pending_earnings = Math.max(0, (staff.pending_earnings || 0) - commission);
     if (staffColumns.has('approved_earnings')) staffUpdate.approved_earnings = (staff.approved_earnings || 0) + commission;
     if (staffColumns.has('lifetime_earnings')) staffUpdate.lifetime_earnings = (staff.lifetime_earnings || 0) + commission;
     
-    // Only update aracoins if the column existed in the referral record and staff table
     if (referral.aracoins_perk !== undefined && staffColumns.has('aracoins')) {
       staffUpdate.aracoins = (staff.aracoins || 0) + (referral.aracoins_perk || 0);
     }
 
     if (Object.keys(staffUpdate).length > 0) {
-      await supabase
-        .from('staff')
-        .update(staffUpdate)
-        .eq('id', effectiveStaffId);
+      await supabase.from('staff').update(staffUpdate).eq('id', effectiveStaffId);
     }
-  } else if (status === 'payout_processed' && referral.status !== 'payout_processed') {
+  } else if (status === 'payout_processed' && oldStatus !== 'payout_processed') {
     const staffUpdate: any = {};
     const commission = service?.commission_rate || 0;
-    if (staffColumns.has('approved_earnings')) staffUpdate.approved_earnings = (staff.approved_earnings || 0) - commission;
+    
+    if (staffColumns.has('approved_earnings')) staffUpdate.approved_earnings = Math.max(0, (staff.approved_earnings || 0) - commission);
     if (staffColumns.has('paid_earnings')) staffUpdate.paid_earnings = (staff.paid_earnings || 0) + commission;
     if (staffColumns.has('last_payout_date')) staffUpdate.last_payout_date = new Date().toISOString();
 
     if (Object.keys(staffUpdate).length > 0) {
-      await supabase
-        .from('staff')
-        .update(staffUpdate)
-        .eq('id', effectiveStaffId);
+      await supabase.from('staff').update(staffUpdate).eq('id', effectiveStaffId);
     }
-  } else if (status === 'rejected' && referral.status !== 'rejected') {
-    if (['entered', 'completed', 'paid_completed', 'pending'].includes(referral.status)) {
-      if (staffColumns.has('pending_earnings')) {
-        const commission = service?.commission_rate || 0;
-        await supabase
-          .from('staff')
-          .update({ pending_earnings: (staff.pending_earnings || 0) - commission })
-          .eq('id', effectiveStaffId);
-      }
+  } else if (status === 'rejected' && oldStatus !== 'rejected') {
+    const staffUpdate: any = {};
+    const commission = service?.commission_rate || 0;
+
+    if (isEarningStatus(oldStatus)) {
+      // If it was already approved/completed, deduct from approved earnings
+      if (staffColumns.has('approved_earnings')) staffUpdate.approved_earnings = Math.max(0, (staff.approved_earnings || 0) - commission);
+      if (staffColumns.has('lifetime_earnings')) staffUpdate.lifetime_earnings = Math.max(0, (staff.lifetime_earnings || 0) - commission);
+    } else if (['entered', 'pending'].includes(oldStatus)) {
+      // If it was still pending, deduct from pending earnings
+      if (staffColumns.has('pending_earnings')) staffUpdate.pending_earnings = Math.max(0, (staff.pending_earnings || 0) - commission);
+    }
+
+    if (Object.keys(staffUpdate).length > 0) {
+      await supabase.from('staff').update(staffUpdate).eq('id', effectiveStaffId);
     }
   }
   
