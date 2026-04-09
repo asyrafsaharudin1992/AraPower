@@ -380,8 +380,12 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                   <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Tarikh Temujanji</label>
                   <input 
                     type="date" 
+                    min={new Date().toISOString().split('T')[0]} 
                     value={appointmentDate}
-                    onChange={(e) => setAppointmentDate(e.target.value)}
+                    onChange={(e) => {
+                      setAppointmentDate(e.target.value);
+                      setBookingTime(''); // Force user to re-pick a valid time if they change the date
+                    }}
                     className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                     required
                   />
@@ -389,13 +393,22 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Waktu Temujanji</label>
-                  <input 
-                    type="time" 
+                  <select 
                     value={bookingTime}
                     onChange={(e) => setBookingTime(e.target.value)}
-                    className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                    disabled={!appointmentDate || !selectedBranch}
+                    className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     required
-                  />
+                  >
+                    <option value="">
+                      {(!appointmentDate || !selectedBranch) 
+                        ? 'Sila pilih cawangan & tarikh dahulu...' 
+                        : 'Pilih waktu...'}
+                    </option>
+                    {appointmentDate && selectedBranch && getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate).map((timeSlot: string) => (
+                      <option key={timeSlot} value={timeSlot}>{timeSlot}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
