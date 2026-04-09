@@ -1,5 +1,5 @@
 export interface Service {
-  id: string;
+  id: number;
   name: string;
   base_price: number;
   commission_rate: number;
@@ -43,12 +43,10 @@ export interface Service {
   deposit_amount?: number;
   category_carousel?: boolean;
   target_url?: string;
-  is_arapower_linked?: boolean;
-  is_affiliate_enabled?: boolean;
 }
 
 export interface Promotion {
-  id: string;
+  id: number;
   title: string;
   description: string;
   image_url?: string;
@@ -59,7 +57,7 @@ export interface Promotion {
 }
 
 export interface Staff {
-  id: string;
+  id: number;
   name: string;
   email: string;
   role: string;
@@ -92,11 +90,11 @@ export interface Staff {
 }
 
 export interface Referral {
-  id: string;
-  staff_id: string;
+  id: number;
+  staff_id: number;
   staff_name: string;
   promo_code: string;
-  service_id: string;
+  service_id: number;
   service_name: string;
   patient_name: string;
   patient_phone: string;
@@ -106,7 +104,7 @@ export interface Referral {
   booking_time: string;
   visit_date?: string;
   date: string;
-  status: 'pending' | 'arrived' | 'in_session' | 'completed' | 'approved' | 'payout_processed' | 'cancelled' | 'entered' | 'paid_completed' | 'rejected' | 'warm_lead' | 'whatsapp_redirected';
+  status: 'entered' | 'completed' | 'paid_completed' | 'approved' | 'payout_processed' | 'rejected' | 'cancelled' | 'warm_lead' | 'whatsapp_redirected' | 'pending';
   payment_status: 'pending' | 'completed';
   commission_amount: number;
   fraud_flags?: string;

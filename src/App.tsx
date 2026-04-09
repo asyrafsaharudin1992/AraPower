@@ -139,8 +139,7 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
     'from-brand-primary to-violet-500',
     'from-brand-surface to-emerald-500'
   ];
-  const idHash = item.id?.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0;
-  const gradient = gradients[idHash % gradients.length];
+  const gradient = gradients[(Number(item.id) || 0) % gradients.length];
 
   return (
     <motion.div
@@ -331,36 +330,24 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
                   Download Poster to Share
                 </button>
 
-                {/* Action Buttons */}
+                {/* Share Buttons */}
                 <div className="grid grid-cols-2 gap-4 mt-4">
-                  {item.is_arapower_linked ? (
-                    <a
-                      href={shareLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="py-4 bg-violet-600 text-white rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-violet-200"
-                    >
-                      <Calendar size={16} />
-                      Saya nak tempah slot
-                    </a>
-                  ) : (
-                    <a
-                      href={`https://wa.me/${clinicProfile.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi/Salam, saya berminat dengan ${item.name}. Kod rujukan: ${referralCode || 'N/A'}`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="py-4 bg-emerald-500 text-white rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-emerald-200"
-                    >
-                      <MessageCircle size={16} />
-                      WhatsApp Kami
-                    </a>
-                  )}
                   <button
                     onClick={handleCopyLink}
                     className="py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
                   >
-                    <Share2 size={16} />
-                    Kongsi
+                    <Copy size={16} />
+                    Copy Link
                   </button>
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`Check out this promotion at our clinic: ${shareLink}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-4 bg-emerald-500 text-white rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <MessageCircle size={16} />
+                    WhatsApp
+                  </a>
                 </div>
 
                 <div className="pt-4">
@@ -381,7 +368,7 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
   );
 };
 
-const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, darkMode: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: string) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
+const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, darkMode: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: number) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
   const handleDownloadPoster = async (url: string, fileName: string) => {
     try {
       const response = await fetch(url);
@@ -706,7 +693,6 @@ export default function App() {
   const [services, setServices] = useState<Service[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [warmLeads, setWarmLeads] = useState<any[]>([]);
-  const [showArchivedLeads, setShowArchivedLeads] = useState(false);
   const [promoServices, setPromoServices] = useState<PromoService[]>([]);
 
   const [branches, setBranches] = useState<any[]>([]);
@@ -714,7 +700,7 @@ export default function App() {
 
   const [promotions, setPromotions] = useState<Promotion[]>([
     {
-      id: 'promo-1',
+      id: 1,
       title: "Ramadan Special 2026",
       description: "Get 20% off on all dental checkups during the month of Ramadan. Share the smile with your family!",
       start_date: "2026-03-01",
@@ -723,7 +709,7 @@ export default function App() {
       created_at: new Date().toISOString()
     },
     {
-      id: 'promo-2',
+      id: 2,
       title: "New Branch Opening: Bangi",
       description: "We are opening our new branch in Bangi! Refer 5 friends and get a free scaling session.",
       start_date: "2026-04-01",
@@ -862,7 +848,7 @@ export default function App() {
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [passwordError, setPasswordError] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [selectedPayoutStaff, setSelectedPayoutStaff] = useState<string[]>([]);
+  const [selectedPayoutStaff, setSelectedPayoutStaff] = useState<number[]>([]);
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [payoutMetadata, setPayoutMetadata] = useState({
     creditingDate: new Date().toLocaleDateString('en-GB'),
@@ -899,7 +885,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...notificationForm,
-          user_ids: notificationForm.user_ids.length === 0 ? [] : notificationForm.user_ids.map(id => id === 'all' ? null : id)
+          user_ids: notificationForm.user_ids.length === 0 ? [] : notificationForm.user_ids.map(id => id === 'all' ? null : parseInt(id))
         })
       });
 
@@ -1080,7 +1066,7 @@ export default function App() {
 
   const [resetPasswordModal, setResetPasswordModal] = useState<{
     isOpen: boolean;
-    staffId: string | null;
+    staffId: number | null;
     email: string;
     tempPassword?: string;
     isLoading?: boolean;
@@ -1132,7 +1118,7 @@ export default function App() {
   // Task State
   const [tasks, setTasks] = useState<any[]>([]);
   const [showReferralModal, setShowReferralModal] = useState(false);
-  const [expandedReferralIds, setExpandedReferralIds] = useState<string[]>([]);
+  const [expandedReferralIds, setExpandedReferralIds] = useState<number[]>([]);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [taskDueDate, setTaskDueDate] = useState<Date | null>(null);
@@ -1143,7 +1129,7 @@ export default function App() {
     types: ['Staff', 'Patient', 'Public'],
     defaultCommission: 5,
     eligibilityCriteria: 'Must be an active staff member with an approved account.',
-    quotas: {} as Record<string, number>
+    quotas: {} as Record<number, number>
   });
 
   useEffect(() => {
@@ -1164,37 +1150,6 @@ export default function App() {
     checkConnection();
   }, [apiBaseUrl]);
 
-  const handleAuthError = async (error: any) => {
-    if (!error) return false;
-    console.warn('Supabase auth error detected:', error);
-    const message = typeof error === 'string' ? error : (error.message || '');
-    if (message.includes('Refresh Token Not Found') || 
-        message.includes('invalid_refresh_token') || 
-        message.includes('Invalid Refresh Token') ||
-        message.includes('refresh_token_not_found')) {
-      
-      console.log('Clearing invalid Supabase session due to refresh token error...');
-      try {
-        await supabase.auth.signOut();
-      } catch (e) {
-        console.error('Error during signOut:', e);
-      }
-      
-      // Manually clear Supabase auth tokens from local storage
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-          localStorage.removeItem(key);
-        }
-      });
-      
-      localStorage.removeItem('currentUser');
-      setCurrentUser(null);
-      setIsAuthChecking(false);
-      return true;
-    }
-    return false;
-  };
-
   useEffect(() => {
     // Check for active session
     if (isPlaceholder) {
@@ -1202,62 +1157,79 @@ export default function App() {
       return;
     }
 
-    const checkSession = async () => {
-      try {
-        // Use getSession first as it's faster
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          if (await handleAuthError(sessionError)) return;
-        }
-
-        if (session?.user?.email) {
-          // If we have a session, verify it with getUser() to be sure
-          const { data: { user }, error: userError } = await supabase.auth.getUser();
-          if (userError) {
-            if (await handleAuthError(userError)) return;
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (error) {
+        console.warn('Supabase session check error:', error);
+        if (error.message?.includes('Refresh Token Not Found') || error.message?.includes('invalid_refresh_token') || error.message?.includes('Invalid Refresh Token')) {
+          console.log('Clearing invalid Supabase session...');
+          try {
+            await supabase.auth.signOut();
+          } catch (e) {
+            console.error('Error during signOut:', e);
           }
           
-          if (user?.email) {
-            fetchStaffByEmail(user.email, user).catch(e => console.error('Error fetching staff on session check:', e));
-          } else {
-            setIsAuthChecking(false);
-          }
-        } else {
-          setIsAuthChecking(false);
+          // Manually clear Supabase auth tokens from local storage just in case signOut failed
+          Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+              localStorage.removeItem(key);
+            }
+          });
+          
+          localStorage.removeItem('currentUser');
+          setCurrentUser(null);
         }
-      } catch (err) {
-        if (await handleAuthError(err)) return;
+        setIsAuthChecking(false);
+        return;
+      }
+      
+      if (session?.user?.email) {
+        fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on session check:', e));
+      } else {
         setIsAuthChecking(false);
       }
-    };
-
-    checkSession();
+    }).catch(async (err: any) => {
+      console.warn('Supabase session check failed:', err);
+      // Handle invalid refresh token by clearing the session
+      if (err.message?.includes('Refresh Token Not Found') || err.message?.includes('invalid_refresh_token') || err.message?.includes('Invalid Refresh Token')) {
+        console.log('Clearing invalid Supabase session...');
+        try {
+          await supabase.auth.signOut();
+        } catch (e) {
+          console.error('Error during signOut:', e);
+        }
+        
+        // Manually clear Supabase auth tokens from local storage just in case signOut failed
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+            localStorage.removeItem(key);
+          }
+        });
+        
+        localStorage.removeItem('currentUser');
+        setCurrentUser(null);
+      }
+      setIsAuthChecking(false);
+    });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state change:', event, session?.user?.email);
-      
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        if (session?.user?.email) {
-          fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on auth change:', e));
-        }
+      if (session?.user?.email) {
+        fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on auth change:', e));
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
+        
         // Manually clear Supabase auth tokens from local storage
         Object.keys(localStorage).forEach(key => {
           if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
             localStorage.removeItem(key);
           }
         });
+        
         localStorage.removeItem('currentUser');
         setIsAuthChecking(false);
-      } else if (event === 'INITIAL_SESSION') {
-        if (!session) {
-          setIsAuthChecking(false);
-        } else if (session.user?.email) {
-          fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on initial session:', e));
-        }
+      } else if (event === 'INITIAL_SESSION' && !session) {
+        setIsAuthChecking(false);
       }
     });
 
@@ -1291,7 +1263,6 @@ export default function App() {
       }
     } catch (error: any) {
       console.error('Error in fetchStaffByEmail:', error);
-      if (await handleAuthError(error)) return;
       setAuthError(error.message || 'Failed to load user profile.');
       // If we fail to load the profile, we should probably sign them out so they aren't stuck in a weird state
       supabase.auth.signOut().catch(e => console.warn('Error during auto-signOut:', e));
@@ -1666,17 +1637,14 @@ export default function App() {
   const fetchWarmLeads = async () => {
     if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'manager')) return;
     try {
-      const { data } = await supabase
-        .from('warm_leads')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data } = await supabase.from('warm_leads').select('*').order('created_at', { ascending: false });
       if (data) setWarmLeads(data);
     } catch (error) {
       console.error('Error fetching warm leads:', error);
     }
   };
 
-  const handleUpdateWarmLeadStatus = async (id: string, status: string) => {
+  const handleUpdateWarmLeadStatus = async (id: any, status: string) => {
     try {
       await supabase.from('warm_leads').update({ status }).eq('id', id);
       fetchWarmLeads();
@@ -2108,7 +2076,7 @@ export default function App() {
         const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && (s.approved_earnings > 0 || s.pending_earnings > 0));
         
         for (const staff of staffToPay) {
-          const payableRefs = referrals.filter(r => String(r.staff_id) === String(staff.id) && ['completed', 'approved'].includes(r.status));
+          const payableRefs = referrals.filter(r => String(r.staff_id) === String(staff.id) && ['paid_completed', 'approved'].includes(r.status));
           for (const ref of payableRefs) {
             await safeFetch(`${apiBaseUrl}/api/referrals/${ref.id}`, {
               method: 'PATCH',
@@ -2135,7 +2103,7 @@ export default function App() {
     }
   };
 
-  const handleSubmitReferral = async (e: React.FormEvent, publicFormData?: any, draftReferralId?: string | null) => {
+  const handleSubmitReferral = async (e: React.FormEvent, publicFormData?: any) => {
     e.preventDefault();
     
     const data = publicFormData || {
@@ -2185,85 +2153,42 @@ export default function App() {
 
     setIsSubmitting(true);
     try {
-      const isListedService = services.some(srv => String(srv.id) === String(data.selectedService));
+      const payload: any = {
+        staff_id: staffId,
+        service_id: data.selectedService,
+        patient_name: data.patientName,
+        patient_phone: data.patientPhone,
+        patient_ic: data.patientIC,
+        patient_address: data.patientAddress,
+        patient_type: data.patientType,
+        appointment_date: data.appointmentDate,
+        booking_time: data.bookingTime,
+        status: 'pending',
+        date: new Date().toISOString().split('T')[0],
+        created_by: currentUser?.id,
+        branch: data.selectedBranch || (isPublicBooking ? data.referringStaff?.branch : currentUser?.branch)
+      };
 
-      if (isListedService) {
-        const serviceData = services.find(srv => String(srv.id) === String(data.selectedService));
+      if (referralCode) {
+        payload.referral_code = referralCode;
+      }
 
-        const payload: any = {
-          staff_id: staffId,
-          service_id: serviceData ? data.selectedService : null,
-          service_name: serviceData?.name || urlServiceName || data.urlServiceName || 'Custom Service',
-          commission_amount: serviceData?.commission_rate || 0,
-          patient_name: data.patientName,
-          patient_phone: data.patientPhone,
-          patient_ic: data.patientIC,
-          patient_address: data.patientAddress,
-          patient_type: data.patientType,
-          appointment_date: data.appointmentDate,
-          booking_time: data.bookingTime,
-          status: 'pending',
-          date: new Date().toISOString().split('T')[0],
-          created_by: currentUser?.id,
-          branch: data.selectedBranch || (isPublicBooking ? data.referringStaff?.branch : currentUser?.branch)
-        };
+      const url = `${apiBaseUrl}/api/referrals`;
+      const method = 'POST';
 
-        if (referralCode) {
-          payload.referral_code = referralCode;
+      const { res, data: resultData } = await safeFetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (res.ok) {
+        if (data.draftReferralId) {
+          supabase.from('warm_leads').update({ status: 'converted' }).eq('id', data.draftReferralId).catch(console.error);
         }
-
-        const url = `${apiBaseUrl}/api/referrals`;
-        const method = 'POST';
-
-        const { res, data: resultData } = await safeFetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
         
-        if (res.ok) {
-          const actualDraftId = draftReferralId || data.draftReferralId;
-          if (actualDraftId) { 
-            const { error: warmLeadError } = await supabase.from('warm_leads').update({ status: 'converted' }).eq('id', actualDraftId);
-            if (warmLeadError) console.error("Error updating warm lead:", warmLeadError);
-          }
-          
-          if (resultData.fraudFlags && resultData.fraudFlags.length > 0) {
-            alert(`Referral submitted with flags: ${resultData.fraudFlags.join(', ')}`);
-          }
-
-          if (!isPublicBooking) {
-            setPatientName('');
-            setPatientPhone('');
-            setPatientIC('');
-            setPatientAddress('');
-            setPatientType('new');
-            setAppointmentDate('');
-            setBookingTime('');
-            setSelectedService('');
-            setWalkInPromoCode('');
-            setWalkInStaff(null);
-            fetchReferrals();
-          }
-          return true;
-        } else {
-          alert('Submission Failed: ' + (resultData.error || 'Unknown Error') + (resultData.details ? ' | Details: ' + JSON.stringify(resultData.details) : ''));
-          return false;
-        }
-      } else {
-        // NOT LISTED: Send to warm_leads directly
-        const { error: warmLeadError } = await supabase.from('warm_leads').insert([{
-          patient_name: data.patientName,
-          patient_phone: data.patientPhone,
-          service_id: data.urlServiceName || data.selectedService || 'Custom Service',
-          branch: data.selectedBranch, // <-- This MUST be 'branch', not 'branch_id'
-          status: 'new'
-        }]);
-
-        if (warmLeadError) {
-          console.error("Error inserting warm lead:", warmLeadError);
-          alert('Submission Failed: ' + warmLeadError.message);
-          return false;
+        if (resultData.fraudFlags && resultData.fraudFlags.length > 0) {
+          alert(`Referral submitted with flags: ${resultData.fraudFlags.join(', ')}`);
         }
 
         if (!isPublicBooking) {
@@ -2280,6 +2205,9 @@ export default function App() {
           fetchReferrals();
         }
         return true;
+      } else {
+        alert('Submission Failed: ' + (resultData.error || 'Unknown Error') + (resultData.details ? ' | Details: ' + JSON.stringify(resultData.details) : ''));
+        return false;
       }
     } catch (error: any) {
       console.error(error);
@@ -2296,7 +2224,7 @@ export default function App() {
 
 
 
-  const handleUpdateStatus = async (id: string, status: string, additionalData: any = {}) => {
+  const handleUpdateStatus = async (id: number, status: string, additionalData: any = {}) => {
     try {
       const payload = { 
         status,
@@ -2326,7 +2254,36 @@ export default function App() {
     }
   };
 
-  const handleDeleteReferral = async (id: string) => {
+  const handleClinicStatusUpdate = async (id: number, newStatus: string) => {
+    try {
+      const payload = { 
+        status: newStatus,
+        verified_by: (currentUser?.role === 'receptionist' || currentUser?.role === 'manager' || currentUser?.role === 'admin') ? currentUser.id : undefined
+      };
+      
+      console.log('Updating clinic status:', { id, payload });
+      
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (res.ok) {
+        fetchReferrals();
+        fetchStaff();
+      } else {
+        const errorMsg = data.error || 'Update failed';
+        console.error('Status update failed:', { id, newStatus, data });
+        alert(`Status update failed: ${errorMsg}\n\nDetails: ${JSON.stringify(data)}`);
+      }
+    } catch (error) {
+      console.error('Error in handleClinicStatusUpdate:', error);
+      alert(`An error occurred while updating status: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const handleDeleteReferral = async (id: number) => {
     showConfirm(
       'Delete Referral',
       'Are you sure you want to delete this referral? This action cannot be undone.',
@@ -2380,14 +2337,12 @@ export default function App() {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
         console.warn('Supabase session check error during upload:', error);
-        if (await handleAuthError(error)) return;
       }
       if (!session) {
         console.warn('No active Supabase session. Upload might fail if RLS policies require authentication.');
       }
     } catch (err) {
       console.warn('Failed to get Supabase session:', err);
-      if (await handleAuthError(err)) return;
     }
 
     setIsUploading(true);
@@ -2481,7 +2436,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteService = async (id: string) => {
+  const handleDeleteService = async (id: number) => {
     showConfirm(
       'Delete Service',
       'Are you sure you want to delete this service?',
@@ -2553,7 +2508,7 @@ export default function App() {
     }
   };
 
-  const handleAdminResetPassword = (staffId: string, email: string) => {
+  const handleAdminResetPassword = (staffId: number, email: string) => {
     setResetPasswordModal({ isOpen: true, staffId, email });
   };
 
@@ -2583,7 +2538,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteStaff = async (id: string) => {
+  const handleDeleteStaff = async (id: number) => {
     showConfirm(
       'Trash Staff',
       'Are you sure you want to move this staff member to the trash bin?',
@@ -2598,7 +2553,7 @@ export default function App() {
     );
   };
 
-  const handleRestoreStaff = async (id: string) => {
+  const handleRestoreStaff = async (id: number) => {
     showConfirm(
       'Restore Staff',
       'Are you sure you want to restore this staff member?',
@@ -2613,7 +2568,7 @@ export default function App() {
     );
   };
 
-  const handlePermanentDeleteStaff = async (id: string) => {
+  const handlePermanentDeleteStaff = async (id: number) => {
     showConfirm(
       'Permanent Delete',
       'Are you sure you want to PERMANENTLY delete this staff member? This action cannot be undone.',
@@ -2628,7 +2583,7 @@ export default function App() {
     );
   };
 
-  const handleRejectStaff = async (id: string) => {
+  const handleRejectStaff = async (id: number) => {
     showConfirm(
       'Reject Staff',
       'Reject this application? The user will not be able to access the portal.',
@@ -2648,7 +2603,7 @@ export default function App() {
     );
   };
 
-  const handleResetPassword = async (id: string) => {
+  const handleResetPassword = async (id: number) => {
     showConfirm(
       'Reset Password',
       'Reset password to default "password123"?',
@@ -2729,7 +2684,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteTask = async (id: string) => {
+  const handleDeleteTask = async (id: number) => {
     showConfirm(
       'Delete Task',
       'Delete this task?',
@@ -2751,7 +2706,7 @@ export default function App() {
     else alert(data.error || 'Update failed');
   };
 
-  const handleApproveStaff = async (id: string, isApproved: boolean) => {
+  const handleApproveStaff = async (id: number, isApproved: boolean) => {
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3503,8 +3458,8 @@ export default function App() {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
     const staffRefs = referrals.filter(r => String(r.staff_id) === String(staff.id));
     const monthlySuccessfulRefs = staffRefs.filter(r => 
-      (r.status === 'completed' || r.status === 'approved' || r.status === 'payout_processed') && 
-      (r.date || r.created_at || '').startsWith(currentMonth)
+      (r.status === 'completed' || r.status === 'paid_completed' || r.status === 'approved' || r.status === 'payout_processed') && 
+      r.date.startsWith(currentMonth)
     ).length;
 
     const tier = getTier(monthlySuccessfulRefs);
@@ -3513,7 +3468,7 @@ export default function App() {
     
     // Calculate dynamic earnings based on status
     const pending_earnings = staffRefs
-      .filter(r => r.status === 'completed')
+      .filter(r => r.status === 'completed' || r.status === 'paid_completed')
       .reduce((sum, r) => sum + (r.commission_amount * tier.bonus), 0);
     
     const approved_earnings = staffRefs
@@ -3549,8 +3504,8 @@ export default function App() {
   };
 
   const receptionistStats = {
-    arrivedToday: referrals.filter(r => (r.status === 'arrived' || r.status === 'in_session' || r.status === 'completed') && r.visit_date === new Date().toISOString().split('T')[0]).length,
-    pendingVerifications: referrals.filter(r => r.status === 'pending').length
+    arrivedToday: referrals.filter(r => (r.status === 'completed' || r.status === 'paid_completed') && r.visit_date === new Date().toISOString().split('T')[0]).length,
+    pendingVerifications: referrals.filter(r => r.status === 'entered').length
   };
   
   const totalEarned = currentUserStats?.lifetime_earnings || 0;
@@ -3565,12 +3520,12 @@ export default function App() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-burnt-peach/10 text-burnt-peach border border-burnt-peach/20';
-      case 'arrived': return 'bg-apricot-cream text-twilight-indigo';
-      case 'in_session': return 'bg-violet-100 text-violet-700 border border-violet-200';
+      case 'entered': return 'bg-apricot-cream text-twilight-indigo';
       case 'completed': return 'bg-muted-teal/20 text-muted-teal';
+      case 'paid_completed': return 'bg-muted-teal text-eggshell';
       case 'approved': return 'bg-burnt-peach text-white';
       case 'payout_processed': return 'bg-eggshell text-twilight-indigo border border-twilight-indigo/10';
-      case 'cancelled': return 'bg-rose-500 text-white';
+      case 'rejected': return 'bg-rose-500 text-white';
       default: return 'bg-eggshell text-twilight-indigo';
     }
   };
@@ -3578,12 +3533,12 @@ export default function App() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'pending': return 'Pending';
-      case 'arrived': return 'Arrived';
-      case 'in_session': return 'In Session';
-      case 'completed': return 'Completed (Paid)';
+      case 'entered': return 'Entered';
+      case 'completed': return 'Arrived';
+      case 'paid_completed': return 'Paid';
       case 'approved': return 'Approved';
       case 'payout_processed': return 'Payout Processed';
-      case 'cancelled': return 'Cancelled';
+      case 'rejected': return 'Rejected';
       default: return status;
     }
   };
@@ -3953,6 +3908,7 @@ export default function App() {
               setActiveTab={setActiveTab}
               handleDeleteReferral={handleDeleteReferral}
               handleUpdateStatus={handleUpdateStatus}
+              handleClinicStatusUpdate={handleClinicStatusUpdate}
               setSelectedPromo={setSelectedPromo}
               setIsPromoModalOpen={setIsPromoModalOpen}
               getStatusColor={getStatusColor}
@@ -4100,13 +4056,12 @@ export default function App() {
                       className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
                     >
                       <option value="all">All Statuses</option>
-                      <option value="pending">Pending</option>
-                      <option value="arrived">Arrived</option>
-                      <option value="in_session">In Session</option>
-                      <option value="completed">Completed (Paid)</option>
+                      <option value="entered">Entered</option>
+                      <option value="completed">Arrived</option>
+                      <option value="paid_completed">Paid</option>
                       <option value="approved">Approved</option>
                       <option value="payout_processed">Payout Processed</option>
-                      <option value="cancelled">Cancelled</option>
+                      <option value="rejected">Rejected</option>
                     </select>
                   </div>
                 </div>
@@ -4156,8 +4111,8 @@ export default function App() {
                               {clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}
                             </p>
                             <span className={`text-[9px] font-black uppercase tracking-widest ${
-                              ref.status === 'completed' || ref.status === 'payout_processed' ? 'text-emerald-600' :
-                              ref.status === 'cancelled' ? 'text-rose-600' : 
+                              ref.status === 'completed' || ref.status === 'paid_completed' ? 'text-emerald-600' :
+                              ref.status === 'rejected' ? 'text-rose-600' : 
                               ref.status === 'approved' ? 'text-orange-600' :
                               'text-zinc-400'
                             }`}>
@@ -4277,39 +4232,9 @@ export default function App() {
                         <td className="p-4 text-sm font-medium text-zinc-900">{ref.staff_name}</td>
                         <td className="p-4 text-sm font-bold">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</td>
                         <td className="p-4">
-                          <div className="flex flex-col gap-2">
-                            <span className={`w-fit px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
-                              {getStatusLabel(ref.status)}
-                            </span>
-                            
-                            {/* Visual Pipeline Stepper */}
-                            <div className="flex items-center gap-1 mt-1">
-                              {['pending', 'arrived', 'in_session', 'completed', 'approved', 'payout_processed'].map((step, i, arr) => {
-                                const currentIndex = arr.indexOf(ref.status);
-                                const stepIndex = i;
-                                const isCompleted = stepIndex < currentIndex || ref.status === 'payout_processed';
-                                const isCurrent = stepIndex === currentIndex;
-                                const isCancelled = ref.status === 'cancelled';
-                                
-                                let bgColor = 'bg-zinc-200';
-                                if (isCancelled) {
-                                  bgColor = 'bg-rose-200';
-                                } else if (isCompleted) {
-                                  bgColor = 'bg-emerald-500';
-                                } else if (isCurrent) {
-                                  bgColor = 'bg-violet-500 animate-pulse';
-                                }
-                                
-                                return (
-                                  <div 
-                                    key={step}
-                                    className={`h-1.5 w-4 rounded-full ${bgColor}`}
-                                    title={getStatusLabel(step)}
-                                  />
-                                );
-                              })}
-                            </div>
-                          </div>
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
+                            {getStatusLabel(ref.status)}
+                          </span>
                         </td>
                         {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
                           <td className="p-4">
@@ -4325,6 +4250,46 @@ export default function App() {
                                   <Phone size={14} />
                                 </a>
                               )}
+                              {currentUser.role === 'receptionist' && ref.status === 'entered' && (
+                                <>
+                                  <button 
+                                    onClick={() => handleUpdateStatus(ref.id, 'completed', { visit_date: new Date().toISOString().split('T')[0] })}
+                                    className="text-[10px] font-bold text-indigo-600 hover:underline"
+                                  >
+                                    Arrived
+                                  </button>
+                                  <button 
+                                    onClick={() => handleUpdateStatus(ref.id, 'rejected', { rejection_reason: 'Patient did not arrive' })}
+                                    className="text-[10px] font-bold text-zinc-900 hover:underline"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+                              {currentUser.role === 'receptionist' && ref.status === 'completed' && (
+                                <button 
+                                  onClick={() => handleUpdateStatus(ref.id, 'paid_completed', { payment_status: 'completed' })}
+                                  className="text-[10px] font-bold text-zinc-900 hover:underline"
+                                >
+                                  Paid
+                                </button>
+                              )}
+                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.status === 'paid_completed' && (
+                                <button 
+                                  onClick={() => handleUpdateStatus(ref.id, 'approved')}
+                                  className="text-[10px] font-bold text-zinc-900 hover:underline"
+                                >
+                                  Approve
+                                </button>
+                              )}
+                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.status === 'approved' && (
+                                <button 
+                                  onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
+                                  className="text-[10px] font-bold text-zinc-900 hover:underline"
+                                >
+                                  Pay
+                                </button>
+                              )}
                               { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                                 <button 
                                   onClick={() => handleDeleteReferral(ref.id)}
@@ -4338,16 +4303,16 @@ export default function App() {
                                 <select 
                                   value=""
                                   onChange={(e) => {
-                                    if (e.target.value) handleUpdateStatus(ref.id, e.target.value);
+                                    if (e.target.value) handleClinicStatusUpdate(ref.id, e.target.value);
                                   }}
                                   className="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
                                 >
                                   <option value="" disabled>Set Status</option>
-                                  <option value="pending">Pending</option>
-                                  <option value="arrived">Arrived</option>
-                                  <option value="in_session">In Session</option>
-                                  <option value="completed">Completed (Paid)</option>
-                                  <option value="cancelled">Cancelled</option>
+                                  <option value="Pending">Pending</option>
+                                  <option value="Arrived">Arrived</option>
+                                  <option value="In Session">In Session</option>
+                                  <option value="Completed">Completed</option>
+                                  <option value="Cancelled">Cancelled</option>
                                 </select>
                               )}
                             </div>
@@ -4367,41 +4332,19 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              <div className="mb-8 flex items-center justify-between">
-                <div>
-                  <h2 className="text-3xl font-black text-zinc-900 tracking-tight">Warm Leads CRM</h2>
-                  <p className="text-zinc-500 text-sm">Manage early drop-offs and unconverted inquiries.</p>
-                </div>
-                <div className="flex bg-zinc-100 p-1 rounded-xl">
-                  <button 
-                    onClick={() => setShowArchivedLeads(false)}
-                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${!showArchivedLeads ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
-                  >
-                    Active
-                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${!showArchivedLeads ? 'bg-zinc-900 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
-                      {warmLeads.filter(l => l.status !== 'archived' && l.status !== 'converted').length}
-                    </span>
-                  </button>
-                  <button 
-                    onClick={() => setShowArchivedLeads(true)}
-                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${showArchivedLeads ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
-                  >
-                    Archived
-                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${showArchivedLeads ? 'bg-zinc-900 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
-                      {warmLeads.filter(l => l.status === 'archived').length}
-                    </span>
-                  </button>
-                </div>
+              <div className="mb-8">
+                <h2 className="text-3xl font-black text-zinc-900 tracking-tight">Warm Leads CRM</h2>
+                <p className="text-zinc-500 text-sm">Manage early drop-offs and unconverted inquiries.</p>
               </div>
 
               <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
                   <div>
-                    <h3 className="font-bold text-zinc-900">{showArchivedLeads ? 'Archived Leads' : 'Warm Leads Engine'}</h3>
-                    <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">{showArchivedLeads ? 'Previously archived inquiries' : 'Early drop-offs from booking form'}</p>
+                    <h3 className="font-bold text-zinc-900">Warm Leads Engine</h3>
+                    <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Early drop-offs from booking form</p>
                   </div>
-                  <div className={`w-10 h-10 ${showArchivedLeads ? 'bg-zinc-100 text-zinc-600' : 'bg-amber-50 text-amber-600'} rounded-xl flex items-center justify-center`}>
-                    {showArchivedLeads ? <Trash2 size={20} /> : <Zap size={20} />}
+                  <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                    <Zap size={20} />
                   </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -4417,14 +4360,12 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-50">
-                      {warmLeads.filter(l => showArchivedLeads ? l.status === 'archived' : (l.status !== 'archived' && l.status !== 'converted')).length === 0 ? (
+                      {warmLeads.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-zinc-500 text-sm italic">No {showArchivedLeads ? 'archived' : 'active'} warm leads found.</td>
+                          <td colSpan={6} className="p-8 text-center text-zinc-500 text-sm italic">No active warm leads found.</td>
                         </tr>
                       ) : (
-                        warmLeads
-                          .filter(l => showArchivedLeads ? l.status === 'archived' : (l.status !== 'archived' && l.status !== 'converted'))
-                          .map((lead) => (
+                        warmLeads.map((lead) => (
                           <tr key={lead.id} className="hover:bg-zinc-50/50 transition-colors">
                             <td className="p-4 text-xs text-zinc-600">
                               {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : 'N/A'}
@@ -4453,8 +4394,7 @@ export default function App() {
                             </td>
                             <td className="p-4">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                lead.status === 'new' ? 'bg-amber-100 text-amber-700' : 
-                                lead.status === 'archived' ? 'bg-zinc-100 text-zinc-600' : 'bg-blue-100 text-blue-700'
+                                lead.status === 'new' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
                               }`}>
                                 {lead.status}
                               </span>
@@ -4469,22 +4409,13 @@ export default function App() {
                                     Mark Contacted
                                   </button>
                                 )}
-                                {lead.status === 'archived' ? (
-                                  <button 
-                                    onClick={() => handleUpdateWarmLeadStatus(lead.id, 'new')}
-                                    className="px-3 py-1.5 bg-violet-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-violet-600 transition-all"
-                                  >
-                                    Restore
-                                  </button>
-                                ) : (
-                                  <button 
-                                    onClick={() => handleUpdateWarmLeadStatus(lead.id, 'archived')}
-                                    className="p-1.5 text-zinc-400 hover:text-rose-500 transition-colors"
-                                    title="Archive Lead"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                )}
+                                <button 
+                                  onClick={() => handleUpdateWarmLeadStatus(lead.id, 'archived')}
+                                  className="p-1.5 text-zinc-400 hover:text-rose-500 transition-colors"
+                                  title="Archive Lead"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -4720,7 +4651,7 @@ export default function App() {
                     <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Pending</p>
                     <p className="text-xl font-black text-zinc-900">
                       {clinicProfile.currency}{referrals
-                        .filter(r => ['completed', 'approved'].includes(r.status))
+                        .filter(r => r.status === 'approved')
                         .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
                         .filter(r => payoutUserFilter === 'all' ? true : String(r.staff_id) === payoutUserFilter)
                         .reduce((sum, r) => sum + r.commission_amount, 0).toFixed(2)}
@@ -4829,7 +4760,7 @@ export default function App() {
                         </thead>
                         <tbody className="divide-y divide-zinc-50">
                           {referrals
-                            .filter(r => ['completed', 'approved', 'payout_processed'].includes(r.status))
+                            .filter(r => ['paid_completed', 'approved', 'payout_processed'].includes(r.status))
                             .filter(r => 
                               r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                               r.staff_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -5129,13 +5060,11 @@ export default function App() {
                           className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
                         >
                           <option value="all">All Statuses</option>
-                          <option value="pending">Pending</option>
-                          <option value="arrived">Arrived</option>
-                          <option value="in_session">In Session</option>
-                          <option value="completed">Completed (Paid)</option>
+                          <option value="entered">Entered</option>
+                          <option value="completed">Arrived</option>
+                          <option value="paid_completed">Paid</option>
                           <option value="approved">Approved</option>
                           <option value="payout_processed">Payout Processed</option>
-                          <option value="cancelled">Cancelled</option>
                         </select>
                         <div className="relative">
                           <input 
@@ -5189,27 +5118,39 @@ export default function App() {
                           </div>
                           <div className="flex items-center gap-3 ml-4">
                             <select 
-                              value=""
+                              value={ref.status}
                               onChange={(e) => {
                                 const newStatus = e.target.value;
-                                if (!newStatus) return;
                                 const additionalData = newStatus === 'completed' ? { visit_date: new Date().toISOString().split('T')[0] } : {};
-                                handleUpdateStatus(ref.id, newStatus, additionalData);
+                                handleUpdateStatus(ref.id, newStatus as any, additionalData);
                               }}
                               className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                             >
-                              <option value="" disabled>Set Status</option>
                               <option value="pending">Pending</option>
-                              <option value="arrived">Arrived</option>
-                              <option value="in_session">In Session</option>
-                              <option value="completed">Completed (Paid)</option>
-                              <option value="cancelled">Cancelled</option>
-                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
+                              <option value="entered">Entered</option>
+                              <option value="completed">Arrived</option>
+                              <option value="paid_completed">Paid</option>
+                              <option value="rejected">Rejected</option>
+                              { (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
                                 <>
                                   <option value="approved">Approved</option>
                                   <option value="payout_processed">Payout Processed</option>
                                 </>
                               )}
+                            </select>
+                            <select 
+                              value=""
+                              onChange={(e) => {
+                                if (e.target.value) handleClinicStatusUpdate(ref.id, e.target.value);
+                              }}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            >
+                              <option value="" disabled>Set Status</option>
+                              <option value="Pending">Pending</option>
+                              <option value="Arrived">Arrived</option>
+                              <option value="In Session">In Session</option>
+                              <option value="Completed">Completed</option>
+                              <option value="Cancelled">Cancelled</option>
                             </select>
                           </div>
                         </div>
@@ -6442,8 +6383,8 @@ export default function App() {
 
                   if (filteredServices.length === 0) {
                     filteredServices = [
-                      { id: 'coming-soon-1', name: `${category.title} Coming Soon`, base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'Stay tuned for more services in this category.' },
-                      { id: 'coming-soon-2', name: 'More info coming', base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'We are working on adding new services.' },
+                      { id: -1, name: `${category.title} Coming Soon`, base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'Stay tuned for more services in this category.' },
+                      { id: -2, name: 'More info coming', base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'We are working on adding new services.' },
                     ] as Service[];
                   }
 
@@ -6457,7 +6398,7 @@ export default function App() {
                             size={idx === 0 ? 'large' : 'small'}
                             items={filteredServices} 
                             onClick={(item) => {
-                              if (typeof item.id === 'string' && !item.id.startsWith('coming-soon')) {
+                              if (item.id > 0) {
                                 setSelectedPromo(item);
                                 setIsPromoModalOpen(true);
                               }
@@ -6471,7 +6412,7 @@ export default function App() {
                                   <ModernPromotionCard 
                                     item={item} 
                                     onClick={() => {
-                                      if (typeof item.id === 'string' && !item.id.startsWith('coming-soon')) {
+                                      if (item.id > 0) {
                                         setSelectedPromo(item);
                                         setIsPromoModalOpen(true);
                                       }
