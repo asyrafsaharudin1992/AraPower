@@ -71,6 +71,7 @@ import {
   X,
   RefreshCw
 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
 import PullToRefresh from 'react-simple-pull-to-refresh';
@@ -187,12 +188,12 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
 
   const handleCopyLink = async () => {
     if (!shareLink) {
-      alert('Code not generated yet');
+      toast.error('Code not generated yet');
       return;
     }
     try {
       await navigator.clipboard.writeText(shareLink);
-      alert('Link copied!');
+      toast.success('Pautan disalin!');
     } catch (err) {
       console.error('Failed to copy:', err);
     }
@@ -1676,10 +1677,16 @@ export default function App() {
 
   const handleUpdateWarmLeadStatus = async (id: string, status: string) => {
     try {
-      await supabase.from('warm_leads').update({ status }).eq('id', id);
-      fetchWarmLeads();
+      const { error } = await supabase.from('warm_leads').update({ status }).eq('id', id);
+      if (!error) {
+        fetchWarmLeads();
+        toast.success('Status berjaya dikemas kini!');
+      } else {
+        throw error;
+      }
     } catch (error) {
       console.error('Error updating warm lead status:', error);
+      toast.error('Gagal mengemas kini status');
     }
   };
 
@@ -2279,14 +2286,15 @@ export default function App() {
       if (res.ok) {
         fetchReferrals();
         fetchStaff();
+        toast.success('Status berjaya dikemas kini!');
       } else {
         const errorMsg = data.error || 'Update failed';
         console.error('Status update failed:', { id, status, data });
-        alert(`Status update failed: ${errorMsg}\n\nDetails: ${JSON.stringify(data)}`);
+        toast.error(`Status update failed: ${errorMsg}`);
       }
     } catch (error) {
       console.error('Error in handleUpdateStatus:', error);
-      alert(`An error occurred while updating status: ${error instanceof Error ? error.message : String(error)}`);
+      toast.error(`An error occurred while updating status`);
     }
   };
 
@@ -2348,13 +2356,16 @@ export default function App() {
       if (res.ok) {
         setCurrentUser(data);
         setSaveStatus({ type: 'success', message: 'Profile updated successfully' });
+        toast.success('Profil berjaya dikemas kini!');
         setTimeout(() => setSaveStatus(null), 3000);
       } else {
         setSaveStatus({ type: 'error', message: data.error || 'Failed to update profile' });
+        toast.error('Gagal mengemas kini profil');
       }
     } catch (error) {
       console.error(error);
       setSaveStatus({ type: 'error', message: 'Failed to update profile' });
+      toast.error('Gagal mengemas kini profil');
     }
   };
 
@@ -2463,12 +2474,15 @@ export default function App() {
       if (res.ok) {
         setEditingService(null);
         fetchServices();
+        toast.success('Tetapan berjaya disimpan!');
       } else {
         const errorMsg = data?.message || data?.error || 'Failed to save service';
         showNotification('error', errorMsg);
+        toast.error('Gagal menyimpan tetapan');
       }
     } catch (error) {
       console.error(error);
+      toast.error('Gagal menyimpan tetapan');
     } finally {
       setIsSavingSetup(false);
     }
@@ -5332,7 +5346,7 @@ export default function App() {
                           <button 
                             onClick={() => {
                               navigator.clipboard.writeText((currentUser.referral_code || currentUser.promo_code));
-                              alert('Code copied!');
+                              toast.success('Kod disalin!');
                             }}
                             className={`p-4 rounded-xl border transition-all active:scale-90 ${darkMode ? 'bg-white border-zinc-200 text-brand-primary hover:bg-zinc-50' : 'bg-white border-zinc-100 text-zinc-500 hover:text-zinc-900'}`}
                           >
@@ -5350,7 +5364,7 @@ export default function App() {
                               onClick={() => {
                                 const url = `${getShareUrl(clinicProfile.customDomain)}?ref=${(currentUser.referral_code || currentUser.promo_code)}`;
                                 navigator.clipboard.writeText(url);
-                                alert('Link copied!');
+                                toast.success('Pautan disalin!');
                               }}
                               className="p-2 text-brand-primary hover:bg-brand-primary/5 rounded-lg transition-all"
                             >
@@ -5373,7 +5387,7 @@ export default function App() {
                             onClick={() => {
                               const url = `${getShareUrl(clinicProfile.customDomain)}?ref=${(currentUser.referral_code || currentUser.promo_code)}`;
                               navigator.clipboard.writeText(url);
-                              alert('Link copied!');
+                              toast.success('Pautan disalin!');
                             }}
                             className={`flex items-center justify-center gap-3 p-5 border rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-sm ${darkMode ? 'bg-white text-zinc-900 border-zinc-200 hover:bg-zinc-50' : 'bg-white text-zinc-900 border-zinc-100 hover:bg-zinc-50'}`}
                           >
@@ -7106,7 +7120,7 @@ export default function App() {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ key: 'clinic', value: clinicProfile })
                           });
-                          alert('Clinic profile saved!');
+                          toast.success('Tetapan berjaya disimpan!');
                         } catch (e) {
                           console.error(e);
                         } finally {
@@ -7138,7 +7152,7 @@ export default function App() {
                               body: JSON.stringify(editingBranch)
                             });
                             if (res.ok) {
-                              alert(`Branch ${editingBranch?.id ? 'updated' : 'created'}!`);
+                              toast.success('Tetapan berjaya disimpan!');
                               setEditingBranch(null);
                               fetchBranches();
                             } else {
@@ -7493,13 +7507,21 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                       </div>
 
                       <button 
-                        onClick={() => {
-                          safeFetch(`${apiBaseUrl}/api/settings`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ key: 'referral', value: referralSettings })
-                          });
-                          alert('Referral settings saved!');
+                        onClick={async () => {
+                          try {
+                            const { res } = await safeFetch(`${apiBaseUrl}/api/settings`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ key: 'referral', value: referralSettings })
+                            });
+                            if (res.ok) {
+                              toast.success('Tetapan berjaya disimpan!');
+                            } else {
+                              toast.error('Gagal menyimpan tetapan');
+                            }
+                          } catch (e) {
+                            toast.error('Gagal menyimpan tetapan');
+                          }
                         }}
                         className="w-full bg-brand-primary text-white py-4 rounded-2xl font-bold hover:bg-brand-primary transition-all"
                       >
@@ -7553,7 +7575,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ key: 'roles', value: rolesConfig })
                             });
-                            alert('Roles configuration saved!');
+                            toast.success('Tetapan berjaya disimpan!');
                           } catch (e) {
                             console.error(e);
                           } finally {
@@ -7604,10 +7626,14 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                               });
                               if (res.ok) {
                                 setSaveStatus({ type: 'success', message: `Self-registration ${newVal ? 'enabled' : 'disabled'} successfully` });
+                                toast.success('Tetapan berjaya disimpan!');
                                 setTimeout(() => setSaveStatus(null), 3000);
+                              } else {
+                                toast.error('Gagal menyimpan tetapan');
                               }
                             } catch (e) {
                               setSaveStatus({ type: 'error', message: 'Failed to update settings' });
+                              toast.error('Gagal menyimpan tetapan');
                               setTimeout(() => setSaveStatus(null), 3000);
                             }
                           }}
@@ -7744,14 +7770,19 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                         onClick={async () => {
                           setIsSavingSetup(true);
                           try {
-                            await safeFetch(`${apiBaseUrl}/api/settings`, {
+                            const { res } = await safeFetch(`${apiBaseUrl}/api/settings`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ key: 'booking', value: appSettings })
                             });
-                            alert('Booking settings saved successfully!');
+                            if (res.ok) {
+                              toast.success('Tetapan berjaya disimpan!');
+                            } else {
+                              toast.error('Gagal menyimpan tetapan');
+                            }
                           } catch (e) {
                             console.error(e);
+                            toast.error('Gagal menyimpan tetapan');
                           } finally {
                             setIsSavingSetup(false);
                           }
