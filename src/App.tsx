@@ -5814,6 +5814,7 @@ export default function App() {
                     const formData = new FormData(e.currentTarget);
                     handleUpdateProfile({
                       nickname: formData.get('nickname') as string,
+                      profile_picture: currentUser.profile_picture,
                       bank_name: formData.get('bank_name') as string,
                       bank_account_number: formData.get('bank_account_number') as string,
                       id_type: formData.get('id_type') as string,
@@ -5836,66 +5837,6 @@ export default function App() {
                         }`}
                         placeholder="Your preferred name"
                       />
-                    </div>
-                  </div>
-
-                  <div className={`pt-6 border-t ${darkMode ? 'border-zinc-800' : 'border-zinc-100'}`}>
-                    <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
-                      <MapPin size={14} className={darkMode ? 'text-brand-accent' : 'text-brand-accent'} />
-                      Branch Assignment
-                    </h4>
-                    <div className="space-y-4">
-                      <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-black/5'}`}>
-                        <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Current Branch</p>
-                        <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{currentUser.branch || 'Not Assigned'}</p>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Request Branch Change</label>
-                        <div className="flex gap-2">
-                          <select 
-                            id="requestedBranch"
-                            className={`flex-1 px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
-                              darkMode 
-                                ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                                : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
-                            }`}
-                          >
-                            <option value="">Select New Branch</option>
-                            {branches.filter(b => b.name !== currentUser.branch).map(branch => (
-                              <option key={branch.id} value={branch.name}>{branch.name}</option>
-                            ))}
-                          </select>
-                          <button 
-                            type="button"
-                            onClick={async () => {
-                              const requestedBranch = (document.getElementById('requestedBranch') as HTMLSelectElement).value;
-                              if (!requestedBranch) return alert('Please select a branch');
-                              
-                              const reason = prompt('Reason for branch change request:');
-                              if (!reason) return;
-
-                              const { res } = await safeFetch(`${apiBaseUrl}/api/branch-change-requests`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  staff_id: currentUser.id,
-                                  current_branch: currentUser.branch,
-                                  requested_branch: requestedBranch,
-                                  reason
-                                })
-                              });
-                              
-                              if (res.ok) {
-                                alert('Branch change request submitted!');
-                              }
-                            }}
-                            className={`px-6 py-4 rounded-2xl font-bold text-sm transition-all ${darkMode ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white hover:bg-brand-primary'}`}
-                          >
-                            Apply
-                          </button>
-                        </div>
-                      </div>
                     </div>
                   </div>
 
