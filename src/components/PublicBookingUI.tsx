@@ -57,27 +57,37 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
-    const serviceId = params.get('service') || params.get('serviceId');
-    const sName = params.get('sName') || params.get('serviceName');
+    const urlId = params.get('service') || params.get('serviceId');
+    const urlNameRaw = params.get('sName') || params.get('serviceName');
+    const decodedName = urlNameRaw ? decodeURIComponent(urlNameRaw) : '';
 
     if (ref) {
       setProvidedRefCode(ref);
       safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${ref}`)
         .then(({ res, data }) => {
-          if (res.ok && data) {
-            setReferringStaff(data);
-          }
+          if (res.ok && data) setReferringStaff(data);
         })
         .catch(err => console.error('Failed to lookup affiliate:', err));
     }
 
-    if (serviceId) {
-      setSelectedService(serviceId);
+    // The Smart Translator: Wait for services to load from Supabase
+    if (services.length > 0 && (urlId || decodedName)) {
+      const matchedService = services.find(s => 
+        String(s.id) === String(urlId) || 
+        (s.target_url && s.target_url.includes(urlId || '')) ||
+        (decodedName && s.name.toLowerCase().trim() === decodedName.toLowerCase().trim())
+      );
+
+      if (matchedService) {
+        setSelectedService(String(matchedService.id)); // Lock in valid Supabase UUID
+        setUrlServiceName(matchedService.name);
+      } else {
+        // Fallback if truly not found
+        if (urlId) setSelectedService(urlId);
+        if (decodedName) setUrlServiceName(decodedName);
+      }
     }
-    if (sName) {
-      setUrlServiceName(decodeURIComponent(sName));
-    }
-  }, [apiBaseUrl, safeFetch]);
+  }, [services, apiBaseUrl, safeFetch]); // Crucial: Re-runs when services arrive from DB
 
   const handleProceedLead = async (e?: React.FormEvent | React.MouseEvent) => {
     if (e) e.preventDefault();
@@ -120,9 +130,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   };
 
   const onFormSubmit = async (e: React.FormEvent) => {
-    const params = new URLSearchParams(window.location.search);
-    const activeServiceId = selectedService || params.get('service') || params.get('serviceId');
-
+    e.preventDefault();
     const formData = {
       patientName,
       patientPhone,
@@ -132,7 +140,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
       appointmentDate,
       bookingTime,
       selectedBranch,
-      selectedService: activeServiceId,
+      selectedService, // Send the properly translated state
       referringStaff,
       providedRefCode,
       draftReferralId
