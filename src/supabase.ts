@@ -77,38 +77,37 @@ class MockSupabase {
 
   from(table: string) {
     return {
-      select: (columns?: string) => ({
-        eq: (column: string, value: any) => ({
-          single: async () => ({ data: null, error: null }),
-          order: (column: string, options?: any) => ({
-            then: (res: any) => res({ data: [], error: null })
-          }),
-          then: (res: any) => res({ data: [], error: null })
-        }),
-        order: (column: string, options?: any) => ({
-          then: (res: any) => res({ data: [], error: null })
-        }),
-        then: (res: any) => res({ data: [], error: null })
-      }),
-      insert: (data: any) => ({
-        select: () => ({
-          single: async () => ({ data: { id: 1, ...data }, error: null })
-        }),
-        then: (res: any) => res({ data: [], error: null })
-      }),
-      update: (data: any) => ({
-        eq: (column: string, value: any) => ({
-          then: (res: any) => res({ data: [], error: null })
-        })
-      }),
-      delete: () => ({
-        eq: (column: string, value: any) => ({
-          then: (res: any) => res({ data: [], error: null })
-        })
-      }),
-      upsert: (data: any) => ({
-        then: (res: any) => res({ data: [], error: null })
-      })
+      select: (columns?: string) => {
+        const p = Promise.resolve({ data: [], error: null }) as any;
+        p.eq = (column: string, value: any) => {
+          const pEq = Promise.resolve({ data: [], error: null }) as any;
+          pEq.single = async () => ({ data: null, error: null });
+          pEq.order = (column: string, options?: any) => Promise.resolve({ data: [], error: null });
+          return pEq;
+        };
+        p.order = (column: string, options?: any) => Promise.resolve({ data: [], error: null });
+        return p;
+      },
+      insert: (data: any) => {
+        const p = Promise.resolve({ data: [], error: null }) as any;
+        p.select = () => {
+          const pSel = Promise.resolve({ data: { id: 1, ...data }, error: null }) as any;
+          pSel.single = async () => ({ data: { id: 1, ...data }, error: null });
+          return pSel;
+        };
+        return p;
+      },
+      update: (data: any) => {
+        const p = Promise.resolve({ data: [], error: null }) as any;
+        p.eq = (column: string, value: any) => Promise.resolve({ data: [], error: null });
+        return p;
+      },
+      delete: () => {
+        const p = Promise.resolve({ data: [], error: null }) as any;
+        p.eq = (column: string, value: any) => Promise.resolve({ data: [], error: null });
+        return p;
+      },
+      upsert: (data: any) => Promise.resolve({ data: [], error: null })
     };
   }
 }
