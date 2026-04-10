@@ -2113,7 +2113,7 @@ export default function App() {
         const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && (s.approved_earnings > 0 || s.pending_earnings > 0));
         
         for (const staff of staffToPay) {
-          const payableRefs = referrals.filter(r => String(r.staff_id) === String(staff.id) && ['paid_completed', 'approved'].includes(r.status));
+          const payableRefs = referrals.filter(r => String(r.staff_id) === String(staff.id) && r.staff_id && r.commission_amount > 0 && ['completed', 'paid_completed', 'approved'].includes(r.status?.toLowerCase()));
           for (const ref of payableRefs) {
             await safeFetch(`${apiBaseUrl}/api/referrals/${ref.id}`, {
               method: 'PATCH',
@@ -2156,16 +2156,15 @@ export default function App() {
     };
 
     let staffId = isPublicBooking ? data.referringStaff?.id : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id);
-    let referralCode = isPublicBooking ? data.providedRefCode : null;
+    let referralCode = null;
 
-    // If public booking and we don't have staffId but we have a ref code in URL, try to fetch it right now
     if (isPublicBooking) {
       const params = new URLSearchParams(window.location.search);
-      const ref = params.get('ref');
-      if (ref) {
-        referralCode = ref;
+      referralCode = data.providedRefCode || params.get('ref') || localStorage.getItem('araclinic_ref_code');
+      
+      if (referralCode && !staffId) {
         try {
-          const { res, data: lookupData } = await safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${ref}`);
+          const { res, data: lookupData } = await safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${referralCode}`);
           if (res.ok && lookupData && lookupData.id) {
             staffId = lookupData.id;
           }
@@ -2779,7 +2778,7 @@ export default function App() {
         `"${ref.patient_name}"`,
         ref.patient_type || 'new',
         `"${ref.service_name}"`,
-        ...(currentUser?.role === 'admin' ? [`"${ref.staff_name}"`] : []),
+        ...(currentUser?.role === 'admin' ? [`"${ref.staff_name || 'Direct Walk-in'}"`] : []),
         (ref.commission_amount || 0).toFixed(2),
         ref.status
       ];
@@ -3510,7 +3509,7 @@ export default function App() {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
     const staffRefs = referrals.filter(r => String(r.staff_id) === String(staff.id));
     const monthlySuccessfulRefs = staffRefs.filter(r => 
-      (r.status === 'completed' || r.status === 'paid_completed' || r.status === 'approved' || r.status === 'payout_processed') && 
+      ['completed', 'paid_completed', 'approved', 'payout_processed'].includes(r.status?.toLowerCase()) && 
       r.date && typeof r.date === 'string' && r.date.startsWith(currentMonth)
     ).length;
 
@@ -3520,15 +3519,15 @@ export default function App() {
     
     // Calculate dynamic earnings based on status
     const pending_earnings = staffRefs
-      .filter(r => r.status === 'completed' || r.status === 'paid_completed')
+      .filter(r => ['completed', 'paid_completed'].includes(r.status?.toLowerCase()))
       .reduce((sum, r) => sum + (r.commission_amount * tier.bonus), 0);
     
     const approved_earnings = staffRefs
-      .filter(r => r.status === 'approved')
+      .filter(r => r.status?.toLowerCase() === 'approved')
       .reduce((sum, r) => sum + (r.commission_amount * tier.bonus), 0);
       
     const paid_earnings = staffRefs
-      .filter(r => r.status === 'payout_processed')
+      .filter(r => r.status?.toLowerCase() === 'payout_processed')
       .reduce((sum, r) => sum + (r.commission_amount * tier.bonus), 0);
 
     const totalWithBonus = pending_earnings + approved_earnings + paid_earnings;
@@ -3551,13 +3550,13 @@ export default function App() {
   const adminStats = {
     totalPayout: staffPerformance.reduce((sum, s) => sum + (s.paid_earnings || 0), 0),
     totalReferrals: referrals.length,
-    activeStaff: new Set(referrals.map(r => r.staff_id)).size,
+    activeStaff: new Set(referrals.filter(r => r.staff_id).map(r => r.staff_id)).size,
     pendingPayout: staffPerformance.reduce((sum, s) => sum + (s.approved_earnings || 0) + (s.pending_earnings || 0), 0)
   };
 
   const receptionistStats = {
-    arrivedToday: referrals.filter(r => (r.status === 'completed' || r.status === 'paid_completed') && r.visit_date === new Date().toISOString().split('T')[0]).length,
-    pendingVerifications: referrals.filter(r => r.status === 'entered').length
+    arrivedToday: referrals.filter(r => ['completed', 'paid_completed'].includes(r.status?.toLowerCase()) && r.visit_date === new Date().toISOString().split('T')[0]).length,
+    pendingVerifications: referrals.filter(r => r.status?.toLowerCase() === 'entered').length
   };
   
   const totalEarned = currentUserStats?.lifetime_earnings || 0;
@@ -4142,7 +4141,7 @@ export default function App() {
                   {referrals
                     .filter(ref => 
                       ref.patient_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
-                      ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
+                      (ref.staff_name && ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase())) ||
                       ref.service_name.toLowerCase().includes(referralSearch.toLowerCase())
                     )
                     .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
@@ -4202,7 +4201,7 @@ export default function App() {
                                 </div>
                                 <div>
                                   <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Staff Name</p>
-                                  <p className="text-xs font-medium text-zinc-700">{ref.staff_name}</p>
+                                  <p className="text-xs font-medium text-zinc-700">{ref.staff_name || <span className="text-zinc-400 italic">Direct Walk-in</span>}</p>
                                 </div>
                                 <div>
                                   <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Patient IC</p>
@@ -4224,13 +4223,13 @@ export default function App() {
                               <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
                                 <div className="flex items-center gap-2">
                                   <div className="w-6 h-6 rounded-full bg-zinc-200 flex items-center justify-center text-[8px] font-bold text-zinc-500">
-                                    {ref?.staff_name?.charAt(0) || '?'}
+                                    {ref?.staff_name?.charAt(0) || 'W'}
                                   </div>
-                                  <p className="text-[10px] font-medium text-zinc-500">Referred by {ref.staff_name}</p>
+                                  <p className="text-[10px] font-medium text-zinc-500">{ref.staff_name ? `Referred by ${ref.staff_name}` : 'Direct Walk-in'}</p>
                                 </div>
                                 {ref.patient_phone && (
                                   <a 
-                                    href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${ref.patient_name}! This is ${ref.staff_name} from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`)}`}
+                                    href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${ref.patient_name}! This is from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`)}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
@@ -4266,7 +4265,7 @@ export default function App() {
                     {referrals
                       .filter(ref => 
                         ref.patient_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
-                        ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
+                        (ref.staff_name && ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase())) ||
                         ref.service_name.toLowerCase().includes(referralSearch.toLowerCase())
                       )
                       .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
@@ -4292,7 +4291,9 @@ export default function App() {
                           </div>
                         </td>
                         <td className="p-4 text-sm text-zinc-500">{ref.service_name}</td>
-                        <td className="p-4 text-sm font-medium text-zinc-900">{ref.staff_name}</td>
+                        <td className="p-4 text-sm font-medium text-zinc-900">
+                          {ref.staff_name ? ref.staff_name : <span className="text-zinc-400 italic text-xs">Direct Walk-in</span>}
+                        </td>
                         <td className="p-4 text-sm font-bold">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</td>
                         <td className="p-4">
                           <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
@@ -4337,20 +4338,12 @@ export default function App() {
                                   Paid
                                 </button>
                               )}
-                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.status === 'paid_completed' && (
-                                <button 
-                                  onClick={() => handleUpdateStatus(ref.id, 'approved')}
-                                  className="text-[10px] font-bold text-zinc-900 hover:underline"
-                                >
-                                  Approve
-                                </button>
-                              )}
-                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.status === 'approved' && (
+                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.staff_id && ['completed', 'paid_completed', 'approved'].includes(ref.status?.toLowerCase()) && (
                                 <button 
                                   onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
                                   className="text-[10px] font-bold text-zinc-900 hover:underline"
                                 >
-                                  Pay
+                                  Approve & Pay
                                 </button>
                               )}
                               { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
@@ -4766,7 +4759,7 @@ export default function App() {
                     <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Pending</p>
                     <p className="text-xl font-black text-zinc-900">
                       {clinicProfile.currency}{referrals
-                        .filter(r => r.status === 'approved')
+                        .filter(r => r.staff_id && r.commission_amount > 0 && ['completed', 'paid_completed', 'approved'].includes(r.status?.toLowerCase()))
                         .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
                         .filter(r => payoutUserFilter === 'all' ? true : String(r.staff_id) === payoutUserFilter)
                         .reduce((sum, r) => sum + r.commission_amount, 0).toFixed(2)}
@@ -4776,7 +4769,7 @@ export default function App() {
                     <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Processed</p>
                     <p className="text-xl font-black text-zinc-900">
                       {clinicProfile.currency}{referrals
-                        .filter(r => r.status === 'payout_processed')
+                        .filter(r => r.staff_id && r.commission_amount > 0 && r.status?.toLowerCase() === 'payout_processed')
                         .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
                         .filter(r => payoutUserFilter === 'all' ? true : String(r.staff_id) === payoutUserFilter)
                         .reduce((sum, r) => sum + r.commission_amount, 0).toFixed(2)}
@@ -4875,10 +4868,10 @@ export default function App() {
                         </thead>
                         <tbody className="divide-y divide-zinc-50">
                           {referrals
-                            .filter(r => ['paid_completed', 'approved', 'payout_processed', 'completed'].includes(r.status))
+                            .filter(r => r.staff_id && r.commission_amount > 0 && ['completed', 'paid_completed', 'approved', 'payout_processed'].includes(r.status?.toLowerCase()))
                             .filter(r => 
                               r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                              r.staff_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              (r.staff_name && r.staff_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
                               (r.service_name && r.service_name.toLowerCase().includes(searchQuery.toLowerCase()))
                             )
                             .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
@@ -4892,8 +4885,14 @@ export default function App() {
                                   <p className="text-[10px] text-zinc-500 font-bold uppercase">{ref.branch}</p>
                                 </td>
                                 <td className="px-6 py-4">
-                                  <p className="text-sm font-bold text-zinc-900">{ref.staff_name}</p>
-                                  <p className="text-[10px] text-zinc-500 font-bold uppercase">Code: {ref.promo_code}</p>
+                                  {ref.staff_name ? (
+                                    <>
+                                      <p className="text-sm font-bold text-zinc-900">{ref.staff_name}</p>
+                                      <p className="text-[10px] text-zinc-500 font-bold uppercase">Code: {ref.promo_code}</p>
+                                    </>
+                                  ) : (
+                                    <span className="text-zinc-400 italic text-xs">Direct Walk-in</span>
+                                  )}
                                 </td>
                                 <td className="px-6 py-4">
                                   <p className="text-sm font-medium text-zinc-900">{ref.patient_name}</p>
@@ -4904,22 +4903,22 @@ export default function App() {
                                 </td>
                                 <td className="px-6 py-4">
                                   <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                    ref.status === 'payout_processed' ? 'bg-emerald-500 text-white' : 'bg-brand-surface text-zinc-900'
+                                    ref.status?.toLowerCase() === 'payout_processed' ? 'bg-emerald-500 text-white' : 'bg-brand-surface text-zinc-900'
                                   }`}>
-                                    {ref.status === 'payout_processed' ? 'Paid' : 'Pending'}
+                                    {ref.status?.toLowerCase() === 'payout_processed' ? 'Paid' : 'Pending'}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                   <div className="flex items-center justify-end gap-2">
-                                    {ref.status === 'approved' && (
+                                    {['completed', 'paid_completed', 'approved'].includes(ref.status?.toLowerCase()) && (
                                       <button 
                                         onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
                                         className="px-4 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold hover:bg-brand-primary transition-all active:scale-95"
                                       >
-                                        Process Payout
+                                        Approve & Pay
                                       </button>
                                     )}
-                                    {ref.status === 'payout_processed' && (
+                                    {ref.status?.toLowerCase() === 'payout_processed' && (
                                       <div className="flex items-center justify-end gap-1 text-zinc-900">
                                         <CheckCircle2 size={14} />
                                         <span className="text-xs font-bold">Processed</span>
@@ -4938,7 +4937,7 @@ export default function App() {
                                 </td>
                               </tr>
                             ))}
-                          {referrals.filter(r => r.status === 'approved' || r.status === 'payout_processed').length === 0 && (
+                          {referrals.filter(r => r.staff_id && r.commission_amount > 0 && ['completed', 'paid_completed', 'approved', 'payout_processed'].includes(r.status?.toLowerCase())).length === 0 && (
                             <tr>
                               <td colSpan={7} className="px-6 py-12 text-center">
                                 <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
@@ -5195,8 +5194,8 @@ export default function App() {
                     <div className="divide-y divide-zinc-50">
                       {referrals
                         .filter(r => r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()))
-                        .filter(r => statusFilter === 'all' ? true : r.status === statusFilter)
-                        .filter(r => currentUser.role === 'receptionist' ? r.status === 'completed' : true)
+                        .filter(r => statusFilter === 'all' ? true : r.status?.toLowerCase() === statusFilter.toLowerCase())
+                        .filter(r => currentUser.role === 'receptionist' ? r.status?.toLowerCase() === 'completed' : true)
                         .map((ref) => (
                         <div key={ref.id} className="p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors">
                           <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
@@ -5216,7 +5215,7 @@ export default function App() {
                             )}
                             { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                               <div>
-                                <p className="text-xs font-medium text-zinc-900">{ref.staff_name}</p>
+                                <p className="text-xs font-medium text-zinc-900">{ref.staff_name || <span className="text-zinc-400 italic">Direct Walk-in</span>}</p>
                                 <p className="text-[10px] text-zinc-500">Staff</p>
                               </div>
                             )}

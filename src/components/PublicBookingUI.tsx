@@ -62,8 +62,13 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     const decodedName = urlNameRaw ? decodeURIComponent(urlNameRaw) : '';
 
     if (ref) {
-      setProvidedRefCode(ref);
-      safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${ref}`)
+      localStorage.setItem('araclinic_ref_code', ref);
+    }
+    const effectiveRef = ref || localStorage.getItem('araclinic_ref_code');
+
+    if (effectiveRef) {
+      setProvidedRefCode(effectiveRef);
+      safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${effectiveRef}`)
         .then(({ res, data }) => {
           if (res.ok && data) setReferringStaff(data);
         })
