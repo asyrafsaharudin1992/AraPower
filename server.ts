@@ -1504,14 +1504,14 @@ app.delete("/api/notifications/:id", async (req, res) => {
 app.get("/api/affiliate-lookup/:code", async (req, res) => {
   const { code } = req.params;
   
-  const col = staffColumns.has('referral_code') ? 'referral_code' : (staffColumns.has('promo_code') ? 'promo_code' : null);
-  if (!col) return res.status(404).json({ error: "Referral code column not found" });
-
-  const { data, error } = await supabase
-    .from('staff')
-    .select('id, name')
-    .eq(col, code)
-    .maybeSingle();
+  // Bypass memory cache and force check both columns directly
+  let { data, error } = await supabase.from('staff').select('id, name').eq('referral_code', code).maybeSingle();
+  
+  if (error || !data) {
+    const { data: fallbackData, error: fallbackError } = await supabase.from('staff').select('id, name').eq('promo_code', code).maybeSingle();
+    data = fallbackData;
+    error = fallbackError;
+  }
 
   if (error || !data) {
     return res.status(404).json({ error: "Referral code not found" });
@@ -2236,11 +2236,18 @@ app.post("/api/referrals", async (req, res) => {
     if (referralColumns.has('created_by')) insertData.created_by = created_by;
   }
   
-  // Auto-fallback: If frontend missed the staff_id but sent a ref code, force the connection
-  if (!insertData.staff_id && referral_code) {
-     const col = staffColumns.has('referral_code') ? 'referral_code' : 'promo_code';
-     const { data: codeStaff } = await supabase.from('staff').select('id').eq(col, referral_code).maybeSingle();
-     if (codeStaff && referralColumns.has('staff_id')) insertData.staff_id = codeStaff.id;
+  // Auto-fallback: Force the connection ignoring cache
+  if (!insertData.staff_id && !insertData.created_by && referral_code) {
+     let { data: codeStaff } = await supabase.from('staff').select('id').eq('referral_code', referral_code).maybeSingle();
+     if (!codeStaff) {
+       const { data: fallbackStaff } = await supabase.from('staff').select('id').eq('promo_code', referral_code).maybeSingle();
+       codeStaff = fallbackStaff;
+     }
+     
+     if (codeStaff) {
+       insertData.staff_id = codeStaff.id;
+       if (!insertData.created_by) insertData.created_by = codeStaff.id;
+     }
   }
   
   if (staff && referralColumns.has('branch')) insertData.branch = staff.branch;
@@ -2405,7 +2412,7 @@ app.patch("/api/referrals/:id", async (req, res) => {
 
   const { data: service } = await supabase.from('services').select('commission_rate').eq('id', referral.service_id).single();
 
-  const isEarningStatus = (s: string) => ['approved', 'completed'].includes(s);
+  const isEarningStatus = (s: string) => ['approved', 'completed', 'paid_completed'].includes(s);
   const oldStatus = referral.status;
 
   if (isEarningStatus(status) && !isEarningStatus(oldStatus)) {
