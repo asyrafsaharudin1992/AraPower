@@ -2113,7 +2113,6 @@ export default function App() {
         const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && (s.approved_earnings > 0 || s.pending_earnings > 0));
         
         for (const staff of staffToPay) {
-          // CRITICAL FIX: Added 'completed' to the array of eligible statuses to process
           const payableRefs = referrals.filter(r => String(r.staff_id) === String(staff.id) && ['completed', 'paid_completed', 'approved'].includes(r.status));
           for (const ref of payableRefs) {
             await safeFetch(`${apiBaseUrl}/api/referrals/${ref.id}`, {
@@ -4294,7 +4293,7 @@ export default function App() {
                           </div>
                         </td>
                         <td className="p-4 text-sm text-zinc-500">{ref.service_name}</td>
-                        <td className="p-4 text-sm font-medium text-zinc-900">{ref.staff_name}</td>
+                        <td className="p-4 text-sm font-medium text-zinc-900">{ref.staff_name || <span className="text-zinc-400 italic text-xs">Direct Walk-in</span>}</td>
                         <td className="p-4 text-sm font-bold">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</td>
                         <td className="p-4">
                           <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
@@ -4760,7 +4759,7 @@ export default function App() {
                     <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Pending</p>
                     <p className="text-xl font-black text-zinc-900">
                       {clinicProfile.currency}{referrals
-                        .filter(r => ['completed', 'paid_completed', 'approved'].includes(r.status))
+                        .filter(r => ['completed', 'paid_completed', 'approved'].includes(r.status) && r.staff_id && r.commission_amount > 0)
                         .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
                         .filter(r => payoutUserFilter === 'all' ? true : String(r.staff_id) === payoutUserFilter)
                         .reduce((sum, r) => sum + r.commission_amount, 0).toFixed(2)}

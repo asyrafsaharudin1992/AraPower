@@ -2121,7 +2121,7 @@ app.get("/api/referrals", async (req, res) => {
   }
 
   // Fetch related staff and services separately
-  const staffIds = [...new Set(referrals.map(r => r.staff_id || r.created_by).filter(Boolean))];
+  const staffIds = [...new Set(referrals.map(r => r.staff_id || r.created_by).filter(id => id && !isNaN(Number(id))))];
   const serviceIds = [...new Set(referrals.map(r => r.service_id).filter(Boolean))];
 
   const [staffRes, servicesRes] = await Promise.all([
@@ -2235,9 +2235,6 @@ app.post("/api/referrals", async (req, res) => {
   
   if (created_by) {
     if (referralColumns.has('created_by')) insertData.created_by = created_by;
-    // CRITICAL FIX: Do NOT overwrite staff_id with created_by. 
-    // This allows receptionists to log walk-ins without stealing the referral credit, 
-    // and prevents logged-in admins from overriding public walk-ins.
   }
   
   if (staff && referralColumns.has('branch')) insertData.branch = staff.branch;
