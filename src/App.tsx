@@ -4339,20 +4339,12 @@ export default function App() {
                                   Paid
                                 </button>
                               )}
-                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.status === 'paid_completed' && (
-                                <button 
-                                  onClick={() => handleUpdateStatus(ref.id, 'approved')}
-                                  className="text-[10px] font-bold text-zinc-900 hover:underline"
-                                >
-                                  Approve
-                                </button>
-                              )}
-                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.status === 'approved' && (
+                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ['completed', 'paid_completed', 'approved'].includes(ref.status) && (
                                 <button 
                                   onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
-                                  className="text-[10px] font-bold text-zinc-900 hover:underline"
+                                  className="text-[10px] font-bold text-emerald-600 hover:underline"
                                 >
-                                  Pay
+                                  Pay Affiliate
                                 </button>
                               )}
                               { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
@@ -4913,7 +4905,7 @@ export default function App() {
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                   <div className="flex items-center justify-end gap-2">
-                                    {ref.status === 'approved' && (
+                                    {['completed', 'paid_completed', 'approved'].includes(ref.status) && (
                                       <button 
                                         onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
                                         className="px-4 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold hover:bg-brand-primary transition-all active:scale-95"
