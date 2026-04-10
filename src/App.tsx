@@ -1327,9 +1327,14 @@ export default function App() {
     const serviceId = params.get('service') || params.get('serviceId');
     const serviceName = params.get('sName') || params.get('serviceName');
     
-    if (refCode || serviceId) {
+    // CRITICAL FIX: Save the referral code to LocalStorage immediately to survive mobile browser stripping
+    if (refCode) {
+      localStorage.setItem('araclinic_ref_code', refCode);
+    }
+
+    if (refCode || serviceId || localStorage.getItem('araclinic_ref_code')) {
       const decodedServiceName = serviceName ? decodeURIComponent(serviceName) : null;
-      handlePublicBooking(refCode, serviceId, decodedServiceName);
+      handlePublicBooking(refCode || localStorage.getItem('araclinic_ref_code'), serviceId, decodedServiceName);
     }
 
     fetchPromotions();
@@ -2156,12 +2161,12 @@ export default function App() {
     };
 
     let staffId = isPublicBooking ? data.referringStaff?.id : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id);
-    let referralCode = isPublicBooking ? data.providedRefCode : null;
+    let referralCode = isPublicBooking ? (data.providedRefCode || localStorage.getItem('araclinic_ref_code')) : null;
 
     // If public booking and we don't have staffId but we have a ref code in URL, try to fetch it right now
     if (isPublicBooking) {
       const params = new URLSearchParams(window.location.search);
-      const ref = params.get('ref');
+      const ref = params.get('ref') || localStorage.getItem('araclinic_ref_code');
       if (ref) {
         referralCode = ref;
         try {

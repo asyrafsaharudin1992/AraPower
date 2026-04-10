@@ -1504,11 +1504,11 @@ app.delete("/api/notifications/:id", async (req, res) => {
 app.get("/api/affiliate-lookup/:code", async (req, res) => {
   const { code } = req.params;
   
-  // Bypass memory cache and force check both columns directly
-  let { data, error } = await supabase.from('staff').select('id, name').eq('referral_code', code).maybeSingle();
+  // CRITICAL FIX: Use case-insensitive 'ilike' to prevent Postgres matching failures
+  let { data, error } = await supabase.from('staff').select('id, name').ilike('referral_code', code).maybeSingle();
   
   if (error || !data) {
-    const { data: fallbackData, error: fallbackError } = await supabase.from('staff').select('id, name').eq('promo_code', code).maybeSingle();
+    const { data: fallbackData, error: fallbackError } = await supabase.from('staff').select('id, name').ilike('promo_code', code).maybeSingle();
     data = fallbackData;
     error = fallbackError;
   }
@@ -2227,11 +2227,11 @@ app.post("/api/referrals", async (req, res) => {
     insertData.referral_code = referral_code;
   }
 
-  // Auto-fallback: If frontend missed the staff_id, force the database connection
+  // Auto-fallback: Force the database connection using case-insensitive ilike
   if (!insertData.staff_id && referral_code) {
-     let { data: codeStaff } = await supabase.from('staff').select('id').eq('referral_code', referral_code).maybeSingle();
+     let { data: codeStaff } = await supabase.from('staff').select('id').ilike('referral_code', referral_code).maybeSingle();
      if (!codeStaff) {
-       const { data: fallbackStaff } = await supabase.from('staff').select('id').eq('promo_code', referral_code).maybeSingle();
+       const { data: fallbackStaff } = await supabase.from('staff').select('id').ilike('promo_code', referral_code).maybeSingle();
        codeStaff = fallbackStaff;
      }
      

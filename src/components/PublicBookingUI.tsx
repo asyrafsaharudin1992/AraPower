@@ -56,7 +56,8 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref');
+    // CRITICAL FIX: Pull from URL first, fallback to localStorage if mobile browser stripped it
+    const ref = params.get('ref') || localStorage.getItem('araclinic_ref_code');
     const urlId = params.get('service') || params.get('serviceId');
     const urlNameRaw = params.get('sName') || params.get('serviceName');
     const decodedName = urlNameRaw ? decodeURIComponent(urlNameRaw) : '';
