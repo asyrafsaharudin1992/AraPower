@@ -1327,14 +1327,9 @@ export default function App() {
     const serviceId = params.get('service') || params.get('serviceId');
     const serviceName = params.get('sName') || params.get('serviceName');
     
-    // CRITICAL FIX: Save the referral code to LocalStorage immediately to survive mobile browser stripping
-    if (refCode) {
-      localStorage.setItem('araclinic_ref_code', refCode);
-    }
-
-    if (refCode || serviceId || localStorage.getItem('araclinic_ref_code')) {
+    if (refCode || serviceId) {
       const decodedServiceName = serviceName ? decodeURIComponent(serviceName) : null;
-      handlePublicBooking(refCode || localStorage.getItem('araclinic_ref_code'), serviceId, decodedServiceName);
+      handlePublicBooking(refCode, serviceId, decodedServiceName);
     }
 
     fetchPromotions();
@@ -2118,7 +2113,7 @@ export default function App() {
         const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && (s.approved_earnings > 0 || s.pending_earnings > 0));
         
         for (const staff of staffToPay) {
-          const payableRefs = referrals.filter(r => String(r.staff_id) === String(staff.id) && ['completed', 'paid_completed', 'approved'].includes(r.status));
+          const payableRefs = referrals.filter(r => String(r.staff_id) === String(staff.id) && ['paid_completed', 'approved'].includes(r.status));
           for (const ref of payableRefs) {
             await safeFetch(`${apiBaseUrl}/api/referrals/${ref.id}`, {
               method: 'PATCH',
@@ -2161,12 +2156,12 @@ export default function App() {
     };
 
     let staffId = isPublicBooking ? data.referringStaff?.id : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id);
-    let referralCode = isPublicBooking ? (data.providedRefCode || localStorage.getItem('araclinic_ref_code')) : null;
+    let referralCode = isPublicBooking ? data.providedRefCode : null;
 
     // If public booking and we don't have staffId but we have a ref code in URL, try to fetch it right now
     if (isPublicBooking) {
       const params = new URLSearchParams(window.location.search);
-      const ref = params.get('ref') || localStorage.getItem('araclinic_ref_code');
+      const ref = params.get('ref');
       if (ref) {
         referralCode = ref;
         try {
@@ -2198,7 +2193,7 @@ export default function App() {
       const serviceData = services.find(srv => String(srv.id) === String(data.selectedService));
 
       const payload: any = {
-        staff_id: staffId || null,
+        staff_id: staffId,
         service_id: data.selectedService,
         service_name: serviceData?.name || '',
         commission_amount: serviceData?.commission_rate || 0,
@@ -2211,9 +2206,8 @@ export default function App() {
         booking_time: data.bookingTime,
         status: 'pending',
         date: new Date().toISOString().split('T')[0],
-        created_by: isPublicBooking ? null : currentUser?.id,
-        branch: data.selectedBranch || (isPublicBooking ? data.referringStaff?.branch : currentUser?.branch),
-        referral_code: referralCode || (isPublicBooking ? new URLSearchParams(window.location.search).get('ref') : null)
+        created_by: currentUser?.id,
+        branch: data.selectedBranch || (isPublicBooking ? data.referringStaff?.branch : currentUser?.branch)
       };
 
       if (referralCode) {
@@ -4207,7 +4201,7 @@ export default function App() {
                                   <p className="text-xs font-medium text-zinc-700">{ref.date}</p>
                                 </div>
                                 <div>
-                                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Affiliate Name</p>
+                                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Staff Name</p>
                                   <p className="text-xs font-medium text-zinc-700">{ref.staff_name}</p>
                                 </div>
                                 <div>
@@ -4262,7 +4256,7 @@ export default function App() {
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Booking</th>
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Patient</th>
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Service</th>
-                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Affiliate</th>
+                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Staff</th>
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Incentive</th>
                       <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Status</th>
                       {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Actions</th>}
@@ -4298,7 +4292,7 @@ export default function App() {
                           </div>
                         </td>
                         <td className="p-4 text-sm text-zinc-500">{ref.service_name}</td>
-                        <td className="p-4 text-sm font-medium text-zinc-900">{ref.staff_name || <span className="text-zinc-400 italic text-xs">Direct Walk-in</span>}</td>
+                        <td className="p-4 text-sm font-medium text-zinc-900">{ref.staff_name}</td>
                         <td className="p-4 text-sm font-bold">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</td>
                         <td className="p-4">
                           <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
@@ -4343,12 +4337,20 @@ export default function App() {
                                   Paid
                                 </button>
                               )}
-                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ['completed', 'paid_completed', 'approved'].includes(ref.status) && (
+                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.status === 'paid_completed' && (
+                                <button 
+                                  onClick={() => handleUpdateStatus(ref.id, 'approved')}
+                                  className="text-[10px] font-bold text-zinc-900 hover:underline"
+                                >
+                                  Approve
+                                </button>
+                              )}
+                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.status === 'approved' && (
                                 <button 
                                   onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
-                                  className="text-[10px] font-bold text-emerald-600 hover:underline"
+                                  className="text-[10px] font-bold text-zinc-900 hover:underline"
                                 >
-                                  Pay Affiliate
+                                  Pay
                                 </button>
                               )}
                               { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
@@ -4654,14 +4656,14 @@ export default function App() {
                       </li>
                       <li className="flex gap-2">
                         <span className="text-zinc-900 font-bold">•</span>
-                        Affiliates will receive these in their notification inbox in real-time.
+                        Staff will receive these in their notification inbox in real-time.
                       </li>
                     </ul>
                   </div>
 
                   {/* Feedback Section */}
                   <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm space-y-6">
-                    <h3 className="text-xl font-black text-zinc-900">User Feedback</h3>
+                    <h3 className="text-xl font-black text-zinc-900">Staff Feedback</h3>
                     {feedbackList.length === 0 ? (
                       <p className="text-zinc-500 text-sm">No feedback received yet.</p>
                     ) : (
@@ -4684,7 +4686,7 @@ export default function App() {
                       <h3 className="font-black text-zinc-900 tracking-tight">Recipients</h3>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                          {notificationForm.user_ids.length === 0 ? 'All Users' : `${notificationForm.user_ids.length} Selected`}
+                          {notificationForm.user_ids.length === 0 ? 'All Staff' : `${notificationForm.user_ids.length} Selected`}
                         </span>
                       </div>
                     </div>
@@ -4703,7 +4705,7 @@ export default function App() {
                           }}
                           className="w-5 h-5 rounded-lg border-zinc-200 text-zinc-900 focus:ring-violet-500"
                         />
-                        <span className="text-sm font-bold text-zinc-900">Select All Users</span>
+                        <span className="text-sm font-bold text-zinc-900">Select All Staff</span>
                       </label>
 
                       <div className="h-px bg-zinc-50 my-2" />
@@ -4764,7 +4766,7 @@ export default function App() {
                     <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Pending</p>
                     <p className="text-xl font-black text-zinc-900">
                       {clinicProfile.currency}{referrals
-                        .filter(r => ['completed', 'paid_completed', 'approved'].includes(r.status) && r.staff_id && r.commission_amount > 0)
+                        .filter(r => r.status === 'approved')
                         .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
                         .filter(r => payoutUserFilter === 'all' ? true : String(r.staff_id) === payoutUserFilter)
                         .reduce((sum, r) => sum + r.commission_amount, 0).toFixed(2)}
@@ -4803,13 +4805,13 @@ export default function App() {
               <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm flex flex-wrap gap-4 items-end">
                 <div className="flex-1 min-w-[200px]">
                   <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">
-                    {payoutSubTab === 'history' ? 'Search Referrals' : 'Search Affiliate'}
+                    {payoutSubTab === 'history' ? 'Search Referrals' : 'Search Staff'}
                   </label>
                   <div className="relative">
                     <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
                     <input 
                       type="text"
-                      placeholder={payoutSubTab === 'history' ? "Search patient, affiliate, or service..." : "Search affiliate name..."}
+                      placeholder={payoutSubTab === 'history' ? "Search patient, staff, or service..." : "Search staff name..."}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
@@ -4817,7 +4819,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="flex-1 min-w-[200px]">
-                  <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Filter by Affiliate</label>
+                  <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Filter by Staff</label>
                   <select 
                     value={payoutUserFilter}
                     onChange={(e) => setPayoutUserFilter(e.target.value)}
@@ -4864,7 +4866,7 @@ export default function App() {
                           <tr className="bg-zinc-50/50 border-b border-zinc-100">
                             <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">No.</th>
                             <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Date</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Affiliate</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Staff</th>
                             <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Patient</th>
                             <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Amount</th>
                             <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Status</th>
@@ -4909,7 +4911,7 @@ export default function App() {
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                   <div className="flex items-center justify-end gap-2">
-                                    {['completed', 'paid_completed', 'approved'].includes(ref.status) && (
+                                    {ref.status === 'approved' && (
                                       <button 
                                         onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
                                         className="px-4 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold hover:bg-brand-primary transition-all active:scale-95"
@@ -5215,7 +5217,7 @@ export default function App() {
                             { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                               <div>
                                 <p className="text-xs font-medium text-zinc-900">{ref.staff_name}</p>
-                                <p className="text-[10px] text-zinc-500">Affiliate</p>
+                                <p className="text-[10px] text-zinc-500">Staff</p>
                               </div>
                             )}
                             <div>
@@ -5291,9 +5293,9 @@ export default function App() {
                   <div className="w-20 h-20 bg-zinc-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
                     <Users size={32} className="text-zinc-500" />
                   </div>
-                  <h3 className="text-xl font-black tracking-tight text-zinc-900 mb-2">Restricted Access</h3>
+                  <h3 className="text-xl font-black tracking-tight text-zinc-900 mb-2">Staff Access Only</h3>
                   <p className="text-zinc-500 text-sm font-medium max-w-xs mx-auto">
-                    The Referral Kit is designed for affiliates to generate their personal referral links and QR codes.
+                    The Referral Kit is designed for staff members to generate their personal referral links and QR codes.
                   </p>
                 </div>
               ) : (
@@ -5397,7 +5399,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Log New Referral (Affiliate Only) */}
+                  {/* Log New Referral (Staff Only) */}
                   {currentUser.role === 'affiliate' && !isMobile && (
                 <div className={`${darkMode ? 'bg-white border-zinc-200 rotate-[-1deg]' : 'bg-violet-500 border-violet-500'} p-8 rounded-[2.5rem] border shadow-[0_8px_30px_rgb(0,0,0,0.02)]`}>
                   <div className="flex items-center gap-2 mb-6">
@@ -5646,7 +5648,7 @@ export default function App() {
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'affiliate' ? 'bg-violet-500 text-white' : 'bg-zinc-50 text-zinc-500'}`}>
                     <Users size={24} />
                   </div>
-                  <h4 className="font-bold mb-2">For Affiliates</h4>
+                  <h4 className="font-bold mb-2">For Staff Members</h4>
                   <ul className="space-y-3 text-xs text-zinc-500 font-medium">
                     <li className="flex gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
@@ -5700,7 +5702,7 @@ export default function App() {
                   <ul className="space-y-3 text-xs text-zinc-500 font-medium">
                     <li className="flex gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
-                      <span>Approve new user registrations in the "Setup &gt; User Management" tab.</span>
+                      <span>Approve new staff registrations in the "Setup &gt; Staff" tab.</span>
                     </li>
                     <li className="flex gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
@@ -6527,7 +6529,7 @@ export default function App() {
                   onClick={() => setSetupSubTab('staff')}
                   className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'staff' ? 'bg-brand-primary text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
                 >
-                  User Management
+                  Staff Setup
                 </button>
                 <button 
                   onClick={() => setSetupSubTab('booking')}
@@ -6636,7 +6638,7 @@ export default function App() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   <div className="lg:col-span-1">
                     <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm sticky top-8">
-                      <h3 className="font-semibold mb-6">{editingStaff?.id ? 'Edit User' : 'Add New User'}</h3>
+                      <h3 className="font-semibold mb-6">{editingStaff?.id ? 'Edit Staff' : 'Add New Staff'}</h3>
                       <form onSubmit={handleSaveStaff} className="space-y-4">
                         <div>
                           <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Full Name</label>
@@ -6784,7 +6786,7 @@ export default function App() {
                             disabled={isSavingSetup}
                             className="flex-1 bg-brand-primary text-white py-3 rounded-xl font-medium hover:bg-brand-primary transition-colors disabled:opacity-50"
                           >
-                            {isSavingSetup ? 'Saving...' : 'Save User'}
+                            {isSavingSetup ? 'Saving...' : 'Save Staff'}
                           </button>
                           {editingStaff && (
                             <button 
@@ -6802,7 +6804,7 @@ export default function App() {
                   <div className="lg:col-span-2">
                     <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
                       <div className="flex items-center justify-between p-4 border-b border-zinc-100 bg-zinc-50/50">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">User Directory</h3>
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Staff Directory</h3>
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={async () => {
@@ -6929,7 +6931,7 @@ export default function App() {
               ) : setupSubTab === 'trash' ? (
                 <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
                   <div className="flex items-center justify-between p-4 border-b border-zinc-100 bg-zinc-50/50">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Trash Bin (Deleted Users)</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Trash Bin (Deleted Staff)</h3>
                     <div className="flex items-center gap-2">
                       <button 
                         onClick={fetchStaff}
@@ -6987,7 +6989,7 @@ export default function App() {
                             </td>
                             <td className="p-4 text-right">
                               <div className="flex justify-end gap-2">
-                                <button onClick={() => handleRestoreStaff(staff.id)} title="Restore User" className="flex items-center gap-1 px-3 py-1.5 bg-violet-500 text-white hover:bg-violet-500 rounded-lg text-xs font-bold transition-colors">
+                                <button onClick={() => handleRestoreStaff(staff.id)} title="Restore Staff" className="flex items-center gap-1 px-3 py-1.5 bg-violet-500 text-white hover:bg-violet-500 rounded-lg text-xs font-bold transition-colors">
                                   <RefreshCw size={14} />
                                   Restore
                                 </button>
@@ -7467,13 +7469,13 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                       </div>
 
                       <div className="pt-6 border-t border-zinc-100">
-                        <h4 className="font-bold mb-4">Affiliate Quotas</h4>
+                        <h4 className="font-bold mb-4">Staff Referral Quotas</h4>
                         <div className="bg-zinc-50 rounded-2xl overflow-hidden">
                           <table className="w-full text-left text-xs">
                             <thead>
                               <tr className="bg-zinc-50">
                                 <th className="p-3 font-black uppercase tracking-widest text-zinc-500">No.</th>
-                                <th className="p-3 font-black uppercase tracking-widest text-zinc-500">Affiliate Member</th>
+                                <th className="p-3 font-black uppercase tracking-widest text-zinc-500">Staff Member</th>
                                 <th className="p-3 font-black uppercase tracking-widest text-zinc-500">Monthly Quota</th>
                                 <th className="p-3 font-black uppercase tracking-widest text-zinc-500">Actions</th>
                               </tr>
@@ -7662,7 +7664,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                         </div>
                         <div className="space-y-3">
                           <p className="text-xs leading-relaxed font-medium">
-                            <span className="font-black">Restricted Mode:</span> If disabled, the "Register" tab will be hidden from the login screen. Only administrators can add new users via the <span className="font-black">User Management</span> tab.
+                            <span className="font-black">Restricted Mode:</span> If disabled, the "Register" tab will be hidden from the login screen. Only administrators can add new staff via the <span className="font-black">Staff Setup</span> tab.
                           </p>
                           <p className="text-xs leading-relaxed font-medium">
                             <span className="font-black">Approval Required:</span> Regardless of this setting, all self-registered accounts are created with <span className="text-white font-black">Pending Approval</span> status and cannot access clinic data until an admin approves them.
@@ -7980,7 +7982,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                               setShowStaffModal(false);
                             }}
                             className="p-2 hover:bg-rose-50 text-zinc-400 hover:text-rose-500 rounded-xl transition-colors"
-                            title="Delete User"
+                            title="Delete Staff"
                           >
                             <Trash2 size={20} />
                           </button>

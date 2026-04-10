@@ -1504,14 +1504,15 @@ app.delete("/api/notifications/:id", async (req, res) => {
 app.get("/api/affiliate-lookup/:code", async (req, res) => {
   const { code } = req.params;
   
-  // CRITICAL FIX: Use case-insensitive 'ilike' to prevent Postgres matching failures
-  let { data, error } = await supabase.from('staff').select('id, name').ilike('referral_code', code).maybeSingle();
-  
-  if (error || !data) {
-    const { data: fallbackData, error: fallbackError } = await supabase.from('staff').select('id, name').ilike('promo_code', code).maybeSingle();
-    data = fallbackData;
-    error = fallbackError;
+  if (!staffColumns.has('referral_code')) {
+    return res.status(404).json({ error: "Referral code column not found" });
   }
+
+  const { data, error } = await supabase
+    .from('staff')
+    .select('id, name')
+    .eq('referral_code', code)
+    .single();
 
   if (error || !data) {
     return res.status(404).json({ error: "Referral code not found" });
@@ -2120,7 +2121,7 @@ app.get("/api/referrals", async (req, res) => {
   }
 
   // Fetch related staff and services separately
-  const staffIds = [...new Set(referrals.map(r => r.staff_id || r.created_by).filter(id => id && id !== 'null' && id !== 'undefined'))];
+  const staffIds = [...new Set(referrals.map(r => r.staff_id || r.created_by).filter(Boolean))];
   const serviceIds = [...new Set(referrals.map(r => r.service_id).filter(Boolean))];
 
   const [staffRes, servicesRes] = await Promise.all([
@@ -2218,27 +2219,31 @@ app.post("/api/referrals", async (req, res) => {
   if (referralColumns.has('commission_amount')) insertData.commission_amount = commission_amount || 0;
   if (referralColumns.has('service_name')) insertData.service_name = service_name || '';
 
-  // Force assignment of critical tracking fields directly to bypass cache drops
   if (staff_id) {
-    insertData.staff_id = staff_id;
-    insertData.created_by = staff_id;
-  }
-  if (referral_code) {
-    insertData.referral_code = referral_code;
+    if (referralColumns.has('created_by')) insertData.created_by = staff_id;
+    if (referralColumns.has('staff_id')) insertData.staff_id = staff_id;
   }
 
-  // Auto-fallback: Force the database connection using case-insensitive ilike
-  if (!insertData.staff_id && referral_code) {
-     let { data: codeStaff } = await supabase.from('staff').select('id').ilike('referral_code', referral_code).maybeSingle();
-     if (!codeStaff) {
-       const { data: fallbackStaff } = await supabase.from('staff').select('id').ilike('promo_code', referral_code).maybeSingle();
-       codeStaff = fallbackStaff;
-     }
-     
-     if (codeStaff) {
-       insertData.staff_id = codeStaff.id;
-       insertData.created_by = codeStaff.id;
-     }
+  if (referralColumns.has('patient_phone')) insertData.patient_phone = patient_phone || null;
+  if (referralColumns.has('patient_ic')) insertData.patient_ic = patient_ic || null;
+  if (referralColumns.has('patient_address')) insertData.patient_address = patient_address || null;
+  if (referralColumns.has('patient_type')) insertData.patient_type = patient_type || 'new';
+  if (referralColumns.has('appointment_date')) insertData.appointment_date = appointment_date || null;
+  if (referralColumns.has('booking_time')) insertData.booking_time = booking_time || null;
+  if (referralColumns.has('fraud_flags')) insertData.fraud_flags = JSON.stringify(fraudFlags);
+  if (referralColumns.has('referral_code') && referral_code) insertData.referral_code = referral_code;
+  
+  if (created_by) {
+    if (referralColumns.has('created_by')) insertData.created_by = created_by;
+    if (referralColumns.has('staff_id')) insertData.staff_id = created_by;
+  }
+  
+  if (staff && referralColumns.has('branch')) insertData.branch = staff.branch;
+  else if (branch && referralColumns.has('branch')) insertData.branch = branch;
+
+  // Only include aracoins_perk if the column exists in the database
+  if (referralColumns.has('aracoins_perk')) {
+    insertData.aracoins_perk = safeService.aracoins_perk || 0;
   }
 
   const { data: referral, error: insertError } = await supabase
@@ -2395,7 +2400,7 @@ app.patch("/api/referrals/:id", async (req, res) => {
 
   const { data: service } = await supabase.from('services').select('commission_rate').eq('id', referral.service_id).single();
 
-  const isEarningStatus = (s: string) => ['approved', 'completed', 'paid_completed'].includes(s);
+  const isEarningStatus = (s: string) => ['approved', 'completed'].includes(s);
   const oldStatus = referral.status;
 
   if (isEarningStatus(status) && !isEarningStatus(oldStatus)) {

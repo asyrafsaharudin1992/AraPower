@@ -119,7 +119,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                   <Users size={28} />
                 </div>
                 <div className="relative z-10 flex-1">
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-1">Active Affiliates</p>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-1">Active Staff</p>
                   <p className="text-3xl font-black text-zinc-900 tracking-tighter">{activeStaffList.length}</p>
                   <p className="text-[10px] font-bold text-zinc-400 mt-1">{staffList.length} Registered</p>
                 </div>
