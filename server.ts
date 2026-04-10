@@ -2156,7 +2156,7 @@ app.get("/api/referrals", async (req, res) => {
 app.post("/api/referrals", async (req, res) => {
   const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch, referral_code, status, commission_amount, service_name } = req.body;
   
-  const insertData: any = {
+ const insertData: any = {
     patient_name,
     patient_phone: patient_phone || null,
     patient_ic: patient_ic || null,
@@ -2164,9 +2164,9 @@ app.post("/api/referrals", async (req, res) => {
     patient_type: patient_type || 'new',
     appointment_date: appointment_date || null,
     booking_time: booking_time || null,
-    status: (status || 'pending').toLowerCase(),
-    date: date || new Date().toISOString().split('T')[0]
+    status: (status || 'pending').toLowerCase()
   };
+```"
 
   // FORCE ASSIGNMENTS: Bypass all referralColumns.has() cache checks.
   if (service_id) insertData.service_id = service_id;
