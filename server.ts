@@ -2156,82 +2156,6 @@ app.get("/api/referrals", async (req, res) => {
 app.post("/api/referrals", async (req, res) => {
   const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch, referral_code, status, commission_amount, service_name } = req.body;
   
-  let effective_staff_id = staff_id;
-  const fraudFlags: string[] = [];
-
-  if (!effective_staff_id && referral_code) {
-    let { data: staffData } = await supabase
-      .from('staff')
-      .select('id')
-      .ilike('referral_code', referral_code)
-      .maybeSingle();
-
-    if (!staffData) {
-      const fallback = await supabase
-        .from('staff')
-        .select('id')
-        .ilike('promo_code', referral_code)
-        .maybeSingle();
-      staffData = fallback.data;
-    }
-
-    if (staffData && staffData.id) {
-      effective_staff_id = staffData.id;
-    }
-  }
-
-  let staff = null;
-  if (effective_staff_id) {
-    const staffSelect = Array.from(staffColumns).length > 0 
-      ? Array.from(staffColumns).join(',') 
-      : 'id, staff_id_code, phone, branch, pending_earnings';
-
-    const { data, error: staffError } = await supabase
-      .from('staff')
-      .select(staffSelect)
-      .eq('id', effective_staff_id)
-      .single();
-      
-    if (!staffError && data) {
-      staff = data;
-      if (staff.staff_id_code && staff.staff_id_code === patient_ic) fraudFlags.push("Self-referral (IC match)");
-      if (staff.phone && staff.phone === patient_phone) fraudFlags.push("Self-referral (Phone match)");
-      
-      const surname = patient_name.split(' ').pop();
-      const { count: similarCount } = await supabase
-        .from('referrals')
-        .select(Array.from(referralColumns).length > 0 ? Array.from(referralColumns).join(',') : '*', { count: 'exact', head: true })
-        .ilike('patient_name', `%${surname}`)
-        .eq('created_by', effective_staff_id);
-        
-      if (similarCount && similarCount >= 3) fraudFlags.push("Repeated surname pattern");
-
-      const { count: dailyCount } = await supabase
-        .from('referrals')
-        .select(Array.from(referralColumns).length > 0 ? Array.from(referralColumns).join(',') : '*', { count: 'exact', head: true })
-        .eq('created_by', effective_staff_id)
-        .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
-        
-      if (dailyCount && dailyCount >= 5) fraudFlags.push("High daily volume (>5)");
-    }
-  }
-
-  const serviceSelect = Array.from(serviceColumns).length > 0 
-    ? Array.from(serviceColumns).join(',') 
-    : 'commission_rate, aracoins_perk';
-
-  const { data: service, error: serviceError } = await supabase
-    .from('services')
-    .select(serviceSelect)
-    .eq('id', service_id || '00000000-0000-0000-0000-000000000000')
-    .maybeSingle();
-    
-  if (serviceError) {
-    console.warn("Service lookup error:", serviceError);
-  }
-  
-  const safeService = service || { commission_rate: 0, aracoins_perk: 0 };
-
   const insertData: any = {
     patient_name,
     patient_phone: patient_phone || null,
@@ -2240,72 +2164,52 @@ app.post("/api/referrals", async (req, res) => {
     patient_type: patient_type || 'new',
     appointment_date: appointment_date || null,
     booking_time: booking_time || null,
-    status: status ? status.toLowerCase() : 'pending'
+    status: (status || 'pending').toLowerCase(),
+    date: date || new Date().toISOString().split('T')[0]
   };
 
-  if (service) {
-    insertData.service_id = service_id;
+  // FORCE ASSIGNMENTS: Bypass all referralColumns.has() cache checks.
+  if (service_id) insertData.service_id = service_id;
+  if (service_name) insertData.service_name = service_name;
+  if (commission_amount !== undefined) insertData.commission_amount = commission_amount;
+  if (branch) insertData.branch = branch;
+  if (referral_code) insertData.referral_code = referral_code;
+
+  let finalStaffId = staff_id;
+
+  // CRITICAL AUTO-FALLBACK: Look up affiliate if public booking
+  if (!finalStaffId && referral_code) {
+    let { data: codeStaff } = await supabase.from('staff').select('id').ilike('referral_code', referral_code).maybeSingle();
+    if (!codeStaff) {
+      const { data: fallbackStaff } = await supabase.from('staff').select('id').ilike('promo_code', referral_code).maybeSingle();
+      codeStaff = fallbackStaff;
+    }
+    if (codeStaff) {
+      finalStaffId = codeStaff.id;
+    }
   }
 
-  if (referralColumns.has('commission_amount')) insertData.commission_amount = commission_amount || 0;
-  if (referralColumns.has('service_name')) insertData.service_name = service_name || '';
-
-  if (effective_staff_id) {
-    if (referralColumns.has('created_by')) insertData.created_by = effective_staff_id;
-    if (referralColumns.has('staff_id')) insertData.staff_id = effective_staff_id;
+  // FORCE ID ASSIGNMENTS: Do not use cache checks here!
+  if (finalStaffId) {
+    insertData.staff_id = finalStaffId;
+    insertData.created_by = finalStaffId;
   } else if (created_by) {
-    if (referralColumns.has('created_by')) insertData.created_by = created_by;
-    if (referralColumns.has('staff_id')) insertData.staff_id = created_by;
+    insertData.created_by = created_by; // Only for Admin walk-ins
   }
 
-  if (referralColumns.has('fraud_flags')) insertData.fraud_flags = JSON.stringify(fraudFlags);
-  if (referralColumns.has('referral_code') && referral_code) insertData.referral_code = referral_code;
-  
-  if (staff && referralColumns.has('branch')) insertData.branch = staff.branch;
-  else if (branch && referralColumns.has('branch')) insertData.branch = branch;
-
-  if (referralColumns.has('aracoins_perk')) {
-    insertData.aracoins_perk = safeService.aracoins_perk || 0;
-  }
-
+  // Insert into database
   const { data: referral, error: insertError } = await supabase
     .from('referrals')
     .insert(insertData)
     .select()
     .single();
 
-  if (insertError) return res.status(500).json({ error: insertError.message, details: insertError });
-
-  if (patient_phone && service_id) {
-    try {
-      const { data: matchingLeads } = await supabase
-        .from('warm_leads')
-        .select('id')
-        .eq('patient_phone', patient_phone)
-        .eq('service_id', service_id)
-        .in('status', ['new', 'pending', 'uncontacted', 'contacted'])
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (matchingLeads && matchingLeads.length > 0) {
-        await supabase
-          .from('warm_leads')
-          .update({ status: 'converted' })
-          .eq('id', matchingLeads[0].id);
-      }
-    } catch (err) {
-      console.error('Error during warm lead conversion:', err);
-    }
+  if (insertError) {
+    console.error("Database Insert Error:", insertError);
+    return res.status(500).json({ error: insertError.message, details: insertError });
   }
 
-  if (effective_staff_id && staff) {
-    await supabase
-      .from('staff')
-      .update({ pending_earnings: (staff.pending_earnings || 0) + safeService.commission_rate })
-      .eq('id', effective_staff_id);
-  }
-
-  res.json({ id: referral.id, fraudFlags });
+  return res.json({ message: "Referral logged successfully", referral });
 });
 
 app.patch("/api/referrals/:id", async (req, res) => {
