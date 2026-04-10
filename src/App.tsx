@@ -2206,7 +2206,8 @@ export default function App() {
         booking_time: data.bookingTime,
         status: 'pending',
         date: new Date().toISOString().split('T')[0],
-        created_by: currentUser?.id,
+        // CRITICAL FIX: Ensure public bookings send a null created_by, even if tested on an admin's browser
+        created_by: isPublicBooking ? null : currentUser?.id,
         branch: data.selectedBranch || (isPublicBooking ? data.referringStaff?.branch : currentUser?.branch)
       };
 
@@ -4875,7 +4876,7 @@ export default function App() {
                         </thead>
                         <tbody className="divide-y divide-zinc-50">
                           {referrals
-                            .filter(r => ['paid_completed', 'approved', 'payout_processed'].includes(r.status))
+                            .filter(r => ['paid_completed', 'approved', 'payout_processed', 'completed'].includes(r.status))
                             .filter(r => 
                               r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                               r.staff_name.toLowerCase().includes(searchQuery.toLowerCase()) ||

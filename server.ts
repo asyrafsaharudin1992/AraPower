@@ -2235,7 +2235,9 @@ app.post("/api/referrals", async (req, res) => {
   
   if (created_by) {
     if (referralColumns.has('created_by')) insertData.created_by = created_by;
-    if (referralColumns.has('staff_id')) insertData.staff_id = created_by;
+    // CRITICAL FIX: Do NOT overwrite staff_id with created_by. 
+    // This allows receptionists to log walk-ins without stealing the referral credit, 
+    // and prevents logged-in admins from overriding public walk-ins.
   }
   
   if (staff && referralColumns.has('branch')) insertData.branch = staff.branch;
