@@ -2155,27 +2155,7 @@ export default function App() {
       selectedBranch
     };
 
-    let staffId = isPublicBooking ? data.referringStaff?.id : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id);
-    let referralCode = null;
-
-    if (isPublicBooking) {
-      const params = new URLSearchParams(window.location.search);
-      referralCode = data.providedRefCode || params.get('ref') || localStorage.getItem('araclinic_ref_code');
-      
-      if (referralCode && !staffId) {
-        try {
-          const { res, data: lookupData } = await safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${referralCode}`);
-          if (res.ok && lookupData && lookupData.id) {
-            staffId = lookupData.id;
-          }
-        } catch (err) {
-          console.error('Failed to lookup affiliate during submission:', err);
-        }
-      }
-    }
-    
-    // For public bookings, staffId is optional. For staff/receptionist, it's required.
-    if ((!isPublicBooking && !staffId) || !data.selectedService || !data.patientName) return false;
+    if (!data.selectedService || !data.patientName) return false;
 
     // Check overall limit
     const s = services.find(srv => String(srv.id) === String(data.selectedService));
@@ -2191,13 +2171,8 @@ export default function App() {
     try {
       const serviceData = services.find(srv => String(srv.id) === String(data.selectedService));
 
-      // 1. BRUTE FORCE THE TRACKING CODE
-      const urlParams = new URLSearchParams(window.location.search);
-      const activeRefCode = isPublicBooking 
-        ? (data.providedRefCode || urlParams.get('ref') || localStorage.getItem('araclinic_ref_code')) 
-        : null;
+      const activeRefCode = isPublicBooking ? (data.providedRefCode || new URLSearchParams(window.location.search).get('ref') || localStorage.getItem('araclinic_ref_code')) : null;
 
-      // 2. BUILD THE BULLETPROOF PAYLOAD
       const payload: any = {
         staff_id: isPublicBooking ? null : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id),
         referral_code: activeRefCode || null,

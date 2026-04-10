@@ -233,6 +233,7 @@ async function discoverColumns() {
     try {
       const { data, error } = await supabase.from(table.name).select('*').limit(1);
       if (!error && data && data.length > 0) {
+        table.set.clear();
         Object.keys(data[0]).forEach(key => table.set.add(key));
         console.log(`[Discovery] Found columns for ${table.name}:`, Array.from(table.set));
       } else if (error) {
@@ -2081,33 +2082,20 @@ app.get("/api/schema", (req, res) => {
 app.get("/api/referrals", async (req, res) => {
   const { staffId, branch, requesterRole, requesterBranch } = req.query;
   
-  const filteredColumns = Array.from(referralColumns).filter(col => col !== 'staff' && col !== 'service' && col !== 'services');
-  const baseColumns = filteredColumns.length > 0 
-    ? filteredColumns.join(',') 
-    : 'id, patient_name, status, created_by';
-  
   // Fetch referrals first without joins to avoid relationship errors
   let query = supabase
     .from('referrals')
-    .select(baseColumns)
+    .select('*')
     .order('created_at', { ascending: false });
 
   if (staffId && staffId !== 'undefined' && staffId !== 'null') {
-    if (referralColumns.has('staff_id')) {
-      query = query.eq('staff_id', staffId);
-    } else {
-      query = query.eq('created_by', staffId);
-    }
+    query = query.eq('staff_id', staffId);
   }
   
   const { upcoming } = req.query;
   if (upcoming === 'true') {
     const today = new Date().toISOString().split('T')[0];
-    if (referralColumns.has('appointment_date')) {
-      query = query.gte('appointment_date', today);
-    } else {
-      query = query.gte('created_at', today);
-    }
+    query = query.gte('appointment_date', today);
   }
   
   if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
@@ -2116,7 +2104,59 @@ app.get("/api/referrals", async (req, res) => {
     query = query.eq('branch', requesterBranch);
   }
 
-  const { data: referrals, error } = await query;
+  let { data: referrals, error } = await query;
+
+  // Fallback for missing columns
+  if (error && error.message && error.message.includes('staff_id')) {
+    console.warn('Falling back to created_by instead of staff_id');
+    let fallbackQuery = supabase
+      .from('referrals')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .eq('created_by', staffId);
+      
+    if (upcoming === 'true') {
+      const today = new Date().toISOString().split('T')[0];
+      fallbackQuery = fallbackQuery.gte('appointment_date', today);
+    }
+    if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
+      fallbackQuery = fallbackQuery.eq('branch', branch);
+    } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
+      fallbackQuery = fallbackQuery.eq('branch', requesterBranch);
+    }
+    
+    const fallbackResult = await fallbackQuery;
+    referrals = fallbackResult.data;
+    error = fallbackResult.error;
+  }
+
+  if (error && error.message && error.message.includes('appointment_date')) {
+    console.warn('Falling back to created_at instead of appointment_date');
+    let fallbackQuery = supabase
+      .from('referrals')
+      .select('*')
+      .order('created_at', { ascending: false });
+      
+    if (staffId && staffId !== 'undefined' && staffId !== 'null') {
+      // Try created_by directly since staff_id might have failed
+      fallbackQuery = fallbackQuery.eq('created_by', staffId);
+    }
+    
+    if (upcoming === 'true') {
+      const today = new Date().toISOString().split('T')[0];
+      fallbackQuery = fallbackQuery.gte('created_at', today);
+    }
+    if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
+      fallbackQuery = fallbackQuery.eq('branch', branch);
+    } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
+      fallbackQuery = fallbackQuery.eq('branch', requesterBranch);
+    }
+    
+    const fallbackResult = await fallbackQuery;
+    referrals = fallbackResult.data;
+    error = fallbackResult.error;
+  }
+
   if (error) {
     logError('GET /api/referrals', error);
     return res.status(500).json({ error: error.message });
@@ -2131,9 +2171,16 @@ app.get("/api/referrals", async (req, res) => {
   const serviceIds = [...new Set(referrals.map(r => r.service_id).filter(Boolean))];
 
   const [staffRes, servicesRes] = await Promise.all([
-    staffIds.length > 0 ? supabase.from('staff').select('id, name, referral_code, promo_code').in('id', staffIds) : Promise.resolve({ data: [] }),
-    serviceIds.length > 0 ? supabase.from('services').select('id, name').in('id', serviceIds) : Promise.resolve({ data: [] })
+    staffIds.length > 0 ? supabase.from('staff').select('*').in('id', staffIds) : Promise.resolve({ data: [] }),
+    serviceIds.length > 0 ? supabase.from('services').select('*').in('id', serviceIds) : Promise.resolve({ data: [] })
   ]);
+
+  if (staffRes.error) {
+    console.error('Error fetching staff for referrals:', staffRes.error);
+  }
+  if (servicesRes.error) {
+    console.error('Error fetching services for referrals:', servicesRes.error);
+  }
 
   const staffMap = Object.fromEntries((staffRes.data || []).map(s => [s.id, s]));
   const servicesMap = Object.fromEntries((servicesRes.data || []).map(s => [s.id, s]));
@@ -2154,8 +2201,8 @@ app.get("/api/referrals", async (req, res) => {
 });
 
 app.post("/api/referrals", async (req, res) => {
-  const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch, referral_code, status, commission_amount, service_name } = req.body;
-  
+  const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, created_by, branch, referral_code, status, commission_amount, service_name } = req.body;
+
   const insertData: any = {
     patient_name,
     patient_phone: patient_phone || null,
@@ -2164,18 +2211,16 @@ app.post("/api/referrals", async (req, res) => {
     patient_type: patient_type || 'new',
     appointment_date: appointment_date || null,
     booking_time: booking_time || null,
-    status: (status || 'pending').toLowerCase()
+    status: (status || 'pending').toLowerCase(),
+    service_id: service_id || null,
+    service_name: service_name || null,
+    commission_amount: commission_amount || 0,
+    branch: branch || null,
+    referral_code: referral_code || null
   };
-
-  if (service_id) insertData.service_id = service_id;
-  if (service_name) insertData.service_name = service_name;
-  if (commission_amount !== undefined) insertData.commission_amount = commission_amount;
-  if (branch) insertData.branch = branch;
-  if (referral_code) insertData.referral_code = referral_code;
 
   let finalStaffId = staff_id;
 
-  // CRITICAL AUTO-FALLBACK: Look up affiliate by tracking code using case-insensitive search
   if (!finalStaffId && referral_code) {
     let { data: codeStaff } = await supabase.from('staff').select('id').ilike('referral_code', referral_code).maybeSingle();
     if (!codeStaff) {
@@ -2187,23 +2232,13 @@ app.post("/api/referrals", async (req, res) => {
     }
   }
 
-  // ANTI-GHOST SHIELD: Verify finalStaffId actually exists before assignment to prevent FK constraint crashes
-  if (finalStaffId) {
-    const { data: verifyStaff } = await supabase.from('staff').select('id').eq('id', finalStaffId).maybeSingle();
-    if (!verifyStaff) finalStaffId = null; // Kill the ghost ID if user was deleted
-  }
-
-  // SECURE ID ASSIGNMENTS
   if (finalStaffId) {
     insertData.staff_id = finalStaffId;
     insertData.created_by = finalStaffId;
   } else if (created_by) {
-    // Verify admin created_by ID too
-    const { data: verifyAdmin } = await supabase.from('staff').select('id').eq('id', created_by).maybeSingle();
-    if (verifyAdmin) insertData.created_by = created_by; 
+    insertData.created_by = created_by;
   }
 
-  // Insert into database
   const { data: referral, error: insertError } = await supabase
     .from('referrals')
     .insert(insertData)
