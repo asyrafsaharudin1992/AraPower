@@ -2191,8 +2191,16 @@ export default function App() {
     try {
       const serviceData = services.find(srv => String(srv.id) === String(data.selectedService));
 
+      // 1. BRUTE FORCE THE TRACKING CODE
+      const urlParams = new URLSearchParams(window.location.search);
+      const activeRefCode = isPublicBooking 
+        ? (data.providedRefCode || urlParams.get('ref') || localStorage.getItem('araclinic_ref_code')) 
+        : null;
+
+      // 2. BUILD THE BULLETPROOF PAYLOAD
       const payload: any = {
-        staff_id: staffId,
+        staff_id: isPublicBooking ? null : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id),
+        referral_code: activeRefCode || null,
         service_id: data.selectedService,
         service_name: serviceData?.name || '',
         commission_amount: serviceData?.commission_rate || 0,
@@ -2204,14 +2212,8 @@ export default function App() {
         appointment_date: data.appointmentDate,
         booking_time: data.bookingTime,
         status: 'pending',
-        date: new Date().toISOString().split('T')[0],
-        created_by: currentUser?.id,
         branch: data.selectedBranch || (isPublicBooking ? data.referringStaff?.branch : currentUser?.branch)
       };
-
-      if (referralCode) {
-        payload.referral_code = referralCode;
-      }
 
       const url = `${apiBaseUrl}/api/referrals`;
       const method = 'POST';
