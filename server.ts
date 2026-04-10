@@ -2156,7 +2156,7 @@ app.get("/api/referrals", async (req, res) => {
 app.post("/api/referrals", async (req, res) => {
   const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, date, created_by, branch, referral_code, status, commission_amount, service_name } = req.body;
   
- const insertData: any = {
+  const insertData: any = {
     patient_name,
     patient_phone: patient_phone || null,
     patient_ic: patient_ic || null,
@@ -2166,9 +2166,7 @@ app.post("/api/referrals", async (req, res) => {
     booking_time: booking_time || null,
     status: (status || 'pending').toLowerCase()
   };
-```"
 
-  // FORCE ASSIGNMENTS: Bypass all referralColumns.has() cache checks.
   if (service_id) insertData.service_id = service_id;
   if (service_name) insertData.service_name = service_name;
   if (commission_amount !== undefined) insertData.commission_amount = commission_amount;
@@ -2177,7 +2175,7 @@ app.post("/api/referrals", async (req, res) => {
 
   let finalStaffId = staff_id;
 
-  // CRITICAL AUTO-FALLBACK: Look up affiliate if public booking
+  // CRITICAL AUTO-FALLBACK: Look up affiliate by tracking code using case-insensitive search
   if (!finalStaffId && referral_code) {
     let { data: codeStaff } = await supabase.from('staff').select('id').ilike('referral_code', referral_code).maybeSingle();
     if (!codeStaff) {
@@ -2189,12 +2187,20 @@ app.post("/api/referrals", async (req, res) => {
     }
   }
 
-  // FORCE ID ASSIGNMENTS: Do not use cache checks here!
+  // ANTI-GHOST SHIELD: Verify finalStaffId actually exists before assignment to prevent FK constraint crashes
+  if (finalStaffId) {
+    const { data: verifyStaff } = await supabase.from('staff').select('id').eq('id', finalStaffId).maybeSingle();
+    if (!verifyStaff) finalStaffId = null; // Kill the ghost ID if user was deleted
+  }
+
+  // SECURE ID ASSIGNMENTS
   if (finalStaffId) {
     insertData.staff_id = finalStaffId;
     insertData.created_by = finalStaffId;
   } else if (created_by) {
-    insertData.created_by = created_by; // Only for Admin walk-ins
+    // Verify admin created_by ID too
+    const { data: verifyAdmin } = await supabase.from('staff').select('id').eq('id', created_by).maybeSingle();
+    if (verifyAdmin) insertData.created_by = created_by; 
   }
 
   // Insert into database
@@ -2210,178 +2216,6 @@ app.post("/api/referrals", async (req, res) => {
   }
 
   return res.json({ message: "Referral logged successfully", referral });
-});
-
-app.patch("/api/referrals/:id", async (req, res) => {
-  const { id } = req.params;
-  let { status, payment_status, visit_date, verified_by, rejection_reason, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, branch, service_id } = req.body;
-  
-  if (status) {
-    status = status.toLowerCase();
-  }
-
-  const { data: referral, error: fetchError } = await supabase
-    .from('referrals')
-    .select('*')
-    .eq('id', id)
-    .single();
-    
-  if (fetchError) {
-    console.error(`Error fetching referral ${id}:`, fetchError);
-    return res.status(500).json({ error: `Database error: ${fetchError.message}` });
-  }
-  if (!referral) return res.status(404).json({ error: "Referral not found" });
-
-  if (referral) {
-    Object.keys(referral).forEach(key => referralColumns.add(key));
-  }
-
-  const updateData: any = {};
-  const missingColumns: string[] = [];
-
-  if (status) {
-    if (referralColumns.has('status')) updateData.status = status;
-    else missingColumns.push('status');
-  }
-  if (payment_status) {
-    if (referralColumns.has('payment_status')) updateData.payment_status = payment_status;
-    else missingColumns.push('payment_status');
-  }
-  if (visit_date) {
-    if (referralColumns.has('visit_date')) updateData.visit_date = visit_date;
-    else missingColumns.push('visit_date');
-  }
-  if (verified_by) {
-    if (referralColumns.has('verified_by')) updateData.verified_by = verified_by;
-    else missingColumns.push('verified_by');
-  }
-  if (rejection_reason) {
-    if (referralColumns.has('rejection_reason')) updateData.rejection_reason = rejection_reason;
-    else missingColumns.push('rejection_reason');
-  }
-  if (patient_name) {
-    if (referralColumns.has('patient_name')) updateData.patient_name = patient_name;
-    else missingColumns.push('patient_name');
-  }
-  if (patient_phone) {
-    if (referralColumns.has('patient_phone')) updateData.patient_phone = patient_phone;
-    else missingColumns.push('patient_phone');
-  }
-  if (patient_ic) {
-    if (referralColumns.has('patient_ic')) updateData.patient_ic = patient_ic;
-    else missingColumns.push('patient_ic');
-  }
-  if (patient_address) {
-    if (referralColumns.has('patient_address')) updateData.patient_address = patient_address;
-    else missingColumns.push('patient_address');
-  }
-  if (patient_type) {
-    if (referralColumns.has('patient_type')) updateData.patient_type = patient_type;
-    else missingColumns.push('patient_type');
-  }
-  if (appointment_date) {
-    if (referralColumns.has('appointment_date')) updateData.appointment_date = appointment_date;
-    else missingColumns.push('appointment_date');
-  }
-  if (booking_time) {
-    if (referralColumns.has('booking_time')) updateData.booking_time = booking_time;
-    else missingColumns.push('booking_time');
-  }
-  if (branch) {
-    if (referralColumns.has('branch')) updateData.branch = branch;
-    else missingColumns.push('branch');
-  }
-  if (service_id) {
-    if (referralColumns.has('service_id')) updateData.service_id = service_id;
-    else missingColumns.push('service_id');
-  }
-
-  if (missingColumns.length > 0) {
-    console.warn(`Attempted to update missing columns: ${missingColumns.join(', ')}`);
-    return res.status(400).json({ 
-      error: "Database schema mismatch", 
-      message: `The following columns are missing from the referrals table: ${missingColumns.join(', ')}. Please run the database migration.`,
-      missingColumns
-    });
-  }
-
-  if (Object.keys(updateData).length === 0) {
-    return res.status(400).json({ error: "No valid update data provided" });
-  }
-
-  const { error: updateError } = await supabase
-    .from('referrals')
-    .update(updateData)
-    .eq('id', id);
-    
-  if (updateError) return res.status(500).json({ error: updateError.message });
-
-  const staffSelectColumns = Array.from(staffColumns).length > 0 ? Array.from(staffColumns).join(',') : 'id';
-  const effectiveStaffId = referral.staff_id || referral.created_by;
-
-  const { data: staff } = await supabase.from('staff').select(staffSelectColumns).eq('id', effectiveStaffId).single();
-  if (!staff) return res.json({ success: true });
-
-  const { data: service } = await supabase.from('services').select('commission_rate').eq('id', referral.service_id).single();
-
-  const isEarningStatus = (s: string) => s ? ['approved', 'completed', 'paid_completed'].includes(s.toLowerCase()) : false;
-  const oldStatus = referral.status ? referral.status.toLowerCase() : '';
-
-  if (isEarningStatus(status) && !isEarningStatus(oldStatus)) {
-    const staffUpdate: any = {};
-    const commission = service?.commission_rate || 0;
-    
-    if (staffColumns.has('pending_earnings')) staffUpdate.pending_earnings = Math.max(0, (staff.pending_earnings || 0) - commission);
-    if (staffColumns.has('approved_earnings')) staffUpdate.approved_earnings = (staff.approved_earnings || 0) + commission;
-    if (staffColumns.has('lifetime_earnings')) staffUpdate.lifetime_earnings = (staff.lifetime_earnings || 0) + commission;
-    
-    if (referral.aracoins_perk !== undefined && staffColumns.has('aracoins')) {
-      staffUpdate.aracoins = (staff.aracoins || 0) + (referral.aracoins_perk || 0);
-    }
-
-    if (Object.keys(staffUpdate).length > 0) {
-      await supabase.from('staff').update(staffUpdate).eq('id', effectiveStaffId);
-    }
-  } else if (status === 'payout_processed' && oldStatus !== 'payout_processed') {
-    const staffUpdate: any = {};
-    const commission = service?.commission_rate || 0;
-    
-    if (staffColumns.has('approved_earnings')) staffUpdate.approved_earnings = Math.max(0, (staff.approved_earnings || 0) - commission);
-    if (staffColumns.has('paid_earnings')) staffUpdate.paid_earnings = (staff.paid_earnings || 0) + commission;
-    if (staffColumns.has('last_payout_date')) staffUpdate.last_payout_date = new Date().toISOString();
-
-    if (Object.keys(staffUpdate).length > 0) {
-      await supabase.from('staff').update(staffUpdate).eq('id', effectiveStaffId);
-    }
-  } else if (status === 'rejected' && oldStatus !== 'rejected') {
-    const staffUpdate: any = {};
-    const commission = service?.commission_rate || 0;
-
-    if (isEarningStatus(oldStatus)) {
-      if (staffColumns.has('approved_earnings')) staffUpdate.approved_earnings = Math.max(0, (staff.approved_earnings || 0) - commission);
-      if (staffColumns.has('lifetime_earnings')) staffUpdate.lifetime_earnings = Math.max(0, (staff.lifetime_earnings || 0) - commission);
-    } else if (['entered', 'pending'].includes(oldStatus)) {
-      if (staffColumns.has('pending_earnings')) staffUpdate.pending_earnings = Math.max(0, (staff.pending_earnings || 0) - commission);
-    }
-
-    if (Object.keys(staffUpdate).length > 0) {
-      await supabase.from('staff').update(staffUpdate).eq('id', effectiveStaffId);
-    }
-  }
-  
-  res.json({ success: true });
-});
-
-app.delete("/api/referrals/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { error } = await supabase.from('referrals').delete().eq('id', id);
-    if (error) throw error;
-    res.json({ success: true, message: "Referral deleted successfully" });
-  } catch (error: any) {
-    console.error("Error deleting referral:", error);
-    res.status(500).json({ error: error.message });
-  }
 });
 
 // Global Error Handler
