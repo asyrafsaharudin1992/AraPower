@@ -1504,15 +1504,14 @@ app.delete("/api/notifications/:id", async (req, res) => {
 app.get("/api/affiliate-lookup/:code", async (req, res) => {
   const { code } = req.params;
   
-  if (!staffColumns.has('referral_code')) {
-    return res.status(404).json({ error: "Referral code column not found" });
-  }
+  const col = staffColumns.has('referral_code') ? 'referral_code' : (staffColumns.has('promo_code') ? 'promo_code' : null);
+  if (!col) return res.status(404).json({ error: "Referral code column not found" });
 
   const { data, error } = await supabase
     .from('staff')
     .select('id, name')
-    .eq('referral_code', code)
-    .single();
+    .eq(col, code)
+    .maybeSingle();
 
   if (error || !data) {
     return res.status(404).json({ error: "Referral code not found" });
@@ -2121,7 +2120,7 @@ app.get("/api/referrals", async (req, res) => {
   }
 
   // Fetch related staff and services separately
-  const staffIds = [...new Set(referrals.map(r => r.staff_id || r.created_by).filter(id => id && !isNaN(Number(id))))];
+  const staffIds = [...new Set(referrals.map(r => r.staff_id || r.created_by).filter(id => id && id !== 'null' && id !== 'undefined'))];
   const serviceIds = [...new Set(referrals.map(r => r.service_id).filter(Boolean))];
 
   const [staffRes, servicesRes] = await Promise.all([
@@ -2235,6 +2234,13 @@ app.post("/api/referrals", async (req, res) => {
   
   if (created_by) {
     if (referralColumns.has('created_by')) insertData.created_by = created_by;
+  }
+  
+  // Auto-fallback: If frontend missed the staff_id but sent a ref code, force the connection
+  if (!insertData.staff_id && referral_code) {
+     const col = staffColumns.has('referral_code') ? 'referral_code' : 'promo_code';
+     const { data: codeStaff } = await supabase.from('staff').select('id').eq(col, referral_code).maybeSingle();
+     if (codeStaff && referralColumns.has('staff_id')) insertData.staff_id = codeStaff.id;
   }
   
   if (staff && referralColumns.has('branch')) insertData.branch = staff.branch;
