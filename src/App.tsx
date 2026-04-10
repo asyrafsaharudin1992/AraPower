@@ -2113,7 +2113,8 @@ export default function App() {
         const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && (s.approved_earnings > 0 || s.pending_earnings > 0));
         
         for (const staff of staffToPay) {
-          const payableRefs = referrals.filter(r => String(r.staff_id) === String(staff.id) && ['paid_completed', 'approved'].includes(r.status));
+          // CRITICAL FIX: Added 'completed' to the array of eligible statuses to process
+          const payableRefs = referrals.filter(r => String(r.staff_id) === String(staff.id) && ['completed', 'paid_completed', 'approved'].includes(r.status));
           for (const ref of payableRefs) {
             await safeFetch(`${apiBaseUrl}/api/referrals/${ref.id}`, {
               method: 'PATCH',
@@ -4767,7 +4768,7 @@ export default function App() {
                     <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Pending</p>
                     <p className="text-xl font-black text-zinc-900">
                       {clinicProfile.currency}{referrals
-                        .filter(r => r.status === 'approved')
+                        .filter(r => ['completed', 'paid_completed', 'approved'].includes(r.status))
                         .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
                         .filter(r => payoutUserFilter === 'all' ? true : String(r.staff_id) === payoutUserFilter)
                         .reduce((sum, r) => sum + r.commission_amount, 0).toFixed(2)}
