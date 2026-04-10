@@ -2218,26 +2218,17 @@ app.post("/api/referrals", async (req, res) => {
   if (referralColumns.has('commission_amount')) insertData.commission_amount = commission_amount || 0;
   if (referralColumns.has('service_name')) insertData.service_name = service_name || '';
 
+  // Force assignment of critical tracking fields directly to bypass cache drops
   if (staff_id) {
-    if (referralColumns.has('created_by')) insertData.created_by = staff_id;
-    if (referralColumns.has('staff_id')) insertData.staff_id = staff_id;
+    insertData.staff_id = staff_id;
+    insertData.created_by = staff_id;
+  }
+  if (referral_code) {
+    insertData.referral_code = referral_code;
   }
 
-  if (referralColumns.has('patient_phone')) insertData.patient_phone = patient_phone || null;
-  if (referralColumns.has('patient_ic')) insertData.patient_ic = patient_ic || null;
-  if (referralColumns.has('patient_address')) insertData.patient_address = patient_address || null;
-  if (referralColumns.has('patient_type')) insertData.patient_type = patient_type || 'new';
-  if (referralColumns.has('appointment_date')) insertData.appointment_date = appointment_date || null;
-  if (referralColumns.has('booking_time')) insertData.booking_time = booking_time || null;
-  if (referralColumns.has('fraud_flags')) insertData.fraud_flags = JSON.stringify(fraudFlags);
-  if (referralColumns.has('referral_code') && referral_code) insertData.referral_code = referral_code;
-  
-  if (created_by) {
-    if (referralColumns.has('created_by')) insertData.created_by = created_by;
-  }
-  
-  // Auto-fallback: Force the connection ignoring cache
-  if (!insertData.staff_id && !insertData.created_by && referral_code) {
+  // Auto-fallback: If frontend missed the staff_id, force the database connection
+  if (!insertData.staff_id && referral_code) {
      let { data: codeStaff } = await supabase.from('staff').select('id').eq('referral_code', referral_code).maybeSingle();
      if (!codeStaff) {
        const { data: fallbackStaff } = await supabase.from('staff').select('id').eq('promo_code', referral_code).maybeSingle();
@@ -2246,16 +2237,8 @@ app.post("/api/referrals", async (req, res) => {
      
      if (codeStaff) {
        insertData.staff_id = codeStaff.id;
-       if (!insertData.created_by) insertData.created_by = codeStaff.id;
+       insertData.created_by = codeStaff.id;
      }
-  }
-  
-  if (staff && referralColumns.has('branch')) insertData.branch = staff.branch;
-  else if (branch && referralColumns.has('branch')) insertData.branch = branch;
-
-  // Only include aracoins_perk if the column exists in the database
-  if (referralColumns.has('aracoins_perk')) {
-    insertData.aracoins_perk = safeService.aracoins_perk || 0;
   }
 
   const { data: referral, error: insertError } = await supabase

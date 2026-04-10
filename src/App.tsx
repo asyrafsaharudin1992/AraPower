@@ -2193,7 +2193,7 @@ export default function App() {
       const serviceData = services.find(srv => String(srv.id) === String(data.selectedService));
 
       const payload: any = {
-        staff_id: staffId,
+        staff_id: staffId || null,
         service_id: data.selectedService,
         service_name: serviceData?.name || '',
         commission_amount: serviceData?.commission_rate || 0,
@@ -2206,9 +2206,9 @@ export default function App() {
         booking_time: data.bookingTime,
         status: 'pending',
         date: new Date().toISOString().split('T')[0],
-        // CRITICAL FIX: Ensure public bookings send a null created_by, even if tested on an admin's browser
         created_by: isPublicBooking ? null : currentUser?.id,
-        branch: data.selectedBranch || (isPublicBooking ? data.referringStaff?.branch : currentUser?.branch)
+        branch: data.selectedBranch || (isPublicBooking ? data.referringStaff?.branch : currentUser?.branch),
+        referral_code: referralCode || (isPublicBooking ? new URLSearchParams(window.location.search).get('ref') : null)
       };
 
       if (referralCode) {
