@@ -2264,6 +2264,46 @@ app.post("/api/referrals", async (req, res) => {
   return res.json({ message: "Referral logged successfully", referral });
 });
 
+app.patch("/api/referrals/:id", async (req, res) => {
+  const { id } = req.params;
+  const updates = req.body;
+  
+  // Ensure status is formatted correctly if it's being updated
+  if (updates.status) {
+    updates.status = updates.status.toLowerCase();
+  }
+
+  const { data, error } = await supabase
+    .from('referrals')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Database Update Error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.json({ message: "Referral updated successfully", data });
+});
+
+app.delete("/api/referrals/:id", async (req, res) => {
+  const { id } = req.params;
+  
+  const { error } = await supabase
+    .from('referrals')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error("Database Delete Error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.json({ message: "Referral deleted successfully" });
+});
+
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Unhandled Error:', err);
