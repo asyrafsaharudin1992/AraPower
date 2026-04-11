@@ -1501,27 +1501,27 @@ app.delete("/api/notifications/:id", async (req, res) => {
 
 app.get("/api/affiliate-lookup/:code", async (req, res) => {
   const { code } = req.params;
-  
-  let { data, error } = await supabase
-    .from('staff')
-    .select('id, name')
-    .ilike('referral_code', code)
-    .maybeSingle();
+  let data = null;
+
+  // 1. Try matching the exact Database ID
+  const { data: idData, error: idError } = await supabase.from('staff').select('id, name').eq('id', code).maybeSingle();
+  if (idData) data = idData;
+
+  // 2. Try referral_code text
+  if (!data) {
+    const { data: refData } = await supabase.from('staff').select('id, name').ilike('referral_code', code).maybeSingle();
+    if (refData) data = refData;
+  }
+
+  // 3. Try promo_code text
+  if (!data) {
+    const { data: promoData } = await supabase.from('staff').select('id, name').ilike('promo_code', code).maybeSingle();
+    if (promoData) data = promoData;
+  }
 
   if (!data) {
-    const fallback = await supabase
-      .from('staff')
-      .select('id, name')
-      .ilike('promo_code', code)
-      .maybeSingle();
-    data = fallback.data;
-    error = fallback.error;
-  }
-
-  if (error || !data) {
     return res.status(404).json({ error: "Referral code not found" });
   }
-
   return res.json(data);
 });
 
@@ -2218,12 +2218,26 @@ app.post("/api/referrals", async (req, res) => {
 
   let finalStaffId = staff_id;
 
+  // CRITICAL AUTO-FALLBACK: Look up affiliate if public booking
   if (!finalStaffId && referral_code) {
-    let { data: codeStaff } = await supabase.from('staff').select('id').ilike('referral_code', referral_code).maybeSingle();
+    let codeStaff = null;
+    
+    // 1. Try ID Match
+    const { data: idStaff } = await supabase.from('staff').select('id').eq('id', referral_code).maybeSingle();
+    if (idStaff) codeStaff = idStaff;
+    
+    // 2. Try Referral Code
     if (!codeStaff) {
-      const { data: fallbackStaff } = await supabase.from('staff').select('id').ilike('promo_code', referral_code).maybeSingle();
-      codeStaff = fallbackStaff;
+      const { data: refStaff } = await supabase.from('staff').select('id').ilike('referral_code', referral_code).maybeSingle();
+      if (refStaff) codeStaff = refStaff;
     }
+    
+    // 3. Try Promo Code
+    if (!codeStaff) {
+      const { data: promoStaff } = await supabase.from('staff').select('id').ilike('promo_code', referral_code).maybeSingle();
+      if (promoStaff) codeStaff = promoStaff;
+    }
+    
     if (codeStaff) {
       finalStaffId = codeStaff.id;
     }
