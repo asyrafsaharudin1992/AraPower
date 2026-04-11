@@ -39,6 +39,7 @@ export interface DashboardUIProps {
   setActiveTab: (tab: any) => void;
   handleDeleteReferral: (id: string) => void;
   handleUpdateStatus: (id: string, status: string) => void;
+  handleClinicStatusUpdate: (id: string, status: string) => void;
   setSelectedPromo: (promo: any) => void;
   setIsPromoModalOpen: (isOpen: boolean) => void;
   getStatusColor: (status: string) => string;

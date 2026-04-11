@@ -68,8 +68,7 @@ import {
   MessageSquare,
   Send,
   ArrowLeft,
-  X,
-  RefreshCw
+  X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
@@ -1267,11 +1266,11 @@ export default function App() {
       const authIdQuery = user?.id ? `&auth_id=${user.id}` : '';
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${email}${authIdQuery}`);
       
-      if (!res.ok && res.status >= 500) {
+      if (!res.ok) {
         throw new Error(data?.error || `Server error: ${res.status}`);
       }
       
-      if (res.ok && data) {
+      if (data) {
         localStorage.setItem('currentUser', JSON.stringify(data));
         setCurrentUser(data);
         return data;
@@ -1282,18 +1281,24 @@ export default function App() {
       console.error('Error in fetchStaffByEmail:', error);
       if (await handleAuthError(error)) return;
       setAuthError(error.message || 'Failed to load user profile.');
-      // If we fail to load the profile, we should probably sign them out so they aren't stuck in a weird state
-      supabase.auth.signOut().catch(e => console.warn('Error during auto-signOut:', e));
       
-      // Manually clear Supabase auth tokens from local storage just in case signOut failed
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-          localStorage.removeItem(key);
-        }
-      });
+      const isNetworkError = error.message && error.message.includes('Network error');
       
-      localStorage.removeItem('currentUser');
-      setCurrentUser(null);
+      if (!isNetworkError) {
+        // If we fail to load the profile (and it's not a transient network error), 
+        // we should probably sign them out so they aren't stuck in a weird state
+        supabase.auth.signOut().catch(e => console.warn('Error during auto-signOut:', e));
+        
+        // Manually clear Supabase auth tokens from local storage just in case signOut failed
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+            localStorage.removeItem(key);
+          }
+        });
+        
+        localStorage.removeItem('currentUser');
+        setCurrentUser(null);
+      }
       throw error;
     } finally {
       setIsAuthChecking(false);
