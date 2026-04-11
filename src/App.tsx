@@ -175,13 +175,12 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
 const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, currentUser }: { item: Service | null, isOpen: boolean, onClose: () => void, clinicProfile: ClinicProfile, darkMode: boolean, currentUser: Staff | null }) => {
   if (!item) return null;
 
-  const referralCode = currentUser?.referral_code || currentUser?.promo_code;
+  const linkCode = currentUser?.referral_code || currentUser?.promo_code || currentUser?.id;
 
   const generateAffiliateLink = () => {
-    if (!referralCode) return '';
-    const baseUrl = item.target_url || getShareUrl(clinicProfile.customDomain);
-    const separator = baseUrl.includes('?') ? '&' : '?';
-    return `${baseUrl}${separator}ref=${referralCode}`;
+    if (!linkCode) return '';
+    const shareUrl = `${window.location.origin}/?service=${item.id}&ref=${linkCode}`;
+    return shareUrl;
   };
 
   const shareLink = generateAffiliateLink();
@@ -5300,9 +5299,11 @@ export default function App() {
                     <div className="space-y-8">
                       <div className={`flex flex-col items-center p-8 rounded-[2.5rem] border ${darkMode ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
                         <div className={`p-6 rounded-[2rem] shadow-sm mb-6 bg-white`}>
-                          {(currentUser.referral_code || currentUser.promo_code) ? (
+                          {(() => {
+                            const linkCode = currentUser.referral_code || currentUser.promo_code || currentUser.id;
+                            return linkCode ? (
                             <QRCodeCanvas 
-                              value={`${getShareUrl(clinicProfile.customDomain)}?ref=${(currentUser.referral_code || currentUser.promo_code)}`}
+                              value={`${window.location.origin}/?ref=${linkCode}`}
                               size={180}
                               level="H"
                               includeMargin={false}
@@ -5312,7 +5313,8 @@ export default function App() {
                             <div className="w-[180px] h-[180px] flex items-center justify-center bg-zinc-100 rounded-lg text-zinc-500 text-sm font-bold text-center px-4">
                               Code not generated yet
                             </div>
-                          )}
+                          );
+                          })()}
                         </div>
                         <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Personal QR Code</p>
                         <p className={`text-xs mt-2 text-center max-w-[200px] ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Patients can scan this to book directly with your referral code.</p>
@@ -5322,11 +5324,11 @@ export default function App() {
                         <div className={`p-6 rounded-2xl border flex items-center justify-between ${darkMode ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
                           <div>
                             <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Referral Code</p>
-                            <p className={`text-2xl font-black tracking-tighter ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{(currentUser.referral_code || currentUser.promo_code)}</p>
+                            <p className={`text-2xl font-black tracking-tighter ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{currentUser.referral_code || currentUser.promo_code || currentUser.id}</p>
                           </div>
                           <button 
                             onClick={() => {
-                              navigator.clipboard.writeText((currentUser.referral_code || currentUser.promo_code));
+                              navigator.clipboard.writeText(String(currentUser.referral_code || currentUser.promo_code || currentUser.id));
                               toast.success('Kod disalin!');
                             }}
                             className={`p-4 rounded-xl border transition-all active:scale-90 ${darkMode ? 'bg-white border-zinc-200 text-brand-primary hover:bg-zinc-50' : 'bg-white border-zinc-100 text-zinc-500 hover:text-zinc-900'}`}
@@ -5339,11 +5341,11 @@ export default function App() {
                           <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Referral Link</p>
                           <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-zinc-100 overflow-hidden">
                             <p className="text-xs font-medium text-zinc-500 truncate flex-1">
-                              {`${getShareUrl(clinicProfile.customDomain)}?ref=${(currentUser.referral_code || currentUser.promo_code)}`}
+                              {`${window.location.origin}/?ref=${currentUser.referral_code || currentUser.promo_code || currentUser.id}`}
                             </p>
                             <button 
                               onClick={() => {
-                                const url = `${getShareUrl(clinicProfile.customDomain)}?ref=${(currentUser.referral_code || currentUser.promo_code)}`;
+                                const url = `${window.location.origin}/?ref=${currentUser.referral_code || currentUser.promo_code || currentUser.id}`;
                                 navigator.clipboard.writeText(url);
                                 toast.success('Pautan disalin!');
                               }}
@@ -5356,7 +5358,7 @@ export default function App() {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <a 
-                            href={`https://wa.me/?text=${encodeURIComponent(`Hi! Book your appointment at our clinic using my referral link: ${getShareUrl(clinicProfile.customDomain)}?ref=${(currentUser.referral_code || currentUser.promo_code)}`)}`}
+                            href={`https://wa.me/?text=${encodeURIComponent(`Hi! Book your appointment at our clinic using my referral link: ${window.location.origin}/?ref=${currentUser.referral_code || currentUser.promo_code || currentUser.id}`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={`flex items-center justify-center gap-3 p-5 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg ${darkMode ? 'bg-brand-accent text-brand-primary shadow-brand-accent/10 hover:bg-brand-accent/90' : 'bg-gradient-to-r from-brand-accent to-rose-500 text-zinc-900 shadow-brand-accent hover:from-brand-accent hover:to-rose-500'}`}
@@ -5366,7 +5368,7 @@ export default function App() {
                           </a>
                           <button 
                             onClick={() => {
-                              const url = `${getShareUrl(clinicProfile.customDomain)}?ref=${(currentUser.referral_code || currentUser.promo_code)}`;
+                              const url = `${window.location.origin}/?ref=${currentUser.referral_code || currentUser.promo_code || currentUser.id}`;
                               navigator.clipboard.writeText(url);
                               toast.success('Pautan disalin!');
                             }}
@@ -8271,9 +8273,11 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                     {/* QR Code Section */}
                     <div className="bg-zinc-50 p-6 rounded-3xl border border-zinc-100 flex flex-col items-center text-center">
                       <div className="p-3 bg-white rounded-2xl shadow-sm mb-4">
-                        {(currentUser.referral_code || currentUser.promo_code) ? (
+                        {(() => {
+                          const linkCode = currentUser.referral_code || currentUser.promo_code || currentUser.id;
+                          return linkCode ? (
                           <QRCodeCanvas 
-                            value={`${getShareUrl(clinicProfile.customDomain)}?ref=${(currentUser.referral_code || currentUser.promo_code)}`}
+                            value={`${window.location.origin}/?ref=${linkCode}`}
                             size={120}
                             level="H"
                             includeMargin={false}
@@ -8282,7 +8286,8 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                           <div className="w-[120px] h-[120px] flex items-center justify-center bg-zinc-100 rounded-lg text-zinc-500 text-xs font-bold text-center px-2">
                             Code not generated yet
                           </div>
-                        )}
+                        );
+                        })()}
                       </div>
                       <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Your Personal QR</p>
                       <p className="text-[9px] font-bold text-zinc-500 leading-tight">Patients can scan this to book directly under your name</p>
