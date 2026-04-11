@@ -599,12 +599,9 @@ app.post("/api/import-service", async (req, res) => {
 app.get("/api/branches/:name/performance", async (req, res) => {
   const { name } = req.params;
   
-  let selectCols = 'status';
-  if (referralColumns.has('commission_earned')) selectCols += ', commission_earned';
-  
   const { data: referrals, error } = await supabase
     .from('referrals')
-    .select(selectCols)
+    .select('*')
     .eq('branch', name);
   
   if (error) return res.status(500).json({ error: error.message });

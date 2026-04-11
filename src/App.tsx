@@ -2171,8 +2171,13 @@ export default function App() {
     try {
       const serviceData = services.find(srv => String(srv.id) === String(data.selectedService));
 
-      const activeRefCode = isPublicBooking ? (data.providedRefCode || new URLSearchParams(window.location.search).get('ref') || localStorage.getItem('araclinic_ref_code')) : null;
+      // 1. BRUTE FORCE THE TRACKING CODE EXTRACTION
+      const urlParams = new URLSearchParams(window.location.search);
+      const activeRefCode = isPublicBooking 
+        ? (data.providedRefCode || urlParams.get('ref') || localStorage.getItem('araclinic_ref_code')) 
+        : null;
 
+      // 2. BUILD THE BULLETPROOF PAYLOAD
       const payload: any = {
         staff_id: isPublicBooking ? null : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id),
         referral_code: activeRefCode || null,

@@ -56,30 +56,26 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   const [rawRefCode, setRawRefCode] = useState<string | null>(null);
 
   useEffect(() => {
-    const ref = new URLSearchParams(window.location.search).get('ref');
-    if (ref) localStorage.setItem('araclinic_ref_code', ref);
-
-
     const params = new URLSearchParams(window.location.search);
-    const urlId = params.get('service') || params.get('serviceId');
-    const urlNameRaw = params.get('sName') || params.get('serviceName');
-    const decodedName = urlNameRaw ? decodeURIComponent(urlNameRaw) : '';
-    const code = new URLSearchParams(window.location.search).get('ref') || localStorage.getItem('araclinic_ref_code');
-if (code) {
-  localStorage.setItem('araclinic_ref_code', code);
-  setRawRefCode(code);
-}
-
-    const effectiveRef = ref || localStorage.getItem('araclinic_ref_code');
+    const urlRef = params.get('ref');
+    const storedRef = localStorage.getItem('araclinic_ref_code');
+    const effectiveRef = urlRef || storedRef;
 
     if (effectiveRef) {
+      localStorage.setItem('araclinic_ref_code', effectiveRef);
+      setRawRefCode(effectiveRef);
       setProvidedRefCode(effectiveRef);
+      
       safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${effectiveRef}`)
         .then(({ res, data }) => {
           if (res.ok && data) setReferringStaff(data);
         })
         .catch(err => console.error('Failed to lookup affiliate:', err));
     }
+
+    const urlId = params.get('service') || params.get('serviceId');
+    const urlNameRaw = params.get('sName') || params.get('serviceName');
+    const decodedName = urlNameRaw ? decodeURIComponent(urlNameRaw) : '';
 
     // The Smart Translator: Wait for services to load from Supabase
     if (services.length > 0 && (urlId || decodedName)) {
