@@ -53,15 +53,22 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   const [selectedBranch, setSelectedBranch] = useState('');
   const [selectedService, setSelectedService] = useState('');
   const [urlServiceName, setUrlServiceName] = useState('');
+  const [rawRefCode, setRawRefCode] = useState<string | null>(null);
 
   useEffect(() => {
     const ref = new URLSearchParams(window.location.search).get('ref');
     if (ref) localStorage.setItem('araclinic_ref_code', ref);
 
+
     const params = new URLSearchParams(window.location.search);
     const urlId = params.get('service') || params.get('serviceId');
     const urlNameRaw = params.get('sName') || params.get('serviceName');
     const decodedName = urlNameRaw ? decodeURIComponent(urlNameRaw) : '';
+    const code = new URLSearchParams(window.location.search).get('ref') || localStorage.getItem('araclinic_ref_code');
+if (code) {
+  localStorage.setItem('araclinic_ref_code', code);
+  setRawRefCode(code);
+}
 
     const effectiveRef = ref || localStorage.getItem('araclinic_ref_code');
 
