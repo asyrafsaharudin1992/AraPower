@@ -174,7 +174,7 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
 const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, currentUser }: { item: Service | null, isOpen: boolean, onClose: () => void, clinicProfile: ClinicProfile, darkMode: boolean, currentUser: Staff | null }) => {
   if (!item) return null;
 
-  const linkCode = currentUser?.referral_code || currentUser?.promo_code || currentUser?.id;
+  const linkCode = currentUser?.id || currentUser?.referral_code || currentUser?.promo_code;
 
   const generateAffiliateLink = () => {
     if (!linkCode) return '';
@@ -5305,7 +5305,7 @@ export default function App() {
                       <div className={`flex flex-col items-center p-8 rounded-[2.5rem] border ${darkMode ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
                         <div className={`p-6 rounded-[2rem] shadow-sm mb-6 bg-white`}>
                           {(() => {
-                            const linkCode = currentUser.referral_code || currentUser.promo_code || currentUser.id;
+                            const linkCode = currentUser.id || currentUser.referral_code || currentUser.promo_code;
                             return linkCode ? (
                             <QRCodeCanvas 
                               value={`${window.location.origin}/?ref=${linkCode}`}
@@ -5329,11 +5329,11 @@ export default function App() {
                         <div className={`p-6 rounded-2xl border flex items-center justify-between ${darkMode ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/50 border-zinc-100'}`}>
                           <div>
                             <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Referral Code</p>
-                            <p className={`text-2xl font-black tracking-tighter ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{currentUser.referral_code || currentUser.promo_code || currentUser.id}</p>
+                            <p className={`text-2xl font-black tracking-tighter ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{currentUser.id || currentUser.referral_code || currentUser.promo_code}</p>
                           </div>
                           <button 
                             onClick={() => {
-                              navigator.clipboard.writeText(String(currentUser.referral_code || currentUser.promo_code || currentUser.id));
+                              navigator.clipboard.writeText(String(currentUser.id || currentUser.referral_code || currentUser.promo_code));
                               toast.success('Kod disalin!');
                             }}
                             className={`p-4 rounded-xl border transition-all active:scale-90 ${darkMode ? 'bg-white border-zinc-200 text-brand-primary hover:bg-zinc-50' : 'bg-white border-zinc-100 text-zinc-500 hover:text-zinc-900'}`}
@@ -5346,11 +5346,11 @@ export default function App() {
                           <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Referral Link</p>
                           <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-zinc-100 overflow-hidden">
                             <p className="text-xs font-medium text-zinc-500 truncate flex-1">
-                              {`${window.location.origin}/?ref=${currentUser.referral_code || currentUser.promo_code || currentUser.id}`}
+                              {`${window.location.origin}/?ref=${currentUser.id || currentUser.referral_code || currentUser.promo_code}`}
                             </p>
                             <button 
                               onClick={() => {
-                                const url = `${window.location.origin}/?ref=${currentUser.referral_code || currentUser.promo_code || currentUser.id}`;
+                                const url = `${window.location.origin}/?ref=${currentUser.id || currentUser.referral_code || currentUser.promo_code}`;
                                 navigator.clipboard.writeText(url);
                                 toast.success('Pautan disalin!');
                               }}
@@ -5363,7 +5363,7 @@ export default function App() {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <a 
-                            href={`https://wa.me/?text=${encodeURIComponent(`Hi! Book your appointment at our clinic using my referral link: ${window.location.origin}/?ref=${currentUser.referral_code || currentUser.promo_code || currentUser.id}`)}`}
+                            href={`https://wa.me/?text=${encodeURIComponent(`Hi! Book your appointment at our clinic using my referral link: ${window.location.origin}/?ref=${currentUser.id || currentUser.referral_code || currentUser.promo_code}`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={`flex items-center justify-center gap-3 p-5 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg ${darkMode ? 'bg-brand-accent text-brand-primary shadow-brand-accent/10 hover:bg-brand-accent/90' : 'bg-gradient-to-r from-brand-accent to-rose-500 text-zinc-900 shadow-brand-accent hover:from-brand-accent hover:to-rose-500'}`}
@@ -5373,7 +5373,7 @@ export default function App() {
                           </a>
                           <button 
                             onClick={() => {
-                              const url = `${window.location.origin}/?ref=${currentUser.referral_code || currentUser.promo_code || currentUser.id}`;
+                              const url = `${window.location.origin}/?ref=${currentUser.id || currentUser.referral_code || currentUser.promo_code}`;
                               navigator.clipboard.writeText(url);
                               toast.success('Pautan disalin!');
                             }}
@@ -8279,7 +8279,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                     <div className="bg-zinc-50 p-6 rounded-3xl border border-zinc-100 flex flex-col items-center text-center">
                       <div className="p-3 bg-white rounded-2xl shadow-sm mb-4">
                         {(() => {
-                          const linkCode = currentUser.referral_code || currentUser.promo_code || currentUser.id;
+                          const linkCode = currentUser.id || currentUser.referral_code || currentUser.promo_code;
                           return linkCode ? (
                           <QRCodeCanvas 
                             value={`${window.location.origin}/?ref=${linkCode}`}
