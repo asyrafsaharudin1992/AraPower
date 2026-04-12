@@ -1662,7 +1662,7 @@ export default function App() {
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/payouts/process`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ affiliate_id, patient_ids })
+        body: JSON.stringify({ staff_id: affiliate_id, affiliate_id: affiliate_id, patient_ids })
       });
       
       if (res.ok) {
@@ -4970,11 +4970,11 @@ export default function App() {
                         <p className="text-zinc-500 p-4 text-center font-medium">No pending payouts.</p>
                       ) : (
                         payoutSummaries
-                          .filter(summary => summary.affiliate_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .filter(summary => (summary.staff_name || summary.affiliate_name || '').toLowerCase().includes(searchQuery.toLowerCase()))
                           .map((summary) => (
-                          <div key={summary.affiliate_id} className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:shadow-md">
+                          <div key={summary.staff_id || summary.affiliate_id} className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:shadow-md">
                             <div>
-                              <h3 className="font-bold text-lg text-zinc-900">{summary.affiliate_name}</h3>
+                              <h3 className="font-bold text-lg text-zinc-900">{summary.staff_name || summary.affiliate_name}</h3>
                               <p className="text-sm text-zinc-500 font-mono mt-1 bg-zinc-50 inline-block px-2 py-1 rounded-md">{summary.bank_details}</p>
                               <p className="text-sm font-medium text-emerald-600 mt-2 flex items-center gap-2">
                                 <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md">{summary.total_patients} Patients</span>
@@ -4985,7 +4985,7 @@ export default function App() {
                             <button 
                               onClick={() => {
                                 if (window.confirm(`Confirm payout for ${summary.total_patients} patients?`)) {
-                                  handleProcessPayout(summary.affiliate_id, summary.patient_ids);
+                                  handleProcessPayout(summary.staff_id || summary.affiliate_id, summary.patient_ids);
                                 }
                               }}
                               className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-500/30 whitespace-nowrap"
