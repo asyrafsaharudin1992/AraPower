@@ -2076,6 +2076,7 @@ app.get("/api/schema", (req, res) => {
   res.json({ serviceColumns: Array.from(serviceColumns) });
 });
 
+
 app.get("/api/referrals", async (req, res) => {
   const { staffId, branch, requesterRole, requesterBranch } = req.query;
   

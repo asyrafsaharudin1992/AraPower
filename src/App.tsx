@@ -4355,14 +4355,7 @@ export default function App() {
                                   Paid
                                 </button>
                               )}
-                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && ref.staff_id && ['completed', 'paid_completed', 'approved'].includes(ref.status?.toLowerCase()) && (
-                                <button 
-                                  onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
-                                  className="text-[10px] font-bold text-zinc-900 hover:underline"
-                                >
-                                  Approve & Pay
-                                </button>
-                              )}
+
                               { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                                 <button 
                                   onClick={() => handleDeleteReferral(ref.id)}
@@ -4927,14 +4920,7 @@ export default function App() {
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                   <div className="flex items-center justify-end gap-2">
-                                    {['completed', 'paid_completed', 'approved'].includes(ref.status?.toLowerCase()) && (
-                                      <button 
-                                        onClick={() => handleUpdateStatus(ref.id, 'payout_processed')}
-                                        className="px-4 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold hover:bg-brand-primary transition-all active:scale-95"
-                                      >
-                                        Approve & Pay
-                                      </button>
-                                    )}
+
                                     {ref.status?.toLowerCase() === 'payout_processed' && (
                                       <div className="flex items-center justify-end gap-1 text-zinc-900">
                                         <CheckCircle2 size={14} />
@@ -4979,63 +4965,36 @@ export default function App() {
                         <p className="text-xs text-zinc-500 font-medium">Approve and process payouts for affiliates</p>
                       </div>
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-zinc-50 border-b border-zinc-100">
-                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Affiliate Name</th>
-                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Bank Details</th>
-                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-center">Total Completed Patients</th>
-                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-right">Total Commission Owed</th>
-                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-center">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-50">
-                          {payoutSummaries
-                            .filter(summary => summary.affiliate_name.toLowerCase().includes(searchQuery.toLowerCase()))
-                            .map((summary, index) => (
-                            <tr key={summary.affiliate_id} className="hover:bg-zinc-50/50 transition-colors">
-                              <td className="p-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-zinc-50 flex items-center justify-center text-xs font-bold text-zinc-500">
-                                    {summary.affiliate_name.charAt(0) || '?'}
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className="text-sm font-medium">{summary.affiliate_name}</span>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="p-4">
-                                <div className="flex flex-col">
-                                  <span className="text-xs font-bold text-zinc-900">{summary.bank_details.split(' - ')[0] || 'MISSING BANK'}</span>
-                                  <span className="text-[10px] text-zinc-500 font-medium tracking-wider">{summary.bank_details.split(' - ')[1] || 'MISSING ACCOUNT'}</span>
-                                </div>
-                              </td>
-                              <td className="p-4 text-sm font-medium text-center text-zinc-900">
-                                {summary.total_patients}
-                              </td>
-                              <td className="p-4 text-sm font-bold text-right text-zinc-900">
-                                {clinicProfile.currency}{summary.total_commission_owed.toFixed(2)}
-                              </td>
-                              <td className="p-4 text-center">
-                                <button
-                                  onClick={() => handleProcessPayout(summary.affiliate_id, summary.patient_ids)}
-                                  className="bg-green-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-green-600 transition-colors shadow-sm"
-                                >
-                                  Approve & Pay
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                          {payoutSummaries.filter(summary => summary.affiliate_name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                            <tr>
-                              <td colSpan={5} className="p-8 text-center text-zinc-500 text-sm italic">
-                                No pending payouts found.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
+                    <div className="p-6 space-y-4 bg-zinc-50/50">
+                      {payoutSummaries.length === 0 ? (
+                        <p className="text-zinc-500 p-4 text-center font-medium">No pending payouts.</p>
+                      ) : (
+                        payoutSummaries
+                          .filter(summary => summary.affiliate_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .map((summary) => (
+                          <div key={summary.affiliate_id} className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:shadow-md">
+                            <div>
+                              <h3 className="font-bold text-lg text-zinc-900">{summary.affiliate_name}</h3>
+                              <p className="text-sm text-zinc-500 font-mono mt-1 bg-zinc-50 inline-block px-2 py-1 rounded-md">{summary.bank_details}</p>
+                              <p className="text-sm font-medium text-emerald-600 mt-2 flex items-center gap-2">
+                                <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md">{summary.total_patients} Patients</span>
+                                <span>•</span>
+                                <span>Total Owed: {clinicProfile.currency}{summary.total_commission_owed.toFixed(2)}</span>
+                              </p>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                if (window.confirm(`Confirm payout for ${summary.total_patients} patients?`)) {
+                                  handleProcessPayout(summary.affiliate_id, summary.patient_ids);
+                                }
+                              }}
+                              className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-500/30 whitespace-nowrap"
+                            >
+                              Approve & Pay {clinicProfile.currency}{summary.total_commission_owed.toFixed(2)}
+                            </button>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </>
