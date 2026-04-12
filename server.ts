@@ -2197,6 +2197,71 @@ app.get("/api/referrals", async (req, res) => {
   res.json(formattedReferrals);
 });
 
+app.get("/api/payouts/summary", async (req, res) => {
+  // 1. Fetch all referrals that are 'completed' but NOT YET 'paid'
+  const { data: referrals, error } = await supabase
+    .from('referrals')
+    .select('id, staff_id, created_by, commission_amount, patient_name')
+    .eq('status', 'completed'); // 'completed' means visit done, but not paid out yet
+
+  if (error) return res.status(500).json({ error: error.message });
+  if (!referrals || referrals.length === 0) return res.json([]);
+
+  // 2. Fetch the staff details for these referrals
+  const staffIds = [...new Set(referrals.map(r => r.staff_id || r.created_by).filter(Boolean))];
+  const { data: staffData } = await supabase
+    .from('staff')
+    .select('id, name, bank_name, account_number') // Assuming you have these or similar fields
+    .in('id', staffIds);
+
+  const staffMap = Object.fromEntries((staffData || []).map(s => [s.id, s]));
+
+  // 3. Aggregate the data by Affiliate
+  const payoutSummary: Record<string, any> = {};
+
+  referrals.forEach(ref => {
+    const affiliateId = ref.staff_id || ref.created_by;
+    if (!affiliateId) return;
+
+    if (!payoutSummary[affiliateId]) {
+      payoutSummary[affiliateId] = {
+        affiliate_id: affiliateId,
+        affiliate_name: staffMap[affiliateId]?.name || 'Unknown Affiliate',
+        bank_details: `${staffMap[affiliateId]?.bank_name || 'No Bank'} - ${staffMap[affiliateId]?.account_number || 'No Account'}`,
+        total_patients: 0,
+        total_commission_owed: 0,
+        patient_ids: [] // Keep track of exactly which patients are included in this batch
+      };
+    }
+
+    payoutSummary[affiliateId].total_patients += 1;
+    payoutSummary[affiliateId].total_commission_owed += Number(ref.commission_amount || 0);
+    payoutSummary[affiliateId].patient_ids.push(ref.id);
+  });
+
+  return res.json(Object.values(payoutSummary));
+});
+
+app.post("/api/payouts/process", async (req, res) => {
+  const { affiliate_id, patient_ids } = req.body;
+  
+  if (!patient_ids || patient_ids.length === 0) {
+    return res.status(400).json({ error: "No patients selected for payout" });
+  }
+
+  const { error } = await supabase
+    .from('referrals')
+    .update({ status: 'paid' })
+    .in('id', patient_ids);
+
+  if (error) {
+    console.error("Payout Process Error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.json({ message: "Payout processed successfully" });
+});
+
 app.post("/api/referrals", async (req, res) => {
   const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, created_by, branch, referral_code, status, commission_amount, service_name } = req.body;
 

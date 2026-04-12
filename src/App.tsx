@@ -1047,6 +1047,7 @@ export default function App() {
   const [payoutUserFilter, setPayoutUserFilter] = useState<string>('all');
   const [payoutBranchFilter, setPayoutBranchFilter] = useState<string>('all');
   const [payoutSubTab, setPayoutSubTab] = useState<'history' | 'bulk'>('history');
+  const [payoutSummaries, setPayoutSummaries] = useState<any[]>([]);
   const [branchChangeRequests, setBranchChangeRequests] = useState<any[]>([]);
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [editingBranch, setEditingBranch] = useState<any>(null);
@@ -1495,12 +1496,14 @@ export default function App() {
       fetchReferrals();
       if (currentUser.role === 'admin' || currentUser.role === 'manager') {
         fetchWarmLeads();
+        fetchPayoutSummaries();
       }
       
       const interval = setInterval(() => {
         fetchReferrals();
         if (currentUser.role === 'admin' || currentUser.role === 'manager') {
           fetchWarmLeads();
+          fetchPayoutSummaries();
         }
       }, 60000);
       
@@ -1645,6 +1648,34 @@ export default function App() {
   const fetchBranchChangeRequests = async () => {
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/branch-change-requests`);
     if (res.ok) setBranchChangeRequests(data);
+  };
+
+  const fetchPayoutSummaries = async () => {
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/payouts/summary`);
+    if (res.ok && Array.isArray(data)) {
+      setPayoutSummaries(data);
+    }
+  };
+
+  const handleProcessPayout = async (affiliate_id: string, patient_ids: string[]) => {
+    try {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/payouts/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ affiliate_id, patient_ids })
+      });
+      
+      if (res.ok) {
+        toast.success('Payout processed successfully!');
+        fetchPayoutSummaries();
+        fetchReferrals(); // Update referrals list as well
+      } else {
+        toast.error(`Failed to process payout: ${data?.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error processing payout:', error);
+      toast.error('An error occurred while processing payout');
+    }
   };
 
   const fetchReferrals = async () => {
@@ -4945,97 +4976,61 @@ export default function App() {
                     <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
                         <h3 className="font-semibold">Bulk Payout Management</h3>
-                        <p className="text-xs text-zinc-500 font-medium">Generate bulk payment files for banking software</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => setShowPayoutModal(true)}
-                          disabled={selectedPayoutStaff.length === 0}
-                          className="flex items-center gap-2 text-xs font-bold bg-violet-500 text-white px-4 py-2 rounded-xl transition-all hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500"
-                        >
-                          <Download size={14} />
-                          Generate Bulk CSV
-                        </button>
-                        <button 
-                          onClick={processPayouts}
-                          disabled={selectedPayoutStaff.length === 0}
-                          className="flex items-center gap-2 text-xs font-bold bg-brand-primary text-white px-4 py-2 rounded-xl transition-all hover:bg-brand-primary disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-primary/20"
-                        >
-                          <CheckCircle2 size={14} />
-                          Mark as Paid
-                        </button>
+                        <p className="text-xs text-zinc-500 font-medium">Approve and process payouts for affiliates</p>
                       </div>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-zinc-50 border-b border-zinc-100">
-                            <th className="p-4 w-10">
-                              <input 
-                                type="checkbox"
-                                className="rounded border-zinc-300 text-zinc-900 focus:ring-violet-500"
-                                checked={filteredStaffForBulk.length > 0 && filteredStaffForBulk.every(s => selectedPayoutStaff.includes(s.id))}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    const newSelected = Array.from(new Set([...selectedPayoutStaff, ...filteredStaffForBulk.map(s => s.id)]));
-                                    setSelectedPayoutStaff(newSelected);
-                                  } else {
-                                    const filteredOut = selectedPayoutStaff.filter(id => !filteredStaffForBulk.some(s => s.id === id));
-                                    setSelectedPayoutStaff(filteredOut);
-                                  }
-                                }}
-                              />
-                            </th>
-                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">No.</th>
-                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Staff Member</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Affiliate Name</th>
                             <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Bank Details</th>
-                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-right">Payable Amount</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-center">Total Completed Patients</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-right">Total Commission Owed</th>
+                            <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-center">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-50">
-                          {filteredStaffForBulk.map((staff, index) => (
-                            <tr key={staff.id} className="hover:bg-zinc-50/50 transition-colors">
-                              <td className="p-4">
-                                <input 
-                                  type="checkbox"
-                                  className="rounded border-zinc-300 text-zinc-900 focus:ring-violet-500"
-                                  checked={selectedPayoutStaff.includes(staff.id)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedPayoutStaff([...selectedPayoutStaff, staff.id]);
-                                    } else {
-                                      setSelectedPayoutStaff(selectedPayoutStaff.filter(id => id !== staff.id));
-                                    }
-                                  }}
-                                />
-                              </td>
-                              <td className="p-4 text-sm text-zinc-500 font-medium">{index + 1}</td>
+                          {payoutSummaries
+                            .filter(summary => summary.affiliate_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                            .map((summary, index) => (
+                            <tr key={summary.affiliate_id} className="hover:bg-zinc-50/50 transition-colors">
                               <td className="p-4">
                                 <div className="flex items-center gap-3">
                                   <div className="w-8 h-8 rounded-full bg-zinc-50 flex items-center justify-center text-xs font-bold text-zinc-500">
-                                    {staff?.name?.charAt(0) || '?'}
+                                    {summary.affiliate_name.charAt(0) || '?'}
                                   </div>
                                   <div className="flex flex-col">
-                                    <span className="text-sm font-medium">{staff.name}</span>
-                                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">{staff.branch}</span>
+                                    <span className="text-sm font-medium">{summary.affiliate_name}</span>
                                   </div>
                                 </div>
                               </td>
                               <td className="p-4">
                                 <div className="flex flex-col">
-                                  <span className="text-xs font-bold text-zinc-900">{staff.bank_name || 'MISSING BANK'}</span>
-                                  <span className="text-[10px] text-zinc-500 font-medium tracking-wider">{staff.bank_account_number || 'MISSING ACCOUNT'}</span>
+                                  <span className="text-xs font-bold text-zinc-900">{summary.bank_details.split(' - ')[0] || 'MISSING BANK'}</span>
+                                  <span className="text-[10px] text-zinc-500 font-medium tracking-wider">{summary.bank_details.split(' - ')[1] || 'MISSING ACCOUNT'}</span>
                                 </div>
                               </td>
+                              <td className="p-4 text-sm font-medium text-center text-zinc-900">
+                                {summary.total_patients}
+                              </td>
                               <td className="p-4 text-sm font-bold text-right text-zinc-900">
-                                {clinicProfile.currency}{((staff.approved_earnings || 0) + (staff.pending_earnings || 0)).toFixed(2)}
+                                {clinicProfile.currency}{summary.total_commission_owed.toFixed(2)}
+                              </td>
+                              <td className="p-4 text-center">
+                                <button
+                                  onClick={() => handleProcessPayout(summary.affiliate_id, summary.patient_ids)}
+                                  className="bg-green-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-green-600 transition-colors shadow-sm"
+                                >
+                                  Approve & Pay
+                                </button>
                               </td>
                             </tr>
                           ))}
-                          {filteredStaffForBulk.length === 0 && (
+                          {payoutSummaries.filter(summary => summary.affiliate_name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
                             <tr>
-                              <td colSpan={4} className="p-8 text-center text-zinc-500 text-sm italic">
-                                No approved earnings matching your filters.
+                              <td colSpan={5} className="p-8 text-center text-zinc-500 text-sm italic">
+                                No pending payouts found.
                               </td>
                             </tr>
                           )}
