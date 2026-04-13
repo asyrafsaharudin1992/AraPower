@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, RefreshCw, Download, ChevronRight, MessageCircle, Phone, Trash2 } from 'lucide-react';
+import { Search, RefreshCw, Download, ChevronRight, MessageCircle, Phone, Trash2, Lock } from 'lucide-react';
 
 interface ReferralBoardProps {
   currentUser: any;
@@ -36,13 +36,24 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
   const [referralBranchFilter, setReferralBranchFilter] = useState('all');
   const [referralStatusFilter, setReferralStatusFilter] = useState('all');
   const [expandedReferralIds, setExpandedReferralIds] = useState<string[]>([]);
+  const [pendingStatusUpdate, setPendingStatusUpdate] = useState<{id: string, status: string} | null>(null);
+
+  // Centralized filtering logic (DRY)
+  const filteredReferrals = referrals
+    .filter(ref => 
+      ref.patient_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
+      (ref.staff_name && ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase())) ||
+      ref.service_name.toLowerCase().includes(referralSearch.toLowerCase())
+    )
+    .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
+    .filter(ref => referralStatusFilter === 'all' ? true : ref.status === referralStatusFilter);
 
   const exportToCSV = () => {
     const headers = currentUser?.role === 'admin' 
       ? ['Date', 'Patient Name', 'Patient Type', 'Service', 'Staff Name', 'Incentive ($)', 'Status']
       : ['Date', 'Patient Name', 'Patient Type', 'Service', 'Incentive ($)', 'Status'];
 
-    const csvRows = referrals.map(ref => {
+    const csvRows = filteredReferrals.map(ref => {
       const row = [
         ref.date,
         `"${ref.patient_name}"`,
@@ -132,15 +143,7 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
 
       {isMobile ? (
         <div className="divide-y divide-zinc-100">
-          {referrals
-            .filter(ref => 
-              ref.patient_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
-              (ref.staff_name && ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase())) ||
-              ref.service_name.toLowerCase().includes(referralSearch.toLowerCase())
-            )
-            .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
-            .filter(ref => referralStatusFilter === 'all' ? true : ref.status === referralStatusFilter)
-            .map((ref, idx) => (
+          {filteredReferrals.map((ref, idx) => (
             <div 
               key={ref.id} 
               className={`transition-all duration-300 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white'}`}
@@ -256,15 +259,7 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-50">
-            {referrals
-              .filter(ref => 
-                ref.patient_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
-                (ref.staff_name && ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase())) ||
-                ref.service_name.toLowerCase().includes(referralSearch.toLowerCase())
-              )
-              .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
-              .filter(ref => referralStatusFilter === 'all' ? true : ref.status === referralStatusFilter)
-              .map((ref, index) => (
+            {filteredReferrals.map((ref, index) => (
               <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
                 <td className="p-4 text-sm text-zinc-500 font-medium">{index + 1}</td>
                 <td className="p-4">
@@ -296,49 +291,46 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                 </td>
                 {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
                   <td className="p-4">
-                    <div className="flex gap-2">
-                      {ref.patient_phone && (
-                        <a 
-                          href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 text-zinc-900 hover:bg-violet-500 hover:text-white rounded-lg transition-colors"
-                          title="WhatsApp Follow-up"
-                        >
-                          <Phone size={14} />
-                        </a>
-                      )}
-                      {currentUser.role === 'receptionist' && ref.status === 'entered' && (
-                        <>
-                          <button 
-                            onClick={() => handleUpdateStatus(ref.id, 'completed', { visit_date: new Date().toISOString().split('T')[0] })}
-                            className="text-[10px] font-bold text-indigo-600 hover:underline"
+                    {['payment_approved', 'payment_made'].includes(ref.status?.toLowerCase()) ? (
+                      <span className="px-2 py-1 bg-zinc-100 text-zinc-500 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit border border-zinc-200">
+                        <Lock size={10} /> Finance Locked
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {/* WhatsApp Follow-up */}
+                        {ref.patient_phone && (
+                          <a 
+                            href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 text-zinc-900 hover:bg-violet-500 hover:text-white rounded-lg transition-colors"
+                            title="WhatsApp Follow-up"
                           >
-                            Arrived
-                          </button>
+                            <Phone size={14} />
+                          </a>
+                        )}
+                        
+                        {/* Delete Button (Admins only, inside the lock check) */}
+                        {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
                           <button 
-                            onClick={() => handleUpdateStatus(ref.id, 'rejected', { rejection_reason: 'Patient did not arrive' })}
-                            className="text-[10px] font-bold text-zinc-900 hover:underline"
+                            onClick={() => handleDeleteReferral(ref.id)}
+                            className="p-2 text-zinc-500 hover:text-rose-500 transition-colors"
+                            title="Delete Referral"
                           >
-                            Reject
+                            <Trash2 size={14} />
                           </button>
-                        </>
-                      )}
-
-                      { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
-                        <button 
-                          onClick={() => handleDeleteReferral(ref.id)}
-                          className="p-2 text-zinc-500 hover:text-rose-500 transition-colors"
-                          title="Delete Referral"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                      {currentUser.role === 'receptionist' && (
+                        )}
+                        
+                        {/* Unified Status Dropdown with Modal Trigger */}
                         <select 
                           value=""
                           onChange={(e) => {
-                            if (e.target.value) handleClinicStatusUpdate(ref.id, e.target.value);
+                            const newStatus = e.target.value;
+                            if (newStatus === 'Completed') {
+                              setPendingStatusUpdate({ id: ref.id, status: newStatus });
+                            } else if (newStatus) {
+                              handleClinicStatusUpdate(ref.id, newStatus);
+                            }
                           }}
                           className="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
                         >
@@ -349,8 +341,8 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                           <option value="Completed">Completed</option>
                           <option value="Cancelled">Cancelled</option>
                         </select>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </td>
                 )}
               </tr>
@@ -358,6 +350,42 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
           </tbody>
         </table>
       )}
+
+      {/* Safeguard Modal for 'Completed' Status */}
+      <AnimatePresence>
+        {pendingStatusUpdate && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-6 max-w-md w-full shadow-xl"
+            >
+              <h3 className="text-xl font-black mb-2">Confirm Completion</h3>
+              <p className="text-zinc-500 text-sm mb-6">
+                Are you sure you want to mark this referral as completed? This action will finalize the visit and prepare it for payout processing.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setPendingStatusUpdate(null)}
+                  className="px-4 py-2 rounded-xl text-sm font-bold text-zinc-500 hover:bg-zinc-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    handleClinicStatusUpdate(pendingStatusUpdate.id, pendingStatusUpdate.status);
+                    setPendingStatusUpdate(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-sm font-bold bg-violet-500 text-white hover:bg-violet-600 transition-colors"
+                >
+                  Confirm
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
