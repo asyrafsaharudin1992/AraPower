@@ -9,6 +9,7 @@ import fs from 'fs';
 import { GoogleGenAI, Type } from "@google/genai";
 import * as cheerio from 'cheerio';
 
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -2244,7 +2245,7 @@ app.get("/api/payouts/summary", async (req, res) => {
 });
 
 app.post("/api/payouts/process", async (req, res) => {
-  const { affiliate_id, patient_ids } = req.body;
+  const { affiliate_id, staff_id, patient_ids } = req.body;
   
   if (!patient_ids || patient_ids.length === 0) {
     return res.status(400).json({ error: "No patients selected for payout" });
@@ -2252,7 +2253,7 @@ app.post("/api/payouts/process", async (req, res) => {
 
   const { error } = await supabase
     .from('referrals')
-    .update({ status: 'paid' })
+    .update({ status: 'payout_processed' })
     .in('id', patient_ids);
 
   if (error) {

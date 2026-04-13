@@ -7,6 +7,8 @@ import { PromotionsCarousel } from './components/PromotionsCarousel';
 import { AdminUI } from './components/AdminUI';
 import { DashboardUI } from './components/DashboardUI';
 import { CategoryScrollRow } from './components/CategoryScrollRow';
+import { PayoutManagement } from './components/PayoutManagement';
+import { ReferralBoard } from './components/ReferralBoard';
 import AddServiceForm from './components/AddServiceForm';
 import { Service, Promotion, Staff, Referral, AppSettings, ClinicProfile } from './types';
 import { 
@@ -850,21 +852,13 @@ export default function App() {
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [passwordError, setPasswordError] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [selectedPayoutStaff, setSelectedPayoutStaff] = useState<string[]>([]);
-  const [showPayoutModal, setShowPayoutModal] = useState(false);
-  const [payoutMetadata, setPayoutMetadata] = useState({
-    creditingDate: new Date().toLocaleDateString('en-GB'),
-    paymentReference: 'INCENTIVE',
-    paymentDescription: 'STAFF REFERRAL INCENTIVE',
-    bulkPaymentType: 'SALARY'
-  });
   const [isPublicBooking, setIsPublicBooking] = useState(false);
 
   // Receptionist state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
-  const [referralSearch, setReferralSearch] = useState('');
+
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [notificationForm, setNotificationForm] = useState({
@@ -948,8 +942,7 @@ export default function App() {
       console.error('Error marking all notifications as read:', error);
     }
   };
-  const [referralStatusFilter, setReferralStatusFilter] = useState<string>('all');
-  const [referralBranchFilter, setReferralBranchFilter] = useState<string>('all');
+
   const [adminSearch, setAdminSearch] = useState('');
   const [walkInPromoCode, setWalkInPromoCode] = useState('');
   const [walkInStaff, setWalkInStaff] = useState<Staff | null>(null);
@@ -1044,9 +1037,7 @@ export default function App() {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin : '');
   const isSupabaseConfigured = !isPlaceholder;
-  const [payoutUserFilter, setPayoutUserFilter] = useState<string>('all');
-  const [payoutBranchFilter, setPayoutBranchFilter] = useState<string>('all');
-  const [payoutSubTab, setPayoutSubTab] = useState<'history' | 'bulk'>('history');
+
   const [payoutSummaries, setPayoutSummaries] = useState<any[]>([]);
   const [branchChangeRequests, setBranchChangeRequests] = useState<any[]>([]);
   const [showBranchModal, setShowBranchModal] = useState(false);
@@ -1121,7 +1112,7 @@ export default function App() {
   // Task State
   const [tasks, setTasks] = useState<any[]>([]);
   const [showReferralModal, setShowReferralModal] = useState(false);
-  const [expandedReferralIds, setExpandedReferralIds] = useState<string[]>([]);
+
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [taskDueDate, setTaskDueDate] = useState<Date | null>(null);
@@ -1179,6 +1170,7 @@ export default function App() {
       localStorage.removeItem('currentUser');
       setCurrentUser(null);
       setIsAuthChecking(false);
+      toast.error('Your session has expired. Please log in again.');
       return true;
     }
     return false;
@@ -1678,6 +1670,27 @@ export default function App() {
     }
   };
 
+  const handleBulkStatusUpdate = async (ids: string[], newStatus: string) => {
+    try {
+      // Update all selected referrals concurrently
+      const promises = ids.map(id => 
+        safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        })
+      );
+      await Promise.all(promises);
+      
+      // Refresh data to show UI changes
+      fetchReferrals();
+      toast.success(`Successfully updated ${ids.length} cases to ${newStatus}`);
+    } catch (error) {
+      console.error("Bulk update error:", error);
+      toast.error("An error occurred during bulk update");
+    }
+  };
+
   const fetchReferrals = async () => {
     if (!currentUser) return;
     
@@ -2066,103 +2079,6 @@ export default function App() {
       setAuthPhone('');
       setAuthError('');
     }
-  };
-
-  const generatePayoutCSV = (metadata: typeof payoutMetadata) => {
-    const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && (s.approved_earnings > 0 || s.pending_earnings > 0));
-    if (staffToPay.length === 0) {
-      alert('No staff selected or no payable earnings to pay.');
-      return;
-    }
-
-    // Maybank2u Biz Format (M2U Biz)
-    const csvRows = [];
-    
-    // Row 1 empty
-    csvRows.push([]);
-    
-    // Header Section
-    csvRows.push(['Employer Info :']);
-    csvRows.push(['Crediting Date (eg. dd/MM/yyyy)', metadata.creditingDate]);
-    csvRows.push(['Payment Reference', metadata.paymentReference]);
-    csvRows.push(['Payment Description', metadata.paymentDescription]);
-    csvRows.push(['Bulk Payment Type', metadata.bulkPaymentType]);
-    csvRows.push([]); // Row 7 empty
-    
-    // Data Header (Row 8)
-    csvRows.push([
-      'Beneficiary Name',
-      'Beneficiary Bank',
-      'Beneficiary Account No',
-      'ID Type',
-      'ID Number',
-      'Payment Amount',
-      'Payment Reference',
-      'Payment Description'
-    ]);
-
-    // Data Rows
-    staffToPay.forEach(s => {
-      csvRows.push([
-        s.name,
-        s.bank_name || '',
-        s.bank_account_number || '',
-        s.id_type || 'NRIC',
-        s.id_number || '',
-        ((s.approved_earnings || 0) + (s.pending_earnings || 0)).toFixed(2),
-        metadata.paymentReference,
-        metadata.paymentDescription
-      ]);
-    });
-
-    // Join with commas and newlines
-    const csvContent = csvRows.map(row => 
-      row.map(cell => {
-        const cellStr = String(cell);
-        // Escape commas and quotes if necessary
-        if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
-          return `"${cellStr.replace(/"/g, '""')}"`;
-        }
-        return cellStr;
-      }).join(",")
-    ).join("\n");
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `M2U_Bulk_Payment_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setShowPayoutModal(false);
-  };
-
-  const processPayouts = async () => {
-    if (selectedPayoutStaff.length === 0) return;
-    
-    showConfirm(
-      'Process Payouts',
-      'Are you sure you want to mark these payouts as processed? This will update the status of all approved and pending referrals for the selected staff.',
-      async () => {
-        const staffToPay = staffPerformance.filter(s => selectedPayoutStaff.includes(s.id) && (s.approved_earnings > 0 || s.pending_earnings > 0));
-        
-        for (const staff of staffToPay) {
-          const payableRefs = referrals.filter(r => String(r.staff_id) === String(staff.id) && r.staff_id && r.commission_amount > 0 && ['completed', 'paid_completed', 'approved'].includes(r.status?.toLowerCase()));
-          for (const ref of payableRefs) {
-            await safeFetch(`${apiBaseUrl}/api/referrals/${ref.id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: 'payout_processed' })
-            });
-          }
-        }
-        
-        fetchReferrals();
-        setSelectedPayoutStaff([]);
-        showNotification('success', 'Payouts processed successfully.');
-      }
-    );
   };
 
   const checkPromoCode = async (code: string) => {
@@ -3526,7 +3442,7 @@ export default function App() {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
     const staffRefs = referrals.filter(r => String(r.staff_id) === String(staff.id));
     const monthlySuccessfulRefs = staffRefs.filter(r => 
-      ['completed', 'paid_completed', 'approved', 'payout_processed'].includes(r.status?.toLowerCase()) && 
+      ['completed', 'payment_approved', 'payment_made'].includes(r.status?.toLowerCase()) && 
       r.date && typeof r.date === 'string' && r.date.startsWith(currentMonth)
     ).length;
 
@@ -3534,17 +3450,17 @@ export default function App() {
     
     const totalRefs = staffRefs.length;
     
-    // Calculate dynamic earnings based on status
+   // Calculate dynamic earnings based on status
     const pending_earnings = staffRefs
-      .filter(r => ['completed', 'paid_completed'].includes(r.status?.toLowerCase()))
+      .filter(r => ['completed'].includes(r.status?.toLowerCase()))
       .reduce((sum, r) => sum + (r.commission_amount * tier.bonus), 0);
     
     const approved_earnings = staffRefs
-      .filter(r => r.status?.toLowerCase() === 'approved')
+      .filter(r => r.status?.toLowerCase() === 'payment_approved')
       .reduce((sum, r) => sum + (r.commission_amount * tier.bonus), 0);
       
     const paid_earnings = staffRefs
-      .filter(r => r.status?.toLowerCase() === 'payout_processed')
+      .filter(r => r.status?.toLowerCase() === 'payment_made')
       .reduce((sum, r) => sum + (r.commission_amount * tier.bonus), 0);
 
     const totalWithBonus = pending_earnings + approved_earnings + paid_earnings;
@@ -3572,7 +3488,7 @@ export default function App() {
   };
 
   const receptionistStats = {
-    arrivedToday: referrals.filter(r => ['completed', 'paid_completed'].includes(r.status?.toLowerCase()) && r.visit_date === new Date().toISOString().split('T')[0]).length,
+    arrivedToday: referrals.filter(r => ['completed', 'payment_approved', 'payment_made'].includes(r.status?.toLowerCase()) && r.visit_date === new Date().toISOString().split('T')[0]).length,
     pendingVerifications: referrals.filter(r => r.status?.toLowerCase() === 'entered').length
   };
   
@@ -3585,27 +3501,25 @@ export default function App() {
     ? ((currentUserStats?.monthlySuccessfulRefs || 0) / nextTier.min) * 100 
     : 100;
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-burnt-peach/10 text-burnt-peach border border-burnt-peach/20';
-      case 'entered': return 'bg-apricot-cream text-twilight-indigo';
-      case 'completed': return 'bg-muted-teal/20 text-muted-teal';
-      case 'paid_completed': return 'bg-muted-teal text-eggshell';
-      case 'approved': return 'bg-burnt-peach text-white';
-      case 'payout_processed': return 'bg-eggshell text-twilight-indigo border border-twilight-indigo/10';
+ const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'pending': return 'bg-zinc-100 text-zinc-500 border border-zinc-200';
+      case 'entered': return 'bg-blue-100 text-blue-700 border border-blue-200';
+      case 'completed': return 'bg-indigo-100 text-indigo-700 border border-indigo-200';
+      case 'payment_approved': return 'bg-orange-100 text-orange-700 border border-orange-200';
+      case 'payment_made': return 'bg-emerald-500 text-white shadow-sm border border-emerald-600';
       case 'rejected': return 'bg-rose-500 text-white';
-      default: return 'bg-eggshell text-twilight-indigo';
+      default: return 'bg-zinc-100 text-zinc-700';
     }
   };
 
   const getStatusLabel = (status: string) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'pending': return 'Pending';
       case 'entered': return 'Entered';
-      case 'completed': return 'Arrived';
-      case 'paid_completed': return 'Paid';
-      case 'approved': return 'Approved';
-      case 'payout_processed': return 'Payout Processed';
+      case 'completed': return 'Arrived / Completed';
+      case 'payment_approved': return 'Payment Approved';
+      case 'payment_made': return 'Payment Made';
       case 'rejected': return 'Rejected';
       default: return status;
     }
@@ -4088,308 +4002,20 @@ export default function App() {
           )}
 
           {activeTab === 'referrals' && (
-            <motion.div 
-              key="referrals"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`${darkMode ? 'bg-[#1e293b] border-violet-500' : 'bg-white border-black/5 shadow-sm'} rounded-3xl border overflow-hidden`}
-            >
-              <div className={`p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${darkMode ? 'border-zinc-800' : 'border-zinc-100'}`}>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>Referral History</h3>
-                  <div className="flex flex-wrap gap-2">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={14} />
-                      <input 
-                        type="text"
-                        placeholder="Search patient, staff, or service..."
-                        value={referralSearch}
-                        onChange={(e) => setReferralSearch(e.target.value)}
-                        className={`pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 w-full sm:w-64 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                      />
-                    </div>
-                    <select 
-                      value={referralBranchFilter}
-                      onChange={(e) => setReferralBranchFilter(e.target.value)}
-                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                    >
-                      <option value="all">All Branches</option>
-                      {branches.map(b => (
-                        <option key={b.id} value={b.name}>{b.name}</option>
-                      ))}
-                    </select>
-                    <select 
-                      value={referralStatusFilter}
-                      onChange={(e) => setReferralStatusFilter(e.target.value)}
-                      className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-                    >
-                      <option value="all">All Statuses</option>
-                      <option value="entered">Entered</option>
-                      <option value="completed">Arrived</option>
-                      <option value="paid_completed">Paid</option>
-                      <option value="approved">Approved</option>
-                      <option value="payout_processed">Payout Processed</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 self-start sm:self-auto">
-                  <button 
-                    onClick={() => {
-                      if (fetchReferrals) fetchReferrals();
-                    }}
-                    className={`flex items-center gap-2 text-xs font-bold transition-colors px-3 py-2 rounded-xl ${darkMode ? 'text-brand-accent hover:bg-zinc-50' : 'text-zinc-900 hover:bg-violet-500 hover:text-white'}`}
-                  >
-                    <RefreshCw size={14} />
-                    Refresh
-                  </button>
-                  <button 
-                    onClick={exportToCSV}
-                    className={`flex items-center gap-2 text-xs font-bold transition-colors px-3 py-2 rounded-xl ${darkMode ? 'text-brand-accent hover:bg-zinc-50' : 'text-zinc-900 hover:bg-violet-500 hover:text-white'}`}
-                  >
-                    <Download size={14} />
-                    Export CSV
-                  </button>
-                </div>
-              </div>
-
-              {isMobile ? (
-                <div className="divide-y divide-zinc-100">
-                  {referrals
-                    .filter(ref => 
-                      ref.patient_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
-                      (ref.staff_name && ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase())) ||
-                      ref.service_name.toLowerCase().includes(referralSearch.toLowerCase())
-                    )
-                    .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
-                    .filter(ref => referralStatusFilter === 'all' ? true : ref.status === referralStatusFilter)
-                    .map((ref, idx) => (
-                    <div 
-                      key={ref.id} 
-                      className={`transition-all duration-300 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white'}`}
-                    >
-                      <div 
-                        onClick={() => {
-                          setExpandedReferralIds(prev => 
-                            prev.includes(ref.id) ? prev.filter(id => id !== ref.id) : [...prev, ref.id]
-                          );
-                        }}
-                        className="p-4 flex items-center justify-between cursor-pointer active:bg-zinc-50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{ref.patient_name}</p>
-                            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-tight">
-                              {ref.service_name} • {ref.branch}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right flex items-center gap-3">
-                          <div>
-                            <p className={`text-sm font-bold ${darkMode ? 'text-brand-accent' : 'text-zinc-900'}`}>
-                              {clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}
-                            </p>
-                            <span className={`text-[9px] font-black uppercase tracking-widest ${
-                              ref.status === 'completed' || ref.status === 'paid_completed' ? 'text-emerald-600' :
-                              ref.status === 'rejected' ? 'text-rose-600' : 
-                              ref.status === 'approved' ? 'text-orange-600' :
-                              'text-zinc-400'
-                            }`}>
-                              {getStatusLabel(ref.status)}
-                            </span>
-                          </div>
-                          <ChevronRight size={14} className={`text-zinc-300 transition-transform duration-300 ${expandedReferralIds.includes(ref.id) ? 'rotate-90' : ''}`} />
-                        </div>
-                      </div>
-
-                      <AnimatePresence>
-                        {expandedReferralIds.includes(ref.id) && (
-                          <motion.div 
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden bg-zinc-50/50"
-                          >
-                            <div className="p-4 pt-0 space-y-4 border-t border-zinc-100/50">
-                              <div className="grid grid-cols-2 gap-4 mt-4">
-                                <div>
-                                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Referral Date</p>
-                                  <p className="text-xs font-medium text-zinc-700">{ref.date}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Staff Name</p>
-                                  <p className="text-xs font-medium text-zinc-700">{ref.staff_name || <span className="text-zinc-400 italic">Direct Walk-in</span>}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Patient IC</p>
-                                  <p className="text-xs font-medium text-zinc-700">{ref.patient_ic || 'N/A'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Appointment</p>
-                                  <p className="text-xs font-medium text-zinc-700">{ref.appointment_date || 'N/A'}</p>
-                                </div>
-                              </div>
-                              
-                              {ref.patient_address && (
-                                <div>
-                                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Address</p>
-                                  <p className="text-xs font-medium text-zinc-700 leading-relaxed">{ref.patient_address}</p>
-                                </div>
-                              )}
-
-                              <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded-full bg-zinc-200 flex items-center justify-center text-[8px] font-bold text-zinc-500">
-                                    {ref?.staff_name?.charAt(0) || 'W'}
-                                  </div>
-                                  <p className="text-[10px] font-medium text-zinc-500">{ref.staff_name ? `Referred by ${ref.staff_name}` : 'Direct Walk-in'}</p>
-                                </div>
-                                {ref.patient_phone && (
-                                  <a 
-                                    href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${ref.patient_name}! This is from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`)}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-transform"
-                                  >
-                                    <MessageCircle size={12} />
-                                    WhatsApp
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-zinc-50 border-b border-zinc-100">
-                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">No.</th>
-                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Booking</th>
-                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Patient</th>
-                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Service</th>
-                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Staff</th>
-                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Incentive</th>
-                      <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Status</th>
-                      {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Actions</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-50">
-                    {referrals
-                      .filter(ref => 
-                        ref.patient_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
-                        (ref.staff_name && ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase())) ||
-                        ref.service_name.toLowerCase().includes(referralSearch.toLowerCase())
-                      )
-                      .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
-                      .filter(ref => referralStatusFilter === 'all' ? true : ref.status === referralStatusFilter)
-                      .map((ref, index) => (
-                      <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
-                        <td className="p-4 text-sm text-zinc-500 font-medium">{index + 1}</td>
-                        <td className="p-4">
-                          <p className="text-sm font-medium">{ref.appointment_date}</p>
-                          <p className="text-[10px] text-zinc-500">{ref.booking_time}</p>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium">{ref.patient_name}</p>
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ref.patient_type === 'existing' ? 'bg-brand-primary text-white' : 'bg-brand-accent text-white'}`}>
-                              {ref.patient_type || 'new'}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-zinc-500">{ref.patient_phone} • <span className="font-bold text-indigo-600">{ref.branch}</span></p>
-                          <div className="mt-1 pt-1 border-t border-zinc-50">
-                            <p className="text-[9px] text-zinc-500 font-medium">IC: {ref.patient_ic || 'N/A'}</p>
-                            <p className="text-[9px] text-zinc-500 font-medium truncate max-w-[150px]" title={ref.patient_address}>Addr: {ref.patient_address || 'N/A'}</p>
-                          </div>
-                        </td>
-                        <td className="p-4 text-sm text-zinc-500">{ref.service_name}</td>
-                        <td className="p-4 text-sm font-medium text-zinc-900">
-                          {ref.staff_name ? ref.staff_name : <span className="text-zinc-400 italic text-xs">Direct Walk-in</span>}
-                        </td>
-                        <td className="p-4 text-sm font-bold">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
-                            {getStatusLabel(ref.status)}
-                          </span>
-                        </td>
-                        {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
-                          <td className="p-4">
-                            <div className="flex gap-2">
-                              {ref.patient_phone && (
-                                <a 
-                                  href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-2 text-zinc-900 hover:bg-violet-500 hover:text-white rounded-lg transition-colors"
-                                  title="WhatsApp Follow-up"
-                                >
-                                  <Phone size={14} />
-                                </a>
-                              )}
-                              {currentUser.role === 'receptionist' && ref.status === 'entered' && (
-                                <>
-                                  <button 
-                                    onClick={() => handleUpdateStatus(ref.id, 'completed', { visit_date: new Date().toISOString().split('T')[0] })}
-                                    className="text-[10px] font-bold text-indigo-600 hover:underline"
-                                  >
-                                    Arrived
-                                  </button>
-                                  <button 
-                                    onClick={() => handleUpdateStatus(ref.id, 'rejected', { rejection_reason: 'Patient did not arrive' })}
-                                    className="text-[10px] font-bold text-zinc-900 hover:underline"
-                                  >
-                                    Reject
-                                  </button>
-                                </>
-                              )}
-                              {currentUser.role === 'receptionist' && ref.status === 'completed' && (
-                                <button 
-                                  onClick={() => handleUpdateStatus(ref.id, 'paid_completed', { payment_status: 'completed' })}
-                                  className="text-[10px] font-bold text-zinc-900 hover:underline"
-                                >
-                                  Paid
-                                </button>
-                              )}
-
-                              { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
-                                <button 
-                                  onClick={() => handleDeleteReferral(ref.id)}
-                                  className="p-2 text-zinc-500 hover:text-rose-500 transition-colors"
-                                  title="Delete Referral"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              )}
-                              {currentUser.role === 'receptionist' && (
-                                <select 
-                                  value=""
-                                  onChange={(e) => {
-                                    if (e.target.value) handleClinicStatusUpdate(ref.id, e.target.value);
-                                  }}
-                                  className="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
-                                >
-                                  <option value="" disabled>Set Status</option>
-                                  <option value="Pending">Pending</option>
-                                  <option value="Arrived">Arrived</option>
-                                  <option value="In Session">In Session</option>
-                                  <option value="Completed">Completed</option>
-                                  <option value="Cancelled">Cancelled</option>
-                                </select>
-                              )}
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </motion.div>
+            <ReferralBoard 
+              currentUser={currentUser}
+              referrals={referrals}
+              branches={branches}
+              clinicProfile={clinicProfile}
+              isMobile={isMobile}
+              darkMode={darkMode}
+              fetchReferrals={fetchReferrals}
+              handleUpdateStatus={handleUpdateStatus}
+              handleClinicStatusUpdate={handleClinicStatusUpdate}
+              handleDeleteReferral={handleDeleteReferral}
+              getStatusColor={getStatusColor}
+              getStatusLabel={getStatusLabel}
+            />
           )}
 
           {activeTab === 'warm-leads' && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
@@ -4745,263 +4371,18 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'payouts' && rolesConfig[currentUser.role]?.canViewAnalytics && (() => {
-            const filteredStaffForBulk = staffPerformance
-              .filter(s => (s.approved_earnings || 0) + (s.pending_earnings || 0) > 0)
-              .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
-              .filter(s => payoutBranchFilter === 'all' ? true : s.branch === payoutBranchFilter)
-              .filter(s => payoutUserFilter === 'all' ? true : String(s.id) === payoutUserFilter);
-
-            return (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
-            >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-black text-zinc-900 tracking-tight">Payout Management</h2>
-                  <p className="text-zinc-500 text-sm">Manage and track staff commissions and payouts.</p>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <div className="bg-white p-4 rounded-2xl border border-black/5 shadow-sm min-w-[150px]">
-                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Pending</p>
-                    <p className="text-xl font-black text-zinc-900">
-                      {clinicProfile.currency}{referrals
-                        .filter(r => r.staff_id && r.commission_amount > 0 && ['completed', 'paid_completed', 'approved'].includes(r.status?.toLowerCase()))
-                        .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
-                        .filter(r => payoutUserFilter === 'all' ? true : String(r.staff_id) === payoutUserFilter)
-                        .reduce((sum, r) => sum + r.commission_amount, 0).toFixed(2)}
-                    </p>
-                  </div>
-                  <div className="bg-white p-4 rounded-2xl border border-black/5 shadow-sm min-w-[150px]">
-                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Processed</p>
-                    <p className="text-xl font-black text-zinc-900">
-                      {clinicProfile.currency}{referrals
-                        .filter(r => r.staff_id && r.commission_amount > 0 && r.status?.toLowerCase() === 'payout_processed')
-                        .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
-                        .filter(r => payoutUserFilter === 'all' ? true : String(r.staff_id) === payoutUserFilter)
-                        .reduce((sum, r) => sum + r.commission_amount, 0).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Sub-tabs */}
-              <div className="flex gap-2 p-1 bg-zinc-50 rounded-2xl w-fit">
-                <button 
-                  onClick={() => setPayoutSubTab('history')}
-                  className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${payoutSubTab === 'history' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-900'}`}
-                >
-                  Referral History
-                </button>
-                <button 
-                  onClick={() => setPayoutSubTab('bulk')}
-                  className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${payoutSubTab === 'bulk' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-900'}`}
-                >
-                  Bulk Payouts
-                </button>
-              </div>
-
-              {/* Filters */}
-              <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm flex flex-wrap gap-4 items-end">
-                <div className="flex-1 min-w-[200px]">
-                  <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">
-                    {payoutSubTab === 'history' ? 'Search Referrals' : 'Search Staff'}
-                  </label>
-                  <div className="relative">
-                    <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-                    <input 
-                      type="text"
-                      placeholder={payoutSubTab === 'history' ? "Search patient, staff, or service..." : "Search staff name..."}
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="flex-1 min-w-[200px]">
-                  <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Filter by Staff</label>
-                  <select 
-                    value={payoutUserFilter}
-                    onChange={(e) => setPayoutUserFilter(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                  >
-                    <option value="all">All Staff</option>
-                    {staffList.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.branch})</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex-1 min-w-[200px]">
-                  <label className="block text-[10px] font-black text-zinc-500 uppercase mb-1.5 ml-1 tracking-widest">Filter by Branch</label>
-                  <select 
-                    value={payoutBranchFilter}
-                    onChange={(e) => setPayoutBranchFilter(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                  >
-                    <option value="all">All Branches</option>
-                    {branches.map(b => (
-                      <option key={b.id} value={b.name}>{b.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <button 
-                  onClick={() => {
-                    setPayoutUserFilter('all');
-                    setPayoutBranchFilter('all');
-                    setSearchQuery('');
-                  }}
-                  className="px-4 py-2.5 text-zinc-500 hover:text-zinc-900 text-sm font-bold transition-colors"
-                >
-                  Reset
-                </button>
-              </div>
-
-              {payoutSubTab === 'history' ? (
-                <>
-                  {/* Payout Table */}
-                  <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-zinc-50/50 border-b border-zinc-100">
-                            <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">No.</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Date</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Staff</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Patient</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Amount</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Status</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest text-right">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-50">
-                          {referrals
-                            .filter(r => r.staff_id && r.commission_amount > 0 && ['completed', 'paid_completed', 'approved', 'payout_processed'].includes(r.status?.toLowerCase()))
-                            .filter(r => 
-                              r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                              (r.staff_name && r.staff_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                              (r.service_name && r.service_name.toLowerCase().includes(searchQuery.toLowerCase()))
-                            )
-                            .filter(r => payoutBranchFilter === 'all' ? true : r.branch === payoutBranchFilter)
-                            .filter(r => payoutUserFilter === 'all' ? true : String(r.staff_id) === payoutUserFilter)
-                            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                            .map((ref, index) => (
-                              <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
-                                <td className="px-6 py-4 text-sm text-zinc-500 font-medium">{index + 1}</td>
-                                <td className="px-6 py-4">
-                                  <p className="text-sm font-medium text-zinc-900">{new Date(ref.date).toLocaleDateString()}</p>
-                                  <p className="text-[10px] text-zinc-500 font-bold uppercase">{ref.branch}</p>
-                                </td>
-                                <td className="px-6 py-4">
-                                  {ref.staff_name ? (
-                                    <>
-                                      <p className="text-sm font-bold text-zinc-900">{ref.staff_name}</p>
-                                      <p className="text-[10px] text-zinc-500 font-bold uppercase">Code: {ref.promo_code}</p>
-                                    </>
-                                  ) : (
-                                    <span className="text-zinc-400 italic text-xs">Direct Walk-in</span>
-                                  )}
-                                </td>
-                                <td className="px-6 py-4">
-                                  <p className="text-sm font-medium text-zinc-900">{ref.patient_name}</p>
-                                  <p className="text-[10px] text-zinc-500 font-bold uppercase">{ref.service_name}</p>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <p className="text-sm font-black text-zinc-900">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</p>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                    ref.status?.toLowerCase() === 'payout_processed' ? 'bg-emerald-500 text-white' : 'bg-brand-surface text-zinc-900'
-                                  }`}>
-                                    {ref.status?.toLowerCase() === 'payout_processed' ? 'Paid' : 'Pending'}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                  <div className="flex items-center justify-end gap-2">
-
-                                    {ref.status?.toLowerCase() === 'payout_processed' && (
-                                      <div className="flex items-center justify-end gap-1 text-zinc-900">
-                                        <CheckCircle2 size={14} />
-                                        <span className="text-xs font-bold">Processed</span>
-                                      </div>
-                                    )}
-                                    { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
-                                      <button 
-                                        onClick={() => handleDeleteReferral(ref.id)}
-                                        className="p-2 text-zinc-500 hover:text-rose-500 transition-colors"
-                                        title="Delete Referral"
-                                      >
-                                        <Trash2 size={14} />
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          {referrals.filter(r => r.staff_id && r.commission_amount > 0 && ['completed', 'paid_completed', 'approved', 'payout_processed'].includes(r.status?.toLowerCase())).length === 0 && (
-                            <tr>
-                              <td colSpan={7} className="px-6 py-12 text-center">
-                                <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                                  <DollarSign className="text-zinc-500" size={24} />
-                                </div>
-                                <p className="text-zinc-500 text-xs font-black uppercase tracking-widest">No payout records found</p>
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Bulk Payout Section */}
-                  <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
-                    <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <h3 className="font-semibold">Bulk Payout Management</h3>
-                        <p className="text-xs text-zinc-500 font-medium">Approve and process payouts for affiliates</p>
-                      </div>
-                    </div>
-                    <div className="p-6 space-y-4 bg-zinc-50/50">
-                      {payoutSummaries.length === 0 ? (
-                        <p className="text-zinc-500 p-4 text-center font-medium">No pending payouts.</p>
-                      ) : (
-                        payoutSummaries
-                          .filter(summary => (summary.staff_name || summary.affiliate_name || '').toLowerCase().includes(searchQuery.toLowerCase()))
-                          .map((summary) => (
-                          <div key={summary.staff_id || summary.affiliate_id} className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:shadow-md">
-                            <div>
-                              <h3 className="font-bold text-lg text-zinc-900">{summary.staff_name || summary.affiliate_name}</h3>
-                              <p className="text-sm text-zinc-500 font-mono mt-1 bg-zinc-50 inline-block px-2 py-1 rounded-md">{summary.bank_details}</p>
-                              <p className="text-sm font-medium text-emerald-600 mt-2 flex items-center gap-2">
-                                <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md">{summary.total_patients} Patients</span>
-                                <span>•</span>
-                                <span>Total Owed: {clinicProfile.currency}{summary.total_commission_owed.toFixed(2)}</span>
-                              </p>
-                            </div>
-                            <button 
-                              onClick={() => {
-                                if (window.confirm(`Confirm payout for ${summary.total_patients} patients?`)) {
-                                  handleProcessPayout(summary.staff_id || summary.affiliate_id, summary.patient_ids);
-                                }
-                              }}
-                              className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-500/30 whitespace-nowrap"
-                            >
-                              Approve & Pay {clinicProfile.currency}{summary.total_commission_owed.toFixed(2)}
-                            </button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </motion.div>
-            );
-          })()}
+          {activeTab === 'payouts' && (
+  <PayoutManagement
+    currentUser={currentUser}
+    rolesConfig={rolesConfig}
+    clinicProfile={clinicProfile}
+    referrals={referrals}
+    staffList={staffList}
+    branches={branches}
+    handleBulkStatusUpdate={handleBulkStatusUpdate}
+  />
+)}
+```"
 
           {activeTab === 'receptionist' && (currentUser.role === 'receptionist' || currentUser.role === 'manager' || currentUser.role === 'admin') && (
             <motion.div 
@@ -5114,11 +4495,12 @@ export default function App() {
                           className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
                         >
                           <option value="all">All Statuses</option>
+                          <option value="pending">Pending</option>
                           <option value="entered">Entered</option>
-                          <option value="completed">Arrived</option>
-                          <option value="paid_completed">Paid</option>
-                          <option value="approved">Approved</option>
-                          <option value="payout_processed">Payout Processed</option>
+                          <option value="completed">Arrived / Completed</option>
+                          <option value="payment_approved">Payment Approved</option>
+                          <option value="payment_made">Payment Made</option>
+                          <option value="rejected">Rejected</option>
                         </select>
                         <div className="relative">
                           <input 
@@ -5182,15 +4564,10 @@ export default function App() {
                             >
                               <option value="pending">Pending</option>
                               <option value="entered">Entered</option>
-                              <option value="completed">Arrived</option>
-                              <option value="paid_completed">Paid</option>
+                              <option value="completed">Arrived / Completed</option>
+                              <option value="payment_approved">Payment Approved</option>
+                              <option value="payment_made">Payment Made</option>
                               <option value="rejected">Rejected</option>
-                              { (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
-                                <>
-                                  <option value="approved">Approved</option>
-                                  <option value="payout_processed">Payout Processed</option>
-                                </>
-                              )}
                             </select>
                             <select 
                               value=""
@@ -7742,116 +7119,6 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
           )}
         </AnimatePresence>
 
-        {/* Payout Modal */}
-        <AnimatePresence>
-          {showPayoutModal && (
-            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setShowPayoutModal(false)}
-                className="absolute inset-0 bg-brand-primary/60 backdrop-blur-sm"
-              />
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
-              >
-                <div className="p-8">
-                  <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-violet-500 text-white flex items-center justify-center">
-                        <Download size={20} />
-                      </div>
-                      <h3 className="text-xl font-bold text-zinc-900 tracking-tight">M2U Biz Payout</h3>
-                    </div>
-                    <button 
-                      onClick={() => setShowPayoutModal(false)}
-                      className="p-2 hover:bg-zinc-50 rounded-xl transition-colors"
-                    >
-                      <PlusCircle className="rotate-45 text-zinc-500" size={24} />
-                    </button>
-                  </div>
-
-                  <form 
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const formData = new FormData(e.currentTarget);
-                      const metadata = {
-                        creditingDate: formData.get('creditingDate') as string,
-                        paymentReference: formData.get('paymentReference') as string,
-                        paymentDescription: formData.get('paymentDescription') as string,
-                        bulkPaymentType: formData.get('bulkPaymentType') as string
-                      };
-                      generatePayoutCSV(metadata);
-                    }}
-                    className="space-y-6"
-                  >
-                    <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Crediting Date (dd/MM/yyyy)</label>
-                      <input 
-                        name="creditingDate"
-                        type="text"
-                        required
-                        defaultValue={new Date().toLocaleDateString('en-GB')}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500 focus:border-violet-500 transition-all text-sm font-medium"
-                        placeholder="e.g. 07/03/2026"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Payment Reference</label>
-                      <input 
-                        name="paymentReference"
-                        type="text"
-                        required
-                        defaultValue="INCENTIVE"
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500 focus:border-violet-500 transition-all text-sm font-medium"
-                        placeholder="e.g. INCENTIVE"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Payment Description</label>
-                      <input 
-                        name="paymentDescription"
-                        type="text"
-                        required
-                        defaultValue="STAFF REFERRAL INCENTIVE"
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500 focus:border-violet-500 transition-all text-sm font-medium"
-                        placeholder="e.g. STAFF REFERRAL INCENTIVE"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Bulk Payment Type</label>
-                      <select 
-                        name="bulkPaymentType"
-                        defaultValue="SALARY"
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-violet-500 focus:border-violet-500 transition-all text-sm font-medium"
-                      >
-                        <option value="SALARY">SALARY</option>
-                        <option value="DIVIDEND">DIVIDEND</option>
-                        <option value="COMMISSION">COMMISSION</option>
-                        <option value="OTHERS">OTHERS</option>
-                      </select>
-                    </div>
-
-                    <button 
-                      type="submit"
-                      className="w-full bg-violet-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-violet-500 transition-all shadow-lg shadow-violet-500"
-                    >
-                      Download CSV Template
-                    </button>
-                  </form>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-        
         {/* Staff Detail Modal */}
         <AnimatePresence>
           {showStaffModal && selectedStaffDetail && (
