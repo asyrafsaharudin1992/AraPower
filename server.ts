@@ -609,8 +609,8 @@ app.get("/api/branches/:name/performance", async (req, res) => {
   
   const performance = {
     total: referrals.length,
-    successful: referrals.filter(r => ['approved', 'payout_processed'].includes(r.status)).length,
-    pending: referrals.filter(r => ['entered', 'completed', 'paid_completed'].includes(r.status)).length,
+    successful: referrals.filter(r => ['payment_approved', 'payment_made'].includes(r.status)).length,
+    pending: referrals.filter(r => ['entered', 'completed', 'payment_made'].includes(r.status)).length,
     total_commission: referrals.reduce((sum, r) => sum + (r.commission_earned || 0), 0)
   };
   
@@ -2253,7 +2253,7 @@ app.post("/api/payouts/process", async (req, res) => {
 
   const { error } = await supabase
     .from('referrals')
-    .update({ status: 'payout_processed' })
+    .update({ status: 'payment_made' })
     .in('id', patient_ids);
 
   if (error) {

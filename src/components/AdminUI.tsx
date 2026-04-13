@@ -70,7 +70,7 @@ export const AdminUI: React.FC<AdminUIProps> = ({
         <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
           <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">Referral Approvals</p>
           <p className="text-3xl font-bold tracking-tight text-zinc-900">
-            {referrals.filter(r => r.status === 'paid_completed').length}
+            {referrals.filter(r => r.status === 'payment_made').length}
           </p>
         </div>
         <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">

@@ -139,7 +139,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                     {currentUser.role === 'receptionist' ? 'Arrived Today' : 'Paid Today'}
                   </p>
                   <p className="text-3xl font-black text-zinc-900 tracking-tighter">
-                    {currentUser.role === 'receptionist' ? receptionistStats.arrivedToday : referrals.filter(r => r.status === 'paid_completed' && r.date === new Date().toISOString().split('T')[0]).length}
+                    {currentUser.role === 'receptionist' ? receptionistStats.arrivedToday : referrals.filter(r => r.status === 'payment_made' && r.date === new Date().toISOString().split('T')[0]).length}
                   </p>
                   <p className="text-[10px] font-bold text-zinc-400 mt-1">
                     {currentUser.role === 'receptionist' ? 'Patients checked in' : 'Referrals completed'}
@@ -155,7 +155,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                 <div className="relative z-10 flex-1">
                   <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-1">Pending Action</p>
                   <p className="text-3xl font-black text-zinc-900 tracking-tighter">
-                    {currentUser.role === 'receptionist' ? receptionistStats.pendingArrivals : referrals.filter(r => r.status === 'arrived').length}
+                    {currentUser.role === 'receptionist' ? receptionistStats.pendingArrivals : referrals.filter(r => r.status === 'payment_approved').length}
                   </p>
                   <p className="text-[10px] font-bold text-zinc-400 mt-1">
                     {currentUser.role === 'receptionist' ? 'Expected today' : 'Awaiting payment'}

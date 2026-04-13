@@ -72,28 +72,65 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
       return;
     }
 
-    const casesToExport = approvedCases.filter(r => selectedForPayout.includes(r.id));
+    // Force strict typing on IDs to fix the blank file issue
+    const casesToExport = approvedCases.filter(r => selectedForPayout.includes(String(r.id)));
     
-    const headers = ['Affiliate Name', 'Bank Name', 'Account Number', 'Patient', 'Service', 'Date', 'Amount Owed'];
-    const rows = casesToExport.map(ref => {
-      const staff = staffList.find(s => String(s.id) === String(ref.staff_id));
-      return [
-        `"${staff?.name || ref.staff_name || 'Unknown'}"`,
-        `"${staff?.bank_name || 'No Bank Set'}"`,
-        `"${staff?.bank_account_number || staff?.account_number || 'No Account'}"`,
-        `"${ref.patient_name}"`,
-        `"${ref.service_name}"`,
-        ref.date,
-        ref.commission_amount.toFixed(2)
-      ].join(',');
+    // Group referrals by staff member to create single bulk payments per person
+    const aggregatedPayouts: Record<string, { staff: any, amount: number }> = {};
+    
+    casesToExport.forEach(ref => {
+      const staffId = String(ref.staff_id);
+      if (!aggregatedPayouts[staffId]) {
+        aggregatedPayouts[staffId] = {
+          staff: staffList.find(s => String(s.id) === staffId) || { name: ref.staff_name },
+          amount: 0
+        };
+      }
+      aggregatedPayouts[staffId].amount += Number(ref.commission_amount || 0);
     });
 
-    const csvContent = [headers.join(','), ...rows].join('\n');
+    const csvRows: string[] = [];
+    
+    // M2U Biz Header Template exactly matching the corporate format
+    csvRows.push(',,,,,,,,');
+    csvRows.push('Employer Info :,,,,,,,,');
+    csvRows.push('Crediting Date (eg. dd/MM/yyyy),,,Please save this template to .csv (comma delimited) file before uploading the file via M2U Biz,,,,,');
+    csvRows.push('Payment Reference,,,,,,,,');
+    csvRows.push('Payment Description,,,,,,,,');
+    csvRows.push('Bulk Payment Type,,,,,,,,');
+    csvRows.push(',,,,,,,,');
+    csvRows.push('Beneficiary Name,Beneficiary Bank,Beneficiary Account No,ID Type,ID Number,Payment Amount,Payment Reference,Payment Description,');
+
+    // Helper to safely format CSV strings with commas
+    const escapeCsv = (str: string) => {
+      const stringified = String(str || '');
+      if (stringified.includes(',') || stringified.includes('"')) {
+        return `"${stringified.replace(/"/g, '""')}"`;
+      }
+      return stringified;
+    };
+
+    // Data Rows (One row per staff member)
+    Object.values(aggregatedPayouts).forEach(({ staff, amount }) => {
+      const row = [
+        escapeCsv(staff.name || 'Unknown'),
+        escapeCsv(staff.bank_name || ''),
+        escapeCsv(staff.bank_account_number || staff.account_number || ''),
+        escapeCsv(staff.id_type || 'NEW NRIC'), // Defaults to NEW NRIC for banks
+        escapeCsv(staff.id_number || ''),
+        amount.toFixed(2),
+        'INCENTIVE', // Payment Reference
+        'REFERRAL INCENTIVE', // Payment Description
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const csvContent = csvRows.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Bulk_Payout_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `M2U_Bulk_Payout_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

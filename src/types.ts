@@ -106,7 +106,7 @@ export interface Referral {
   booking_time: string;
   visit_date?: string;
   date: string;
-  status: 'pending' | 'arrived' | 'in_session' | 'completed' | 'approved' | 'payout_processed' | 'cancelled' | 'entered' | 'paid_completed' | 'rejected' | 'warm_lead' | 'whatsapp_redirected';
+  status: 'pending' | 'arrived' | 'in_session' | 'completed' | 'payment_approved' | 'payment_made' | 'cancelled' | 'entered' | 'rejected' | 'warm_lead' | 'whatsapp_redirected';
   payment_status: 'pending' | 'completed';
   commission_amount: number;
   fraud_flags?: string;
