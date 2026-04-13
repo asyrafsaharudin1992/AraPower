@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, CheckCircle2, Download, AlertCircle, RefreshCw, DollarSign } from 'lucide-react';
+import { Search, CheckCircle2, Download, DollarSign, RefreshCw } from 'lucide-react';
 
 interface PayoutManagementProps {
   currentUser: any;
@@ -9,7 +9,7 @@ interface PayoutManagementProps {
   referrals: any[];
   staffList: any[];
   branches: any[];
-  handleBulkStatusUpdate: (ids: string[], newStatus: string) => Promise<void>; // NEW PROP
+  handleBulkStatusUpdate: (ids: string[], newStatus: string) => Promise<void>;
 }
 
 export const PayoutManagement: React.FC<PayoutManagementProps> = ({
@@ -25,19 +25,15 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [affiliateFilter, setAffiliateFilter] = useState('all');
   
-  // Checkbox states
   const [selectedForApproval, setSelectedForApproval] = useState<string[]>([]);
   const [selectedForPayout, setSelectedForPayout] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Security Check
   if (!rolesConfig[currentUser.role]?.canViewAnalytics) return null;
 
-  // Filter data based on the new status pipeline
   const completedCases = referrals.filter(r => r.status?.toLowerCase() === 'completed' && r.commission_amount > 0 && r.staff_id);
   const approvedCases = referrals.filter(r => r.status?.toLowerCase() === 'payment_approved' && r.commission_amount > 0 && r.staff_id);
 
-  // Apply search and affiliate filters
   const filteredCompleted = completedCases.filter(r => 
     (affiliateFilter === 'all' || String(r.staff_id) === affiliateFilter) &&
     (r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) || r.staff_name?.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -58,12 +54,10 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
 
   const handleMarkAsPaidSelected = async () => {
     if (selectedForPayout.length === 0) return;
-    if (window.confirm(`Mark ${selectedForPayout.length} cases as officially paid?`)) {
-      setIsProcessing(true);
-      await handleBulkStatusUpdate(selectedForPayout, 'payment_made');
-      setSelectedForPayout([]);
-      setIsProcessing(false);
-    }
+    setIsProcessing(true);
+    await handleBulkStatusUpdate(selectedForPayout, 'payment_made');
+    setSelectedForPayout([]);
+    setIsProcessing(false);
   };
 
   const generateBulkCSV = () => {
@@ -72,10 +66,7 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
       return;
     }
 
-    // Force strict typing on IDs to fix the blank file issue
     const casesToExport = approvedCases.filter(r => selectedForPayout.includes(String(r.id)));
-    
-    // Group referrals by staff member to create single bulk payments per person
     const aggregatedPayouts: Record<string, { staff: any, amount: number }> = {};
     
     casesToExport.forEach(ref => {
@@ -90,8 +81,6 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
     });
 
     const csvRows: string[] = [];
-    
-    // M2U Biz Header Template exactly matching the corporate format
     csvRows.push(',,,,,,,,');
     csvRows.push('Employer Info :,,,,,,,,');
     csvRows.push('Crediting Date (eg. dd/MM/yyyy),,,Please save this template to .csv (comma delimited) file before uploading the file via M2U Biz,,,,,');
@@ -101,26 +90,22 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
     csvRows.push(',,,,,,,,');
     csvRows.push('Beneficiary Name,Beneficiary Bank,Beneficiary Account No,ID Type,ID Number,Payment Amount,Payment Reference,Payment Description,');
 
-    // Helper to safely format CSV strings with commas
     const escapeCsv = (str: string) => {
       const stringified = String(str || '');
-      if (stringified.includes(',') || stringified.includes('"')) {
-        return `"${stringified.replace(/"/g, '""')}"`;
-      }
+      if (stringified.includes(',') || stringified.includes('"')) return `"${stringified.replace(/"/g, '""')}"`;
       return stringified;
     };
 
-    // Data Rows (One row per staff member)
     Object.values(aggregatedPayouts).forEach(({ staff, amount }) => {
       const row = [
         escapeCsv(staff.name || 'Unknown'),
         escapeCsv(staff.bank_name || ''),
         escapeCsv(staff.bank_account_number || staff.account_number || ''),
-        escapeCsv(staff.id_type || 'NEW NRIC'), // Defaults to NEW NRIC for banks
+        escapeCsv(staff.id_type || 'NEW NRIC'),
         escapeCsv(staff.id_number || ''),
         amount.toFixed(2),
-        'INCENTIVE', // Payment Reference
-        'REFERRAL INCENTIVE', // Payment Description
+        'INCENTIVE',
+        'REFERRAL INCENTIVE',
       ];
       csvRows.push(row.join(','));
     });
@@ -138,14 +123,11 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      
-      {/* Header */}
       <div>
         <h2 className="text-2xl font-black text-zinc-900 tracking-tight">Payout Management</h2>
         <p className="text-zinc-500 text-sm">Review completed cases, approve incentives, and process bulk payments.</p>
       </div>
 
-      {/* Filters & Navigation */}
       <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm flex flex-wrap gap-4 items-end justify-between">
         <div className="flex gap-2 p-1 bg-zinc-50 rounded-2xl w-fit">
           <button 
@@ -186,7 +168,6 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
         </div>
       </div>
 
-      {/* Tab 1: Review & Approve */}
       {activeTab === 'approval' && (
         <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">
@@ -194,10 +175,7 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
               <input 
                 type="checkbox"
                 checked={selectedForApproval.length === filteredCompleted.length && filteredCompleted.length > 0}
-                onChange={(e) => {
-                  if (e.target.checked) setSelectedForApproval(filteredCompleted.map(r => String(r.id)));
-                  else setSelectedForApproval([]);
-                }}
+                onChange={(e) => setSelectedForApproval(e.target.checked ? filteredCompleted.map(r => String(r.id)) : [])}
                 className="w-5 h-5 rounded border-zinc-300 text-violet-500 focus:ring-violet-500"
               />
               <span className="text-sm font-bold text-zinc-700">Select All ({filteredCompleted.length})</span>
@@ -223,18 +201,14 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
-              {filteredCompleted.length === 0 && (
-                <tr><td colSpan={5} className="p-8 text-center text-zinc-500">No completed cases awaiting approval.</td></tr>
-              )}
+              {filteredCompleted.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-zinc-500">No completed cases awaiting approval.</td></tr>}
               {filteredCompleted.map(ref => (
-                <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors cursor-pointer" onClick={() => {
-                  setSelectedForApproval(prev => prev.includes(String(ref.id)) ? prev.filter(id => id !== String(ref.id)) : [...prev, String(ref.id)]);
-                }}>
+                <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors cursor-pointer" onClick={() => setSelectedForApproval(prev => prev.includes(String(ref.id)) ? prev.filter(id => id !== String(ref.id)) : [...prev, String(ref.id)])}>
                   <td className="p-4">
                     <input 
                       type="checkbox"
                       checked={selectedForApproval.includes(String(ref.id))}
-                      onChange={() => {}} // Handled by tr onClick
+                      readOnly
                       className="w-5 h-5 rounded border-zinc-300 text-violet-500 focus:ring-violet-500"
                     />
                   </td>
@@ -249,7 +223,6 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
         </div>
       )}
 
-      {/* Tab 2: Bulk Payout */}
       {activeTab === 'payout' && (
         <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between flex-wrap gap-4">
@@ -257,10 +230,7 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
               <input 
                 type="checkbox"
                 checked={selectedForPayout.length === filteredApproved.length && filteredApproved.length > 0}
-                onChange={(e) => {
-                  if (e.target.checked) setSelectedForPayout(filteredApproved.map(r => String(r.id)));
-                  else setSelectedForPayout([]);
-                }}
+                onChange={(e) => setSelectedForPayout(e.target.checked ? filteredApproved.map(r => String(r.id)) : [])}
                 className="w-5 h-5 rounded border-zinc-300 text-emerald-500 focus:ring-emerald-500"
               />
               <span className="text-sm font-bold text-zinc-700">Select All ({filteredApproved.length})</span>
@@ -272,7 +242,7 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
                 className="bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-900 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-50 flex items-center gap-2"
               >
                 <Download size={14} />
-                Generate CSV
+                Generate M2U CSV
               </button>
               <button 
                 onClick={handleMarkAsPaidSelected}
@@ -296,20 +266,16 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
-              {filteredApproved.length === 0 && (
-                <tr><td colSpan={5} className="p-8 text-center text-zinc-500">No approved cases waiting for payout.</td></tr>
-              )}
+              {filteredApproved.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-zinc-500">No approved cases waiting for payout.</td></tr>}
               {filteredApproved.map(ref => {
                 const staff = staffList.find(s => String(s.id) === String(ref.staff_id));
                 return (
-                  <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors cursor-pointer" onClick={() => {
-                    setSelectedForPayout(prev => prev.includes(String(ref.id)) ? prev.filter(id => id !== String(ref.id)) : [...prev, String(ref.id)]);
-                  }}>
+                  <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors cursor-pointer" onClick={() => setSelectedForPayout(prev => prev.includes(String(ref.id)) ? prev.filter(id => id !== String(ref.id)) : [...prev, String(ref.id)])}>
                     <td className="p-4">
                       <input 
                         type="checkbox"
                         checked={selectedForPayout.includes(String(ref.id))}
-                        onChange={() => {}} // Handled by tr onClick
+                        readOnly
                         className="w-5 h-5 rounded border-zinc-300 text-emerald-500 focus:ring-emerald-500"
                       />
                     </td>
