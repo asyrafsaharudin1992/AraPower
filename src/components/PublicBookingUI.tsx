@@ -8,7 +8,9 @@ import {
   MessageCircle, 
   CheckCircle, 
   AlertCircle,
-  Lock
+  Lock,
+  PlusCircle,
+  Home
 } from 'lucide-react';
 import { Service, Staff, ClinicProfile } from '../types';
 import { supabase } from '../supabase';
@@ -274,18 +276,35 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
           </div>
           <h2 className="text-2xl font-bold text-zinc-900 mb-2">Tempahan Berjaya!</h2>
           <p className="text-zinc-500 mb-8">Terima kasih kerana memilih kami. Pihak kami akan menghubungi anda dalam masa terdekat untuk pengesahan.</p>
-          <button 
-            onClick={() => {
-              setBookingSuccess(false);
-              setPublicBookingStep('lead');
-              setDraftReferralId(null);
-              setPatientName('');
-              setPatientPhone('');
-            }}
-            className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200"
-          >
-            Kembali ke Laman Utama
-          </button>
+          <div className="space-y-3">
+            <button 
+              onClick={() => {
+                setBookingSuccess(false);
+                setPublicBookingStep('lead');
+                setDraftReferralId(null);
+                // Clear everything so they can start fresh
+                setPatientName('');
+                setPatientPhone('');
+                setPatientIC('');
+                setPatientAddress('');
+                setSelectedService('');
+                setAppointmentDate('');
+                setBookingTime('');
+              }}
+              className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 flex items-center justify-center gap-2"
+            >
+              <PlusCircle size={20} />
+              Buat Tempahan Baru
+            </button>
+            
+            <a 
+              href="/"
+              className="w-full py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold hover:bg-zinc-200 transition-all flex items-center justify-center gap-2"
+            >
+              <Home size={20} />
+              Kembali ke Laman Utama
+            </a>
+          </div>
         </motion.div>
       </div>
     );
