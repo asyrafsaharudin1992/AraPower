@@ -182,22 +182,22 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
       )}
 
       {/* Staff Dashboard - Tier Progress & Stats */}
-      {currentUser.role !== 'admin' && currentUser.role !== 'manager' && currentUser.role !== 'receptionist' && (
+      {currentUser.role !== 'admin' && currentUser.role !== 'manager' && currentUser.role !== 'receptionist' && currentUserStats && (
         <div className="space-y-6">
           <div className="bg-white rounded-[2.5rem] border border-black/5 shadow-sm p-8 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-brand-primary/10 to-transparent rounded-full -mr-32 -mt-32" />
             
             <div className="relative z-10">
               <div className="flex items-center gap-4 mb-8">
-                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center text-white shadow-lg ${currentUserStats.tier.bg}`}>
+                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center text-white shadow-lg ${currentUserStats?.tier?.bg || 'bg-zinc-500'}`}>
                   <Trophy size={32} />
                 </div>
                 <div>
                   <h3 className="text-2xl font-black text-zinc-900 tracking-tight">
-                    {currentUserStats.tier.name} Tier
+                    {currentUserStats?.tier?.name || 'Bronze'} Tier
                   </h3>
                   <p className="text-sm font-medium text-zinc-500">
-                    {currentUserStats.tier.commissionRate * 100}% Commission Rate
+                    {(currentUserStats?.tier?.bonus || 1)}x Commission Multiplier
                   </p>
                 </div>
               </div>
@@ -206,7 +206,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                 <div className="space-y-4">
                   <div className="flex justify-between text-sm font-bold">
                     <span className="text-zinc-500">Progress to {nextTier.name}</span>
-                    <span className="text-brand-primary">{currentUserStats.monthlySuccessfulRefs} / {nextTier.minReferrals}</span>
+                    <span className="text-brand-primary">{currentUserStats?.monthlySuccessfulRefs || 0} / {nextTier.min}</span>
                   </div>
                   <div className="h-4 bg-zinc-100 rounded-full overflow-hidden">
                     <motion.div 
@@ -217,7 +217,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                     />
                   </div>
                   <p className="text-xs font-medium text-zinc-500">
-                    {nextTier.minReferrals - currentUserStats.monthlySuccessfulRefs} more successful referrals needed this month to unlock {nextTier.commissionRate * 100}% commission!
+                    {nextTier.min - (currentUserStats?.monthlySuccessfulRefs || 0)} more successful referrals needed this month to unlock {nextTier.bonus}x commission multiplier!
                   </p>
                 </div>
               )}
@@ -227,13 +227,13 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white p-6 rounded-[2rem] border border-black/5 shadow-sm">
               <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">This Month</p>
-              <p className="text-3xl font-black tracking-tighter text-zinc-900">{currentUserStats.monthlySuccessfulRefs}</p>
+              <p className="text-3xl font-black tracking-tighter text-zinc-900">{currentUserStats?.monthlySuccessfulRefs || 0}</p>
               <p className="text-[10px] font-bold text-emerald-500 mt-1">Successful</p>
             </div>
             <div className="bg-white p-6 rounded-[2rem] border border-black/5 shadow-sm">
               <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">Total Earned</p>
               <p className="text-3xl font-black tracking-tighter text-zinc-900">
-                {clinicProfile.currency}{(currentUserStats.earned || 0).toFixed(0)}
+                {clinicProfile.currency}{(currentUserStats?.earned || 0).toFixed(0)}
               </p>
               <p className="text-[10px] font-bold text-zinc-400 mt-1">Lifetime</p>
             </div>

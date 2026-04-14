@@ -190,8 +190,8 @@ export const AdminUI: React.FC<AdminUIProps> = ({
                   </div>
                 </td>
                 <td className="p-4">
-                  <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${staff.tier.bg} ${staff.tier.color}`}>
-                    {staff.tier.name}
+                  <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${staff.tier?.bg || 'bg-zinc-50'} ${staff.tier?.color || 'text-zinc-500'}`}>
+                    {staff.tier?.name || 'Bronze'}
                   </span>
                 </td>
                 <td className="p-4 text-sm font-semibold text-center">{staff.monthlySuccessfulRefs}</td>

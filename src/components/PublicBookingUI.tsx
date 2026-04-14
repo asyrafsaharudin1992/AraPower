@@ -73,6 +73,22 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
         .catch(err => console.error('Failed to lookup affiliate:', err));
     }
 
+    const serviceFromUrl = params.get('serviceName') || params.get('sName');
+    if (serviceFromUrl) {
+      const decodedService = decodeURIComponent(serviceFromUrl.replace(/\+/g, ' '));
+      setUrlServiceName(decodedService);
+      // Try to find a matching service ID
+      const matchedService = services.find(s => 
+        s.name.toLowerCase() === decodedService.toLowerCase()
+      );
+      if (matchedService) {
+        setSelectedService(String(matchedService.id));
+      } else {
+        // If it's a generic word (e.g. from an ad) just store the string
+        setSelectedService(decodedService);
+      }
+    }
+
     const urlId = params.get('service') || params.get('serviceId');
     const urlNameRaw = params.get('sName') || params.get('serviceName');
     const decodedName = urlNameRaw ? decodeURIComponent(urlNameRaw) : '';
@@ -138,6 +154,17 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 
   const onFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // STRICT GUARD: Re-verify that the selected time is actually available before submitting
+    if (appointmentDate && selectedBranch) {
+      const validSlots = getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate);
+      if (!validSlots.includes(bookingTime)) {
+        alert("Ralat: Waktu yang dipilih telah penuh atau tidak sah. Sila pilih waktu lain.");
+        setBookingTime(''); // Force them to pick again
+        return;
+      }
+    }
+
     const formData = {
       patientName,
       patientPhone,
@@ -356,7 +383,11 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                   ) : (
                     <select 
                       value={selectedService}
-                      onChange={(e) => setSelectedService(e.target.value)}
+                      onChange={(e) => {
+                        setSelectedService(e.target.value);
+                        setUrlServiceName('');
+                        setBookingTime(''); // Strictly reset time if service changes
+                      }}
                       className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                       required
                     >
@@ -372,13 +403,18 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                   <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Cawangan</label>
                   <select 
                     value={selectedBranch}
-                    onChange={(e) => setSelectedBranch(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedBranch(e.target.value);
+                      setBookingTime(''); // Strictly reset time if branch changes
+                    }}
                     className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                     required
                   >
                     <option value="">Pilih cawangan...</option>
-                    {branches.map(b => (
-                      <option key={b.id} value={b.name}>{b.name}</option>
+                    {branches
+                      .filter(b => b.is_active !== false && b.status !== 'inactive')
+                      .map(b => (
+                        <option key={b.id} value={b.name}>{b.name}</option>
                     ))}
                   </select>
                 </div>
@@ -403,14 +439,16 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                   <select 
                     value={bookingTime}
                     onChange={(e) => setBookingTime(e.target.value)}
-                    disabled={!appointmentDate || !selectedBranch}
+                    disabled={!appointmentDate || !selectedBranch || (appointmentDate && selectedBranch && getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate).length === 0)}
                     className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     required
                   >
                     <option value="">
                       {(!appointmentDate || !selectedBranch) 
                         ? 'Sila pilih cawangan & tarikh dahulu...' 
-                        : 'Pilih waktu...'}
+                        : getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate).length === 0
+                          ? '⚠️ Penuh / Tutup pada tarikh ini'
+                          : 'Pilih waktu...'}
                     </option>
                     {appointmentDate && selectedBranch && getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate).map((timeSlot: string) => (
                       <option key={timeSlot} value={timeSlot}>{timeSlot}</option>
