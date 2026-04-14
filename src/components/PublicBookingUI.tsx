@@ -42,6 +42,8 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   const [referringStaff, setReferringStaff] = useState<Staff | null>(null);
   const [providedRefCode, setProvidedRefCode] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [realAvailableSlots, setRealAvailableSlots] = useState<string[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   
   const [patientName, setPatientName] = useState('');
   const [patientPhone, setPatientPhone] = useState('');
@@ -152,6 +154,63 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     }
   };
 
+  useEffect(() => {
+    async function checkRealTimeSlots() {
+      if (!appointmentDate || !selectedBranch || !selectedService) {
+        setRealAvailableSlots([]);
+        return;
+      }
+      setIsLoadingSlots(true);
+
+      const srv = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService);
+      const actualServiceId = srv ? String(srv.id) : selectedService;
+
+      // 1. Get base slots from the clinic's schedule config (App.tsx)
+      const baseSlots = getAvailableTimeSlots(actualServiceId, selectedBranch, appointmentDate);
+
+      if (baseSlots.length === 0) {
+        setRealAvailableSlots([]);
+        setIsLoadingSlots(false);
+        return;
+      }
+
+      try {
+        // 2. Fetch actual taken slots from Supabase to prevent double booking
+        const { data, error } = await supabase
+          .from('referrals')
+          .select('booking_time')
+          .eq('service_id', actualServiceId)
+          .eq('branch', selectedBranch)
+          .eq('appointment_date', appointmentDate)
+          .neq('status', 'cancelled');
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const bSched = srv?.branches?.[selectedBranch] as any;
+          const maxSlots = bSched?.limitBookings ? (bSched.maxSlots || 1) : 1; 
+
+          const timeCounts: Record<string, number> = {};
+          data.forEach(r => {
+            timeCounts[r.booking_time] = (timeCounts[r.booking_time] || 0) + 1;
+          });
+
+          // Filter out slots that have reached their max capacity
+          const finalSlots = baseSlots.filter(slot => (timeCounts[slot] || 0) < maxSlots);
+          setRealAvailableSlots(finalSlots);
+        } else {
+          setRealAvailableSlots(baseSlots);
+        }
+      } catch (err) {
+        console.error("Error fetching taken slots:", err);
+        setRealAvailableSlots(baseSlots);
+      }
+      setIsLoadingSlots(false);
+    }
+
+    checkRealTimeSlots();
+  }, [appointmentDate, selectedBranch, selectedService, services]);
+
   const onFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -192,6 +251,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
       setAppointmentDate('');
       setBookingTime('');
       setSelectedService('');
+      setUrlServiceName('');
       setDraftReferralId(null);
       setPublicBookingStep('lead');
     }
@@ -240,6 +300,17 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
       </div>
     );
   }
+
+  const getAvailableBranches = () => {
+    const allActive = branches.filter(b => b.is_active !== false && b.status !== 'inactive');
+    if (!selectedService) return allActive;
+    
+    const srv = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService);
+    if (!srv || !srv.branches) return allActive;
+
+    // Return only branches that actually offer this service
+    return allActive.filter(b => Object.keys(srv.branches).includes(b.name));
+  };
 
   return (
     <div className="min-h-screen bg-zinc-50 pb-12">
@@ -412,14 +483,8 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                     required
                   >
                     <option value="">Pilih cawangan...</option>
-                    {branches
-                      .filter(b => 
-                        b.is_active !== false && 
-                        b.isActive !== false && 
-                        b.status?.toLowerCase() !== 'inactive'
-                      )
-                      .map(b => (
-                        <option key={b.id} value={b.name}>{b.name}</option>
+                    {getAvailableBranches().map(b => (
+                      <option key={b.id} value={b.name}>{b.name}</option>
                     ))}
                   </select>
                 </div>
@@ -432,20 +497,18 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                     value={appointmentDate}
                     onChange={(e) => {
                       const newDate = e.target.value;
-                      
-                      // If they already picked a branch, do an instant availability check
                       if (selectedBranch && newDate) {
-                        const availableSlots = getAvailableTimeSlots(selectedService, selectedBranch, newDate);
-                        if (availableSlots.length === 0) {
-                          alert("Maaf, klinik tutup atau telah penuh pada tarikh ini. Sila pilih tarikh lain.");
-                          setAppointmentDate(''); // Reject the input
+                        const actualServiceId = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService)?.id || selectedService;
+                        const baseSlots = getAvailableTimeSlots(actualServiceId, selectedBranch, newDate);
+                        if (baseSlots.length === 0) {
+                          alert("Maaf, klinik tutup pada tarikh ini. Sila pilih tarikh lain.");
+                          setAppointmentDate('');
                           setBookingTime('');
                           return;
                         }
                       }
-                      
                       setAppointmentDate(newDate);
-                      setBookingTime(''); // Force user to re-pick a valid time
+                      setBookingTime('');
                     }}
                     className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                     required
@@ -457,18 +520,16 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                   <select 
                     value={bookingTime}
                     onChange={(e) => setBookingTime(e.target.value)}
-                    disabled={!appointmentDate || !selectedBranch || (appointmentDate && selectedBranch && getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate).length === 0)}
+                    disabled={!appointmentDate || !selectedBranch || isLoadingSlots || realAvailableSlots.length === 0}
                     className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     required
                   >
                     <option value="">
-                      {(!appointmentDate || !selectedBranch) 
-                        ? 'Sila pilih cawangan & tarikh dahulu...' 
-                        : getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate).length === 0
-                          ? '⚠️ Penuh / Tutup pada tarikh ini'
-                          : 'Pilih waktu...'}
+                      {isLoadingSlots ? 'Menyemak kekosongan...' :
+                       (!appointmentDate || !selectedBranch) ? 'Sila pilih cawangan & tarikh dahulu...' : 
+                       realAvailableSlots.length === 0 ? '⚠️ Penuh / Tutup pada tarikh ini' : 'Pilih waktu...'}
                     </option>
-                    {appointmentDate && selectedBranch && getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate).map((timeSlot: string) => (
+                    {realAvailableSlots.map((timeSlot: string) => (
                       <option key={timeSlot} value={timeSlot}>{timeSlot}</option>
                     ))}
                   </select>
