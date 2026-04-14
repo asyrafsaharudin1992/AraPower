@@ -178,7 +178,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
         // 2. Fetch actual taken slots from Supabase to prevent double booking
         const { data, error } = await supabase
           .from('referrals')
-          .select('booking_time')
+          .select('booking_time, service_id, status')
           .eq('service_id', actualServiceId)
           .eq('branch', selectedBranch)
           .eq('appointment_date', appointmentDate)
@@ -192,7 +192,12 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 
           const timeCounts: Record<string, number> = {};
           data.forEach(r => {
-            timeCounts[r.booking_time] = (timeCounts[r.booking_time] || 0) + 1;
+            // Fix the HH:MM:SS vs HH:MM mismatch by slicing off the seconds
+            const dbTime = r.booking_time ? r.booking_time.substring(0, 5) : '';
+            // Only count the booking if it matches the service we are trying to book
+            if (String(r.service_id) === String(actualServiceId) && dbTime) {
+              timeCounts[dbTime] = (timeCounts[dbTime] || 0) + 1;
+            }
           });
 
           // Filter out slots that have reached their max capacity
@@ -214,13 +219,29 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   const onFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // STRICT GUARD: Re-verify that the selected time is actually available before submitting
-    if (appointmentDate && selectedBranch) {
-      const validSlots = getAvailableTimeSlots(selectedService, selectedBranch, appointmentDate);
-      if (!validSlots.includes(bookingTime)) {
-        alert("Ralat: Waktu yang dipilih telah penuh atau tidak sah. Sila pilih waktu lain.");
-        setBookingTime(''); // Force them to pick again
-        return;
+    // LIVE STRICT GUARD: Ask Supabase if the exact slot was taken 1 millisecond ago
+    if (appointmentDate && selectedBranch && bookingTime) {
+      const srv = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService);
+      const actualServiceId = srv ? String(srv.id) : selectedService;
+      const bSched = srv?.branches?.[selectedBranch] as any;
+      const maxSlots = bSched?.limitBookings ? (bSched.maxSlots || 1) : 1; 
+
+      const { data: slotCheck } = await supabase
+        .from('referrals')
+        .select('booking_time')
+        .eq('branch', selectedBranch)
+        .eq('appointment_date', appointmentDate)
+        .eq('service_id', actualServiceId)
+        .neq('status', 'cancelled');
+
+      if (slotCheck) {
+        // Compare using startsWith to handle the "10:00:00" vs "10:00" database quirk
+        const takenCount = slotCheck.filter(r => r.booking_time && r.booking_time.startsWith(bookingTime)).length;
+        if (takenCount >= maxSlots) {
+          alert("Maaf! Waktu yang anda pilih baru sahaja ditempah oleh orang lain. Sila pilih waktu lain.");
+          setBookingTime(''); // Force them to pick a new time
+          return; // Kill the submission entirely
+        }
       }
     }
 
