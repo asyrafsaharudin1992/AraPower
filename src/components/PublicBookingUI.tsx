@@ -413,7 +413,11 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                   >
                     <option value="">Pilih cawangan...</option>
                     {branches
-                      .filter(b => b.is_active !== false && b.status !== 'inactive')
+                      .filter(b => 
+                        b.is_active !== false && 
+                        b.isActive !== false && 
+                        b.status?.toLowerCase() !== 'inactive'
+                      )
                       .map(b => (
                         <option key={b.id} value={b.name}>{b.name}</option>
                     ))}
@@ -427,8 +431,21 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                     min={new Date().toISOString().split('T')[0]} 
                     value={appointmentDate}
                     onChange={(e) => {
-                      setAppointmentDate(e.target.value);
-                      setBookingTime(''); // Force user to re-pick a valid time if they change the date
+                      const newDate = e.target.value;
+                      
+                      // If they already picked a branch, do an instant availability check
+                      if (selectedBranch && newDate) {
+                        const availableSlots = getAvailableTimeSlots(selectedService, selectedBranch, newDate);
+                        if (availableSlots.length === 0) {
+                          alert("Maaf, klinik tutup atau telah penuh pada tarikh ini. Sila pilih tarikh lain.");
+                          setAppointmentDate(''); // Reject the input
+                          setBookingTime('');
+                          return;
+                        }
+                      }
+                      
+                      setAppointmentDate(newDate);
+                      setBookingTime(''); // Force user to re-pick a valid time
                     }}
                     className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                     required
@@ -497,11 +514,13 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 
                     <option value="">Pilih cawangan...</option>
                       {branches
-                        .filter(b => b.is_active !== false && b.status !== 'inactive')
+                        .filter(b => 
+                          b.is_active !== false && 
+                          b.isActive !== false && 
+                          b.status?.toLowerCase() !== 'inactive'
+                        )
                         .map(b => (
                           <option key={b.id} value={b.name}>{b.name}</option>
-
-                     
                       ))}
                     </select>
                   </div>
