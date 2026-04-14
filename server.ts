@@ -739,6 +739,27 @@ app.get("/api/health", async (req, res) => {
   });
 });
 
+app.get('/api/public/slots', async (req, res) => {
+  const { branch, date } = req.query;
+  if (!branch || !date) return res.status(400).json({ error: 'Missing parameters' });
+  
+  try {
+    const { data, error } = await supabase
+      .from('referrals')
+      .select('booking_time')
+      .eq('branch', branch)
+      .eq('appointment_date', date)
+      .neq('status', 'cancelled');
+      
+    if (error) throw error;
+    // Return only the time strings (e.g. "10:00:00" -> "10:00")
+    const takenTimes = data.map((r: any) => r.booking_time ? r.booking_time.substring(0, 5) : '').filter(Boolean);
+    res.json({ takenSlots: takenTimes });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch slots' });
+  }
+});
+
 app.get("/api/debug/supabase", async (req, res) => {
   const report: any = {
     url_configured: !!supabaseUrl,

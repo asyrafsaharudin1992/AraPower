@@ -175,32 +175,20 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
       }
 
       try {
-        // 2. Fetch actual taken slots from Supabase to prevent double booking
-        const { data, error } = await supabase
-          .from('referrals')
-          .select('booking_time, service_id, status')
-          .eq('service_id', actualServiceId)
-          .eq('branch', selectedBranch)
-          .eq('appointment_date', appointmentDate)
-          .neq('status', 'cancelled');
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
+        // Securely ask the backend for taken slots (Bypasses RLS safely)
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/public/slots?branch=${encodeURIComponent(selectedBranch)}&date=${appointmentDate}`);
+        
+        if (res.ok && data?.takenSlots) {
           const bSched = srv?.branches?.[selectedBranch] as any;
+          // If limitBookings is enabled, use maxSlots, otherwise default to 1 globally
           const maxSlots = bSched?.limitBookings ? (bSched.maxSlots || 1) : 1; 
 
           const timeCounts: Record<string, number> = {};
-          data.forEach(r => {
-            // Fix the HH:MM:SS vs HH:MM mismatch by slicing off the seconds
-            const dbTime = r.booking_time ? r.booking_time.substring(0, 5) : '';
-            // Only count the booking if it matches the service we are trying to book
-            if (String(r.service_id) === String(actualServiceId) && dbTime) {
-              timeCounts[dbTime] = (timeCounts[dbTime] || 0) + 1;
-            }
+          data.takenSlots.forEach((time: string) => {
+            timeCounts[time] = (timeCounts[time] || 0) + 1;
           });
 
-          // Filter out slots that have reached their max capacity
+          // Filter out slots that have reached the max capacity for the whole branch
           const finalSlots = baseSlots.filter(slot => (timeCounts[slot] || 0) < maxSlots);
           setRealAvailableSlots(finalSlots);
         } else {
@@ -219,28 +207,20 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   const onFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // LIVE STRICT GUARD: Ask Supabase if the exact slot was taken 1 millisecond ago
+    // LIVE STRICT GUARD: Securely check the backend 1 millisecond before submitting
     if (appointmentDate && selectedBranch && bookingTime) {
       const srv = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService);
-      const actualServiceId = srv ? String(srv.id) : selectedService;
       const bSched = srv?.branches?.[selectedBranch] as any;
       const maxSlots = bSched?.limitBookings ? (bSched.maxSlots || 1) : 1; 
 
-      const { data: slotCheck } = await supabase
-        .from('referrals')
-        .select('booking_time')
-        .eq('branch', selectedBranch)
-        .eq('appointment_date', appointmentDate)
-        .eq('service_id', actualServiceId)
-        .neq('status', 'cancelled');
+      const { res, data: slotCheck } = await safeFetch(`${apiBaseUrl}/api/public/slots?branch=${encodeURIComponent(selectedBranch)}&date=${appointmentDate}`);
 
-      if (slotCheck) {
-        // Compare using startsWith to handle the "10:00:00" vs "10:00" database quirk
-        const takenCount = slotCheck.filter(r => r.booking_time && r.booking_time.startsWith(bookingTime)).length;
+      if (res.ok && slotCheck?.takenSlots) {
+        const takenCount = slotCheck.takenSlots.filter((time: string) => time.startsWith(bookingTime)).length;
         if (takenCount >= maxSlots) {
           alert("Maaf! Waktu yang anda pilih baru sahaja ditempah oleh orang lain. Sila pilih waktu lain.");
-          setBookingTime(''); // Force them to pick a new time
-          return; // Kill the submission entirely
+          setBookingTime(''); 
+          return; 
         }
       }
     }
