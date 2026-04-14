@@ -23,6 +23,7 @@ export interface ProfileUIProps {
   setFeedbackMessage: (msg: string) => void;
   handleSendFeedback: () => void;
   isSendingFeedback: boolean;
+  handleLogout: () => void;
 }
 
 export const ProfileUI: React.FC<ProfileUIProps> = ({
@@ -43,7 +44,8 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
   feedbackMessage,
   setFeedbackMessage,
   handleSendFeedback,
-  isSendingFeedback
+  isSendingFeedback,
+  handleLogout
 }) => {
   if (!currentUser) return null;
 
@@ -380,13 +382,24 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
           <div className="pt-8">
             <button 
               type="submit"
-              className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] shadow-xl ${
+              className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] shadow-xl mb-4 ${
                 darkMode 
                   ? 'bg-brand-accent text-brand-primary shadow-brand-accent/20 hover:bg-brand-accent/90' 
                   : 'bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 shadow-violet-500 hover:from-violet-500 hover:to-rose-500'
               }`}
             >
               Save Profile Changes
+            </button>
+            <button 
+              type="button"
+              onClick={handleLogout}
+              className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] border-2 ${
+                darkMode 
+                  ? 'border-rose-500/20 text-rose-500 hover:bg-rose-500/10' 
+                  : 'border-rose-500/20 text-rose-500 hover:bg-rose-50'
+              }`}
+            >
+              Sign Out
             </button>
           </div>
         </form>

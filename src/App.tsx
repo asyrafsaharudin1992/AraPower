@@ -9,6 +9,9 @@ import { DashboardUI } from './components/DashboardUI';
 import { CategoryScrollRow } from './components/CategoryScrollRow';
 import { PayoutManagement } from './components/PayoutManagement';
 import { ReferralBoard } from './components/ReferralBoard';
+import { KitUI } from './components/KitUI';
+import { PromotionsUI } from './components/PromotionsUI';
+import { ProfileUI } from './components/ProfileUI';
 import AddServiceForm from './components/AddServiceForm';
 import { Service, Promotion, Staff, Referral, AppSettings, ClinicProfile } from './types';
 import { 
@@ -4015,6 +4018,87 @@ export default function App() {
               handleDeleteReferral={handleDeleteReferral}
               getStatusColor={getStatusColor}
               getStatusLabel={getStatusLabel}
+            />
+          )}
+
+          {activeTab === 'kit' && (
+            <KitUI 
+              currentUser={currentUser}
+              clinicProfile={clinicProfile}
+              darkMode={darkMode}
+              isMobile={isMobile}
+              services={services}
+              branches={branches}
+              patientName={patientName}
+              setPatientName={setPatientName}
+              patientPhone={patientPhone}
+              setPatientPhone={setPatientPhone}
+              patientIC={patientIC}
+              setPatientIC={setPatientIC}
+              patientType={patientType}
+              setPatientType={setPatientType}
+              patientAddress={patientAddress}
+              setPatientAddress={setPatientAddress}
+              selectedService={selectedService}
+              setSelectedService={setSelectedService}
+              selectedBranch={selectedBranch}
+              setSelectedBranch={setSelectedBranch}
+              appointmentDate={appointmentDate}
+              setAppointmentDate={setAppointmentDate}
+              bookingTime={bookingTime}
+              setBookingTime={setBookingTime}
+              isSubmitting={isSubmitting}
+              handleSubmitReferral={handleSubmitReferral}
+              urlServiceName={urlServiceName}
+              getAvailableTimeSlots={getAvailableTimeSlots}
+            />
+          )}
+
+          {activeTab === 'promotions' && (
+            <PromotionsUI 
+              currentUser={currentUser}
+              clinicProfile={clinicProfile}
+              darkMode={darkMode}
+              isMobile={isMobile}
+              services={services}
+              promotions={promotions}
+              serviceCategories={serviceCategories}
+              promoSubTab={promoSubTab}
+              setPromoSubTab={setPromoSubTab}
+              editingService={editingService}
+              setEditingService={setEditingService}
+              fetchServices={fetchServices}
+              handleDeleteService={handleDeleteService}
+              getServiceStatus={getServiceStatus}
+              checkBranchAccess={checkBranchAccess}
+              selectedPromo={selectedPromo}
+              setSelectedPromo={setSelectedPromo}
+              isPromoModalOpen={isPromoModalOpen}
+              setIsPromoModalOpen={setIsPromoModalOpen}
+            />
+          )}
+
+          {activeTab === 'profile' && (
+            <ProfileUI 
+              currentUser={currentUser}
+              darkMode={darkMode}
+              isUploading={isUploading}
+              handleImageUpload={handleImageUpload}
+              handleUpdateProfile={handleUpdateProfile}
+              THEMES={THEMES}
+              selectedTheme={selectedTheme}
+              setSelectedTheme={setSelectedTheme}
+              windowWidth={windowWidth}
+              setDarkMode={setDarkMode}
+              reduceTranslucency={reduceTranslucency}
+              setReduceTranslucency={setReduceTranslucency}
+              setActiveTab={setActiveTab}
+              setShowPasswordModal={setShowPasswordModal}
+              feedbackMessage={feedbackMessage}
+              setFeedbackMessage={setFeedbackMessage}
+              handleSendFeedback={handleSendFeedback}
+              isSendingFeedback={isSendingFeedback}
+              handleLogout={handleLogout}
             />
           )}
 
