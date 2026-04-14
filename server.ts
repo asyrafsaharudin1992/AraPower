@@ -2288,6 +2288,32 @@ app.post("/api/payouts/process", async (req, res) => {
 app.post("/api/referrals", async (req, res) => {
   const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, created_by, branch, referral_code, status, commission_amount, service_name } = req.body;
 
+  // 1. THE BOUNCER: Check if the exact slot was taken by someone else 1 microsecond ago
+  if (appointment_date && booking_time && branch) {
+    const timePrefix = booking_time.substring(0, 5); // handle '10:00' vs '10:00:00'
+    
+    const { data: existingBookings, error: checkError } = await supabase
+      .from('referrals')
+      .select('id, booking_time')
+      .eq('branch', branch)
+      .eq('appointment_date', appointment_date)
+      .neq('status', 'cancelled');
+
+    if (!checkError && existingBookings) {
+      const takenCount = existingBookings.filter((r: any) => 
+        r.booking_time && r.booking_time.startsWith(timePrefix)
+      ).length;
+      
+      // Note: If you eventually want 2 chairs per branch, change '1' to your maxSlots variable
+      if (takenCount >= 1) { 
+        return res.status(409).json({ 
+          error: 'Slot conflict', 
+          message: 'Maaf! Waktu yang anda pilih baru sahaja ditempah oleh orang lain. Sila pilih waktu lain.' 
+        });
+      }
+    }
+  }
+
   const insertData: any = {
     patient_name,
     patient_phone: patient_phone || null,
