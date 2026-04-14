@@ -43,6 +43,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   const [providedRefCode, setProvidedRefCode] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [realAvailableSlots, setRealAvailableSlots] = useState<string[]>([]);
+  const [allPossibleSlots, setAllPossibleSlots] = useState<string[]>([]); // ADD THIS
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   
   const [patientName, setPatientName] = useState('');
@@ -158,6 +159,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     async function checkRealTimeSlots() {
       if (!appointmentDate || !selectedBranch || !selectedService) {
         setRealAvailableSlots([]);
+        setAllPossibleSlots([]);
         return;
       }
       setIsLoadingSlots(true);
@@ -167,6 +169,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 
       // 1. Get base slots from the clinic's schedule config (App.tsx)
       const baseSlots = getAvailableTimeSlots(actualServiceId, selectedBranch, appointmentDate);
+      setAllPossibleSlots(baseSlots);
 
       if (baseSlots.length === 0) {
         setRealAvailableSlots([]);
@@ -516,24 +519,49 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Waktu Temujanji</label>
-                  <select 
-                    value={bookingTime}
-                    onChange={(e) => setBookingTime(e.target.value)}
-                    disabled={!appointmentDate || !selectedBranch || isLoadingSlots || realAvailableSlots.length === 0}
-                    className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    required
-                  >
-                    <option value="">
-                      {isLoadingSlots ? 'Menyemak kekosongan...' :
-                       (!appointmentDate || !selectedBranch) ? 'Sila pilih cawangan & tarikh dahulu...' : 
-                       realAvailableSlots.length === 0 ? '⚠️ Penuh / Tutup pada tarikh ini' : 'Pilih waktu...'}
-                    </option>
-                    {realAvailableSlots.map((timeSlot: string) => (
-                      <option key={timeSlot} value={timeSlot}>{timeSlot}</option>
-                    ))}
-                  </select>
+               <div>
+                  <div className="flex items-center justify-between mb-2 ml-1">
+                    <label className="block text-xs font-bold text-zinc-500 uppercase">Waktu Temujanji</label>
+                    {isLoadingSlots && <span className="text-[10px] font-bold text-violet-500 animate-pulse">Menyemak...</span>}
+                  </div>
+                  
+                  {!appointmentDate || !selectedBranch ? (
+                    <div className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 text-zinc-400 text-sm text-center">
+                      Sila pilih cawangan & tarikh dahulu...
+                    </div>
+                  ) : allPossibleSlots.length === 0 ? (
+                    <div className="w-full px-4 py-3.5 rounded-2xl bg-rose-50 border border-rose-100 text-rose-500 text-sm font-bold text-center flex items-center justify-center gap-2">
+                      <AlertCircle size={16} />
+                      Tutup pada tarikh ini
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {allPossibleSlots.map((timeSlot: string) => {
+                        const isAvailable = realAvailableSlots.includes(timeSlot);
+                        const isSelected = bookingTime === timeSlot;
+                        
+                        return (
+                          <button
+                            key={timeSlot}
+                            type="button"
+                            disabled={!isAvailable || isLoadingSlots}
+                            onClick={() => setBookingTime(timeSlot)}
+                            className={`py-3 rounded-xl text-sm font-bold transition-all border ${
+                              isSelected
+                                ? 'bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-200'
+                                : isAvailable
+                                ? 'bg-white text-zinc-700 border-zinc-200 hover:border-violet-500 hover:text-violet-600 hover:bg-violet-50'
+                                : 'bg-zinc-100 text-zinc-400 border-zinc-100 cursor-not-allowed opacity-60'
+                            }`}
+                          >
+                            {timeSlot}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {/* Hidden input to ensure form validation works for required field */}
+                  <input type="text" value={bookingTime} onChange={() => {}} className="sr-only" required tabIndex={-1} />
                 </div>
               </div>
 
