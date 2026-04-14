@@ -11,7 +11,25 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
 
   const generateAffiliateLink = () => {
     if (!linkCode) return '';
-    const shareUrl = `${window.location.origin}/?service=${item.id}&ref=${linkCode}`;
+    
+    // 1. Get the custom target URL entered during Service Setup. 
+    let baseUrl = (item as any).target_url || window.location.origin;
+    
+    // Strip trailing slash if it exists
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.slice(0, -1);
+    }
+    
+    // Ensure the URL has 'http' if the admin forgot to add it, unless it's a localhost URL
+    if (!baseUrl.startsWith('http') && !baseUrl.includes('localhost')) {
+      baseUrl = `https://${baseUrl}`;
+    }
+
+    // 2. Append the required parameters: Service Name, Service Code, and Affiliate Code
+    // Use '?' if the base URL doesn't have parameters yet, otherwise use '&'
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    
+    const shareUrl = `${baseUrl}${separator}serviceName=${encodeURIComponent(item.name)}&serviceCode=${item.id}&ref=${linkCode}`;
     return shareUrl;
   };
 
