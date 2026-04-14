@@ -182,6 +182,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     
     const success = await handleSubmitReferral(e, formData);
     if (success) {
+      localStorage.removeItem('araclinic_ref_code'); // CLEAR THE CACHE HERE
       setBookingSuccess(true);
       setPatientName('');
       setPatientPhone('');
@@ -492,9 +493,15 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                       onChange={(e) => setSelectedWaBranch(e.target.value)}
                       className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                     >
-                      <option value="">Pilih cawangan...</option>
-                      {branches.map(b => (
-                        <option key={b.id} value={b.name}>{b.name}</option>
+
+
+                    <option value="">Pilih cawangan...</option>
+                      {branches
+                        .filter(b => b.is_active !== false && b.status !== 'inactive')
+                        .map(b => (
+                          <option key={b.id} value={b.name}>{b.name}</option>
+
+                     
                       ))}
                     </select>
                   </div>
@@ -554,6 +561,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                           .eq('id', draftReferralId);
                         if (error) console.error("Error updating warm lead for WhatsApp:", error);
                       }
+                      localStorage.removeItem('araclinic_ref_code'); // CLEAR THE CACHE HERE
                       setBookingSuccess(true);
                     }}
                     className={`flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 ${!selectedWaBranch ? 'opacity-50 pointer-events-none' : ''}`}
