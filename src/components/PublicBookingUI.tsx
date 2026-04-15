@@ -59,6 +59,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   const [selectedService, setSelectedService] = useState('');
   const [urlServiceName, setUrlServiceName] = useState('');
   const [rawRefCode, setRawRefCode] = useState<string | null>(null);
+  const [isLookingUpAffiliate, setIsLookingUpAffiliate] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -70,12 +71,14 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
       localStorage.setItem('araclinic_ref_code', effectiveRef);
       setRawRefCode(effectiveRef);
       setProvidedRefCode(effectiveRef);
+      setIsLookingUpAffiliate(true);
       
       safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${effectiveRef}`)
         .then(({ res, data }) => {
           if (res.ok && data) setReferringStaff(data);
         })
-        .catch(err => console.error('Failed to lookup affiliate:', err));
+        .catch(err => console.error('Failed to lookup affiliate:', err))
+        .finally(() => setIsLookingUpAffiliate(false));
     }
 
     const serviceFromUrl = params.get('serviceName') || params.get('sName');
@@ -142,7 +145,8 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
           patient_name: patientName,
           patient_phone: patientPhone,
           service_id: finalName,
-          status: 'new'
+          status: 'new',
+          ...(providedRefCode && { ref_code: providedRefCode })
         }])
         .select();
 
@@ -306,6 +310,17 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
             </a>
           </div>
         </motion.div>
+      </div>
+    );
+  }
+
+  if (isLookingUpAffiliate) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-600 mx-auto mb-6"></div>
+          <p className="text-zinc-500">Mengesahkan kod rujukan...</p>
+        </div>
       </div>
     );
   }
