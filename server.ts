@@ -2373,6 +2373,14 @@ app.post("/api/referrals", async (req, res) => {
   if (finalStaffId) {
     insertData.staff_id = finalStaffId;
     insertData.created_by = finalStaffId;
+
+    // NAME CATCHER: Automatically fetch the affiliate's name if it is missing
+    if (!insertData.staff_name) {
+      const { data: staffData } = await supabase.from('staff').select('name').eq('id', finalStaffId).maybeSingle();
+      if (staffData) {
+        insertData.staff_name = staffData.name;
+      }
+    }
   } else if (created_by) {
     insertData.created_by = created_by;
   }

@@ -2134,20 +2134,22 @@ export default function App() {
     try {
       const serviceData = services.find(srv => String(srv.id) === String(data.selectedService));
 
-      // 1. BULLETPROOF EXTRACTION: Bypass state, go straight to the source
+      // 1. BULLETPROOF EXTRACTION: Bypass state, grab '?ref=' straight from URL
       const urlParams = new URLSearchParams(window.location.search);
-      // Check for 'staff_id', 'ref', or the cached localStorage value
       const directAffiliateId = isPublicBooking 
-        ? (urlParams.get('staff_id') || urlParams.get('ref') || localStorage.getItem('araclinic_ref_code'))
+        ? (urlParams.get('ref') || localStorage.getItem('araclinic_ref_code')) 
         : null;
 
       // 2. BUILD THE BULLETPROOF PAYLOAD
       const payload: any = {
-        // FORCE staff_id directly from the URL/Cache
+        // FORCE staff_id directly from the URL 'ref'
         staff_id: isPublicBooking 
           ? (directAffiliateId || null) 
           : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id),
+          
+        // Also send the referral code string just in case
         referral_code: directAffiliateId || null,
+        
         service_id: data.selectedService,
         service_name: serviceData?.name || '',
         commission_amount: serviceData?.commission_rate || 0,
