@@ -189,8 +189,8 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
         
         if (res.ok && data?.takenSlots) {
           const bSched = srv?.branches?.[selectedBranch] as any;
-          // If limitBookings is enabled, use maxSlots, otherwise default to 1 globally
-          const maxSlots = bSched?.limitBookings ? (bSched.maxSlots || 1) : 1; 
+          // If limitBookings is disabled, slots are unlimited — do not cap at 1
+          const maxSlots = bSched?.limitBookings ? (bSched.maxSlots || 1) : Infinity;
 
           const timeCounts: Record<string, number> = {};
           data.takenSlots.forEach((time: string) => {
@@ -220,12 +220,14 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     if (appointmentDate && selectedBranch && bookingTime) {
       const srv = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService);
       const bSched = srv?.branches?.[selectedBranch] as any;
-      const maxSlots = bSched?.limitBookings ? (bSched.maxSlots || 1) : 1; 
+      // If limitBookings is disabled, slots are unlimited — skip the capacity check entirely
+      const maxSlots = bSched?.limitBookings ? (bSched.maxSlots || 1) : Infinity;
 
       const { res, data: slotCheck } = await safeFetch(`${apiBaseUrl}/api/public/slots?branch=${encodeURIComponent(selectedBranch)}&date=${appointmentDate}`);
 
-      if (res.ok && slotCheck?.takenSlots) {
-        const takenCount = slotCheck.takenSlots.filter((time: string) => time.startsWith(bookingTime)).length;
+      if (res.ok && slotCheck?.takenSlots && maxSlots !== Infinity) {
+        // Use exact match (same logic as real-time slot checker above)
+        const takenCount = slotCheck.takenSlots.filter((time: string) => time === bookingTime).length;
         if (takenCount >= maxSlots) {
           alert("Maaf! Waktu yang anda pilih baru sahaja ditempah oleh orang lain. Sila pilih waktu lain.");
           setBookingTime(''); 
@@ -534,23 +536,34 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                     min={new Date().toISOString().split('T')[0]} 
                     value={appointmentDate}
                     onChange={(e) => {
-                      const newDate = e.target.value;
-                      if (selectedBranch && newDate) {
-                        const actualServiceId = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService)?.id || selectedService;
-                        const baseSlots = getAvailableTimeSlots(actualServiceId, selectedBranch, newDate);
-                        if (baseSlots.length === 0) {
-                          alert("Maaf, klinik tutup pada tarikh ini. Sila pilih tarikh lain.");
-                          setAppointmentDate('');
-                          setBookingTime('');
-                          return;
-                        }
-                      }
-                      setAppointmentDate(newDate);
+                      // Just set the date — let the "Tutup pada tarikh ini" UI message
+                      // inform the user naturally without blocking them with an alert.
+                      setAppointmentDate(e.target.value);
                       setBookingTime('');
                     }}
                     className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                     required
                   />
+                  {/* Show available days hint when a branch is selected */}
+                  {selectedBranch && selectedService && (() => {
+                    const srv = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService);
+                    const bSched = srv?.branches?.[selectedBranch] as any;
+                    const days: string[] = bSched?.days || [];
+                    if (days.length === 0) return null;
+                    return (
+                      <p className="mt-2 text-[11px] text-violet-500 font-semibold flex items-center gap-1">
+                        <span>✦</span>
+                        <span>Perkhidmatan ini tersedia pada: <span className="font-bold">{days.join(', ')}</span></span>
+                      </p>
+                    );
+                  })()}
+                  {/* Friendly message when selected date is a closed day */}
+                  {appointmentDate && selectedBranch && allPossibleSlots.length === 0 && !isLoadingSlots && (
+                    <p className="mt-2 text-[11px] text-rose-500 font-semibold flex items-center gap-1">
+                      <span>✕</span>
+                      <span>Tarikh ini tidak tersedia. Sila pilih tarikh lain.</span>
+                    </p>
+                  )}
                 </div>
 
                <div>
