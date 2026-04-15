@@ -2288,6 +2288,19 @@ app.post("/api/payouts/process", async (req, res) => {
 app.post("/api/referrals", async (req, res) => {
   const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, created_by, branch, referral_code, status, commission_amount, service_name } = req.body;
 
+  // BACKEND GUARD: Verify staff_id exists in the database
+  if (staff_id) {
+    const { data: staffExists, error: staffCheckError } = await supabase
+      .from('staff')
+      .select('id, name')
+      .eq('id', staff_id)
+      .maybeSingle();
+      
+    if (staffCheckError || !staffExists) {
+      return res.status(400).json({ error: "Invalid Affiliate ID provided. Tracking code does not exist." });
+    }
+  }
+
   // 1. THE BOUNCER: Check if the exact slot was taken by someone else 1 microsecond ago
   if (appointment_date && booking_time && branch) {
     const timePrefix = booking_time.substring(0, 5); // handle '10:00' vs '10:00:00'

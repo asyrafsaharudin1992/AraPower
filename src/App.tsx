@@ -2134,19 +2134,20 @@ export default function App() {
     try {
       const serviceData = services.find(srv => String(srv.id) === String(data.selectedService));
 
-      // 1. BRUTE FORCE THE TRACKING CODE EXTRACTION
+      // 1. BULLETPROOF EXTRACTION: Bypass state, go straight to the source
       const urlParams = new URLSearchParams(window.location.search);
-      const activeRefCode = isPublicBooking 
-        ? (data.providedRefCode || urlParams.get('ref') || localStorage.getItem('araclinic_ref_code')) 
+      // Check for 'staff_id', 'ref', or the cached localStorage value
+      const directAffiliateId = isPublicBooking 
+        ? (urlParams.get('staff_id') || urlParams.get('ref') || localStorage.getItem('araclinic_ref_code'))
         : null;
 
       // 2. BUILD THE BULLETPROOF PAYLOAD
       const payload: any = {
-        // FIX: Stop setting this to null! Send the exact Row ID (data.referringStaff.id) to the backend!
+        // FORCE staff_id directly from the URL/Cache
         staff_id: isPublicBooking 
-          ? (data.referringStaff?.id || null) 
+          ? (directAffiliateId || null) 
           : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id),
-        referral_code: activeRefCode || null,
+        referral_code: directAffiliateId || null,
         service_id: data.selectedService,
         service_name: serviceData?.name || '',
         commission_amount: serviceData?.commission_rate || 0,
