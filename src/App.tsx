@@ -183,8 +183,17 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
 
   const generateAffiliateLink = () => {
     if (!linkCode) return '';
-    const shareUrl = `${window.location.origin}/?service=${item.id}&ref=${linkCode}`;
-    return shareUrl;
+    
+    let baseUrl = (item as any).target_url || window.location.origin;
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.slice(0, -1);
+    }
+    if (!baseUrl.startsWith('http') && !baseUrl.includes('localhost')) {
+      baseUrl = `https://${baseUrl}`;
+    }
+
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    return `${baseUrl}${separator}serviceName=${encodeURIComponent(item.name)}&serviceCode=${item.id}&ref=${linkCode}`;
   };
 
   const shareLink = generateAffiliateLink();
@@ -2712,12 +2721,13 @@ export default function App() {
       : ['Date', 'Patient Name', 'Patient Type', 'Service', 'Incentive ($)', 'Status'];
 
     const csvRows = referrals.map(ref => {
+      const staffMember = staffList.find(s => String(s.id) === String(ref.staff_id));
       const row = [
         ref.date,
         `"${ref.patient_name}"`,
         ref.patient_type || 'new',
         `"${ref.service_name}"`,
-        ...(currentUser?.role === 'admin' ? [`"${ref.staff_name || 'Direct Walk-in'}"`] : []),
+        ...(currentUser?.role === 'admin' ? [`"${staffMember?.name || ref.staff_name || 'Direct Walk-in'}"`] : []),
         (ref.commission_amount || 0).toFixed(2),
         ref.status
       ];
@@ -4624,7 +4634,9 @@ export default function App() {
                             )}
                             { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                               <div>
-                                <p className="text-xs font-medium text-zinc-900">{ref.staff_name || <span className="text-zinc-400 italic">Direct Walk-in</span>}</p>
+                                <p className="text-xs font-medium text-zinc-900">
+                                  {staffList.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || <span className="text-zinc-400 italic">Direct Walk-in</span>}
+                                </p>
                                 <p className="text-[10px] text-zinc-500">Staff</p>
                               </div>
                             )}
