@@ -352,28 +352,144 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     return allActive.filter(b => Object.keys(srv.branches).includes(b.name));
   };
 
+  // Navy + beige theme for lead step
+  const isLeadStep = publicBookingStep === 'lead';
+
   return (
-    <div className="min-h-screen bg-zinc-50 pb-12">
-      <div className="bg-white border-b border-zinc-100 sticky top-0 z-50">
-        <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
-          <Logo logoUrl={clinicProfile?.logoUrl} />
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
-              <User size={16} className="text-violet-600" />
-            </div>
-            <div className="text-left">
-              <p className="text-[10px] font-bold text-zinc-400 uppercase leading-none">Rujukan Oleh</p>
-              <p className="text-xs font-bold text-zinc-900">{referringStaff?.name || 'Pusat Rawatan'}</p>
+    <div className={`min-h-screen pb-12 transition-colors duration-500 ${isLeadStep ? 'bg-[#0d1f3c]' : 'bg-zinc-50'}`}>
+
+      {/* Navbar — transparent on lead, white on other steps */}
+      {!isLeadStep && (
+        <div className="bg-white border-b border-zinc-100 sticky top-0 z-50">
+          <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
+            <Logo logoUrl={clinicProfile?.logoUrl} />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
+                <User size={16} className="text-violet-600" />
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] font-bold text-zinc-400 uppercase leading-none">Rujukan Oleh</p>
+                <p className="text-xs font-bold text-zinc-900">{referringStaff?.name || 'Pusat Rawatan'}</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="max-w-md mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-zinc-900 mb-2">Tempahan Rawatan</h1>
-          <p className="text-zinc-500">Sila lengkapkan maklumat di bawah untuk temujanji anda.</p>
-        </div>
+      <div className="max-w-md mx-auto px-6">
+
+        {/* ── LEAD STEP: Full-page navy design ── */}
+        {isLeadStep && (
+          <div className="min-h-screen flex flex-col items-center justify-center py-12">
+
+            {/* Logo */}
+            <motion.div
+              initial={{ opacity: 0, y: -24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: 'easeOut' }}
+              className="mb-8"
+            >
+              <Logo logoUrl={clinicProfile?.logoUrl} />
+            </motion.div>
+
+            {/* Title */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
+              className="text-center mb-10"
+            >
+              <h1 className="text-3xl font-bold text-white leading-snug tracking-tight">
+                Welcome to Ara<br />Booking Hub
+              </h1>
+            </motion.div>
+
+            {/* Form */}
+            <motion.form
+              onSubmit={handleProceedLead}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3, ease: 'easeOut' }}
+              className="w-full space-y-4"
+            >
+              {/* Name input */}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+              >
+                <input
+                  type="text"
+                  required
+                  value={patientName}
+                  onChange={(e) => setPatientName(e.target.value)}
+                  className="w-full px-6 py-5 rounded-2xl bg-[#F5F5DC] text-[#0d1f3c] placeholder-[#8a8a6a] text-base font-medium focus:outline-none focus:ring-2 focus:ring-[#F5F5DC]/60 transition-all"
+                  placeholder="Nama pesakit"
+                />
+              </motion.div>
+
+              {/* Phone input */}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.5 }}
+              >
+                <input
+                  type="tel"
+                  required
+                  value={patientPhone}
+                  onChange={(e) => setPatientPhone(e.target.value)}
+                  className="w-full px-6 py-5 rounded-2xl bg-[#F5F5DC] text-[#0d1f3c] placeholder-[#8a8a6a] text-base font-medium focus:outline-none focus:ring-2 focus:ring-[#F5F5DC]/60 transition-all"
+                  placeholder="Nombor telefon"
+                />
+              </motion.div>
+
+              {/* Submit button */}
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.6 }}
+                className="pt-2"
+              >
+                <button
+                  type="submit"
+                  disabled={!patientName || !patientPhone}
+                  className="w-full py-5 bg-[#38bdf8] hover:bg-[#29aee8] active:scale-95 text-white rounded-2xl font-bold text-lg tracking-wide transition-all shadow-lg shadow-sky-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Teruskan proses
+                </button>
+              </motion.div>
+
+              {/* Disclaimer */}
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.75 }}
+                className="text-[11px] text-white/40 text-center px-4 leading-relaxed pt-1"
+              >
+                Dengan menekan 'Teruskan proses', anda bersetuju untuk berkongsi butiran perhubungan anda dengan klinik kami bagi tujuan tempahan.
+              </motion.p>
+            </motion.form>
+
+            {/* Footer brand */}
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.9 }}
+              className="mt-12 text-white/30 text-xs font-bold tracking-[0.2em] uppercase"
+            >
+              Klinik Ara 24 Jam
+            </motion.p>
+          </div>
+        )}
+
+        {/* ── ALL OTHER STEPS: original layout ── */}
+        {!isLeadStep && (
+          <div className="py-8">
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-zinc-900 mb-2">Tempahan Rawatan</h1>
+              <p className="text-zinc-500">Sila lengkapkan maklumat di bawah untuk temujanji anda.</p>
+            </div>
 
         <motion.div 
           key={publicBookingStep}
@@ -730,6 +846,8 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
             );
           })()}
         </motion.div>
+          </div>
+        )}
       </div>
     </div>
   );
