@@ -302,7 +302,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
             </button>
             
             <a 
-              href="/"
+              href="https://klinikara24jam.hsohealthcare.com"
               className="w-full py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold hover:bg-zinc-200 transition-all flex items-center justify-center gap-2"
             >
               <Home size={20} />
