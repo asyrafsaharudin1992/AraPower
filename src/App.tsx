@@ -4031,6 +4031,7 @@ export default function App() {
               handleDeleteReferral={handleDeleteReferral}
               getStatusColor={getStatusColor}
               getStatusLabel={getStatusLabel}
+              staffList={staffList}
             />
           )}
 

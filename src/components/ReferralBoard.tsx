@@ -15,6 +15,7 @@ interface ReferralBoardProps {
   handleDeleteReferral: (id: string) => void;
   getStatusColor: (status: string) => string;
   getStatusLabel: (status: string) => string;
+  staffList: any[];
 }
 
 export const ReferralBoard: React.FC<ReferralBoardProps> = ({
@@ -30,6 +31,7 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
   handleDeleteReferral,
   getStatusColor,
   getStatusLabel,
+  staffList,
 }) => {
   // Local states moved out of App.tsx!
   const [referralSearch, setReferralSearch] = useState('');
@@ -59,7 +61,7 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
         `"${ref.patient_name}"`,
         ref.patient_type || 'new',
         `"${ref.service_name}"`,
-        ...(currentUser?.role === 'admin' ? [`"${ref.staff_name || 'Direct Walk-in'}"`] : []),
+        ...(currentUser?.role === 'admin' ? [`"${staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || 'Direct Walk-in'}"`] : []),
         (ref.commission_amount || 0).toFixed(2),
         ref.status
       ];
@@ -198,7 +200,7 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                         </div>
                         <div>
                           <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Staff Name</p>
-                          <p className="text-xs font-medium text-zinc-700">{ref.staff_name || <span className="text-zinc-400 italic">Direct Walk-in</span>}</p>
+                          <p className="text-xs font-medium text-zinc-700">{staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || <span className="text-zinc-400 italic">Direct Walk-in</span>}</p>
                         </div>
                         <div>
                           <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Patient IC</p>
@@ -220,9 +222,9 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                       <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-zinc-200 flex items-center justify-center text-[8px] font-bold text-zinc-500">
-                            {ref?.staff_name?.charAt(0) || 'W'}
+                            {(staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name)?.charAt(0) || 'W'}
                           </div>
-                          <p className="text-[10px] font-medium text-zinc-500">{ref.staff_name ? `Referred by ${ref.staff_name}` : 'Direct Walk-in'}</p>
+                          <p className="text-[10px] font-medium text-zinc-500">{(staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name) ? `Referred by ${staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name}` : 'Direct Walk-in'}</p>
                         </div>
                         {ref.patient_phone && (
                           <a 
@@ -281,7 +283,7 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                 </td>
                 <td className="p-4 text-sm text-zinc-500">{ref.service_name}</td>
                 <td className="p-4 text-sm font-medium text-zinc-900">
-                  {ref.staff_name ? ref.staff_name : <span className="text-zinc-400 italic text-xs">Direct Walk-in</span>}
+                  {staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || <span className="text-zinc-400 italic text-xs">Direct Walk-in</span>}
                 </td>
                 <td className="p-4 text-sm font-bold">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</td>
                 <td className="p-4">
