@@ -95,6 +95,12 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   const [existingServices, setExistingServices] = useState<any[]>([]);
 
+  // --- Dynamic Category Management ---
+  const [availableCategories, setAvailableCategories] = useState<string[]>(categories);
+  const [newCategoryInput, setNewCategoryInput] = useState("");
+  const [isManagingCategories, setIsManagingCategories] = useState(false);
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+
   // --- Fetch Existing Offers (As requested) ---
   useEffect(() => {
     const getOffers = async () => {
@@ -110,6 +116,59 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
     }
     getOffers();
   }, []);
+
+  // --- Fetch Categories from Supabase ---
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("service_categories")
+          .select("name")
+          .order("name");
+        if (!error && data && data.length > 0) {
+          const names = data.map((r: any) => r.name);
+          setAvailableCategories(names);
+          if (!category) setCategory(names[0]);
+        }
+      } catch (e) {
+        console.error("Failed to fetch categories:", e);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  const handleAddCategory = async () => {
+    const trimmed = newCategoryInput.trim();
+    if (!trimmed || availableCategories.includes(trimmed)) return;
+    setIsSavingCategory(true);
+    try {
+      const { error } = await supabase.from("service_categories").insert([{ name: trimmed }]);
+      if (error) throw error;
+      const updated = [...availableCategories, trimmed].sort();
+      setAvailableCategories(updated);
+      setCategory(trimmed);
+      setNewCategoryInput("");
+      toast.success("Category added!");
+    } catch (e: any) {
+      toast.error("Failed to add category: " + e.message);
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (catName: string) => {
+    if (!confirm(`Delete category "${catName}"? This will not affect existing services.`)) return;
+    try {
+      const { error } = await supabase.from("service_categories").delete().eq("name", catName);
+      if (error) throw error;
+      const updated = availableCategories.filter(c => c !== catName);
+      setAvailableCategories(updated);
+      if (category === catName) setCategory(updated[0] || "");
+      toast.success("Category removed!");
+    } catch (e: any) {
+      toast.error("Failed to delete category: " + e.message);
+    }
+  };
 
   // --- Handlers ---
 
@@ -415,24 +474,65 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2">CATEGORY</label>
-                    <select 
-                      value={category} 
-                      onChange={(e) => setCategory(e.target.value)} 
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-bold text-gray-500">CATEGORY</label>
+                      <button
+                        type="button"
+                        onClick={() => setIsManagingCategories(!isManagingCategories)}
+                        className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 uppercase tracking-wide"
+                      >
+                        {isManagingCategories ? '✕ Done' : '⚙ Manage'}
+                      </button>
+                    </div>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
                       className="w-full border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white"
                     >
-                      {categories.map((cat, idx) => (
-                        <option key={idx} value={cat}>{cat}</option>
-                      ))}
-                      {categories.length === 0 && (
-                        <>
-                          <option>Cosmetic Dentistry</option>
-                          <option>General Dentistry</option>
-                          <option>Orthodontics</option>
-                          <option>Surgery</option>
-                        </>
-                      )}
+                      {availableCategories.length > 0
+                        ? availableCategories.map((cat, idx) => (
+                            <option key={idx} value={cat}>{cat}</option>
+                          ))
+                        : <option value="">No categories yet — add one below</option>
+                      }
                     </select>
+                    {isManagingCategories && (
+                      <div className="mt-2 p-3 bg-indigo-50 border border-indigo-100 rounded-xl space-y-2">
+                        <p className="text-[10px] font-bold text-indigo-400 uppercase">Manage Categories</p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newCategoryInput}
+                            onChange={(e) => setNewCategoryInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+                            placeholder="New category name..."
+                            className="flex-1 border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddCategory}
+                            disabled={isSavingCategory || !newCategoryInput.trim()}
+                            className="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition"
+                          >
+                            {isSavingCategory ? '...' : '+ Add'}
+                          </button>
+                        </div>
+                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                          {availableCategories.map((cat, idx) => (
+                            <div key={idx} className="flex items-center justify-between px-3 py-1.5 bg-white rounded-lg border border-indigo-100 text-sm">
+                              <span className="font-medium text-gray-700">{cat}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCategory(cat)}
+                                className="text-red-400 hover:text-red-600 font-bold text-xs ml-2"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
