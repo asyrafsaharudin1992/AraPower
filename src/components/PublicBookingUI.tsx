@@ -27,6 +27,133 @@ interface PublicBookingUIProps {
   safeFetch: (url: string, options?: RequestInit) => Promise<{ res: Response; data: any }>;
 }
 
+
+// Day abbreviation → JS getDay() number
+const DAY_MAP: Record<string, number> = {
+  'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+};
+
+const MONTHS = ['Januari','Februari','Mac','April','Mei','Jun','Julai','Ogos','September','Oktober','November','Disember'];
+const DAYS_HEADER = ['Ahd','Isn','Sel','Rab','Kha','Jum','Sab'];
+
+interface AraCalendarProps {
+  value: string; // 'YYYY-MM-DD'
+  onChange: (date: string) => void;
+  availableDays: string[]; // e.g. ['Mon', 'Wed', 'Fri']
+}
+
+const AraCalendar: React.FC<AraCalendarProps> = ({ value, onChange, availableDays }) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [viewYear, setViewYear] = React.useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = React.useState(today.getMonth());
+
+  const availableJsDays = availableDays.map(d => DAY_MAP[d]).filter(n => n !== undefined);
+
+  const isAvailable = (date: Date) => {
+    if (date < today) return false;
+    if (availableJsDays.length === 0) return true; // no restriction
+    return availableJsDays.includes(date.getDay());
+  };
+
+  const formatDate = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  // Build calendar grid
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(viewYear, viewMonth, d));
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  };
+
+  return (
+    <div className="bg-white rounded-2xl p-4 select-none">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <button type="button" onClick={prevMonth}
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#0d1f3c]/40 hover:bg-[#0d1f3c]/5 transition-colors font-bold text-lg">
+          ‹
+        </button>
+        <span className="text-sm font-bold text-[#0d1f3c]">
+          {MONTHS[viewMonth]} {viewYear}
+        </span>
+        <button type="button" onClick={nextMonth}
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#0d1f3c]/40 hover:bg-[#0d1f3c]/5 transition-colors font-bold text-lg">
+          ›
+        </button>
+      </div>
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {DAYS_HEADER.map(d => (
+          <div key={d} className="text-center text-[10px] font-bold text-[#0d1f3c]/30 uppercase py-1">{d}</div>
+        ))}
+      </div>
+
+      {/* Date cells */}
+      <div className="grid grid-cols-7 gap-0.5">
+        {cells.map((date, idx) => {
+          if (!date) return <div key={`empty-${idx}`} />;
+          const dateStr = formatDate(date);
+          const avail = isAvailable(date);
+          const isSelected = dateStr === value;
+          const isToday = formatDate(today) === dateStr;
+          const isPast = date < today;
+
+          return (
+            <button
+              key={dateStr}
+              type="button"
+              disabled={!avail}
+              onClick={() => avail && onChange(dateStr)}
+              className={`
+                aspect-square flex items-center justify-center rounded-xl text-sm font-medium transition-all
+                ${isSelected
+                  ? 'bg-[#F5F5DC] text-[#0d1f3c] font-bold shadow-sm'
+                  : avail
+                  ? 'bg-[#F5F5DC]/30 text-[#0d1f3c] hover:bg-[#F5F5DC] cursor-pointer'
+                  : isPast
+                  ? 'text-[#0d1f3c]/15 cursor-not-allowed'
+                  : 'text-[#0d1f3c]/20 cursor-not-allowed line-through'
+                }
+                ${isToday && !isSelected ? 'ring-1 ring-[#0d1f3c]/20' : ''}
+              `}
+            >
+              {date.getDate()}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#0d1f3c]/5">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-[#F5F5DC]" />
+          <span className="text-[10px] text-[#0d1f3c]/40">Tersedia</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-[#0d1f3c]/10" />
+          <span className="text-[10px] text-[#0d1f3c]/40">Tidak tersedia</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   services,
   branches,
@@ -271,24 +398,23 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 
   if (bookingSuccess) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#0d1f3c] flex items-center justify-center p-6">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-zinc-200/50 p-8 text-center"
+          className="w-full max-w-md bg-white/10 backdrop-blur-sm rounded-3xl border border-white/10 p-8 text-center"
         >
-          <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle size={40} className="text-emerald-600" />
+          <div className="w-20 h-20 bg-[#F5F5DC]/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle size={40} className="text-[#F5F5DC]" />
           </div>
-          <h2 className="text-2xl font-bold text-zinc-900 mb-2">Tempahan Berjaya!</h2>
-          <p className="text-zinc-500 mb-8">Terima kasih kerana memilih kami. Pihak kami akan menghubungi anda dalam masa terdekat untuk pengesahan.</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Tempahan Berjaya!</h2>
+          <p className="text-white/50 mb-8 text-sm leading-relaxed">Terima kasih kerana memilih kami. Pihak kami akan menghubungi anda dalam masa terdekat untuk pengesahan.</p>
           <div className="space-y-3">
             <button 
               onClick={() => {
                 setBookingSuccess(false);
                 setPublicBookingStep('lead');
                 setDraftReferralId(null);
-                // Clear everything so they can start fresh
                 setPatientName('');
                 setPatientPhone('');
                 setPatientIC('');
@@ -297,15 +423,14 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                 setAppointmentDate('');
                 setBookingTime('');
               }}
-              className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 flex items-center justify-center gap-2"
+              className="w-full py-4 bg-[#F5F5DC] text-[#0d1f3c] rounded-2xl font-bold hover:bg-white active:scale-95 transition-all flex items-center justify-center gap-2"
             >
               <PlusCircle size={20} />
               Buat Tempahan Baru
             </button>
-            
             <a 
               href="https://klinikara24jam.hsohealthcare.com"
-              className="w-full py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold hover:bg-zinc-200 transition-all flex items-center justify-center gap-2"
+              className="w-full py-4 bg-white/10 text-white/60 rounded-2xl font-bold hover:bg-white/20 transition-all flex items-center justify-center gap-2"
             >
               <Home size={20} />
               Kembali ke Laman Utama
@@ -318,10 +443,10 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 
   if (isLookingUpAffiliate) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-600 mx-auto mb-6"></div>
-          <p className="text-zinc-500">Mengesahkan kod rujukan...</p>
+      <div className="min-h-screen bg-[#0d1f3c] flex items-center justify-center p-6">
+        <div className="w-full max-w-md bg-white/10 rounded-3xl border border-white/10 p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F5F5DC] mx-auto mb-6"></div>
+          <p className="text-white/40">Mengesahkan kod rujukan...</p>
         </div>
       </div>
     );
@@ -329,13 +454,13 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 
   if (!referringStaff && providedRefCode) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 text-center">
-          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertCircle size={40} className="text-red-600" />
+      <div className="min-h-screen bg-[#0d1f3c] flex items-center justify-center p-6">
+        <div className="w-full max-w-md bg-white/10 backdrop-blur-sm rounded-3xl border border-white/10 p-8 text-center">
+          <div className="w-20 h-20 bg-rose-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle size={40} className="text-rose-400" />
           </div>
-          <h2 className="text-2xl font-bold text-zinc-900 mb-2">Kod Tidak Sah</h2>
-          <p className="text-zinc-500 mb-8">Maaf, kod rujukan ini tidak wujud atau telah tamat tempoh.</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Kod Tidak Sah</h2>
+          <p className="text-white/40 mb-8 text-sm">Maaf, kod rujukan ini tidak wujud atau telah tamat tempoh.</p>
         </div>
       </div>
     );
@@ -356,25 +481,9 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   const isLeadStep = publicBookingStep === 'lead';
 
   return (
-    <div className={`min-h-screen pb-12 transition-colors duration-500 ${isLeadStep ? 'bg-[#0d1f3c]' : 'bg-zinc-50'}`}>
+    <div className="min-h-screen pb-12 bg-[#0d1f3c]">
 
-      {/* Navbar — transparent on lead, white on other steps */}
-      {!isLeadStep && (
-        <div className="bg-white border-b border-zinc-100 sticky top-0 z-50">
-          <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
-            <Logo logoUrl={clinicProfile?.logoUrl} />
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
-                <User size={16} className="text-violet-600" />
-              </div>
-              <div className="text-left">
-                <p className="text-[10px] font-bold text-zinc-400 uppercase leading-none">Rujukan Oleh</p>
-                <p className="text-xs font-bold text-zinc-900">{referringStaff?.name || 'Pusat Rawatan'}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       <div className="max-w-md mx-auto px-6">
 
@@ -487,140 +596,107 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
           </div>
         )}
 
-        {/* ── ALL OTHER STEPS: original layout ── */}
+        {/* ── ALL OTHER STEPS: navy/beige theme ── */}
         {!isLeadStep && (
           <div className="py-8">
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-zinc-900 mb-2">Tempahan Rawatan</h1>
-              <p className="text-zinc-500">Sila lengkapkan maklumat di bawah untuk temujanji anda.</p>
-            </div>
-
-        <motion.div 
-          key={publicBookingStep}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-white rounded-3xl shadow-xl shadow-zinc-200/50 p-6 border border-zinc-100"
-        >
-          {publicBookingStep === 'lead' && (
-            <form onSubmit={handleProceedLead} className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Nama Pesakit</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-3.5 text-zinc-400" size={18} />
-                    <input 
-                      type="text" 
-                      required
-                      value={patientName}
-                      onChange={(e) => setPatientName(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                      placeholder="Nama penuh anda"
-                    />
-                  </div>
+            {/* Step header */}
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center justify-between mb-6"
+            >
+              <div>
+                <h1 className="text-2xl font-bold text-white tracking-tight">Tempahan Rawatan</h1>
+                <p className="text-white/40 text-xs mt-0.5">Klinik Ara 24 Jam</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-[#F5F5DC]/20 flex items-center justify-center">
+                  <User size={15} className="text-[#F5F5DC]" />
                 </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Nombor Telefon</label>
-                  <div className="relative">
-                    <Phone className="absolute left-4 top-3.5 text-zinc-400" size={18} />
-                    <input 
-                      type="tel" 
-                      required
-                      value={patientPhone}
-                      onChange={(e) => setPatientPhone(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                      placeholder="Contoh: 0123456789"
-                    />
-                  </div>
+                <div className="text-left">
+                  <p className="text-[9px] font-bold text-white/30 uppercase leading-none tracking-wider">Rujukan</p>
+                  <p className="text-xs font-bold text-white/80">{referringStaff?.name || 'Pusat Rawatan'}</p>
                 </div>
               </div>
+            </motion.div>
 
-              <button 
-                type="submit"
-                disabled={!patientName || !patientPhone}
-                className="w-full py-4 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                Teruskan proses
-                <ChevronRight size={20} />
-              </button>
-
-              <p className="text-[10px] text-zinc-500 text-center mt-3 px-4 leading-relaxed">
-                Dengan menekan 'Teruskan proses', anda bersetuju untuk berkongsi butiran perhubungan anda dengan klinik kami bagi tujuan tempahan.
-              </p>
-            </form>
-          )}
+            <motion.div
+              key={publicBookingStep}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.35 }}
+              className="bg-white/10 backdrop-blur-sm rounded-3xl p-6 border border-white/10"
+            >
 
           {publicBookingStep === 'choice' && (
-            <div className="space-y-6">
-              <div className="text-center mb-6">
-                <p className="text-zinc-600 font-medium">Terima kasih {patientName}! Bagaimana anda ingin meneruskan?</p>
+            <div className="space-y-5">
+              <div className="text-center mb-4">
+                <p className="text-white/70 font-medium text-sm">Terima kasih <span className="text-[#F5F5DC] font-bold">{patientName}</span>! Pilih cara temujanji:</p>
               </div>
               
-              <div className="grid gap-4">
+              <div className="grid gap-3">
                 <button 
                   onClick={() => setPublicBookingStep('form')}
-                  className="p-6 rounded-2xl border-2 border-violet-100 hover:border-violet-500 hover:bg-violet-50 transition-all text-left group"
+                  className="p-5 rounded-2xl border border-white/20 hover:border-[#F5F5DC]/60 hover:bg-white/10 transition-all text-left group"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <div className="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-all">
-                      <FileText size={24} />
+                    <div className="w-11 h-11 rounded-xl bg-[#F5F5DC]/20 flex items-center justify-center text-[#F5F5DC] group-hover:bg-[#F5F5DC] group-hover:text-[#0d1f3c] transition-all">
+                      <FileText size={22} />
                     </div>
-                    <ChevronRight size={20} className="text-zinc-300 group-hover:text-violet-500" />
+                    <ChevronRight size={18} className="text-white/20 group-hover:text-[#F5F5DC]" />
                   </div>
-                  <h3 className="font-bold text-zinc-900">Isi Borang Temujanji</h3>
-                  <p className="text-xs text-zinc-500">Lengkapkan maklumat untuk pengesahan pantas.</p>
+                  <h3 className="font-bold text-white">Isi Borang Temujanji</h3>
+                  <p className="text-xs text-white/40 mt-0.5">Lengkapkan maklumat untuk pengesahan pantas.</p>
                 </button>
 
                 <button 
                   onClick={() => setPublicBookingStep('whatsapp')}
-                  className="p-6 rounded-2xl border-2 border-emerald-100 hover:border-emerald-500 hover:bg-emerald-50 transition-all text-left group"
+                  className="p-5 rounded-2xl border border-white/20 hover:border-emerald-400/60 hover:bg-white/10 transition-all text-left group"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                      <MessageCircle size={24} />
+                    <div className="w-11 h-11 rounded-xl bg-emerald-400/20 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-400 group-hover:text-white transition-all">
+                      <MessageCircle size={22} />
                     </div>
-                    <ChevronRight size={20} className="text-zinc-300 group-hover:text-emerald-500" />
+                    <ChevronRight size={18} className="text-white/20 group-hover:text-emerald-400" />
                   </div>
-                  <h3 className="font-bold text-zinc-900">Hubungi Melalui WhatsApp</h3>
-                  <p className="text-xs text-zinc-500">Berbual dengan pegawai kami secara terus.</p>
+                  <h3 className="font-bold text-white">Hubungi Melalui WhatsApp</h3>
+                  <p className="text-xs text-white/40 mt-0.5">Berbual dengan pegawai kami secara terus.</p>
                 </button>
               </div>
 
               <button 
                 onClick={() => setPublicBookingStep('lead')}
-                className="w-full py-3 text-zinc-400 text-sm font-bold hover:text-zinc-600"
+                className="w-full py-3 text-white/30 text-sm font-bold hover:text-white/60 transition-colors"
               >
-                Kembali
+                ← Kembali
               </button>
             </div>
           )}
 
           {publicBookingStep === 'form' && (
-            <form onSubmit={onFormSubmit} className="space-y-6">
+            <form onSubmit={onFormSubmit} className="space-y-5">
               <div className="space-y-4">
+
+                {/* Service (locked or select) */}
                 <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Perkhidmatan</label>
+                  <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">Perkhidmatan</label>
                   {(selectedService || urlServiceName) ? (
                     <div className="relative">
                       <input 
                         type="text"
                         readOnly
                         value={urlServiceName || services.find(s => String(s.id) === String(selectedService))?.name || 'Memuatkan...'}
-                        className="w-full px-4 py-3.5 rounded-2xl bg-zinc-100 border border-zinc-200 text-zinc-700 cursor-not-allowed font-bold"
+                        className="w-full px-4 py-3.5 rounded-2xl bg-[#F5F5DC] text-[#0d1f3c] cursor-not-allowed font-bold text-sm"
                       />
                       <div className="absolute right-4 top-3.5">
-                        <Lock size={16} className="text-zinc-400" />
+                        <Lock size={15} className="text-[#0d1f3c]/40" />
                       </div>
                     </div>
                   ) : (
                     <select 
                       value={selectedService}
-                      onChange={(e) => {
-                        setSelectedService(e.target.value);
-                        setUrlServiceName('');
-                        setBookingTime(''); // Strictly reset time if service changes
-                      }}
-                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                      onChange={(e) => { setSelectedService(e.target.value); setUrlServiceName(''); setBookingTime(''); }}
+                      className="w-full px-4 py-3.5 rounded-2xl bg-white text-[#0d1f3c] font-medium text-sm focus:outline-none focus:ring-2 focus:ring-[#F5F5DC]"
                       required
                     >
                       <option value="">Pilih satu...</option>
@@ -631,15 +707,13 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                   )}
                 </div>
 
+                {/* Branch */}
                 <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Cawangan</label>
+                  <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">Pilih Cawangan</label>
                   <select 
                     value={selectedBranch}
-                    onChange={(e) => {
-                      setSelectedBranch(e.target.value);
-                      setBookingTime(''); // Strictly reset time if branch changes
-                    }}
-                    className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                    onChange={(e) => { setSelectedBranch(e.target.value); setBookingTime(''); }}
+                    className="w-full px-4 py-3.5 rounded-2xl bg-white text-[#0d1f3c] font-medium text-sm focus:outline-none focus:ring-2 focus:ring-[#F5F5DC]"
                     required
                   >
                     <option value="">Pilih cawangan...</option>
@@ -649,76 +723,62 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                   </select>
                 </div>
 
+                {/* Custom Calendar */}
                 <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Tarikh Temujanji</label>
-                  <input 
-                    type="date" 
-                    min={new Date().toISOString().split('T')[0]} 
-                    value={appointmentDate}
-                    onChange={(e) => {
-                      // Just set the date — let the "Tutup pada tarikh ini" UI message
-                      // inform the user naturally without blocking them with an alert.
-                      setAppointmentDate(e.target.value);
-                      setBookingTime('');
-                    }}
-                    className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                    required
-                  />
-                  {/* Show available days hint when a branch is selected */}
-                  {selectedBranch && selectedService && (() => {
-                    const srv = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService);
-                    const bSched = srv?.branches?.[selectedBranch] as any;
-                    const days: string[] = bSched?.days || [];
-                    if (days.length === 0) return null;
-                    return (
-                      <p className="mt-2 text-[11px] text-violet-500 font-semibold flex items-center gap-1">
-                        <span>✦</span>
-                        <span>Perkhidmatan ini tersedia pada: <span className="font-bold">{days.join(', ')}</span></span>
-                      </p>
-                    );
-                  })()}
-                  {/* Friendly message when selected date is a closed day */}
-                  {appointmentDate && selectedBranch && allPossibleSlots.length === 0 && !isLoadingSlots && (
-                    <p className="mt-2 text-[11px] text-rose-500 font-semibold flex items-center gap-1">
-                      <span>✕</span>
-                      <span>Tarikh ini tidak tersedia. Sila pilih tarikh lain.</span>
+                  <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">Tarikh Temujanji</label>
+                  {selectedBranch && selectedService ? (
+                    <AraCalendar
+                      value={appointmentDate}
+                      onChange={(d) => { setAppointmentDate(d); setBookingTime(''); }}
+                      availableDays={(() => {
+                        const srv = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService);
+                        return (srv?.branches?.[selectedBranch] as any)?.days || [];
+                      })()}
+                    />
+                  ) : (
+                    <div className="w-full px-4 py-3.5 rounded-2xl bg-white/10 text-white/30 text-sm text-center">
+                      Sila pilih cawangan dahulu...
+                    </div>
+                  )}
+                  {appointmentDate && allPossibleSlots.length === 0 && !isLoadingSlots && (
+                    <p className="mt-2 text-[11px] text-rose-400 font-semibold flex items-center gap-1">
+                      <span>✕</span> Tarikh ini tidak tersedia. Sila pilih tarikh lain.
                     </p>
                   )}
                 </div>
 
-               <div>
-                  <div className="flex items-center justify-between mb-2 ml-1">
-                    <label className="block text-xs font-bold text-zinc-500 uppercase">Waktu Temujanji</label>
-                    {isLoadingSlots && <span className="text-[10px] font-bold text-violet-500 animate-pulse">Menyemak...</span>}
+                {/* Time Slots */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider">Waktu Temujanji</label>
+                    {isLoadingSlots && <span className="text-[10px] font-bold text-[#F5F5DC]/60 animate-pulse">Menyemak...</span>}
                   </div>
                   
                   {!appointmentDate || !selectedBranch ? (
-                    <div className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 text-zinc-400 text-sm text-center">
+                    <div className="w-full px-4 py-3.5 rounded-2xl bg-white/10 text-white/30 text-sm text-center">
                       Sila pilih cawangan & tarikh dahulu...
                     </div>
                   ) : allPossibleSlots.length === 0 ? (
-                    <div className="w-full px-4 py-3.5 rounded-2xl bg-rose-50 border border-rose-100 text-rose-500 text-sm font-bold text-center flex items-center justify-center gap-2">
-                      <AlertCircle size={16} />
-                      Tutup pada tarikh ini
+                    <div className="w-full px-4 py-3.5 rounded-2xl bg-rose-500/10 border border-rose-400/20 text-rose-400 text-sm font-bold text-center flex items-center justify-center gap-2">
+                      <AlertCircle size={15} /> Tutup pada tarikh ini
                     </div>
                   ) : (
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                       {allPossibleSlots.map((timeSlot: string) => {
                         const isAvailable = realAvailableSlots.includes(timeSlot);
                         const isSelected = bookingTime === timeSlot;
-                        
                         return (
                           <button
                             key={timeSlot}
                             type="button"
                             disabled={!isAvailable || isLoadingSlots}
                             onClick={() => setBookingTime(timeSlot)}
-                            className={`py-3 rounded-xl text-sm font-bold transition-all border ${
+                            className={`py-3 rounded-xl text-sm font-bold transition-all ${
                               isSelected
-                                ? 'bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-200'
+                                ? 'bg-[#F5F5DC] text-[#0d1f3c] shadow-md'
                                 : isAvailable
-                                ? 'bg-white text-zinc-700 border-zinc-200 hover:border-violet-500 hover:text-violet-600 hover:bg-violet-50'
-                                : 'bg-zinc-100 text-zinc-400 border-zinc-100 cursor-not-allowed opacity-60'
+                                ? 'bg-white text-[#0d1f3c] hover:bg-[#F5F5DC]/80 active:scale-95'
+                                : 'bg-white/10 text-white/20 cursor-not-allowed line-through'
                             }`}
                           >
                             {timeSlot}
@@ -727,23 +787,22 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                       })}
                     </div>
                   )}
-                  {/* Hidden input to ensure form validation works for required field */}
                   <input type="text" value={bookingTime} onChange={() => {}} className="sr-only" required tabIndex={-1} />
                 </div>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-2">
                 <button 
                   type="button"
                   onClick={() => setPublicBookingStep('choice')}
-                  className="flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
+                  className="flex-1 py-4 bg-white/10 text-white/60 rounded-2xl font-bold hover:bg-white/20 transition-all"
                 >
                   Kembali
                 </button>
                 <button 
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-[2] py-4 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 disabled:opacity-50"
+                  className="flex-[2] py-4 bg-[#F5F5DC] text-[#0d1f3c] rounded-2xl font-bold hover:bg-white active:scale-95 transition-all shadow-lg disabled:opacity-40"
                 >
                   {isSubmitting ? 'Menghantar...' : 'Hantar Tempahan'}
                 </button>
@@ -756,100 +815,65 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
             const srv = services.find(s => String(s.id) === String(selectedService));
             const serviceName = srv?.name || urlServiceName || 'perkhidmatan kami';
             const waUrl = `https://wa.me/${waNum}?text=Hi/Salam,%20Saya%20${encodeURIComponent(patientName)},%20saya%20berminat%20dengan%20${encodeURIComponent(serviceName)}`;
-            
             return (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Pilih Cawangan Terdekat</label>
+                    <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">Pilih Cawangan Terdekat</label>
                     <select 
                       value={selectedWaBranch}
                       onChange={(e) => setSelectedWaBranch(e.target.value)}
-                      className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                      className="w-full px-4 py-3.5 rounded-2xl bg-white text-[#0d1f3c] font-medium text-sm focus:outline-none focus:ring-2 focus:ring-[#F5F5DC]"
                     >
-
-
-                    <option value="">Pilih cawangan...</option>
-                      {branches
-                        .filter(b => 
-                          b.is_active !== false && 
-                          b.isActive !== false && 
-                          b.status?.toLowerCase() !== 'inactive'
-                        )
-                        .map(b => (
-                          <option key={b.id} value={b.name}>{b.name}</option>
-                      ))}
+                      <option value="">Pilih cawangan...</option>
+                      {branches.filter(b => b.is_active !== false && b.isActive !== false && b.status?.toLowerCase() !== 'inactive')
+                        .map(b => (<option key={b.id} value={b.name}>{b.name}</option>))}
                     </select>
                   </div>
-
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Perkhidmatan</label>
+                    <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">Perkhidmatan</label>
                     {(selectedService || urlServiceName) ? (
                       <div className="relative">
-                        <input 
-                          type="text"
-                          readOnly
+                        <input type="text" readOnly
                           value={urlServiceName || services.find(s => String(s.id) === String(selectedService))?.name || 'Memuatkan...'}
-                          className="w-full px-4 py-3.5 rounded-2xl bg-zinc-100 border border-zinc-200 text-zinc-700 cursor-not-allowed font-bold"
+                          className="w-full px-4 py-3.5 rounded-2xl bg-[#F5F5DC] text-[#0d1f3c] cursor-not-allowed font-bold text-sm"
                         />
-                        <div className="absolute right-4 top-3.5">
-                          <Lock size={16} className="text-zinc-400" />
-                        </div>
+                        <div className="absolute right-4 top-3.5"><Lock size={15} className="text-[#0d1f3c]/40" /></div>
                       </div>
                     ) : (
-                      <select 
-                        value={selectedService}
-                        onChange={(e) => setSelectedService(e.target.value)}
-                        className="w-full px-4 py-3.5 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                        required
-                      >
+                      <select value={selectedService} onChange={(e) => setSelectedService(e.target.value)}
+                        className="w-full px-4 py-3.5 rounded-2xl bg-white text-[#0d1f3c] font-medium text-sm focus:outline-none focus:ring-2 focus:ring-[#F5F5DC]" required>
                         <option value="">Pilih satu...</option>
-                        {services.map(s => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
-                        ))}
+                        {services.map(s => (<option key={s.id} value={s.id}>{s.name}</option>))}
                       </select>
                     )}
                   </div>
                 </div>
-
-                <div className="flex gap-3">
-                  <button 
-                    type="button"
-                    onClick={() => setPublicBookingStep('choice')}
-                    className="flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
-                  >
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setPublicBookingStep('choice')}
+                    className="flex-1 py-4 bg-white/10 text-white/60 rounded-2xl font-bold hover:bg-white/20 transition-all">
                     Kembali
                   </button>
-                  <a 
-                    href={waUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <a href={waUrl} target="_blank" rel="noopener noreferrer"
                     onClick={async (e) => {
                       e.preventDefault();
                       window.open(waUrl, '_blank', 'noopener,noreferrer');
                       if (draftReferralId) {
-                        const { error } = await supabase
-                          .from('warm_leads')
-                          .update({ 
-                            status: 'whatsapp_redirected', 
-                            branch_preference: selectedWaBranch 
-                          })
-                          .eq('id', draftReferralId);
+                        const { error } = await supabase.from('warm_leads').update({ status: 'whatsapp_redirected', branch_preference: selectedWaBranch }).eq('id', draftReferralId);
                         if (error) console.error("Error updating warm lead for WhatsApp:", error);
                       }
-                      localStorage.removeItem('araclinic_ref_code'); // CLEAR THE CACHE HERE
+                      localStorage.removeItem('araclinic_ref_code');
                       setBookingSuccess(true);
                     }}
-                    className={`flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 ${!selectedWaBranch ? 'opacity-50 pointer-events-none' : ''}`}
+                    className={`flex-[2] py-4 bg-emerald-500 text-white rounded-2xl font-bold hover:bg-emerald-400 active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2 ${!selectedWaBranch ? 'opacity-40 pointer-events-none' : ''}`}
                   >
-                    <MessageCircle size={20} />
-                    Buka WhatsApp
+                    <MessageCircle size={20} /> Buka WhatsApp
                   </a>
                 </div>
               </div>
             );
           })()}
-        </motion.div>
+            </motion.div>
           </div>
         )}
       </div>
