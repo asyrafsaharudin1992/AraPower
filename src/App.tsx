@@ -2133,7 +2133,10 @@ export default function App() {
 
       // 2. BUILD THE BULLETPROOF PAYLOAD
       const payload: any = {
-        staff_id: isPublicBooking ? null : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id),
+        // FIX: Explicitly send the referringStaff.id if it was found during public booking!
+        staff_id: isPublicBooking 
+          ? (data.referringStaff?.id || null) 
+          : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id),
         referral_code: activeRefCode || null,
         service_id: data.selectedService,
         service_name: serviceData?.name || '',
