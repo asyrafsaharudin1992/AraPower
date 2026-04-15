@@ -2133,7 +2133,7 @@ export default function App() {
 
       // 2. BUILD THE BULLETPROOF PAYLOAD
       const payload: any = {
-        // FIX: Explicitly send the referringStaff.id if it was found during public booking!
+        // FIX: Stop setting this to null! Send the exact Row ID (data.referringStaff.id) to the backend!
         staff_id: isPublicBooking 
           ? (data.referringStaff?.id || null) 
           : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id),
