@@ -382,14 +382,18 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
         {isLeadStep && (
           <div className="min-h-screen flex flex-col items-center justify-center py-12">
 
-            {/* Logo */}
+            {/* Logo — white version hardcoded for navy background */}
             <motion.div
               initial={{ opacity: 0, y: -24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: 'easeOut' }}
               className="mb-8"
             >
-              <Logo logoUrl={clinicProfile?.logoUrl} />
+              <img
+                src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/lOGO%20ARA%20WHITE%20.png?alt=media"
+                alt="Klinik Ara 24 Jam"
+                className="h-24 w-auto object-contain"
+              />
             </motion.div>
 
             {/* Title */}
