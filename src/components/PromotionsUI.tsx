@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Zap, Star, Clock, Edit2, Trash2 } from 'lucide-react';
+import { ModernPromotionCard } from './ModernPromotionCard';
+import { PromotionsCarousel } from './PromotionsCarousel';
 import AddServiceForm from './AddServiceForm';
 import { PromotionDetailModal } from './PromotionDetailModal';
 
@@ -185,6 +187,106 @@ export const PromotionsUI: React.FC<PromotionsUIProps> = ({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Carousel: affiliate view only — hidden for admin/manager/receptionist */}
+      {currentUser.role !== 'admin' && currentUser.role !== 'manager' && currentUser.role !== 'receptionist' && (
+        <div className="space-y-12">
+          {[
+            { title: 'Featured', filter: (s: any) => s.is_featured && checkBranchAccess(s) },
+            ...serviceCategories.map(cat => ({ 
+              title: cat, 
+              filter: (s: any) => {
+                const sCat = (s.category || '').trim().toLowerCase();
+                const targetCat = cat.trim().toLowerCase();
+                return sCat === targetCat && checkBranchAccess(s);
+              }
+            }))
+          ].map((category, idx) => {
+            const displayServices = services.length > 0 ? services : promotions.map(p => ({
+              id: p.id,
+              name: p.title,
+              description: p.description,
+              start_date: p.start_date,
+              end_date: p.end_date,
+              type: 'Promotion',
+              base_price: 0,
+              commission_rate: 0,
+              is_featured: true,
+              allowances: {},
+              branches: {}
+            }));
+
+            let filteredServices = displayServices.filter(item => {
+              return checkBranchAccess(item) && category.filter(item);
+            });
+
+            if (filteredServices.length === 0) {
+              filteredServices = [
+                { id: 'coming-soon-1', name: `${category.title} Coming Soon`, base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'Stay tuned for more services in this category.' },
+                { id: 'coming-soon-2', name: 'More info coming', base_price: 0, commission_rate: 0, allowances: {}, category: category.title, type: 'Service', description: 'We are working on adding new services.' },
+              ];
+            }
+
+            return (
+              <div key={idx} className="space-y-6">
+                <h3 className={`text-2xl font-bold tracking-tight px-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+                  {category.title}
+                </h3>
+                {isMobile ? (
+                  <PromotionsCarousel 
+                    size={idx === 0 ? 'large' : 'small'}
+                    items={filteredServices} 
+                    onClick={(item) => {
+                      if (typeof item.id === 'string' && !item.id.startsWith('coming-soon')) {
+                        setSelectedPromo(item);
+                        setIsPromoModalOpen(true);
+                      }
+                    }} 
+                  />
+                ) : (
+                  <div className="flex overflow-x-auto gap-6 pb-4 px-2 scrollbar-hide flex-nowrap">
+                    {filteredServices.map((item) => (
+                      <div key={item.id} className="flex-shrink-0 w-[3.2rem] h-[4rem] flex flex-col gap-2">
+                        <div className="scale-[0.2] origin-top-left">
+                          <ModernPromotionCard 
+                            item={item} 
+                            onClick={() => {
+                              if (typeof item.id === 'string' && !item.id.startsWith('coming-soon')) {
+                                setSelectedPromo(item);
+                                setIsPromoModalOpen(true);
+                              }
+                            }} 
+                          />
+                        </div>
+                        <div className="px-1">
+                          <h4 className="text-[6px] font-bold text-zinc-900 truncate">{item.name}</h4>
+                          <p className="text-[5px] text-zinc-500 font-medium">
+                            {item.promo_price ? `RM${item.promo_price}` : `RM${item.base_price || 0}`}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {(services.length > 0 ? services : promotions).filter((item: any) => {
+            return !item.branches ||
+              (Array.isArray(item.branches) && (item.branches.length === 0 || !currentUser.branch || item.branches.includes(currentUser.branch))) ||
+              (!Array.isArray(item.branches) && (Object.keys(item.branches).length === 0 || !currentUser.branch || (item.branches[currentUser.branch] && item.branches[currentUser.branch].active)));
+          }).length === 0 && (
+            <div className="col-span-full text-center py-20">
+              <div className={`w-20 h-20 ${darkMode ? 'bg-zinc-900' : 'bg-transparent'} rounded-[2rem] flex items-center justify-center mx-auto mb-6`}>
+                <Zap size={32} className="text-zinc-500" />
+              </div>
+              <h3 className={`text-xl font-black tracking-tight mb-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>No active promotions</h3>
+              <p className="text-zinc-500 text-sm font-medium">Check back later for exciting new offers!</p>
+            </div>
+          )}
         </div>
       )}
 
