@@ -268,7 +268,7 @@ const checkSupabase = (res: express.Response) => {
 
 const isPlaceholderUrl = (url: string) => {
   if (!url || url.length === 0) return true;
-  const placeholders = ['placeholder', 'your-project-url', 'your-project-id', 'your-supabase-url', 'https://.supabase.co'];
+  const placeholders = ['placeholder', 'your-project-url', 'your-project-id', 'your-supabase-url', 'https://.supabase.co', 'todo'];
   const isPlaceholder = placeholders.some(p => url.toLowerCase().includes(p));
   const isInvalidFormat = !url.toLowerCase().startsWith('http');
   return isPlaceholder || isInvalidFormat;
@@ -276,7 +276,7 @@ const isPlaceholderUrl = (url: string) => {
 
 const isPlaceholderKey = (key: string) => {
   if (!key || key.length === 0) return true;
-  const placeholders = ['placeholder', 'your-anon-key', 'your-supabase-key', 'your-service-role-key'];
+  const placeholders = ['placeholder', 'your-anon-key', 'your-supabase-key', 'your-service-role-key', 'todo'];
   const isPlaceholder = placeholders.some(p => key.toLowerCase().includes(p));
   const isTooShort = key.length < 20;
   return isPlaceholder || isTooShort;
@@ -486,15 +486,6 @@ app.use("/api", (req, res, next) => {
   next();
 });
 
-// Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("Unhandled error:", err);
-  res.status(500).json({ 
-    error: "Internal Server Error", 
-    message: err.message || "An unexpected error occurred" 
-  });
-});
-
 // Branch Management Routes
 app.get("/api/branches", async (req, res) => {
   if (!checkSupabase(res)) return;
@@ -610,7 +601,7 @@ app.get("/api/branches/:name/performance", async (req, res) => {
   const performance = {
     total: referrals.length,
     successful: referrals.filter(r => ['payment_approved', 'payment_made'].includes(r.status)).length,
-    pending: referrals.filter(r => ['entered', 'completed', 'payment_made'].includes(r.status)).length,
+    pending: referrals.filter(r => ['arrived', 'in_session', 'completed', 'payment_approved'].includes(r.status)).length,
     total_commission: referrals.reduce((sum, r) => sum + (r.commission_earned || 0), 0)
   };
   
@@ -749,7 +740,7 @@ app.get('/api/public/slots', async (req, res) => {
       .select('booking_time')
       .eq('branch', branch)
       .eq('appointment_date', date)
-      .neq('status', 'cancelled');
+      .neq('status', 'rejected');
       
     if (error) throw error;
     // Return only the time strings (e.g. "10:00:00" -> "10:00")
@@ -888,7 +879,7 @@ app.post("/api/auth/register", async (req, res) => {
     let dbClient = supabase;
     let final_auth_id = auth_id;
 
-    if (serviceRoleKey) {
+    if (serviceRoleKey && !isPlaceholderUrl(supabaseUrl) && !isPlaceholderKey(serviceRoleKey)) {
       dbClient = createClient(
         supabaseUrl,
         serviceRoleKey,
@@ -1264,7 +1255,7 @@ app.get("/api/staff/email", async (req, res) => {
     let dbClient = supabase;
     if (serviceRoleKey) {
       const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-      if (url) {
+      if (!isPlaceholderUrl(url) && !isPlaceholderKey(serviceRoleKey)) {
         dbClient = createClient(
           url,
           serviceRoleKey,
@@ -1359,12 +1350,19 @@ app.get("/api/check-env", (req, res) => {
 app.get("/api/warm-leads", async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Supabase not initialized' });
-    const { data, error } = await supabase
-      .from('warm_leads')
-      .select('*')
-      .neq('status', 'archived')
-      .order('created_at', { ascending: false });
+    const { archived } = req.query;
     
+    let query = supabase.from('warm_leads').select('*').order('created_at', { ascending: false });
+    
+    if (archived === 'true') {
+      // Return only archived leads
+      query = query.eq('status', 'archived');
+    } else {
+      // Return active + converted but exclude archived
+      query = query.neq('status', 'archived');
+    }
+    
+    const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
     res.json(data || []);
   } catch (err: any) {
@@ -1600,7 +1598,7 @@ app.post("/api/staff", async (req, res) => {
 
     // 1. Create the user in Supabase Auth FIRST (if service role key is available)
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (serviceRoleKey) {
+    if (serviceRoleKey && !isPlaceholderUrl(process.env.VITE_SUPABASE_URL || '') && !isPlaceholderKey(serviceRoleKey)) {
       const adminSupabase = createClient(
         process.env.VITE_SUPABASE_URL!,
         serviceRoleKey,
@@ -1661,7 +1659,7 @@ app.post("/api/staff", async (req, res) => {
     if (staffColumns.has('is_approved')) insertData.is_approved = 1;
 
     let dbClient = supabase;
-    if (serviceRoleKey) {
+    if (serviceRoleKey && !isPlaceholderUrl(process.env.VITE_SUPABASE_URL || supabaseUrl) && !isPlaceholderKey(serviceRoleKey)) {
       dbClient = createClient(
         process.env.VITE_SUPABASE_URL || supabaseUrl,
         serviceRoleKey,
@@ -1788,8 +1786,8 @@ app.post("/api/admin/reset-password", async (req, res) => {
 
     // 3. Update the user's password in Supabase Auth using the service role key
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-      return res.status(500).json({ error: 'Server configuration error: Missing service role key' });
+    if (!serviceRoleKey || isPlaceholderUrl(process.env.VITE_SUPABASE_URL || '') || isPlaceholderKey(serviceRoleKey)) {
+      return res.status(500).json({ error: 'Server configuration error: Missing or invalid service role key' });
     }
 
     const adminSupabase = createClient(
@@ -1904,7 +1902,7 @@ app.delete("/api/staff/:id/permanent", async (req, res) => {
 
     // 3. Delete from Supabase Auth if service role key is available
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (serviceRoleKey) {
+    if (serviceRoleKey && !isPlaceholderUrl(process.env.VITE_SUPABASE_URL || '') && !isPlaceholderKey(serviceRoleKey)) {
       const adminSupabase = createClient(
         process.env.VITE_SUPABASE_URL!,
         serviceRoleKey,
@@ -2213,10 +2211,11 @@ app.get("/api/referrals", async (req, res) => {
     const service = servicesMap[r.service_id];
     return {
       ...r,
+      date: r.created_at,              // map created_at → date for frontend compatibility
       staff_id: r.staff_id || r.created_by,
       staff_name: staff?.name,
       promo_code: staff?.referral_code || staff?.promo_code,
-      service_name: service?.name
+      service_name: r.service_name || service?.name  // prefer saved name, fallback to current
     };
   });
   
@@ -2237,7 +2236,7 @@ app.get("/api/payouts/summary", async (req, res) => {
   const staffIds = [...new Set(referrals.map(r => r.staff_id || r.created_by).filter(Boolean))];
   const { data: staffData } = await supabase
     .from('staff')
-    .select('id, name, bank_name, account_number') // Assuming you have these or similar fields
+    .select('id, name, bank_name, bank_account_number, id_type, id_number')
     .in('id', staffIds);
 
   const staffMap = Object.fromEntries((staffData || []).map(s => [s.id, s]));
@@ -2253,7 +2252,7 @@ app.get("/api/payouts/summary", async (req, res) => {
       payoutSummary[affiliateId] = {
         affiliate_id: affiliateId,
         affiliate_name: staffMap[affiliateId]?.name || 'Unknown Affiliate',
-        bank_details: `${staffMap[affiliateId]?.bank_name || 'No Bank'} - ${staffMap[affiliateId]?.account_number || 'No Account'}`,
+        bank_details: `${staffMap[affiliateId]?.bank_name || 'No Bank'} - ${staffMap[affiliateId]?.bank_account_number || 'No Account'}`,
         total_patients: 0,
         total_commission_owed: 0,
         patient_ids: [] // Keep track of exactly which patients are included in this batch
@@ -2269,15 +2268,18 @@ app.get("/api/payouts/summary", async (req, res) => {
 });
 
 app.post("/api/payouts/process", async (req, res) => {
+  // DEPRECATED: PayoutManagement now uses PATCH /api/referrals/:id directly.
+  // This endpoint is kept for backwards compatibility but redirects to payment_approved.
   const { affiliate_id, staff_id, patient_ids } = req.body;
   
   if (!patient_ids || patient_ids.length === 0) {
     return res.status(400).json({ error: "No patients selected for payout" });
   }
 
+  // Set to payment_approved (not payment_made) — admin must confirm payment separately
   const { error } = await supabase
     .from('referrals')
-    .update({ status: 'payment_made' })
+    .update({ status: 'payment_approved' })
     .in('id', patient_ids);
 
   if (error) {
@@ -2285,7 +2287,7 @@ app.post("/api/payouts/process", async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
-  return res.json({ message: "Payout processed successfully" });
+  return res.json({ message: "Payout approved successfully" });
 });
 
 app.post("/api/referrals", async (req, res) => {
@@ -2313,7 +2315,7 @@ app.post("/api/referrals", async (req, res) => {
       .select('id, booking_time')
       .eq('branch', branch)
       .eq('appointment_date', appointment_date)
-      .neq('status', 'cancelled');
+      .neq('status', 'rejected');
 
     if (!checkError && existingBookings) {
       const takenCount = existingBookings.filter((r: any) => 

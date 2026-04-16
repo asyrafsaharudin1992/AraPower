@@ -12,7 +12,6 @@ import { toast } from 'react-hot-toast';
 import { ProfileUI } from './ProfileUI';
 import { InboxUI } from './InboxUI';
 import { GuideUI } from './GuideUI';
-import { KitUI } from './KitUI';
 import { PromotionsUI } from './PromotionsUI';
 
 export interface AffiliatePortalProps {
@@ -108,10 +107,6 @@ export const AffiliatePortal: React.FC<AffiliatePortalProps> = (props) => {
 
   if (activeTab === 'guide') {
     return <GuideUI {...props as any} />;
-  }
-
-  if (activeTab === 'kit') {
-    return <KitUI {...props as any} />;
   }
 
   if (activeTab === 'promotions') {
