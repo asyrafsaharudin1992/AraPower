@@ -48,6 +48,33 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
   const [referralServiceFilter, setReferralServiceFilter] = useState('all'); // NEW STATE
   const [pendingStatusUpdate, setPendingStatusUpdate] = useState<{id: string, status: string} | null>(null);
 
+  // Helper: returns available next actions for a referral given role
+  const getAvailableActions = (ref: any) => {
+    const role = currentUser?.role;
+    const isAdmin = role === 'admin';
+    const isManager = role === 'manager';
+    const isReceptionist = role === 'receptionist';
+    const canManage = isAdmin || isManager || isReceptionist;
+    if (!canManage) return [];
+
+    const actions: { label: string; status: string; colour: string }[] = [];
+    const s = ref.status?.toLowerCase();
+
+    if (s === 'pending') {
+      actions.push({ label: 'Mark Arrived', status: 'arrived', colour: 'text-blue-600' });
+    }
+    if (s === 'in_session') {
+      actions.push({ label: 'Mark Completed', status: 'completed', colour: 'text-green-600' });
+    }
+    if (s === 'completed' && (isAdmin || isManager)) {
+      actions.push({ label: 'Approve Payment', status: 'payment_approved', colour: 'text-purple-600' });
+    }
+    if (['pending', 'arrived', 'in_session'].includes(s) && (isAdmin || isManager)) {
+      actions.push({ label: 'Reject', status: 'rejected', colour: 'text-red-600' });
+    }
+    return actions;
+  };
+
   // NEW: Extract unique services dynamically from the referrals data
   const uniqueServices = useMemo(() => {
     if (!referrals) return [];
@@ -205,24 +232,30 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                   </span>
                 </div>
 
-                {/* Status Actions */}
-                {(currentUser?.role === 'admin' || currentUser?.role === 'manager' || currentUser?.role === 'receptionist') && (
-                  <div className="pt-2 flex flex-wrap gap-2">
-                    {ref.status === 'pending' && (
-                      <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'arrived' })} className="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs font-medium">Mark Arrived</button>
-                    )}
-                    {ref.status === 'in_session' && (
-                      <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'completed' })} className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-medium">Mark Completed</button>
-                    )}
-                    {ref.status === 'completed' && (currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
-                      <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'payment_approved' })} className="px-3 py-1 bg-purple-500 text-white rounded-lg text-xs font-medium">Approve Payment</button>
-                    )}
-
-                    {(ref.status === 'pending' || ref.status === 'arrived' || ref.status === 'in_session') && (
-                      <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'rejected' })} className="px-3 py-1 bg-red-500 text-white rounded-lg text-xs font-medium">Reject</button>
-                    )}
-                  </div>
-                )}
+                {/* Status Actions — dropdown */}
+                {(() => {
+                  const actions = getAvailableActions(ref);
+                  if (actions.length === 0) return null;
+                  return (
+                    <div className="pt-2">
+                      <select
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setPendingStatusUpdate({ id: ref.id, status: e.target.value });
+                            e.target.value = '';
+                          }
+                        }}
+                        className={`w-full px-3 py-2 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-2 focus:ring-violet-500 ${darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-200 text-zinc-900'}`}
+                      >
+                        <option value="" disabled>Update Status...</option>
+                        {actions.map(a => (
+                          <option key={a.status} value={a.status}>{a.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })()}
               </div>
             ))
           )}
@@ -276,25 +309,27 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                       </span>
                     </td>
                     <td className="p-4 text-right">
-                      {(currentUser?.role === 'admin' || currentUser?.role === 'manager' || currentUser?.role === 'receptionist') && (
-                        <div className="flex items-center justify-end gap-2">
-                          {ref.status === 'pending' && (
-                            <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'arrived' })} className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-medium transition-colors">Arrived</button>
-                          )}
-                          {ref.status === 'in_session' && (
-                            <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'completed' })} className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-medium transition-colors">Completed</button>
-                          )}
-                          {ref.status === 'completed' && (currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
-                            <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'payment_approved' })} className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-xs font-medium transition-colors">Approve</button>
-                          )}
-
-                          {(ref.status === 'pending' || ref.status === 'arrived' || ref.status === 'in_session') && (
-                            <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'rejected' })} className="p-1 text-zinc-400 hover:text-red-500 transition-colors" title="Reject">
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                        </div>
-                      )}
+                      {(() => {
+                        const actions = getAvailableActions(ref);
+                        if (actions.length === 0) return null;
+                        return (
+                          <select
+                            defaultValue=""
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                setPendingStatusUpdate({ id: ref.id, status: e.target.value });
+                                e.target.value = '';
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-2 focus:ring-violet-500 ${darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-200 text-zinc-900'}`}
+                          >
+                            <option value="" disabled>Action...</option>
+                            {actions.map(a => (
+                              <option key={a.status} value={a.status}>{a.label}</option>
+                            ))}
+                          </select>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))
