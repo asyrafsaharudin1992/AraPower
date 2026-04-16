@@ -1193,6 +1193,18 @@ export default function App() {
 
     const checkSession = async () => {
       try {
+        // Skip session check entirely if this is a password recovery URL
+        // Let onAuthStateChange handle it via PASSWORD_RECOVERY event instead
+        const isRecoveryUrl = 
+          window.location.pathname === '/update-password' ||
+          window.location.hash.includes('type=recovery');
+        
+        if (isRecoveryUrl) {
+          isPasswordRecovery.current = true;
+          setIsAuthChecking(false);
+          return;
+        }
+
         // Use getSession first as it's faster
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
