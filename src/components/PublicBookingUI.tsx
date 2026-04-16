@@ -593,7 +593,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 
         {/* ── CHOICE STEP: full-page design ── */}
         {publicBookingStep === 'choice' && (
-          <div className="min-h-screen flex flex-col py-10">
+          <div className="flex flex-col py-10">
 
             {/* Header: logo + title side by side */}
             <motion.div
@@ -631,10 +631,10 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                 />
                 {/* Text overlay on left */}
                 <div className="absolute inset-0 flex flex-col justify-center pl-7 pr-32 items-start">
-                  <p className="text-[#0d1f3c] font-black text-2xl leading-tight mb-1">
+                  <p className="text-[#0d1f3c] font-black text-2xl leading-tight mb-1 text-left">
                     Isi borang<br />temu janji
                   </p>
-                  <p className="text-[#0d1f3c]/60 text-xs leading-relaxed">
+                  <p className="text-[#0d1f3c]/60 text-xs leading-relaxed text-left">
                     Lengkapkan maklumat untuk<br />pengesahan pantas
                   </p>
                 </div>
@@ -655,10 +655,10 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                 />
                 {/* Text overlay on left */}
                 <div className="absolute inset-0 flex flex-col justify-center pl-7 pr-32 items-start">
-                  <p className="text-[#0d1f3c] font-black text-2xl leading-tight mb-1">
+                  <p className="text-[#0d1f3c] font-black text-2xl leading-tight mb-1 text-left">
                     Saya mahu<br />tanya <em>je</em> dulu
                   </p>
-                  <p className="text-[#0d1f3c]/50 text-xs leading-relaxed">
+                  <p className="text-[#0d1f3c]/50 text-xs leading-relaxed text-left">
                     Boleh, klik untuk<br />whatsapp kami :)
                   </p>
                 </div>
