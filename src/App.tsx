@@ -1309,9 +1309,15 @@ export default function App() {
       }
       
       if (data) {
-        localStorage.setItem('currentUser', JSON.stringify(data));
-        setCurrentUser(data);
-        return data;
+        // Preserve is_approved from previous state if API response doesn't include it
+        // This prevents the pending screen flashing during re-fetches
+        const enriched = {
+          ...data,
+          is_approved: data.is_approved !== undefined ? data.is_approved : 1
+        };
+        localStorage.setItem('currentUser', JSON.stringify(enriched));
+        setCurrentUser(enriched);
+        return enriched;
       } else {
         throw new Error('User profile not found.');
       }
@@ -3765,7 +3771,7 @@ export default function App() {
             </>
           )}
 
-          {!currentUser.is_approved && currentUser.role !== 'admin' && activeTab !== 'profile' ? (
+          {currentUser.is_approved === 0 && currentUser.role !== 'admin' && activeTab !== 'profile' ? (
             (() => {
               console.log('Current User State (Main Content Pending):', currentUser);
               return (

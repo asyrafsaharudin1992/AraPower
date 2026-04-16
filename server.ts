@@ -210,7 +210,7 @@ let serviceColumns: Set<string> = new Set([
   'branches', 'start_date', 'end_date', 'start_time', 'end_time',
   'duration_mins', 'created_at', 'target_url', 'commission_rate'
 ]);
-let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'created_at']);
+let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'created_at', 'is_approved']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
 let branchColumns: Set<string> = new Set(['id', 'name', 'location', 'whatsapp_number']);
 let settingsColumns: Set<string> = new Set(['key', 'value']);
@@ -1246,9 +1246,12 @@ app.get("/api/staff/email", async (req, res) => {
     const { email, auth_id } = req.query;
     if (!email) return res.status(400).json({ error: "Email is required" });
     
-    const selectColumns = Array.from(staffColumns).length > 0 
-      ? Array.from(staffColumns).join(',') 
-      : 'id, name, email, role';
+    // Always include is_approved — missing it causes the pending approval screen to flash
+    const staffColsWithApproval = new Set(staffColumns);
+    staffColsWithApproval.add('is_approved');
+    const selectColumns = staffColsWithApproval.size > 4
+      ? Array.from(staffColsWithApproval).join(',')
+      : 'id, name, email, role, is_approved';
 
     // Use service role key if available to bypass RLS (in case of broken policies like infinite recursion)
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
