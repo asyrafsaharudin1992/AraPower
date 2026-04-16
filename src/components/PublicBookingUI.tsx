@@ -614,7 +614,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
             </motion.div>
 
             {/* Two cards */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
 
               {/* Card 1 — beige, image on right, text on left */}
               <motion.button
