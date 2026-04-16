@@ -699,6 +699,15 @@ export default function App() {
   const isPasswordRecovery = useRef(false);
 
   const [currentUser, setCurrentUser] = useState<Staff | null>(() => {
+    // If this is a password recovery URL, clear any cached user
+    // so the app doesn't render as logged-in before the modal appears
+    const isRecovery =
+      window.location.pathname === '/update-password' ||
+      window.location.hash.includes('type=recovery');
+    if (isRecovery) {
+      localStorage.removeItem('currentUser');
+      return null;
+    }
     const saved = localStorage.getItem('currentUser');
     if (!saved) return null;
     try {
