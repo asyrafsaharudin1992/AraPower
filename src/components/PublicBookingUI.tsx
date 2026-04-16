@@ -616,52 +616,34 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
             {/* Two cards */}
             <div className="flex flex-col gap-4 flex-1">
 
-              {/* Card 1 — Beige with navy border, clipboard icon bleeding out bottom-right */}
+              {/* Card 1 — full image */}
               <motion.button
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.15 }}
                 onClick={() => setPublicBookingStep('form')}
-                className="relative w-full rounded-3xl bg-[#EEF0D5] border-4 border-[#0d1f3c] p-7 text-left overflow-hidden active:scale-[0.98] transition-transform min-h-[160px]"
+                className="relative w-full rounded-3xl overflow-hidden active:scale-[0.98] transition-transform"
               >
-                <p className="text-[#0d1f3c] font-black text-3xl leading-tight mb-2">
-                  Isi borang<br />temu janji
-                </p>
-                <p className="text-[#0d1f3c]/60 text-sm leading-relaxed">
-                  Lengkapkan maklumat untuk<br />pengesahan pantas
-                </p>
-                {/* Large clipboard image — bleeds out of bottom-right corner */}
-                <div className="absolute -bottom-4 -right-4 pointer-events-none">
-                  <img
-                    src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/%7B992D7791-8FED-40F2-B7A7-2C6A1D3BD1B1%7D.png?alt=media"
-                    alt=""
-                    className="w-44 h-auto object-contain"
-                  />
-                </div>
+                <img
+                  src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/1.png?alt=media"
+                  alt="Isi borang temu janji"
+                  className="w-full h-auto object-cover block"
+                />
               </motion.button>
 
-              {/* Card 2 — White with navy border, WhatsApp icon bleeding out bottom-right */}
+              {/* Card 2 — full image */}
               <motion.button
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.28 }}
                 onClick={() => setPublicBookingStep('whatsapp')}
-                className="relative w-full rounded-3xl bg-white border-4 border-[#0d1f3c] p-7 text-left overflow-hidden active:scale-[0.98] transition-transform min-h-[160px]"
+                className="relative w-full rounded-3xl overflow-hidden active:scale-[0.98] transition-transform"
               >
-                <p className="text-[#0d1f3c] font-black text-3xl leading-tight mb-2">
-                  Saya mahu<br />tanya <em>je</em> dulu
-                </p>
-                <p className="text-[#0d1f3c]/50 text-sm leading-relaxed">
-                  Boleh, klik untuk<br />whatsapp kami :)
-                </p>
-                {/* Large WhatsApp image — bleeds out of bottom-right corner */}
-                <div className="absolute -bottom-6 -right-6 pointer-events-none">
-                  <img
-                    src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/%7BC279E980-856D-4351-A105-41FB4ACDDA6B%7D%20(1).png?alt=media"
-                    alt=""
-                    className="w-44 h-auto object-contain"
-                  />
-                </div>
+                <img
+                  src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/2.png?alt=media"
+                  alt="Hubungi WhatsApp"
+                  className="w-full h-auto object-cover block"
+                />
               </motion.button>
             </div>
 
@@ -685,25 +667,22 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 
         {/* ── FORM + WHATSAPP STEPS ── */}
         {(publicBookingStep === 'form' || publicBookingStep === 'whatsapp') && (
-          <div className="py-8">
-            {/* Step header */}
+          <div className="py-10">
+            {/* Header — same design language as choice page */}
             <motion.div
-              initial={{ opacity: 0, y: -12 }}
+              initial={{ opacity: 0, y: -16 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex items-center justify-between mb-6"
+              transition={{ duration: 0.5 }}
+              className="flex items-center gap-4 mb-8"
             >
+              <img
+                src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/lOGO%20ARA%20WHITE%20.png?alt=media"
+                alt="Klinik Ara"
+                className="h-14 w-auto object-contain"
+              />
               <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">Tempahan Rawatan</h1>
-                <p className="text-white/40 text-xs mt-0.5">Klinik Ara 24 Jam</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-[#F5F5DC]/20 flex items-center justify-center">
-                  <User size={15} className="text-[#F5F5DC]" />
-                </div>
-                <div className="text-left">
-                  <p className="text-[9px] font-bold text-white/30 uppercase leading-none tracking-wider">Rujukan</p>
-                  <p className="text-xs font-bold text-white/80">{referringStaff?.name || 'Pusat Rawatan'}</p>
-                </div>
+                <p className="text-white font-bold text-2xl leading-tight tracking-tight">Ara</p>
+                <p className="text-white font-bold text-2xl leading-tight tracking-tight">Booking Hub</p>
               </div>
             </motion.div>
 
