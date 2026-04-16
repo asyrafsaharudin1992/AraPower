@@ -760,7 +760,7 @@ export default function App() {
   const [serviceCategories, setServiceCategories] = useState<string[]>(['Health screening', 'Diagnostic test', 'Vaccination']);
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
   const [editingCategoryValue, setEditingCategoryValue] = useState<string>('');
-  const [promoSubTab, setPromoSubTab] = useState<'manage'>('manage');
+  const [promoSubTab, setPromoSubTab] = useState<string>('manage');
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
   const [selectedPromo, setSelectedPromo] = useState<Service | null>(null);
   const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);

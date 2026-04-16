@@ -157,27 +157,160 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
         </div>
       </div>
 
-      {/* Mobile View - unchanged */}
+      {/* Mobile View */}
       {isMobile ? (
-         // ... (Keep your existing mobile view code here)
-         <div className="divide-y divide-zinc-100">
-            <p className="p-4 text-center text-zinc-400 text-sm">Mobile View</p>
-         </div>
+        <div className={`divide-y ${darkMode ? 'divide-zinc-800' : 'divide-zinc-100'}`}>
+          {filteredReferrals.length === 0 ? (
+            <p className="p-8 text-center text-zinc-500 text-sm">No referrals found.</p>
+          ) : (
+            filteredReferrals.map((ref) => (
+              <div key={ref.id} className="p-4 space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className={`font-medium ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{ref.patient_name}</p>
+                    <p className="text-xs text-zinc-500">{ref.service_name}</p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(ref.status)}`}>
+                    {getStatusLabel(ref.status)}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center text-xs text-zinc-500">
+                  <span>{new Date(ref.date).toLocaleDateString()}</span>
+                  <span className="font-medium text-brand-accent">
+                    {clinicProfile?.currency || 'RM'} {ref.commission_amount?.toFixed(2) || '0.00'}
+                  </span>
+                </div>
+
+                {/* Status Actions */}
+                {(currentUser?.role === 'admin' || currentUser?.role === 'manager' || currentUser?.role === 'receptionist') && (
+                  <div className="pt-2 flex flex-wrap gap-2">
+                    {ref.status === 'pending' && (
+                      <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'entered' })} className="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs font-medium">Mark Entered</button>
+                    )}
+                    {ref.status === 'entered' && (
+                      <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'completed' })} className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-medium">Mark Completed</button>
+                    )}
+                    {ref.status === 'completed' && currentUser?.role === 'admin' && (
+                      <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'payment_approved' })} className="px-3 py-1 bg-purple-500 text-white rounded-lg text-xs font-medium">Approve Payment</button>
+                    )}
+                    {(ref.status === 'pending' || ref.status === 'entered') && (
+                      <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'rejected' })} className="px-3 py-1 bg-red-500 text-white rounded-lg text-xs font-medium">Reject</button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
       ) : (
-        // Desktop View - unchanged
-        <table className="w-full text-left border-collapse">
-           {/* ... (Keep your existing table code here) */}
-           <tbody className="divide-y divide-zinc-50">
-              <tr><td className="p-4 text-sm text-zinc-500">Desktop View</td></tr>
-           </tbody>
-        </table>
+        // Desktop View
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className={`text-xs uppercase tracking-wider ${darkMode ? 'bg-zinc-800/50 text-zinc-400' : 'bg-zinc-50 text-zinc-500'}`}>
+                <th className="p-4 font-medium">Date</th>
+                <th className="p-4 font-medium">Patient</th>
+                <th className="p-4 font-medium">Service</th>
+                <th className="p-4 font-medium">Staff</th>
+                <th className="p-4 font-medium">Incentive</th>
+                <th className="p-4 font-medium">Status</th>
+                <th className="p-4 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className={`divide-y ${darkMode ? 'divide-zinc-800' : 'divide-zinc-50'}`}>
+              {filteredReferrals.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-zinc-500 text-sm">No referrals found.</td>
+                </tr>
+              ) : (
+                filteredReferrals.map((ref) => (
+                  <tr key={ref.id} className={`transition-colors ${darkMode ? 'hover:bg-zinc-800/30' : 'hover:bg-zinc-50/50'}`}>
+                    <td className="p-4 text-sm text-zinc-500">{new Date(ref.date).toLocaleDateString()}</td>
+                    <td className="p-4">
+                      <p className={`font-medium text-sm ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{ref.patient_name}</p>
+                      <p className="text-xs text-zinc-500">{ref.patient_phone}</p>
+                    </td>
+                    <td className="p-4 text-sm text-zinc-600">{ref.service_name}</td>
+                    <td className="p-4 text-sm text-zinc-600">{staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || 'Direct Walk-in'}</td>
+                    <td className="p-4">
+                      <span className="font-medium text-brand-accent text-sm">
+                        {clinicProfile?.currency || 'RM'} {ref.commission_amount?.toFixed(2) || '0.00'}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(ref.status)}`}>
+                        {getStatusLabel(ref.status)}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right">
+                      {(currentUser?.role === 'admin' || currentUser?.role === 'manager' || currentUser?.role === 'receptionist') && (
+                        <div className="flex items-center justify-end gap-2">
+                          {ref.status === 'pending' && (
+                            <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'entered' })} className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-medium transition-colors">Entered</button>
+                          )}
+                          {ref.status === 'entered' && (
+                            <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'completed' })} className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-medium transition-colors">Completed</button>
+                          )}
+                          {ref.status === 'completed' && currentUser?.role === 'admin' && (
+                            <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'payment_approved' })} className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-xs font-medium transition-colors">Approve</button>
+                          )}
+                          {(ref.status === 'pending' || ref.status === 'entered') && (
+                            <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'rejected' })} className="p-1 text-zinc-400 hover:text-red-500 transition-colors" title="Reject">
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {/* Safeguard Modal - unchanged */}
+      {/* Safeguard Modal */}
       <AnimatePresence>
         {pendingStatusUpdate && (
-           // ... (Keep your existing modal code here)
-           null
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className={`${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'} rounded-2xl shadow-xl w-full max-w-md overflow-hidden border`}
+            >
+              <div className="p-6">
+                <h3 className={`text-lg font-bold mb-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>Confirm Status Update</h3>
+                <p className={`text-sm mb-6 ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                  Are you sure you want to change this referral's status to <span className="font-semibold">{getStatusLabel(pendingStatusUpdate.status)}</span>?
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setPendingStatusUpdate(null)}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${darkMode ? 'bg-zinc-800 text-white hover:bg-zinc-700' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'}`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleClinicStatusUpdate(pendingStatusUpdate.id, pendingStatusUpdate.status);
+                      setPendingStatusUpdate(null);
+                    }}
+                    className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-medium transition-colors"
+                  >
+                    Confirm Update
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>

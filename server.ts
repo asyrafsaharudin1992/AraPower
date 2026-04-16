@@ -2132,8 +2132,11 @@ app.get("/api/referrals", async (req, res) => {
     let fallbackQuery = supabase
       .from('referrals')
       .select('*')
-      .order('created_at', { ascending: false })
-      .eq('created_by', staffId);
+      .order('created_at', { ascending: false });
+      
+    if (staffId && staffId !== 'undefined' && staffId !== 'null') {
+      fallbackQuery = fallbackQuery.eq('created_by', staffId);
+    }
       
     if (upcoming === 'true') {
       const today = new Date().toISOString().split('T')[0];

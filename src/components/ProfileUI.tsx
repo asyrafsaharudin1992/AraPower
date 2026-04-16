@@ -17,11 +17,11 @@ export interface ProfileUIProps {
   setDarkMode: (dark: boolean) => void;
   reduceTranslucency: boolean;
   setReduceTranslucency: (reduce: boolean) => void;
-  setActiveTab: (tab: string) => void;
+  setActiveTab: (tab: any) => void;
   setShowPasswordModal: (show: boolean) => void;
   feedbackMessage: string;
   setFeedbackMessage: (msg: string) => void;
-  handleSendFeedback: () => void;
+  handleSendFeedback: (e: any) => void;
   isSendingFeedback: boolean;
   handleLogout: () => void;
 }

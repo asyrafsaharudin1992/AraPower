@@ -17,8 +17,8 @@ export interface KitUIProps {
   setPatientPhone: (phone: string) => void;
   patientIC: string;
   setPatientIC: (ic: string) => void;
-  patientType: string;
-  setPatientType: (type: string) => void;
+  patientType: 'new' | 'existing';
+  setPatientType: (type: 'new' | 'existing') => void;
   patientAddress: string;
   setPatientAddress: (address: string) => void;
   selectedService: string;
