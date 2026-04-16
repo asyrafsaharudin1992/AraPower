@@ -1191,16 +1191,19 @@ export default function App() {
       return;
     }
 
+    // Set recovery flag synchronously before ANY async code runs
+    // This ensures INITIAL_SESSION and SIGNED_IN are blocked from the start
+    const isRecoveryUrl =
+      window.location.pathname === '/update-password' ||
+      window.location.hash.includes('type=recovery');
+    if (isRecoveryUrl) {
+      isPasswordRecovery.current = true;
+    }
+
     const checkSession = async () => {
       try {
         // Skip session check entirely if this is a password recovery URL
-        // Let onAuthStateChange handle it via PASSWORD_RECOVERY event instead
-        const isRecoveryUrl = 
-          window.location.pathname === '/update-password' ||
-          window.location.hash.includes('type=recovery');
-        
-        if (isRecoveryUrl) {
-          isPasswordRecovery.current = true;
+        if (isPasswordRecovery.current) {
           setIsAuthChecking(false);
           return;
         }
@@ -1265,6 +1268,9 @@ export default function App() {
         setIsAuthChecking(false);
       } else if (event === 'INITIAL_SESSION') {
         if (!session) {
+          setIsAuthChecking(false);
+        } else if (isPasswordRecovery.current) {
+          // Recovery session — don't log in, let PASSWORD_RECOVERY event handle it
           setIsAuthChecking(false);
         } else if (session.user?.email) {
           fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on initial session:', e));
