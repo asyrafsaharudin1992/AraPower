@@ -11,14 +11,17 @@
       "config": { "distDir": "dist" }
     }
   ],
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "destination": "/server.ts"
+      "src": "/api/(.*)",
+      "dest": "/server.ts"
     },
     {
-      "source": "/((?!assets|favicon|logo|icons|manifest).*)",
-      "destination": "/dist/index.html"
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
