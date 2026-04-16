@@ -3042,24 +3042,7 @@ export default function App() {
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="block text-xs font-bold text-twilight-indigo/60">Branch</label>
-                          <div className="border-b border-twilight-indigo/20 focus-within:border-burnt-peach pb-1 transition-colors">
-                            <select 
-                              required
-                              value={authBranch}
-                              onChange={(e) => setAuthBranch(e.target.value)}
-                              className="w-full bg-transparent focus:outline-none text-twilight-indigo appearance-none text-base"
-                            >
-                              <option value="">Select</option>
-                              {branches.map(b => (
-                                <option key={b.id} value={b.name}>{b.name}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                        <div className="space-y-1">
+                      <div className="space-y-1">
                           <label className="block text-xs font-bold text-twilight-indigo/60">Phone</label>
                           <div className="flex items-center gap-3 border-b border-twilight-indigo/20 focus-within:border-burnt-peach pb-1 transition-colors">
                             <Phone size={16} className="text-twilight-indigo/40" />
@@ -3073,7 +3056,6 @@ export default function App() {
                             />
                           </div>
                         </div>
-                      </div>
                     <div className="mt-4 mb-4">
                       <label className="flex items-start gap-3 cursor-pointer group">
                         <div className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${agreedToTerms ? 'bg-burnt-peach border-burnt-peach' : 'border-twilight-indigo/20 group-hover:border-burnt-peach'}`}>
