@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Calendar, Plus, Zap, UserCircle } from 'lucide-react';
+import { LayoutDashboard, Calendar, Zap, UserCircle } from 'lucide-react';
 
 export type MobileTab = 'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'promotions' | 'payouts' | 'inbox' | 'communication' | 'warm-leads';
 
@@ -7,7 +7,6 @@ export const MobileUI = ({
   reduceTranslucency,
   activeTab,
   setActiveTab,
-  setShowReferralModal
 }: any) => {
   return (
     <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
@@ -29,19 +28,6 @@ export const MobileUI = ({
               <Calendar size={22} />
             </div>
           </button>
-        </div>
-
-        {/* Central FAB */}
-        <div className="px-2">
-          <button 
-            onClick={() => setShowReferralModal(true)}
-            className="w-14 h-14 bg-burnt-peach text-white rounded-full flex items-center justify-center shadow-lg shadow-burnt-peach/40 active:scale-95 transition-transform"
-          >
-            <Plus size={28} strokeWidth={3} />
-          </button>
-        </div>
-
-        <div className="flex flex-1 justify-around items-center">
           <button 
             onClick={() => setActiveTab('promotions')}
             className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'promotions' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}
