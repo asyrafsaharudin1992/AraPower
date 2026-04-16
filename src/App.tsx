@@ -1143,14 +1143,7 @@ export default function App() {
     setWelcomeQuote(randomQuote);
   }, []);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      if (path === '/update-password') {
-        setShowResetPasswordModal(true);
-      }
-    }
-  }, []);
+  // URL detection for password reset — handled in the effect below
 
   useEffect(() => {
     checkConnection();
@@ -1230,6 +1223,13 @@ export default function App() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state change:', event, session?.user?.email);
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        // Supabase has exchanged the hash token for a session — now show reset modal
+        setShowResetPasswordModal(true);
+        window.history.replaceState({}, document.title, '/');
+        return;
+      }
       
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         if (session?.user?.email) {
@@ -1771,9 +1771,16 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (window.location.pathname === '/reset-password' || window.location.hash.includes('type=recovery')) {
+    // Handle Supabase password recovery redirect
+    // Do NOT wipe the hash here — let onAuthStateChange handle the token first
+    const hash = window.location.hash;
+    const path = window.location.pathname;
+    if (path === '/update-password' || hash.includes('type=recovery')) {
       setShowResetPasswordModal(true);
-      window.history.replaceState({}, document.title, '/');
+      // Clean URL after a short delay so Supabase can read the token from the hash
+      setTimeout(() => {
+        window.history.replaceState({}, document.title, '/');
+      }, 2000);
     }
   }, []);
 
@@ -1786,53 +1793,7 @@ export default function App() {
     }, 400);
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!forgotPasswordEmail) return;
-    
-    setIsSendingForgotPassword(true);
-    setForgotPasswordStatus(null);
-    
-    try {
-      if (isSupabaseConfigured) {
-        const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
-          redirectTo: `${window.location.origin}/reset-password`,
-        });
-        
-        if (error) {
-          throw error;
-        }
-        
-        setForgotPasswordStatus({ type: 'success', message: 'Password reset link sent to your email.' });
-        setTimeout(() => {
-          setShowForgotPasswordModal(false);
-          setForgotPasswordEmail('');
-          setForgotPasswordStatus(null);
-        }, 3000);
-      } else {
-        const { res, data } = await safeFetch(`${apiBaseUrl}/api/forgot-password`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: forgotPasswordEmail }),
-        });
-        
-        if (res.ok) {
-          setForgotPasswordStatus({ type: 'success', message: 'Password reset link sent to your email.' });
-          setTimeout(() => {
-            setShowForgotPasswordModal(false);
-            setForgotPasswordEmail('');
-            setForgotPasswordStatus(null);
-          }, 3000);
-        } else {
-          setForgotPasswordStatus({ type: 'error', message: data?.error || 'Failed to send reset link.' });
-        }
-      }
-    } catch (error: any) {
-      setForgotPasswordStatus({ type: 'error', message: error.message || 'An error occurred.' });
-    } finally {
-      setIsSendingForgotPassword(false);
-    }
-  };
+  // handleForgotPassword removed — use handleForgotPasswordSubmit
 
   const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

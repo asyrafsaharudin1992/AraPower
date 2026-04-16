@@ -6,13 +6,14 @@ import App from './App.tsx';
 import './index.css';
 
 // Suppress Supabase refresh token errors from crashing the app or showing up in error overlays
-window.addEventListener('unhandledrejection', (event) => {
-  if (event.reason && typeof event.reason.message === 'string' && 
-      (event.reason.message.includes('Refresh Token Not Found') || 
-       event.reason.message.includes('Invalid Refresh Token') ||
-       event.reason.message.includes('invalid_refresh_token'))) {
-    console.warn('Suppressed Supabase refresh token error:', event.reason.message);
-    event.preventDefault(); // Prevent the error from showing up in the console/error overlay
+const handleSupabaseAuthError = (message: string, preventDefault?: () => void) => {
+  if (message && typeof message === 'string' &&
+      (message.includes('Refresh Token Not Found') || 
+       message.includes('Invalid Refresh Token') ||
+       message.includes('invalid_refresh_token') ||
+       message.includes('AuthSessionMissingError'))) {
+    console.warn('Suppressed Supabase auth error:', message);
+    if (preventDefault) preventDefault(); // Prevent the error from showing up in the console/error overlay
     
     // Clear the invalid session from local storage
     Object.keys(localStorage).forEach(key => {
@@ -20,6 +21,39 @@ window.addEventListener('unhandledrejection', (event) => {
         localStorage.removeItem(key);
       }
     });
+    return true;
+  }
+  return false;
+};
+
+// Monkey-patch console.error to prevent Vite error overlay from catching Supabase's internal console.error("Invalid Refresh Token...")
+const originalConsoleError = console.error;
+console.error = (...args) => {
+  if (args.length > 0 && typeof args[0] === 'string' && 
+      (args[0].includes('Invalid Refresh Token') || 
+       args[0].includes('Refresh Token Not Found'))) {
+    handleSupabaseAuthError(args[0]);
+    return; // Swallow the error
+  }
+  // Also check if Error object
+  if (args.length > 0 && args[0] instanceof Error && 
+     (args[0].message.includes('Invalid Refresh Token') || 
+      args[0].message.includes('Refresh Token Not Found'))) {
+    handleSupabaseAuthError(args[0].message);
+    return; // Swallow the error
+  }
+  originalConsoleError.apply(console, args);
+};
+
+window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason) {
+    handleSupabaseAuthError(event.reason.message || String(event.reason), () => event.preventDefault());
+  }
+});
+
+window.addEventListener('error', (event) => {
+  if (event.message || (event.error && event.error.message)) {
+    handleSupabaseAuthError(event.message || event.error.message, () => event.preventDefault());
   }
 });
 
