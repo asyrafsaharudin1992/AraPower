@@ -2,9 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   User, 
-  Phone, 
-  ChevronRight, 
-  FileText, 
   MessageCircle, 
   CheckCircle, 
   AlertCircle,
@@ -185,7 +182,6 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   const [selectedBranch, setSelectedBranch] = useState('');
   const [selectedService, setSelectedService] = useState('');
   const [urlServiceName, setUrlServiceName] = useState('');
-  const [rawRefCode, setRawRefCode] = useState<string | null>(null);
   const [isLookingUpAffiliate, setIsLookingUpAffiliate] = useState(false);
 
   useEffect(() => {
@@ -196,7 +192,6 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
 
     if (effectiveRef) {
       localStorage.setItem('araclinic_ref_code', effectiveRef);
-      setRawRefCode(effectiveRef);
       setProvidedRefCode(effectiveRef);
       setIsLookingUpAffiliate(true);
       
@@ -596,8 +591,107 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
           </div>
         )}
 
-        {/* ── ALL OTHER STEPS: navy/beige theme ── */}
-        {!isLeadStep && (
+        {/* ── CHOICE STEP: full-page design ── */}
+        {publicBookingStep === 'choice' && (
+          <div className="min-h-screen flex flex-col py-10">
+
+            {/* Header: logo + title side by side */}
+            <motion.div
+              initial={{ opacity: 0, y: -16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="flex items-center gap-4 mb-10"
+            >
+              <img
+                src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/lOGO%20ARA%20WHITE%20.png?alt=media"
+                alt="Klinik Ara"
+                className="h-14 w-auto object-contain"
+              />
+              <div>
+                <p className="text-white font-bold text-2xl leading-tight tracking-tight">Ara</p>
+                <p className="text-white font-bold text-2xl leading-tight tracking-tight">Booking Hub</p>
+              </div>
+            </motion.div>
+
+            {/* Two cards */}
+            <div className="flex flex-col gap-4 flex-1">
+
+              {/* Card 1 — Beige: Book form */}
+              <motion.button
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.15 }}
+                onClick={() => setPublicBookingStep('form')}
+                className="relative w-full rounded-3xl bg-[#F5F5DC] p-7 text-left overflow-hidden active:scale-[0.98] transition-transform"
+              >
+                <p className="text-[#0d1f3c] font-black text-3xl leading-tight mb-3">
+                  Isi borang<br />temu janji
+                </p>
+                <p className="text-[#0d1f3c]/60 text-sm leading-relaxed">
+                  Lengkapkan maklumat untuk<br />pengesahan pantas
+                </p>
+                {/* Floating icon */}
+                <div className="absolute right-4 bottom-4 opacity-90">
+                  <svg width="110" height="110" viewBox="0 0 110 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="18" y="8" width="62" height="82" rx="8" fill="#38bdf8"/>
+                    <rect x="26" y="22" width="36" height="5" rx="2.5" fill="white" fillOpacity="0.9"/>
+                    <rect x="26" y="33" width="28" height="5" rx="2.5" fill="white" fillOpacity="0.7"/>
+                    <rect x="26" y="44" width="32" height="5" rx="2.5" fill="white" fillOpacity="0.7"/>
+                    <circle cx="55" cy="68" r="14" fill="#0d1f3c" fillOpacity="0.15"/>
+                    <circle cx="55" cy="62" r="9" fill="white" fillOpacity="0.9"/>
+                    <rect x="49" y="70" width="12" height="10" rx="4" fill="white" fillOpacity="0.9"/>
+                    <circle cx="80" cy="78" r="16" fill="#0d1f3c"/>
+                    <path d="M74 78 L79 83 L87 73" stroke="#F5F5DC" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </motion.button>
+
+              {/* Card 2 — White: WhatsApp */}
+              <motion.button
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.28 }}
+                onClick={() => setPublicBookingStep('whatsapp')}
+                className="relative w-full rounded-3xl bg-white p-7 text-left overflow-hidden active:scale-[0.98] transition-transform"
+              >
+                <p className="text-[#0d1f3c] font-black text-3xl leading-tight mb-3">
+                  Saya mahu<br />tanya <em>je</em> dulu
+                </p>
+                <p className="text-[#0d1f3c]/50 text-sm leading-relaxed">
+                  Boleh, klik untuk<br />whatsapp kami :)
+                </p>
+                {/* WhatsApp icon */}
+                <div className="absolute right-5 bottom-5">
+                  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="40" cy="40" r="38" fill="#25D366"/>
+                    <path d="M40 14C25.64 14 14 25.64 14 40c0 4.84 1.35 9.37 3.7 13.21L14 66l13.16-3.63A26 26 0 0 0 40 66c14.36 0 26-11.64 26-26S54.36 14 40 14z" fill="#25D366"/>
+                    <path d="M40 16.5C27.02 16.5 16.5 27.02 16.5 40c0 4.64 1.32 8.97 3.61 12.65L16.5 63.5l11.22-3.54A23.38 23.38 0 0 0 40 63.5c12.98 0 23.5-10.52 23.5-23.5S52.98 16.5 40 16.5z" fill="white"/>
+                    <path d="M50.5 44.8c-.6-.3-3.52-1.74-4.07-1.94-.54-.2-.94-.3-1.33.3-.4.6-1.54 1.94-1.88 2.33-.35.4-.7.44-1.3.15-.6-.3-2.53-.93-4.82-2.97-1.78-1.59-2.98-3.55-3.33-4.15-.35-.6-.04-.92.26-1.22.27-.27.6-.7.9-1.04.3-.35.4-.6.6-.99.2-.4.1-.74-.05-1.04-.15-.3-1.33-3.2-1.82-4.38-.48-1.15-.97-1-.33-1.02l1.13-.02c.4 0 1.04.15 1.58.74.54.6 2.07 2.02 2.07 4.93s-2.12 5.72-2.42 6.11c-.3.4 1.54 3.83 3.73 5.22 2.96 1.84 2.96 1.23 3.5 1.15.54-.08 3.52-1.44 4.01-2.83.5-1.4.5-2.59.35-2.83-.15-.25-.54-.4-1.14-.69z" fill="#25D366"/>
+                  </svg>
+                </div>
+              </motion.button>
+            </div>
+
+            {/* Back + brand footer */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="flex flex-col items-center gap-4 mt-8"
+            >
+              <button
+                onClick={() => setPublicBookingStep('lead')}
+                className="text-white/30 text-xs font-bold hover:text-white/60 transition-colors tracking-wide"
+              >
+                ← Kembali
+              </button>
+              <p className="text-white/20 text-[10px] font-bold tracking-[0.2em] uppercase">Klinik Ara 24 Jam</p>
+            </motion.div>
+          </div>
+        )}
+
+        {/* ── FORM + WHATSAPP STEPS ── */}
+        {(publicBookingStep === 'form' || publicBookingStep === 'whatsapp') && (
           <div className="py-8">
             {/* Step header */}
             <motion.div
@@ -627,51 +721,6 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
               transition={{ duration: 0.35 }}
               className="bg-white/10 backdrop-blur-sm rounded-3xl p-6 border border-white/10"
             >
-
-          {publicBookingStep === 'choice' && (
-            <div className="space-y-5">
-              <div className="text-center mb-4">
-                <p className="text-white/70 font-medium text-sm">Terima kasih <span className="text-[#F5F5DC] font-bold">{patientName}</span>! Pilih cara temujanji:</p>
-              </div>
-              
-              <div className="grid gap-3">
-                <button 
-                  onClick={() => setPublicBookingStep('form')}
-                  className="p-5 rounded-2xl border border-white/20 hover:border-[#F5F5DC]/60 hover:bg-white/10 transition-all text-left group"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="w-11 h-11 rounded-xl bg-[#F5F5DC]/20 flex items-center justify-center text-[#F5F5DC] group-hover:bg-[#F5F5DC] group-hover:text-[#0d1f3c] transition-all">
-                      <FileText size={22} />
-                    </div>
-                    <ChevronRight size={18} className="text-white/20 group-hover:text-[#F5F5DC]" />
-                  </div>
-                  <h3 className="font-bold text-white">Isi Borang Temujanji</h3>
-                  <p className="text-xs text-white/40 mt-0.5">Lengkapkan maklumat untuk pengesahan pantas.</p>
-                </button>
-
-                <button 
-                  onClick={() => setPublicBookingStep('whatsapp')}
-                  className="p-5 rounded-2xl border border-white/20 hover:border-emerald-400/60 hover:bg-white/10 transition-all text-left group"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="w-11 h-11 rounded-xl bg-emerald-400/20 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-400 group-hover:text-white transition-all">
-                      <MessageCircle size={22} />
-                    </div>
-                    <ChevronRight size={18} className="text-white/20 group-hover:text-emerald-400" />
-                  </div>
-                  <h3 className="font-bold text-white">Hubungi Melalui WhatsApp</h3>
-                  <p className="text-xs text-white/40 mt-0.5">Berbual dengan pegawai kami secara terus.</p>
-                </button>
-              </div>
-
-              <button 
-                onClick={() => setPublicBookingStep('lead')}
-                className="w-full py-3 text-white/30 text-sm font-bold hover:text-white/60 transition-colors"
-              >
-                ← Kembali
-              </button>
-            </div>
-          )}
 
           {publicBookingStep === 'form' && (
             <form onSubmit={onFormSubmit} className="space-y-5">

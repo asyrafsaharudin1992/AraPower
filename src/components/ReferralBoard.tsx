@@ -1,938 +1,393 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { 
-  User, 
-  Phone, 
-  ChevronRight, 
-  FileText, 
-  MessageCircle, 
-  CheckCircle, 
-  AlertCircle,
-  Lock,
-  PlusCircle,
-  Home
-} from 'lucide-react';
-import { Service, Staff, ClinicProfile } from '../types';
-import { supabase } from '../supabase';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, RefreshCw, Download, ChevronRight, MessageCircle, Phone, Trash2, Lock } from 'lucide-react';
 
-interface PublicBookingUIProps {
-  services: Service[];
+interface ReferralBoardProps {
+  currentUser: any;
+  referrals: any[];
   branches: any[];
-  clinicProfile: ClinicProfile;
-  handleSubmitReferral: (e: React.FormEvent, formData: any) => Promise<boolean>;
-  apiBaseUrl: string;
-  getAvailableTimeSlots: (serviceId: string, branchName: string, date: string) => string[];
-  Logo: React.ComponentType<any>;
-  isSubmitting: boolean;
-  safeFetch: (url: string, options?: RequestInit) => Promise<{ res: Response; data: any }>;
+  clinicProfile: any;
+  isMobile: boolean;
+  darkMode: boolean;
+  fetchReferrals: () => void;
+  handleUpdateStatus: (id: string, status: string, additionalData?: any) => void;
+  handleClinicStatusUpdate: (id: string, newStatus: string) => void;
+  handleDeleteReferral: (id: string) => void;
+  getStatusColor: (status: string) => string;
+  getStatusLabel: (status: string) => string;
+  staffList: any[];
 }
 
-
-// Day abbreviation → JS getDay() number
-const DAY_MAP: Record<string, number> = {
-  'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
-};
-
-const MONTHS = ['Januari','Februari','Mac','April','Mei','Jun','Julai','Ogos','September','Oktober','November','Disember'];
-const DAYS_HEADER = ['Ahd','Isn','Sel','Rab','Kha','Jum','Sab'];
-
-interface AraCalendarProps {
-  value: string; // 'YYYY-MM-DD'
-  onChange: (date: string) => void;
-  availableDays: string[]; // e.g. ['Mon', 'Wed', 'Fri']
-}
-
-const AraCalendar: React.FC<AraCalendarProps> = ({ value, onChange, availableDays }) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const [viewYear, setViewYear] = React.useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = React.useState(today.getMonth());
-
-  const availableJsDays = availableDays.map(d => DAY_MAP[d]).filter(n => n !== undefined);
-
-  const isAvailable = (date: Date) => {
-    if (date < today) return false;
-    if (availableJsDays.length === 0) return true; // no restriction
-    return availableJsDays.includes(date.getDay());
-  };
-
-  const formatDate = (date: Date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  };
-
-  // Build calendar grid
-  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
-  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const cells: (Date | null)[] = [];
-  for (let i = 0; i < firstDay; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(viewYear, viewMonth, d));
-
-  const prevMonth = () => {
-    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
-    else setViewMonth(m => m - 1);
-  };
-  const nextMonth = () => {
-    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
-    else setViewMonth(m => m + 1);
-  };
-
-  return (
-    <div className="bg-white rounded-2xl p-4 select-none">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <button type="button" onClick={prevMonth}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#0d1f3c]/40 hover:bg-[#0d1f3c]/5 transition-colors font-bold text-lg">
-          ‹
-        </button>
-        <span className="text-sm font-bold text-[#0d1f3c]">
-          {MONTHS[viewMonth]} {viewYear}
-        </span>
-        <button type="button" onClick={nextMonth}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#0d1f3c]/40 hover:bg-[#0d1f3c]/5 transition-colors font-bold text-lg">
-          ›
-        </button>
-      </div>
-
-      {/* Day headers */}
-      <div className="grid grid-cols-7 mb-1">
-        {DAYS_HEADER.map(d => (
-          <div key={d} className="text-center text-[10px] font-bold text-[#0d1f3c]/30 uppercase py-1">{d}</div>
-        ))}
-      </div>
-
-      {/* Date cells */}
-      <div className="grid grid-cols-7 gap-0.5">
-        {cells.map((date, idx) => {
-          if (!date) return <div key={`empty-${idx}`} />;
-          const dateStr = formatDate(date);
-          const avail = isAvailable(date);
-          const isSelected = dateStr === value;
-          const isToday = formatDate(today) === dateStr;
-          const isPast = date < today;
-
-          return (
-            <button
-              key={dateStr}
-              type="button"
-              disabled={!avail}
-              onClick={() => avail && onChange(dateStr)}
-              className={`
-                aspect-square flex items-center justify-center rounded-xl text-sm font-medium transition-all
-                ${isSelected
-                  ? 'bg-[#F5F5DC] text-[#0d1f3c] font-bold shadow-sm'
-                  : avail
-                  ? 'bg-[#F5F5DC]/30 text-[#0d1f3c] hover:bg-[#F5F5DC] cursor-pointer'
-                  : isPast
-                  ? 'text-[#0d1f3c]/15 cursor-not-allowed'
-                  : 'text-[#0d1f3c]/20 cursor-not-allowed line-through'
-                }
-                ${isToday && !isSelected ? 'ring-1 ring-[#0d1f3c]/20' : ''}
-              `}
-            >
-              {date.getDate()}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#0d1f3c]/5">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-[#F5F5DC]" />
-          <span className="text-[10px] text-[#0d1f3c]/40">Tersedia</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-[#0d1f3c]/10" />
-          <span className="text-[10px] text-[#0d1f3c]/40">Tidak tersedia</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
-  services,
+export const ReferralBoard: React.FC<ReferralBoardProps> = ({
+  currentUser,
+  referrals,
   branches,
   clinicProfile,
-  handleSubmitReferral,
-  apiBaseUrl,
-  getAvailableTimeSlots,
-  Logo,
-  isSubmitting,
-  safeFetch
+  isMobile,
+  darkMode,
+  fetchReferrals,
+  handleUpdateStatus,
+  handleClinicStatusUpdate,
+  handleDeleteReferral,
+  getStatusColor,
+  getStatusLabel,
+  staffList,
 }) => {
-  const [publicBookingStep, setPublicBookingStep] = useState<'lead' | 'choice' | 'form' | 'whatsapp'>('lead');
-  const [selectedWaBranch, setSelectedWaBranch] = useState('');
-  const [draftReferralId, setDraftReferralId] = useState<string | null>(null);
-  const [referringStaff, setReferringStaff] = useState<Staff | null>(null);
-  const [providedRefCode, setProvidedRefCode] = useState<string | null>(null);
-  const [bookingSuccess, setBookingSuccess] = useState(false);
-  const [realAvailableSlots, setRealAvailableSlots] = useState<string[]>([]);
-  const [allPossibleSlots, setAllPossibleSlots] = useState<string[]>([]); // ADD THIS
-  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
-  
-  const [patientName, setPatientName] = useState('');
-  const [patientPhone, setPatientPhone] = useState('');
-  const [patientIC, setPatientIC] = useState('');
-  const [patientAddress, setPatientAddress] = useState('');
-  const [patientType, setPatientType] = useState('new');
-  const [appointmentDate, setAppointmentDate] = useState('');
-  const [bookingTime, setBookingTime] = useState('');
-  const [selectedBranch, setSelectedBranch] = useState('');
-  const [selectedService, setSelectedService] = useState('');
-  const [urlServiceName, setUrlServiceName] = useState('');
-  const [rawRefCode, setRawRefCode] = useState<string | null>(null);
-  const [isLookingUpAffiliate, setIsLookingUpAffiliate] = useState(false);
+  // Local states moved out of App.tsx!
+  const [referralSearch, setReferralSearch] = useState('');
+  const [referralBranchFilter, setReferralBranchFilter] = useState('all');
+  const [referralStatusFilter, setReferralStatusFilter] = useState('all');
+  const [expandedReferralIds, setExpandedReferralIds] = useState<string[]>([]);
+  const [pendingStatusUpdate, setPendingStatusUpdate] = useState<{id: string, status: string} | null>(null);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlRef = params.get('ref');
-    const storedRef = localStorage.getItem('araclinic_ref_code');
-    const effectiveRef = urlRef || storedRef;
+  // Centralized filtering logic (DRY)
+  const filteredReferrals = referrals
+    .filter(ref => 
+      ref.patient_name.toLowerCase().includes(referralSearch.toLowerCase()) ||
+      (ref.staff_name && ref.staff_name.toLowerCase().includes(referralSearch.toLowerCase())) ||
+      ref.service_name.toLowerCase().includes(referralSearch.toLowerCase())
+    )
+    .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
+    .filter(ref => referralStatusFilter === 'all' ? true : ref.status === referralStatusFilter);
 
-    if (effectiveRef) {
-      localStorage.setItem('araclinic_ref_code', effectiveRef);
-      setRawRefCode(effectiveRef);
-      setProvidedRefCode(effectiveRef);
-      setIsLookingUpAffiliate(true);
-      
-      safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${effectiveRef}`)
-        .then(({ res, data }) => {
-          if (res.ok && data) setReferringStaff(data);
-        })
-        .catch(err => console.error('Failed to lookup affiliate:', err))
-        .finally(() => setIsLookingUpAffiliate(false));
-    }
+  const exportToCSV = () => {
+    const headers = currentUser?.role === 'admin' 
+      ? ['Date', 'Patient Name', 'Patient Type', 'Service', 'Staff Name', 'Incentive ($)', 'Status']
+      : ['Date', 'Patient Name', 'Patient Type', 'Service', 'Incentive ($)', 'Status'];
 
-    const serviceFromUrl = params.get('serviceName') || params.get('sName');
-    if (serviceFromUrl) {
-      const decodedService = decodeURIComponent(serviceFromUrl.replace(/\+/g, ' '));
-      setUrlServiceName(decodedService);
-      // Try to find a matching service ID
-      const matchedService = services.find(s => 
-        s.name.toLowerCase() === decodedService.toLowerCase()
-      );
-      if (matchedService) {
-        setSelectedService(String(matchedService.id));
-      } else {
-        // If it's a generic word (e.g. from an ad) just store the string
-        setSelectedService(decodedService);
-      }
-    }
+    const csvRows = filteredReferrals.map(ref => {
+      const row = [
+        ref.date,
+        `"${ref.patient_name}"`,
+        ref.patient_type || 'new',
+        `"${ref.service_name}"`,
+        ...(currentUser?.role === 'admin' ? [`"${staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || 'Direct Walk-in'}"`] : []),
+        (ref.commission_amount || 0).toFixed(2),
+        ref.status
+      ];
+      return row.join(',');
+    });
 
-    const urlId = params.get('service') || params.get('serviceId');
-    const urlNameRaw = params.get('sName') || params.get('serviceName');
-    const decodedName = urlNameRaw ? decodeURIComponent(urlNameRaw) : '';
-
-    // The Smart Translator: Wait for services to load from Supabase
-    if (services.length > 0 && (urlId || decodedName)) {
-      const matchedService = services.find(s => 
-        String(s.id) === String(urlId) || 
-        (s.target_url && s.target_url.includes(urlId || '')) ||
-        (decodedName && s.name.toLowerCase().trim() === decodedName.toLowerCase().trim())
-      );
-
-      if (matchedService) {
-        setSelectedService(String(matchedService.id)); // Lock in valid Supabase UUID
-        setUrlServiceName(matchedService.name);
-      } else {
-        // Fallback if truly not found
-        if (urlId) setSelectedService(urlId);
-        if (decodedName) setUrlServiceName(decodedName);
-      }
-    }
-  }, [services, apiBaseUrl, safeFetch]); // Crucial: Re-runs when services arrive from DB
-
-  const handleProceedLead = async (e?: React.FormEvent | React.MouseEvent) => {
-    if (e) e.preventDefault();
-    if (!patientName || !patientPhone) return;
-    
-    setPublicBookingStep('choice');
-    
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const rawName = params.get('sName') || params.get('serviceName');
-      
-      let finalName = selectedService || 'Unknown Service';
-      
-      if (rawName) {
-        finalName = decodeURIComponent(rawName.replace(/\+/g, ' '));
-      } else {
-        const matchedService = services.find(s => String(s.id) === String(selectedService));
-        if (matchedService) finalName = matchedService.name;
-      }
-
-      const { data, error } = await supabase
-        .from('warm_leads')
-        .insert([{
-          patient_name: patientName,
-          patient_phone: patientPhone,
-          service_id: finalName,
-          status: 'new',
-          ...(providedRefCode && { ref_code: providedRefCode })
-        }])
-        .select();
-
-      if (error) {
-        console.error('Supabase Insert Error:', error);
-      } else if (data && data[0]) {
-        setDraftReferralId(data[0].id);
-      }
-      
-    } catch (err) {
-      console.error('Failed to initiate warm lead process:', err);
-    }
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `referrals_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
-
-  useEffect(() => {
-    async function checkRealTimeSlots() {
-      if (!appointmentDate || !selectedBranch || !selectedService) {
-        setRealAvailableSlots([]);
-        setAllPossibleSlots([]);
-        return;
-      }
-      setIsLoadingSlots(true);
-
-      const srv = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService);
-      const actualServiceId = srv ? String(srv.id) : selectedService;
-
-      // 1. Get base slots from the clinic's schedule config (App.tsx)
-      const baseSlots = getAvailableTimeSlots(actualServiceId, selectedBranch, appointmentDate);
-      setAllPossibleSlots(baseSlots);
-
-      if (baseSlots.length === 0) {
-        setRealAvailableSlots([]);
-        setIsLoadingSlots(false);
-        return;
-      }
-
-      try {
-        // Securely ask the backend for taken slots (Bypasses RLS safely)
-        const { res, data } = await safeFetch(`${apiBaseUrl}/api/public/slots?branch=${encodeURIComponent(selectedBranch)}&date=${appointmentDate}`);
-        
-        if (res.ok && data?.takenSlots) {
-          const bSched = srv?.branches?.[selectedBranch] as any;
-          // If limitBookings is disabled, slots are unlimited — do not cap at 1
-          const maxSlots = bSched?.limitBookings ? (bSched.maxSlots || 1) : Infinity;
-
-          const timeCounts: Record<string, number> = {};
-          data.takenSlots.forEach((time: string) => {
-            timeCounts[time] = (timeCounts[time] || 0) + 1;
-          });
-
-          // Filter out slots that have reached the max capacity for the whole branch
-          const finalSlots = baseSlots.filter(slot => (timeCounts[slot] || 0) < maxSlots);
-          setRealAvailableSlots(finalSlots);
-        } else {
-          setRealAvailableSlots(baseSlots);
-        }
-      } catch (err) {
-        console.error("Error fetching taken slots:", err);
-        setRealAvailableSlots(baseSlots);
-      }
-      setIsLoadingSlots(false);
-    }
-
-    checkRealTimeSlots();
-  }, [appointmentDate, selectedBranch, selectedService, services]);
-
-  const onFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // LIVE STRICT GUARD: Securely check the backend 1 millisecond before submitting
-    if (appointmentDate && selectedBranch && bookingTime) {
-      const srv = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService);
-      const bSched = srv?.branches?.[selectedBranch] as any;
-      // If limitBookings is disabled, slots are unlimited — skip the capacity check entirely
-      const maxSlots = bSched?.limitBookings ? (bSched.maxSlots || 1) : Infinity;
-
-      const { res, data: slotCheck } = await safeFetch(`${apiBaseUrl}/api/public/slots?branch=${encodeURIComponent(selectedBranch)}&date=${appointmentDate}`);
-
-      if (res.ok && slotCheck?.takenSlots && maxSlots !== Infinity) {
-        // Use exact match (same logic as real-time slot checker above)
-        const takenCount = slotCheck.takenSlots.filter((time: string) => time === bookingTime).length;
-        if (takenCount >= maxSlots) {
-          alert("Maaf! Waktu yang anda pilih baru sahaja ditempah oleh orang lain. Sila pilih waktu lain.");
-          setBookingTime(''); 
-          return; 
-        }
-      }
-    }
-
-    const formData = {
-      patientName,
-      patientPhone,
-      patientIC,
-      patientAddress,
-      patientType,
-      appointmentDate,
-      bookingTime,
-      selectedBranch,
-      selectedService, // Send the properly translated state
-      referringStaff,
-      providedRefCode,
-      draftReferralId
-    };
-    
-    const success = await handleSubmitReferral(e, formData);
-    if (success) {
-      localStorage.removeItem('araclinic_ref_code'); // CLEAR THE CACHE HERE
-      setBookingSuccess(true);
-      setPatientName('');
-      setPatientPhone('');
-      setPatientIC('');
-      setPatientAddress('');
-      setPatientType('new');
-      setAppointmentDate('');
-      setBookingTime('');
-      setSelectedService('');
-      setUrlServiceName('');
-      setDraftReferralId(null);
-      setPublicBookingStep('lead');
-    }
-  };
-
-  if (bookingSuccess) {
-    return (
-      <div className="min-h-screen bg-[#0d1f3c] flex items-center justify-center p-6">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-white/10 backdrop-blur-sm rounded-3xl border border-white/10 p-8 text-center"
-        >
-          <div className="w-20 h-20 bg-[#F5F5DC]/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle size={40} className="text-[#F5F5DC]" />
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Tempahan Berjaya!</h2>
-          <p className="text-white/50 mb-8 text-sm leading-relaxed">Terima kasih kerana memilih kami. Pihak kami akan menghubungi anda dalam masa terdekat untuk pengesahan.</p>
-          <div className="space-y-3">
-            <button 
-              onClick={() => {
-                setBookingSuccess(false);
-                setPublicBookingStep('lead');
-                setDraftReferralId(null);
-                setPatientName('');
-                setPatientPhone('');
-                setPatientIC('');
-                setPatientAddress('');
-                setSelectedService('');
-                setAppointmentDate('');
-                setBookingTime('');
-              }}
-              className="w-full py-4 bg-[#F5F5DC] text-[#0d1f3c] rounded-2xl font-bold hover:bg-white active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              <PlusCircle size={20} />
-              Buat Tempahan Baru
-            </button>
-            <a 
-              href="https://klinikara24jam.hsohealthcare.com"
-              className="w-full py-4 bg-white/10 text-white/60 rounded-2xl font-bold hover:bg-white/20 transition-all flex items-center justify-center gap-2"
-            >
-              <Home size={20} />
-              Kembali ke Laman Utama
-            </a>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (isLookingUpAffiliate) {
-    return (
-      <div className="min-h-screen bg-[#0d1f3c] flex items-center justify-center p-6">
-        <div className="w-full max-w-md bg-white/10 rounded-3xl border border-white/10 p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F5F5DC] mx-auto mb-6"></div>
-          <p className="text-white/40">Mengesahkan kod rujukan...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!referringStaff && providedRefCode) {
-    return (
-      <div className="min-h-screen bg-[#0d1f3c] flex items-center justify-center p-6">
-        <div className="w-full max-w-md bg-white/10 backdrop-blur-sm rounded-3xl border border-white/10 p-8 text-center">
-          <div className="w-20 h-20 bg-rose-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertCircle size={40} className="text-rose-400" />
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Kod Tidak Sah</h2>
-          <p className="text-white/40 mb-8 text-sm">Maaf, kod rujukan ini tidak wujud atau telah tamat tempoh.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const getAvailableBranches = () => {
-    const allActive = branches.filter(b => b.is_active !== false && b.status !== 'inactive');
-    if (!selectedService) return allActive;
-    
-    const srv = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService);
-    if (!srv || !srv.branches) return allActive;
-
-    // Return only branches that actually offer this service
-    return allActive.filter(b => Object.keys(srv.branches).includes(b.name));
-  };
-
-  // Navy + beige theme for lead step
-  const isLeadStep = publicBookingStep === 'lead';
 
   return (
-    <div className="min-h-screen pb-12 bg-[#0d1f3c]">
-
-
-
-      <div className="max-w-md mx-auto px-6">
-
-        {/* ── LEAD STEP: Full-page navy design ── */}
-        {isLeadStep && (
-          <div className="min-h-screen flex flex-col items-center justify-center py-12">
-
-            {/* Logo — white version hardcoded for navy background */}
-            <motion.div
-              initial={{ opacity: 0, y: -24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: 'easeOut' }}
-              className="mb-8"
-            >
-              <img
-                src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/lOGO%20ARA%20WHITE%20.png?alt=media"
-                alt="Klinik Ara 24 Jam"
-                className="h-24 w-auto object-contain"
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`${darkMode ? 'bg-[#1e293b] border-violet-500' : 'bg-white border-black/5 shadow-sm'} rounded-3xl border overflow-hidden`}
+    >
+      <div className={`p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${darkMode ? 'border-zinc-800' : 'border-zinc-100'}`}>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>Referral History</h3>
+          <div className="flex flex-wrap gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={14} />
+              <input 
+                type="text"
+                placeholder="Search patient, staff, or service..."
+                value={referralSearch}
+                onChange={(e) => setReferralSearch(e.target.value)}
+                className={`pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 w-full sm:w-64 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
               />
-            </motion.div>
-
-            {/* Title */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
-              className="text-center mb-10"
-            >
-              <h1 className="text-3xl font-bold text-white leading-snug tracking-tight">
-                Welcome to Ara<br />Booking Hub
-              </h1>
-            </motion.div>
-
-            {/* Form */}
-            <motion.form
-              onSubmit={handleProceedLead}
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3, ease: 'easeOut' }}
-              className="w-full space-y-4"
-            >
-              {/* Name input */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: 0.4 }}
-              >
-                <input
-                  type="text"
-                  required
-                  value={patientName}
-                  onChange={(e) => setPatientName(e.target.value)}
-                  className="w-full px-6 py-5 rounded-2xl bg-[#F5F5DC] text-[#0d1f3c] placeholder-[#8a8a6a] text-base font-medium focus:outline-none focus:ring-2 focus:ring-[#F5F5DC]/60 transition-all"
-                  placeholder="Nama pesakit"
-                />
-              </motion.div>
-
-              {/* Phone input */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: 0.5 }}
-              >
-                <input
-                  type="tel"
-                  required
-                  value={patientPhone}
-                  onChange={(e) => setPatientPhone(e.target.value)}
-                  className="w-full px-6 py-5 rounded-2xl bg-[#F5F5DC] text-[#0d1f3c] placeholder-[#8a8a6a] text-base font-medium focus:outline-none focus:ring-2 focus:ring-[#F5F5DC]/60 transition-all"
-                  placeholder="Nombor telefon"
-                />
-              </motion.div>
-
-              {/* Submit button */}
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.6 }}
-                className="pt-2"
-              >
-                <button
-                  type="submit"
-                  disabled={!patientName || !patientPhone}
-                  className="w-full py-5 bg-[#38bdf8] hover:bg-[#29aee8] active:scale-95 text-white rounded-2xl font-bold text-lg tracking-wide transition-all shadow-lg shadow-sky-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Teruskan proses
-                </button>
-              </motion.div>
-
-              {/* Disclaimer */}
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5, delay: 0.75 }}
-                className="text-[11px] text-white/40 text-center px-4 leading-relaxed pt-1"
-              >
-                Dengan menekan 'Teruskan proses', anda bersetuju untuk berkongsi butiran perhubungan anda dengan klinik kami bagi tujuan tempahan.
-              </motion.p>
-            </motion.form>
-
-            {/* Footer brand */}
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.9 }}
-              className="mt-12 text-white/30 text-xs font-bold tracking-[0.2em] uppercase"
-            >
-              Klinik Ara 24 Jam
-            </motion.p>
-          </div>
-        )}
-
-        {/* ── CHOICE STEP: full-page design ── */}
-        {publicBookingStep === 'choice' && (
-          <div className="min-h-screen flex flex-col py-10">
-
-            {/* Header: logo + title side by side */}
-            <motion.div
-              initial={{ opacity: 0, y: -16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="flex items-center gap-4 mb-10"
-            >
-              <img
-                src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/lOGO%20ARA%20WHITE%20.png?alt=media"
-                alt="Klinik Ara"
-                className="h-14 w-auto object-contain"
-              />
-              <div>
-                <p className="text-white font-bold text-2xl leading-tight tracking-tight">Ara</p>
-                <p className="text-white font-bold text-2xl leading-tight tracking-tight">Booking Hub</p>
-              </div>
-            </motion.div>
-
-            {/* Two cards */}
-            <div className="flex flex-col gap-4 flex-1">
-
-              {/* Card 1 — Beige: Book form */}
-              <motion.button
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.15 }}
-                onClick={() => setPublicBookingStep('form')}
-                className="relative w-full rounded-3xl bg-[#F5F5DC] p-7 text-left overflow-hidden active:scale-[0.98] transition-transform"
-              >
-                <p className="text-[#0d1f3c] font-black text-3xl leading-tight mb-3">
-                  Isi borang<br />temu janji
-                </p>
-                <p className="text-[#0d1f3c]/60 text-sm leading-relaxed">
-                  Lengkapkan maklumat untuk<br />pengesahan pantas
-                </p>
-                {/* Floating icon */}
-                <div className="absolute right-4 bottom-4 opacity-90">
-                  <svg width="110" height="110" viewBox="0 0 110 110" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="18" y="8" width="62" height="82" rx="8" fill="#38bdf8"/>
-                    <rect x="26" y="22" width="36" height="5" rx="2.5" fill="white" fillOpacity="0.9"/>
-                    <rect x="26" y="33" width="28" height="5" rx="2.5" fill="white" fillOpacity="0.7"/>
-                    <rect x="26" y="44" width="32" height="5" rx="2.5" fill="white" fillOpacity="0.7"/>
-                    <circle cx="55" cy="68" r="14" fill="#0d1f3c" fillOpacity="0.15"/>
-                    <circle cx="55" cy="62" r="9" fill="white" fillOpacity="0.9"/>
-                    <rect x="49" y="70" width="12" height="10" rx="4" fill="white" fillOpacity="0.9"/>
-                    <circle cx="80" cy="78" r="16" fill="#0d1f3c"/>
-                    <path d="M74 78 L79 83 L87 73" stroke="#F5F5DC" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </motion.button>
-
-              {/* Card 2 — White: WhatsApp */}
-              <motion.button
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.28 }}
-                onClick={() => setPublicBookingStep('whatsapp')}
-                className="relative w-full rounded-3xl bg-white p-7 text-left overflow-hidden active:scale-[0.98] transition-transform"
-              >
-                <p className="text-[#0d1f3c] font-black text-3xl leading-tight mb-3">
-                  Saya mahu<br />tanya <em>je</em> dulu
-                </p>
-                <p className="text-[#0d1f3c]/50 text-sm leading-relaxed">
-                  Boleh, klik untuk<br />whatsapp kami :)
-                </p>
-                {/* WhatsApp icon */}
-                <div className="absolute right-5 bottom-5">
-                  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="40" cy="40" r="38" fill="#25D366"/>
-                    <path d="M40 14C25.64 14 14 25.64 14 40c0 4.84 1.35 9.37 3.7 13.21L14 66l13.16-3.63A26 26 0 0 0 40 66c14.36 0 26-11.64 26-26S54.36 14 40 14z" fill="#25D366"/>
-                    <path d="M40 16.5C27.02 16.5 16.5 27.02 16.5 40c0 4.64 1.32 8.97 3.61 12.65L16.5 63.5l11.22-3.54A23.38 23.38 0 0 0 40 63.5c12.98 0 23.5-10.52 23.5-23.5S52.98 16.5 40 16.5z" fill="white"/>
-                    <path d="M50.5 44.8c-.6-.3-3.52-1.74-4.07-1.94-.54-.2-.94-.3-1.33.3-.4.6-1.54 1.94-1.88 2.33-.35.4-.7.44-1.3.15-.6-.3-2.53-.93-4.82-2.97-1.78-1.59-2.98-3.55-3.33-4.15-.35-.6-.04-.92.26-1.22.27-.27.6-.7.9-1.04.3-.35.4-.6.6-.99.2-.4.1-.74-.05-1.04-.15-.3-1.33-3.2-1.82-4.38-.48-1.15-.97-1-.33-1.02l1.13-.02c.4 0 1.04.15 1.58.74.54.6 2.07 2.02 2.07 4.93s-2.12 5.72-2.42 6.11c-.3.4 1.54 3.83 3.73 5.22 2.96 1.84 2.96 1.23 3.5 1.15.54-.08 3.52-1.44 4.01-2.83.5-1.4.5-2.59.35-2.83-.15-.25-.54-.4-1.14-.69z" fill="#25D366"/>
-                  </svg>
-                </div>
-              </motion.button>
             </div>
-
-            {/* Back + brand footer */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="flex flex-col items-center gap-4 mt-8"
+            <select 
+              value={referralBranchFilter}
+              onChange={(e) => setReferralBranchFilter(e.target.value)}
+              className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
             >
-              <button
-                onClick={() => setPublicBookingStep('lead')}
-                className="text-white/30 text-xs font-bold hover:text-white/60 transition-colors tracking-wide"
-              >
-                ← Kembali
-              </button>
-              <p className="text-white/20 text-[10px] font-bold tracking-[0.2em] uppercase">Klinik Ara 24 Jam</p>
-            </motion.div>
+              <option value="all">All Branches</option>
+              {branches.map(b => (
+                <option key={b.id} value={b.name}>{b.name}</option>
+              ))}
+            </select>
+            <select 
+              value={referralStatusFilter}
+              onChange={(e) => setReferralStatusFilter(e.target.value)}
+              className={`px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
+            >
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="entered">Entered</option>
+              <option value="completed">Arrived / Completed</option>
+              <option value="payment_approved">Payment Approved</option>
+              <option value="payment_made">Payment Made</option>
+              <option value="rejected">Rejected</option>
+            </select>
           </div>
-        )}
-
-        {/* ── FORM + WHATSAPP STEPS ── */}
-        {(publicBookingStep === 'form' || publicBookingStep === 'whatsapp') && (
-          <div className="py-8">
-            {/* Step header */}
-            <motion.div
-              initial={{ opacity: 0, y: -12 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center justify-between mb-6"
-            >
-              <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">Tempahan Rawatan</h1>
-                <p className="text-white/40 text-xs mt-0.5">Klinik Ara 24 Jam</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-[#F5F5DC]/20 flex items-center justify-center">
-                  <User size={15} className="text-[#F5F5DC]" />
-                </div>
-                <div className="text-left">
-                  <p className="text-[9px] font-bold text-white/30 uppercase leading-none tracking-wider">Rujukan</p>
-                  <p className="text-xs font-bold text-white/80">{referringStaff?.name || 'Pusat Rawatan'}</p>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              key={publicBookingStep}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.35 }}
-              className="bg-white/10 backdrop-blur-sm rounded-3xl p-6 border border-white/10"
-            >
-
-          {publicBookingStep === 'form' && (
-            <form onSubmit={onFormSubmit} className="space-y-5">
-              <div className="space-y-4">
-
-                {/* Service (locked or select) */}
-                <div>
-                  <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">Perkhidmatan</label>
-                  {(selectedService || urlServiceName) ? (
-                    <div className="relative">
-                      <input 
-                        type="text"
-                        readOnly
-                        value={urlServiceName || services.find(s => String(s.id) === String(selectedService))?.name || 'Memuatkan...'}
-                        className="w-full px-4 py-3.5 rounded-2xl bg-[#F5F5DC] text-[#0d1f3c] cursor-not-allowed font-bold text-sm"
-                      />
-                      <div className="absolute right-4 top-3.5">
-                        <Lock size={15} className="text-[#0d1f3c]/40" />
-                      </div>
-                    </div>
-                  ) : (
-                    <select 
-                      value={selectedService}
-                      onChange={(e) => { setSelectedService(e.target.value); setUrlServiceName(''); setBookingTime(''); }}
-                      className="w-full px-4 py-3.5 rounded-2xl bg-white text-[#0d1f3c] font-medium text-sm focus:outline-none focus:ring-2 focus:ring-[#F5F5DC]"
-                      required
-                    >
-                      <option value="">Pilih satu...</option>
-                      {services.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                {/* Branch */}
-                <div>
-                  <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">Pilih Cawangan</label>
-                  <select 
-                    value={selectedBranch}
-                    onChange={(e) => { setSelectedBranch(e.target.value); setBookingTime(''); }}
-                    className="w-full px-4 py-3.5 rounded-2xl bg-white text-[#0d1f3c] font-medium text-sm focus:outline-none focus:ring-2 focus:ring-[#F5F5DC]"
-                    required
-                  >
-                    <option value="">Pilih cawangan...</option>
-                    {getAvailableBranches().map(b => (
-                      <option key={b.id} value={b.name}>{b.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Custom Calendar */}
-                <div>
-                  <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">Tarikh Temujanji</label>
-                  {selectedBranch && selectedService ? (
-                    <AraCalendar
-                      value={appointmentDate}
-                      onChange={(d) => { setAppointmentDate(d); setBookingTime(''); }}
-                      availableDays={(() => {
-                        const srv = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService);
-                        return (srv?.branches?.[selectedBranch] as any)?.days || [];
-                      })()}
-                    />
-                  ) : (
-                    <div className="w-full px-4 py-3.5 rounded-2xl bg-white/10 text-white/30 text-sm text-center">
-                      Sila pilih cawangan dahulu...
-                    </div>
-                  )}
-                  {appointmentDate && allPossibleSlots.length === 0 && !isLoadingSlots && (
-                    <p className="mt-2 text-[11px] text-rose-400 font-semibold flex items-center gap-1">
-                      <span>✕</span> Tarikh ini tidak tersedia. Sila pilih tarikh lain.
-                    </p>
-                  )}
-                </div>
-
-                {/* Time Slots */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider">Waktu Temujanji</label>
-                    {isLoadingSlots && <span className="text-[10px] font-bold text-[#F5F5DC]/60 animate-pulse">Menyemak...</span>}
-                  </div>
-                  
-                  {!appointmentDate || !selectedBranch ? (
-                    <div className="w-full px-4 py-3.5 rounded-2xl bg-white/10 text-white/30 text-sm text-center">
-                      Sila pilih cawangan & tarikh dahulu...
-                    </div>
-                  ) : allPossibleSlots.length === 0 ? (
-                    <div className="w-full px-4 py-3.5 rounded-2xl bg-rose-500/10 border border-rose-400/20 text-rose-400 text-sm font-bold text-center flex items-center justify-center gap-2">
-                      <AlertCircle size={15} /> Tutup pada tarikh ini
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                      {allPossibleSlots.map((timeSlot: string) => {
-                        const isAvailable = realAvailableSlots.includes(timeSlot);
-                        const isSelected = bookingTime === timeSlot;
-                        return (
-                          <button
-                            key={timeSlot}
-                            type="button"
-                            disabled={!isAvailable || isLoadingSlots}
-                            onClick={() => setBookingTime(timeSlot)}
-                            className={`py-3 rounded-xl text-sm font-bold transition-all ${
-                              isSelected
-                                ? 'bg-[#F5F5DC] text-[#0d1f3c] shadow-md'
-                                : isAvailable
-                                ? 'bg-white text-[#0d1f3c] hover:bg-[#F5F5DC]/80 active:scale-95'
-                                : 'bg-white/10 text-white/20 cursor-not-allowed line-through'
-                            }`}
-                          >
-                            {timeSlot}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <input type="text" value={bookingTime} onChange={() => {}} className="sr-only" required tabIndex={-1} />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button 
-                  type="button"
-                  onClick={() => setPublicBookingStep('choice')}
-                  className="flex-1 py-4 bg-white/10 text-white/60 rounded-2xl font-bold hover:bg-white/20 transition-all"
-                >
-                  Kembali
-                </button>
-                <button 
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-[2] py-4 bg-[#F5F5DC] text-[#0d1f3c] rounded-2xl font-bold hover:bg-white active:scale-95 transition-all shadow-lg disabled:opacity-40"
-                >
-                  {isSubmitting ? 'Menghantar...' : 'Hantar Tempahan'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {publicBookingStep === 'whatsapp' && (() => {
-            const waNum = branches.find(b => b.name === selectedWaBranch)?.whatsapp_number || '60123456789';
-            const srv = services.find(s => String(s.id) === String(selectedService));
-            const serviceName = srv?.name || urlServiceName || 'perkhidmatan kami';
-            const waUrl = `https://wa.me/${waNum}?text=Hi/Salam,%20Saya%20${encodeURIComponent(patientName)},%20saya%20berminat%20dengan%20${encodeURIComponent(serviceName)}`;
-            return (
-              <div className="space-y-5">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">Pilih Cawangan Terdekat</label>
-                    <select 
-                      value={selectedWaBranch}
-                      onChange={(e) => setSelectedWaBranch(e.target.value)}
-                      className="w-full px-4 py-3.5 rounded-2xl bg-white text-[#0d1f3c] font-medium text-sm focus:outline-none focus:ring-2 focus:ring-[#F5F5DC]"
-                    >
-                      <option value="">Pilih cawangan...</option>
-                      {branches.filter(b => b.is_active !== false && b.isActive !== false && b.status?.toLowerCase() !== 'inactive')
-                        .map(b => (<option key={b.id} value={b.name}>{b.name}</option>))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">Perkhidmatan</label>
-                    {(selectedService || urlServiceName) ? (
-                      <div className="relative">
-                        <input type="text" readOnly
-                          value={urlServiceName || services.find(s => String(s.id) === String(selectedService))?.name || 'Memuatkan...'}
-                          className="w-full px-4 py-3.5 rounded-2xl bg-[#F5F5DC] text-[#0d1f3c] cursor-not-allowed font-bold text-sm"
-                        />
-                        <div className="absolute right-4 top-3.5"><Lock size={15} className="text-[#0d1f3c]/40" /></div>
-                      </div>
-                    ) : (
-                      <select value={selectedService} onChange={(e) => setSelectedService(e.target.value)}
-                        className="w-full px-4 py-3.5 rounded-2xl bg-white text-[#0d1f3c] font-medium text-sm focus:outline-none focus:ring-2 focus:ring-[#F5F5DC]" required>
-                        <option value="">Pilih satu...</option>
-                        {services.map(s => (<option key={s.id} value={s.id}>{s.name}</option>))}
-                      </select>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setPublicBookingStep('choice')}
-                    className="flex-1 py-4 bg-white/10 text-white/60 rounded-2xl font-bold hover:bg-white/20 transition-all">
-                    Kembali
-                  </button>
-                  <a href={waUrl} target="_blank" rel="noopener noreferrer"
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      window.open(waUrl, '_blank', 'noopener,noreferrer');
-                      if (draftReferralId) {
-                        const { error } = await supabase.from('warm_leads').update({ status: 'whatsapp_redirected', branch_preference: selectedWaBranch }).eq('id', draftReferralId);
-                        if (error) console.error("Error updating warm lead for WhatsApp:", error);
-                      }
-                      localStorage.removeItem('araclinic_ref_code');
-                      setBookingSuccess(true);
-                    }}
-                    className={`flex-[2] py-4 bg-emerald-500 text-white rounded-2xl font-bold hover:bg-emerald-400 active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2 ${!selectedWaBranch ? 'opacity-40 pointer-events-none' : ''}`}
-                  >
-                    <MessageCircle size={20} /> Buka WhatsApp
-                  </a>
-                </div>
-              </div>
-            );
-          })()}
-            </motion.div>
-          </div>
-        )}
+        </div>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button 
+            onClick={fetchReferrals}
+            className={`flex items-center gap-2 text-xs font-bold transition-colors px-3 py-2 rounded-xl ${darkMode ? 'text-brand-accent hover:bg-zinc-50' : 'text-zinc-900 hover:bg-violet-500 hover:text-white'}`}
+          >
+            <RefreshCw size={14} />
+            Refresh
+          </button>
+          <button 
+            onClick={exportToCSV}
+            className={`flex items-center gap-2 text-xs font-bold transition-colors px-3 py-2 rounded-xl ${darkMode ? 'text-brand-accent hover:bg-zinc-50' : 'text-zinc-900 hover:bg-violet-500 hover:text-white'}`}
+          >
+            <Download size={14} />
+            Export CSV
+          </button>
+        </div>
       </div>
-    </div>
+
+      {isMobile ? (
+        <div className="divide-y divide-zinc-100">
+          {filteredReferrals.map((ref, idx) => (
+            <div 
+              key={ref.id} 
+              className={`transition-all duration-300 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white'}`}
+            >
+              <div 
+                onClick={() => {
+                  setExpandedReferralIds(prev => 
+                    prev.includes(ref.id) ? prev.filter(id => id !== ref.id) : [...prev, ref.id]
+                  );
+                }}
+                className="p-4 flex items-center justify-between cursor-pointer active:bg-zinc-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div>
+                    <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{ref.patient_name}</p>
+                    <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-tight">
+                      {ref.service_name} • {ref.branch}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right flex items-center gap-3">
+                  <div>
+                    <p className={`text-sm font-bold ${darkMode ? 'text-brand-accent' : 'text-zinc-900'}`}>
+                      {clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}
+                    </p>
+                    <span className={`text-[9px] font-black uppercase tracking-widest ${
+                      ref.status === 'completed' || ref.status === 'payment_made' ? 'text-emerald-600' :
+                      ref.status === 'rejected' ? 'text-rose-600' : 
+                      ref.status === 'payment_approved' ? 'text-orange-600' :
+                      'text-zinc-400'
+                    }`}>
+                      {getStatusLabel(ref.status)}
+                    </span>
+                  </div>
+                  <ChevronRight size={14} className={`text-zinc-300 transition-transform duration-300 ${expandedReferralIds.includes(ref.id) ? 'rotate-90' : ''}`} />
+                </div>
+              </div>
+
+              <AnimatePresence>
+                {expandedReferralIds.includes(ref.id) && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden bg-zinc-50/50"
+                  >
+                    <div className="p-4 pt-0 space-y-4 border-t border-zinc-100/50">
+                      <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Referral Date</p>
+                          <p className="text-xs font-medium text-zinc-700">{ref.date}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Staff Name</p>
+                          <p className="text-xs font-medium text-zinc-700">{staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || <span className="text-zinc-400 italic">Direct Walk-in</span>}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Patient IC</p>
+                          <p className="text-xs font-medium text-zinc-700">{ref.patient_ic || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Appointment</p>
+                          <p className="text-xs font-medium text-zinc-700">{ref.appointment_date || 'N/A'}</p>
+                        </div>
+                      </div>
+                      
+                      {ref.patient_address && (
+                        <div>
+                          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Address</p>
+                          <p className="text-xs font-medium text-zinc-700 leading-relaxed">{ref.patient_address}</p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-zinc-200 flex items-center justify-center text-[8px] font-bold text-zinc-500">
+                            {(staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name)?.charAt(0) || 'W'}
+                          </div>
+                          <p className="text-[10px] font-medium text-zinc-500">{(staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name) ? `Referred by ${staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name}` : 'Direct Walk-in'}</p>
+                        </div>
+                        {ref.patient_phone && (
+                          <a 
+                            href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${ref.patient_name}! This is from the clinic. Just following up on your booking for ${ref.appointment_date} at ${ref.booking_time}.`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-transform"
+                          >
+                            <MessageCircle size={12} />
+                            WhatsApp
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-zinc-50 border-b border-zinc-100">
+              <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">No.</th>
+              <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Booking</th>
+              <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Patient</th>
+              <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Service</th>
+              <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Staff</th>
+              <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Incentive</th>
+              <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Status</th>
+              {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Actions</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-50">
+            {filteredReferrals.map((ref, index) => (
+              <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
+                <td className="p-4 text-sm text-zinc-500 font-medium">{index + 1}</td>
+                <td className="p-4">
+                  <p className="text-sm font-medium">{ref.appointment_date}</p>
+                  <p className="text-[10px] text-zinc-500">{ref.booking_time}</p>
+                </td>
+                <td className="p-4">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{ref.patient_name}</p>
+                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${ref.patient_type === 'existing' ? 'bg-brand-primary text-white' : 'bg-brand-accent text-white'}`}>
+                      {ref.patient_type || 'new'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-zinc-500">{ref.patient_phone} • <span className="font-bold text-indigo-600">{ref.branch}</span></p>
+                  <div className="mt-1 pt-1 border-t border-zinc-50">
+                    <p className="text-[9px] text-zinc-500 font-medium">IC: {ref.patient_ic || 'N/A'}</p>
+                    <p className="text-[9px] text-zinc-500 font-medium truncate max-w-[150px]" title={ref.patient_address}>Addr: {ref.patient_address || 'N/A'}</p>
+                  </div>
+                </td>
+                <td className="p-4 text-sm text-zinc-500">{ref.service_name}</td>
+                <td className="p-4 text-sm font-medium text-zinc-900">
+                  {staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || <span className="text-zinc-400 italic text-xs">Direct Walk-in</span>}
+                </td>
+                <td className="p-4 text-sm font-bold">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</td>
+                <td className="p-4">
+                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
+                    {getStatusLabel(ref.status)}
+                  </span>
+                </td>
+                {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
+                  <td className="p-4">
+                    {['payment_approved', 'payment_made'].includes(ref.status?.toLowerCase()) ? (
+                      <span className="px-2 py-1 bg-zinc-100 text-zinc-500 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit border border-zinc-200">
+                        <Lock size={10} /> Finance Locked
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {/* WhatsApp Follow-up */}
+                        {ref.patient_phone && (
+                          <a 
+                            href={`https://wa.me/${ref.patient_phone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 text-zinc-900 hover:bg-violet-500 hover:text-white rounded-lg transition-colors"
+                            title="WhatsApp Follow-up"
+                          >
+                            <Phone size={14} />
+                          </a>
+                        )}
+                        
+                        {/* Delete Button (Admins only, inside the lock check) */}
+                        {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
+                          <button 
+                            onClick={() => handleDeleteReferral(ref.id)}
+                            className="p-2 text-zinc-500 hover:text-rose-500 transition-colors"
+                            title="Delete Referral"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                        
+                        {/* Unified Status Dropdown with Modal Trigger */}
+                        <select 
+                          value=""
+                          onChange={(e) => {
+                            const newStatus = e.target.value;
+                            if (newStatus === 'Completed') {
+                              setPendingStatusUpdate({ id: ref.id, status: newStatus });
+                            } else if (newStatus) {
+                              handleClinicStatusUpdate(ref.id, newStatus);
+                            }
+                          }}
+                          className="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                        >
+                          <option value="" disabled>Set Status</option>
+                          <option value="Pending">Pending</option>
+                          <option value="Arrived">Arrived</option>
+                          <option value="In Session">In Session</option>
+                          <option value="Completed">Completed</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
+                      </div>
+                    )}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {/* Safeguard Modal for 'Completed' Status */}
+      <AnimatePresence>
+        {pendingStatusUpdate && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-6 max-w-md w-full shadow-xl"
+            >
+              <h3 className="text-xl font-black mb-2">Confirm Completion</h3>
+              <p className="text-zinc-500 text-sm mb-6">
+                Are you sure you want to mark this referral as completed? This action will finalize the visit and prepare it for payout processing.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setPendingStatusUpdate(null)}
+                  className="px-4 py-2 rounded-xl text-sm font-bold text-zinc-500 hover:bg-zinc-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    handleClinicStatusUpdate(pendingStatusUpdate.id, pendingStatusUpdate.status);
+                    setPendingStatusUpdate(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-sm font-bold bg-violet-500 text-white hover:bg-violet-600 transition-colors"
+                >
+                  Confirm
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
-
-export default PublicBookingUI;
