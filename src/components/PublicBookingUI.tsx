@@ -630,25 +630,13 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                 <p className="text-[#0d1f3c]/60 text-sm leading-relaxed">
                   Lengkapkan maklumat untuk<br />pengesahan pantas
                 </p>
-                {/* Large clipboard icon — bleeds out of bottom-right corner */}
-                <div className="absolute -bottom-6 -right-4 pointer-events-none">
-                  <svg width="160" height="170" viewBox="0 0 160 170" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    {/* Clipboard body */}
-                    <rect x="30" y="25" width="100" height="130" rx="10" fill="#0d1f3c"/>
-                    <rect x="36" y="31" width="88" height="118" rx="7" fill="#38bdf8"/>
-                    {/* Clip at top */}
-                    <rect x="55" y="14" width="50" height="22" rx="6" fill="#0d1f3c"/>
-                    <rect x="62" y="18" width="36" height="14" rx="4" fill="#38bdf8"/>
-                    {/* Person silhouette */}
-                    <circle cx="80" cy="72" r="16" fill="white" fillOpacity="0.9"/>
-                    <ellipse cx="80" cy="100" rx="22" ry="14" fill="white" fillOpacity="0.9"/>
-                    {/* Lines */}
-                    <rect x="44" y="118" width="72" height="7" rx="3.5" fill="white" fillOpacity="0.5"/>
-                    <rect x="44" y="130" width="55" height="7" rx="3.5" fill="white" fillOpacity="0.5"/>
-                    {/* Checkmark circle */}
-                    <circle cx="58" cy="148" r="12" fill="white" fillOpacity="0.9"/>
-                    <path d="M52 148 L57 153 L65 143" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                {/* Large clipboard image — bleeds out of bottom-right corner */}
+                <div className="absolute -bottom-4 -right-4 pointer-events-none">
+                  <img
+                    src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/%7B992D7791-8FED-40F2-B7A7-2C6A1D3BD1B1%7D.png?alt=media"
+                    alt=""
+                    className="w-44 h-auto object-contain"
+                  />
                 </div>
               </motion.button>
 
@@ -666,17 +654,13 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                 <p className="text-[#0d1f3c]/50 text-sm leading-relaxed">
                   Boleh, klik untuk<br />whatsapp kami :)
                 </p>
-                {/* Large WhatsApp icon — bleeds out of bottom-right corner */}
-                <div className="absolute -bottom-8 -right-6 pointer-events-none">
-                  <svg width="170" height="170" viewBox="0 0 170 170" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="85" cy="85" r="80" fill="#25D366"/>
-                    {/* Bubble tail */}
-                    <path d="M85 25C51.86 25 25 51.86 25 85c0 10.18 2.7 19.73 7.44 27.93L25 145l33.07-8.6A60 60 0 0 0 85 145c33.14 0 60-26.86 60-60S118.14 25 85 25z" fill="#25D366"/>
-                    {/* Inner white circle */}
-                    <path d="M85 30C54.07 30 29 55.07 29 86c0 9.77 2.63 18.94 7.23 26.83L29 145l33.07-8.6A56.6 56.6 0 0 0 85 142c30.93 0 56-25.07 56-56S115.93 30 85 30z" fill="white"/>
-                    {/* Phone handset */}
-                    <path d="M111 98.6c-1.2-.6-7.04-3.48-8.14-3.88-1.08-.4-1.88-.6-2.66.6-.8 1.2-3.08 3.88-3.76 4.66-.7.8-1.4.88-2.6.3-1.2-.6-5.06-1.86-9.64-5.94-3.56-3.18-5.96-7.1-6.66-8.3-.7-1.2-.08-1.84.52-2.44.54-.54 1.2-1.4 1.8-2.08.6-.7.8-1.2 1.2-1.98.4-.8.2-1.48-.1-2.08-.3-.6-2.66-6.4-3.64-8.76-.96-2.3-1.94-2-2.66-2.04l-2.26-.04c-.8 0-2.08.3-3.16 1.48-1.08 1.2-4.14 4.04-4.14 9.86s4.24 11.44 4.84 12.22c.6.8 8.34 12.42 20.2 17.42 11.84 5 11.84 3.32 13.98 3.1 2.14-.2 7.04-2.88 8.02-5.66 1-2.8 1-5.18.7-5.66-.28-.5-1.08-.8-2.28-1.38z" fill="#25D366"/>
-                  </svg>
+                {/* Large WhatsApp image — bleeds out of bottom-right corner */}
+                <div className="absolute -bottom-6 -right-6 pointer-events-none">
+                  <img
+                    src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/%7BC279E980-856D-4351-A105-41FB4ACDDA6B%7D%20(1).png?alt=media"
+                    alt=""
+                    className="w-44 h-auto object-contain"
+                  />
                 </div>
               </motion.button>
             </div>
