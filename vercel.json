@@ -17,8 +17,8 @@
       "destination": "/server.ts"
     },
     {
-      "source": "/(.*)",
-      "destination": "/dist/$1"
+      "source": "/((?!assets|favicon|logo|icons|manifest).*)",
+      "destination": "/dist/index.html"
     }
   ]
 }
