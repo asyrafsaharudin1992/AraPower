@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { 
   UserCircle, RefreshCw, PlusCircle, Trash2, DollarSign, Palette, Sun, Moon, BookOpen, ChevronRight, Lock, MessageSquare
@@ -25,6 +25,147 @@ export interface ProfileUIProps {
   isSendingFeedback: boolean;
   handleLogout: () => void;
 }
+
+const MALAYSIAN_BANKS = [
+  "Affin Bank Berhad",
+  "Alliance Bank Malaysia Berhad",
+  "AmBank (M) Berhad",
+  "BNP Paribas Malaysia Berhad",
+  "Bangkok Bank Berhad",
+  "Bank of America Malaysia Berhad",
+  "Bank of China (Malaysia) Berhad",
+  "Bank of Tokyo-Mitsubishi UFJ (Malaysia) Berhad",
+  "CIMB Bank Berhad",
+  "Citibank Berhad",
+  "Deutsche Bank (Malaysia) Berhad",
+  "HSBC Bank Malaysia Berhad",
+  "Hong Leong Bank Berhad",
+  "India International Bank (Malaysia) Berhad",
+  "Industrial and Commercial Bank of China (Malaysia) Berhad",
+  "J.P. Morgan Chase Bank Berhad",
+  "Malayan Banking Berhad",
+  "Mizuho Bank (Malaysia) Berhad",
+  "National Bank of Abu Dhabi Malaysia Berhad",
+  "OCBC Bank (Malaysia) Berhad",
+  "Public Bank Berhad",
+  "RHB Bank Berhad",
+  "Standard Chartered Bank Malaysia Berhad",
+  "Sumitomo Mitsui Banking Corporation Malaysia Berhad",
+  "The Bank of Nova Scotia Berhad",
+  "The Royal Bank of Scotland Berhad",
+  "United Overseas Bank (Malaysia) Bhd.",
+  "Affin Islamic Bank Berhad",
+  "Al Rajhi Banking & Investment Corporation (Malaysia) Berhad",
+  "Alliance Islamic Bank Berhad",
+  "AmBank Islamic Berhad",
+  "Asian Finance Bank Berhad",
+  "Bank Islam Malaysia Berhad",
+  "Bank Muamalat Malaysia Berhad",
+  "CIMB Islamic Bank Berhad",
+  "HSBC Amanah Malaysia Berhad",
+  "Hong Leong Islamic Bank Berhad",
+  "Kuwait Finance House (Malaysia) Berhad",
+  "Maybank Islamic Berhad",
+  "OCBC Al-Amin Bank Berhad",
+  "Public Islamic Bank Berhad",
+  "RHB Islamic Bank Berhad",
+  "Standard Chartered Saadiq Berhad",
+  "Affin Hwang Investment Bank Berhad",
+  "Alliance Investment Bank Berhad",
+  "AmInvestment Bank Berhad",
+  "CIMB Investment Bank Berhad",
+  "Hong Leong Investment Bank Berhad",
+  "KAF Investment Bank Berhad",
+  "Kenanga Investment Bank Berhad",
+  "MIMB Investment Bank Berhad",
+  "Maybank Investment Bank Berhad",
+  "Public Investment Bank Berhad",
+  "RHB Investment Bank Berhad",
+  "Al Rajhi Banking & Investment Corporation",
+  "Deutsche Bank Aktiengesellschaft",
+  "PT Bank Muamalat Indonesia, Tbk",
+];
+
+const BankSelector: React.FC<{ currentBank: string; darkMode: boolean }> = ({ currentBank, darkMode }) => {
+  const [selected, setSelected] = useState(currentBank);
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = MALAYSIAN_BANKS.filter(b =>
+    b.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const inputClass = `w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
+    darkMode
+      ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent'
+      : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
+  }`;
+
+  return (
+    <div className="space-y-2" ref={containerRef}>
+      <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Bank Name</label>
+      {/* Hidden input so FormData picks up the value */}
+      <input type="hidden" name="bank_name" value={selected} />
+      <div className="relative">
+        {/* Trigger button */}
+        <button
+          type="button"
+          onClick={() => { setOpen(o => !o); setSearch(''); }}
+          className={`${inputClass} text-left flex items-center justify-between`}
+        >
+          <span className={selected ? '' : 'text-zinc-400'}>{selected || 'Select your bank...'}</span>
+          <svg className={`w-4 h-4 flex-shrink-0 ml-2 transition-transform ${open ? 'rotate-180' : ''} ${darkMode ? 'text-zinc-400' : 'text-zinc-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {/* Dropdown */}
+        {open && (
+          <div className={`absolute z-50 w-full mt-2 rounded-2xl border shadow-xl overflow-hidden ${
+            darkMode ? 'bg-zinc-50 border-violet-500' : 'bg-white border-zinc-100'
+          }`}>
+            {/* Search input */}
+            <div className="p-3 border-b border-zinc-100">
+              <input
+                autoFocus
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search bank..."
+                className={`w-full px-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 ${
+                  darkMode
+                    ? 'bg-zinc-100 text-zinc-900 focus:ring-brand-accent/30'
+                    : 'bg-zinc-50 text-zinc-900 focus:ring-violet-500'
+                }`}
+              />
+            </div>
+            {/* Options list */}
+            <ul className="max-h-56 overflow-y-auto">
+              {filtered.length === 0 ? (
+                <li className="px-5 py-3 text-sm text-zinc-400">No banks found</li>
+              ) : filtered.map(bank => (
+                <li key={bank}>
+                  <button
+                    type="button"
+                    onClick={() => { setSelected(bank); setOpen(false); setSearch(''); }}
+                    className={`w-full text-left px-5 py-3 text-sm transition-colors ${
+                      selected === bank
+                        ? (darkMode ? 'bg-brand-accent/10 text-brand-accent font-bold' : 'bg-violet-50 text-violet-600 font-bold')
+                        : (darkMode ? 'hover:bg-zinc-100 text-zinc-900' : 'hover:bg-zinc-50 text-zinc-800')
+                    }`}
+                  >
+                    {bank}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export const ProfileUI: React.FC<ProfileUIProps> = ({
   currentUser,
@@ -133,20 +274,10 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
               Bank Account Details
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Bank Name</label>
-                <input 
-                  name="bank_name"
-                  type="text"
-                  defaultValue={currentUser.bank_name || ''}
-                  className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
-                    darkMode 
-                      ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                      : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
-                  }`}
-                  placeholder="e.g. Maybank, CIMB"
-                />
-              </div>
+              <BankSelector
+                currentBank={currentUser.bank_name || ''}
+                darkMode={darkMode}
+              />
               <div className="space-y-2">
                 <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Account Number</label>
                 <input 
