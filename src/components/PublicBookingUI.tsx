@@ -613,54 +613,60 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
               </div>
             </motion.div>
 
-            {/* Two cards */}
-            <div className="flex flex-col gap-2">
+            {/* Two cards — fixed height containers, image fills right placeholder */}
+            <div className="flex flex-col gap-4">
 
-              {/* Card 1 — beige, image on right, text on left */}
+              {/* Card 1 — beige bg, navy border */}
               <motion.button
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.15 }}
                 onClick={() => setPublicBookingStep('form')}
-                className="relative w-full rounded-3xl overflow-hidden active:scale-[0.98] transition-transform"
+                className="w-full h-40 rounded-3xl bg-[#EEF0D5] border-4 border-[#0d1f3c] flex items-center overflow-hidden active:scale-[0.98] transition-transform"
               >
-                <img
-                  src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/1.png?alt=media"
-                  alt=""
-                  className="w-full h-auto object-cover block"
-                />
-                {/* Text overlay on left */}
-                <div className="absolute inset-0 flex flex-col justify-center pl-7 pr-32 items-start">
-                  <p className="text-[#0d1f3c] font-black text-2xl leading-tight mb-1 text-left">
+                {/* Text — left side */}
+                <div className="flex-1 flex flex-col justify-center pl-6 text-left">
+                  <p className="text-[#0d1f3c] font-black text-2xl leading-tight mb-1">
                     Isi borang<br />temu janji
                   </p>
-                  <p className="text-[#0d1f3c]/60 text-xs leading-relaxed text-left">
-                    Lengkapkan maklumat untuk<br />pengesahan pantas
+                  <p className="text-[#0d1f3c]/60 text-xs leading-relaxed">
+                    Lengkapkan maklumat<br />untuk pengesahan pantas
                   </p>
+                </div>
+                {/* Image placeholder — right side, fixed width, fills height */}
+                <div className="w-36 h-full flex-shrink-0 overflow-hidden">
+                  <img
+                    src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/1.png?alt=media"
+                    alt=""
+                    className="w-full h-full object-contain object-center"
+                  />
                 </div>
               </motion.button>
 
-              {/* Card 2 — white, image on right, text on left */}
+              {/* Card 2 — white bg, navy border */}
               <motion.button
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.28 }}
                 onClick={() => setPublicBookingStep('whatsapp')}
-                className="relative w-full rounded-3xl overflow-hidden active:scale-[0.98] transition-transform"
+                className="w-full h-40 rounded-3xl bg-white border-4 border-[#0d1f3c] flex items-center overflow-hidden active:scale-[0.98] transition-transform"
               >
-                <img
-                  src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/2.png?alt=media"
-                  alt=""
-                  className="w-full h-auto object-cover block"
-                />
-                {/* Text overlay on left */}
-                <div className="absolute inset-0 flex flex-col justify-center pl-7 pr-32 items-start">
-                  <p className="text-[#0d1f3c] font-black text-2xl leading-tight mb-1 text-left">
+                {/* Text — left side */}
+                <div className="flex-1 flex flex-col justify-center pl-6 text-left">
+                  <p className="text-[#0d1f3c] font-black text-2xl leading-tight mb-1">
                     Saya mahu<br />tanya <em>je</em> dulu
                   </p>
-                  <p className="text-[#0d1f3c]/50 text-xs leading-relaxed text-left">
+                  <p className="text-[#0d1f3c]/50 text-xs leading-relaxed">
                     Boleh, klik untuk<br />whatsapp kami :)
                   </p>
+                </div>
+                {/* Image placeholder — right side, fixed width, fills height */}
+                <div className="w-36 h-full flex-shrink-0 overflow-hidden">
+                  <img
+                    src="https://firebasestorage.googleapis.com/v0/b/new-website-7b8dd.firebasestorage.app/o/2.png?alt=media"
+                    alt=""
+                    className="w-full h-full object-contain object-center"
+                  />
                 </div>
               </motion.button>
             </div>
