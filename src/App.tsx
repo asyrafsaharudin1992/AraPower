@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 // Force rebuild - Logo update
 import { GoogleGenAI } from "@google/genai";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Markdown from 'react-markdown';
 import { PromotionsCarousel } from './components/PromotionsCarousel';
 import { AdminUI } from './components/AdminUI';
@@ -695,6 +695,9 @@ const MobilePullToRefreshWrapper = ({ isMobile, onRefresh, children }: { isMobil
 };
 
 export default function App() {
+  // Flag to prevent login flow during password recovery
+  const isPasswordRecovery = useRef(false);
+
   const [currentUser, setCurrentUser] = useState<Staff | null>(() => {
     const saved = localStorage.getItem('currentUser');
     if (!saved) return null;
@@ -1225,13 +1228,16 @@ export default function App() {
       console.log('Auth state change:', event, session?.user?.email);
       
       if (event === 'PASSWORD_RECOVERY') {
-        // Supabase has exchanged the hash token for a session — now show reset modal
+        // Set flag to block normal login flow during password recovery
+        isPasswordRecovery.current = true;
         setShowResetPasswordModal(true);
         window.history.replaceState({}, document.title, '/');
         return;
       }
       
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        // Don't log in if this is a password recovery session
+        if (isPasswordRecovery.current) return;
         if (session?.user?.email) {
           fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on auth change:', e));
         }
@@ -1852,28 +1858,32 @@ export default function App() {
         if (error) throw error;
         
         setResetPasswordStatus({ type: 'success', message: 'Password updated successfully. Redirecting to login...' });
-        setTimeout(() => {
+        setTimeout(async () => {
+          isPasswordRecovery.current = false;
           setShowResetPasswordModal(false);
           setResetPasswordNewPassword('');
           setResetPasswordStatus(null);
-          // Redirect to login and clear URL
-          if (typeof window !== 'undefined') {
-            window.history.pushState({}, '', '/');
-          }
+          // Sign out the recovery session so user logs in fresh
+          await supabase.auth.signOut();
+          setCurrentUser(null);
+          localStorage.removeItem('currentUser');
           setAuthMode('login');
+          window.history.pushState({}, '', '/');
         }, 3000);
       } else {
         // Local fallback
         setResetPasswordStatus({ type: 'success', message: 'Password updated successfully. Redirecting to login...' });
-        setTimeout(() => {
+        setTimeout(async () => {
+          isPasswordRecovery.current = false;
           setShowResetPasswordModal(false);
           setResetPasswordNewPassword('');
           setResetPasswordStatus(null);
-          // Redirect to login and clear URL
-          if (typeof window !== 'undefined') {
-            window.history.pushState({}, '', '/');
-          }
+          // Sign out the recovery session so user logs in fresh
+          await supabase.auth.signOut();
+          setCurrentUser(null);
+          localStorage.removeItem('currentUser');
           setAuthMode('login');
+          window.history.pushState({}, '', '/');
         }, 3000);
       }
     } catch (error: any) {
