@@ -2255,8 +2255,6 @@ export default function App() {
         verified_by: (currentUser?.role === 'receptionist' || currentUser?.role === 'manager' || currentUser?.role === 'admin') ? currentUser.id : undefined
       };
       
-      console.log('Updating clinic status:', { id, payload });
-      
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -2264,16 +2262,25 @@ export default function App() {
       });
       
       if (res.ok) {
+        // Auto-transition: arrived → in_session immediately
+        if (newStatus === 'arrived') {
+          await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'in_session' })
+          });
+        }
         fetchReferrals();
         fetchStaff();
+        toast.success('Status berjaya dikemas kini!');
       } else {
         const errorMsg = data.error || 'Update failed';
         console.error('Status update failed:', { id, newStatus, data });
-        alert(`Status update failed: ${errorMsg}\n\nDetails: ${JSON.stringify(data)}`);
+        toast.error(`Status update failed: ${errorMsg}`);
       }
     } catch (error) {
       console.error('Error in handleClinicStatusUpdate:', error);
-      alert(`An error occurred while updating status: ${error instanceof Error ? error.message : String(error)}`);
+      toast.error(`An error occurred while updating status`);
     }
   };
 
@@ -3508,7 +3515,7 @@ export default function App() {
 
   const receptionistStats = {
     arrivedToday: referrals.filter(r => ['completed', 'payment_approved', 'payment_made'].includes(r.status?.toLowerCase()) && r.visit_date === new Date().toISOString().split('T')[0]).length,
-    pendingVerifications: referrals.filter(r => r.status?.toLowerCase() === 'entered').length
+    pendingVerifications: referrals.filter(r => ['arrived','in_session'].includes(r.status?.toLowerCase())).length
   };
   
   const totalEarned = currentUserStats?.lifetime_earnings || 0;
@@ -3523,8 +3530,9 @@ export default function App() {
  const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'pending': return 'bg-zinc-100 text-zinc-500 border border-zinc-200';
-      case 'entered': return 'bg-blue-100 text-blue-700 border border-blue-200';
-      case 'completed': return 'bg-indigo-100 text-indigo-700 border border-indigo-200';
+      case 'arrived': return 'bg-blue-100 text-blue-700 border border-blue-200';
+      case 'in_session': return 'bg-indigo-100 text-indigo-700 border border-indigo-200';
+      case 'completed': return 'bg-teal-100 text-teal-700 border border-teal-200';
       case 'payment_approved': return 'bg-orange-100 text-orange-700 border border-orange-200';
       case 'payment_made': return 'bg-emerald-500 text-white shadow-sm border border-emerald-600';
       case 'rejected': return 'bg-rose-500 text-white';
@@ -3535,8 +3543,9 @@ export default function App() {
   const getStatusLabel = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'pending': return 'Pending';
-      case 'entered': return 'Entered';
-      case 'completed': return 'Arrived / Completed';
+      case 'arrived': return 'Arrived';
+      case 'in_session': return 'In Session';
+      case 'completed': return 'Completed';
       case 'payment_approved': return 'Payment Approved';
       case 'payment_made': return 'Payment Made';
       case 'rejected': return 'Rejected';
@@ -4597,8 +4606,9 @@ export default function App() {
                         >
                           <option value="all">All Statuses</option>
                           <option value="pending">Pending</option>
-                          <option value="entered">Entered</option>
-                          <option value="completed">Arrived / Completed</option>
+                          <option value="arrived">Arrived</option>
+                          <option value="in_session">In Session</option>
+                          <option value="completed">Completed</option>
                           <option value="payment_approved">Payment Approved</option>
                           <option value="payment_made">Payment Made</option>
                           <option value="rejected">Rejected</option>
@@ -4618,7 +4628,7 @@ export default function App() {
                       {referrals
                         .filter(r => r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()))
                         .filter(r => statusFilter === 'all' ? true : r.status?.toLowerCase() === statusFilter.toLowerCase())
-                        .filter(r => currentUser.role === 'receptionist' ? r.status?.toLowerCase() === 'completed' : true)
+                        .filter(r => currentUser.role === 'receptionist' ? ['arrived','in_session','completed'].includes(r.status?.toLowerCase()) : true)
                         .map((ref) => (
                         <div key={ref.id} className="p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors">
                           <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
@@ -4666,26 +4676,14 @@ export default function App() {
                               className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                             >
                               <option value="pending">Pending</option>
-                              <option value="entered">Entered</option>
-                              <option value="completed">Arrived / Completed</option>
+                              <option value="arrived">Arrived</option>
+                              <option value="in_session">In Session</option>
+                              <option value="completed">Completed</option>
                               <option value="payment_approved">Payment Approved</option>
                               <option value="payment_made">Payment Made</option>
                               <option value="rejected">Rejected</option>
                             </select>
-                            <select 
-                              value=""
-                              onChange={(e) => {
-                                if (e.target.value) handleClinicStatusUpdate(ref.id, e.target.value);
-                              }}
-                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500"
-                            >
-                              <option value="" disabled>Set Status</option>
-                              <option value="Pending">Pending</option>
-                              <option value="Arrived">Arrived</option>
-                              <option value="In Session">In Session</option>
-                              <option value="Completed">Completed</option>
-                              <option value="Cancelled">Cancelled</option>
-                            </select>
+
                           </div>
                         </div>
                       ))}

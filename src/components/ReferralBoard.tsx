@@ -62,10 +62,11 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
     .filter(ref => {
       if (!referralSearch) return true;
       const search = referralSearch.toLowerCase();
+      const staffName = staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || '';
       return (
-        (ref.patient_name || '').toLowerCase().includes(search) || // SAFE CHECK
-        (ref.staff_name || '').toLowerCase().includes(search) ||  // SAFE CHECK
-        (ref.service_name || '').toLowerCase().includes(search)   // SAFE CHECK
+        (ref.patient_name || '').toLowerCase().includes(search) ||
+        staffName.toLowerCase().includes(search) ||
+        (ref.service_name || '').toLowerCase().includes(search)
       );
     })
     .filter(ref => referralBranchFilter === 'all' ? true : ref.branch === referralBranchFilter)
@@ -149,7 +150,8 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
               <option value="all">All Statuses</option>
               <option value="pending">Pending</option>
               <option value="arrived">Arrived</option>
-              <option value="completed">Arrived / Completed</option>
+              <option value="in_session">In Session</option>
+              <option value="completed">Completed</option>
               <option value="payment_approved">Payment Approved</option>
               <option value="payment_made">Payment Made</option>
               <option value="rejected">Rejected</option>
@@ -209,16 +211,14 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                     {ref.status === 'pending' && (
                       <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'arrived' })} className="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs font-medium">Mark Arrived</button>
                     )}
-                    {ref.status === 'arrived' && (
+                    {ref.status === 'in_session' && (
                       <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'completed' })} className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-medium">Mark Completed</button>
                     )}
-                    {ref.status === 'completed' && currentUser?.role === 'admin' && (
+                    {ref.status === 'completed' && (currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
                       <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'payment_approved' })} className="px-3 py-1 bg-purple-500 text-white rounded-lg text-xs font-medium">Approve Payment</button>
                     )}
-                    {ref.status === 'payment_approved' && currentUser?.role === 'admin' && (
-                      <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'payment_made' })} className="px-3 py-1 bg-emerald-500 text-white rounded-lg text-xs font-medium">Mark Paid</button>
-                    )}
-                    {(ref.status === 'pending' || ref.status === 'arrived') && (
+
+                    {(ref.status === 'pending' || ref.status === 'arrived' || ref.status === 'in_session') && (
                       <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'rejected' })} className="px-3 py-1 bg-red-500 text-white rounded-lg text-xs font-medium">Reject</button>
                     )}
                   </div>
@@ -281,16 +281,14 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                           {ref.status === 'pending' && (
                             <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'arrived' })} className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-medium transition-colors">Arrived</button>
                           )}
-                          {ref.status === 'arrived' && (
+                          {ref.status === 'in_session' && (
                             <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'completed' })} className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-medium transition-colors">Completed</button>
                           )}
-                          {ref.status === 'completed' && currentUser?.role === 'admin' && (
+                          {ref.status === 'completed' && (currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
                             <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'payment_approved' })} className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-xs font-medium transition-colors">Approve</button>
                           )}
-                          {ref.status === 'payment_approved' && currentUser?.role === 'admin' && (
-                            <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'payment_made' })} className="px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-medium transition-colors">Mark Paid</button>
-                          )}
-                          {(ref.status === 'pending' || ref.status === 'arrived') && (
+
+                          {(ref.status === 'pending' || ref.status === 'arrived' || ref.status === 'in_session') && (
                             <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'rejected' })} className="p-1 text-zinc-400 hover:text-red-500 transition-colors" title="Reject">
                               <Trash2 size={16} />
                             </button>
