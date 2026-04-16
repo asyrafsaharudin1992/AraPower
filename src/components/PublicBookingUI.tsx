@@ -630,7 +630,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                   className="w-full h-auto object-cover block"
                 />
                 {/* Text overlay on left */}
-                <div className="absolute inset-0 flex flex-col justify-center pl-7 pr-32">
+                <div className="absolute inset-0 flex flex-col justify-center pl-7 pr-32 items-start">
                   <p className="text-[#0d1f3c] font-black text-2xl leading-tight mb-1">
                     Isi borang<br />temu janji
                   </p>
@@ -654,7 +654,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                   className="w-full h-auto object-cover block"
                 />
                 {/* Text overlay on left */}
-                <div className="absolute inset-0 flex flex-col justify-center pl-7 pr-32">
+                <div className="absolute inset-0 flex flex-col justify-center pl-7 pr-32 items-start">
                   <p className="text-[#0d1f3c] font-black text-2xl leading-tight mb-1">
                     Saya mahu<br />tanya <em>je</em> dulu
                   </p>
