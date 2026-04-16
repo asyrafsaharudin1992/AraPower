@@ -34,10 +34,18 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
   staffList,
 }) => {
   const [referralSearch, setReferralSearch] = useState('');
+
+  // Safe local date formatter — avoids UTC midnight timezone shift
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '—';
+    const d = dateStr.split('T')[0]; // strip time if present
+    if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return dateStr;
+    const [y, m, day] = d.split('-');
+    return `${day}/${m}/${y}`;
+  };
   const [referralBranchFilter, setReferralBranchFilter] = useState('all');
   const [referralStatusFilter, setReferralStatusFilter] = useState('all');
   const [referralServiceFilter, setReferralServiceFilter] = useState('all'); // NEW STATE
-  const [expandedReferralIds, setExpandedReferralIds] = useState<string[]>([]);
   const [pendingStatusUpdate, setPendingStatusUpdate] = useState<{id: string, status: string} | null>(null);
 
   // NEW: Extract unique services dynamically from the referrals data
@@ -67,15 +75,18 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
   // ... [exportToCSV function remains exactly the same] ...
   const exportToCSV = () => {
     const headers = currentUser?.role === 'admin' 
-      ? ['Date', 'Patient Name', 'Patient Type', 'Service', 'Staff Name', 'Incentive ($)', 'Status']
-      : ['Date', 'Patient Name', 'Patient Type', 'Service', 'Incentive ($)', 'Status'];
+      ? ['Submission Date', 'Patient Name', 'Patient Type', 'Service', 'Branch', 'Appt Date', 'Appt Time', 'Staff Name', 'Incentive ($)', 'Status']
+      : ['Submission Date', 'Patient Name', 'Patient Type', 'Service', 'Branch', 'Appt Date', 'Appt Time', 'Incentive ($)', 'Status'];
 
     const csvRows = filteredReferrals.map(ref => {
       const row = [
-        ref.date,
+        formatDate(ref.date),
         `"${ref.patient_name}"`,
         ref.patient_type || 'new',
         `"${ref.service_name}"`,
+        `"${ref.branch || '—'}"`,
+        formatDate(ref.appointment_date),
+        ref.booking_time || '—',
         ...(currentUser?.role === 'admin' ? [`"${staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || 'Direct Walk-in'}"`] : []),
         (ref.commission_amount || 0).toFixed(2),
         ref.status
@@ -137,7 +148,7 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
             <select value={referralStatusFilter} onChange={(e) => setReferralStatusFilter(e.target.value)} className={filterSelectClass}>
               <option value="all">All Statuses</option>
               <option value="pending">Pending</option>
-              <option value="entered">Entered</option>
+              <option value="arrived">Arrived</option>
               <option value="completed">Arrived / Completed</option>
               <option value="payment_approved">Payment Approved</option>
               <option value="payment_made">Payment Made</option>
@@ -176,7 +187,17 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                 </div>
                 
                 <div className="flex justify-between items-center text-xs text-zinc-500">
-                  <span>{new Date(ref.date).toLocaleDateString()}</span>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-zinc-700">Appt:</span>
+                      <span>{formatDate(ref.appointment_date)}{ref.booking_time ? ` @ ${ref.booking_time}` : ''}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-zinc-700">Branch:</span>
+                      <span>{ref.branch || '—'}</span>
+                    </div>
+                    <div className="text-zinc-400">Submitted: {formatDate(ref.date)}</div>
+                  </div>
                   <span className="font-medium text-brand-accent">
                     {clinicProfile?.currency || 'RM'} {ref.commission_amount?.toFixed(2) || '0.00'}
                   </span>
@@ -186,15 +207,18 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                 {(currentUser?.role === 'admin' || currentUser?.role === 'manager' || currentUser?.role === 'receptionist') && (
                   <div className="pt-2 flex flex-wrap gap-2">
                     {ref.status === 'pending' && (
-                      <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'entered' })} className="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs font-medium">Mark Entered</button>
+                      <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'arrived' })} className="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs font-medium">Mark Arrived</button>
                     )}
-                    {ref.status === 'entered' && (
+                    {ref.status === 'arrived' && (
                       <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'completed' })} className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-medium">Mark Completed</button>
                     )}
                     {ref.status === 'completed' && currentUser?.role === 'admin' && (
                       <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'payment_approved' })} className="px-3 py-1 bg-purple-500 text-white rounded-lg text-xs font-medium">Approve Payment</button>
                     )}
-                    {(ref.status === 'pending' || ref.status === 'entered') && (
+                    {ref.status === 'payment_approved' && currentUser?.role === 'admin' && (
+                      <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'payment_made' })} className="px-3 py-1 bg-emerald-500 text-white rounded-lg text-xs font-medium">Mark Paid</button>
+                    )}
+                    {(ref.status === 'pending' || ref.status === 'arrived') && (
                       <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'rejected' })} className="px-3 py-1 bg-red-500 text-white rounded-lg text-xs font-medium">Reject</button>
                     )}
                   </div>
@@ -209,9 +233,12 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className={`text-xs uppercase tracking-wider ${darkMode ? 'bg-zinc-800/50 text-zinc-400' : 'bg-zinc-50 text-zinc-500'}`}>
-                <th className="p-4 font-medium">Date</th>
+                <th className="p-4 font-medium">Submitted</th>
                 <th className="p-4 font-medium">Patient</th>
                 <th className="p-4 font-medium">Service</th>
+                <th className="p-4 font-medium">Branch</th>
+                <th className="p-4 font-medium">Appt Date</th>
+                <th className="p-4 font-medium">Appt Time</th>
                 <th className="p-4 font-medium">Staff</th>
                 <th className="p-4 font-medium">Incentive</th>
                 <th className="p-4 font-medium">Status</th>
@@ -221,17 +248,22 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
             <tbody className={`divide-y ${darkMode ? 'divide-zinc-800' : 'divide-zinc-50'}`}>
               {filteredReferrals.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-zinc-500 text-sm">No referrals found.</td>
+                  <td colSpan={10} className="p-8 text-center text-zinc-500 text-sm">No referrals found.</td>
                 </tr>
               ) : (
                 filteredReferrals.map((ref) => (
                   <tr key={ref.id} className={`transition-colors ${darkMode ? 'hover:bg-zinc-800/30' : 'hover:bg-zinc-50/50'}`}>
-                    <td className="p-4 text-sm text-zinc-500">{new Date(ref.date).toLocaleDateString()}</td>
+                    <td className="p-4 text-sm text-zinc-500">{formatDate(ref.date)}</td>
                     <td className="p-4">
                       <p className={`font-medium text-sm ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{ref.patient_name}</p>
                       <p className="text-xs text-zinc-500">{ref.patient_phone}</p>
                     </td>
                     <td className="p-4 text-sm text-zinc-600">{ref.service_name}</td>
+                    <td className="p-4 text-sm text-zinc-600">{ref.branch || '—'}</td>
+                    <td className="p-4 text-sm text-zinc-600 font-medium">
+                      {formatDate(ref.appointment_date)}
+                    </td>
+                    <td className="p-4 text-sm text-zinc-600">{ref.booking_time || '—'}</td>
                     <td className="p-4 text-sm text-zinc-600">{staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || 'Direct Walk-in'}</td>
                     <td className="p-4">
                       <span className="font-medium text-brand-accent text-sm">
@@ -247,15 +279,18 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                       {(currentUser?.role === 'admin' || currentUser?.role === 'manager' || currentUser?.role === 'receptionist') && (
                         <div className="flex items-center justify-end gap-2">
                           {ref.status === 'pending' && (
-                            <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'entered' })} className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-medium transition-colors">Entered</button>
+                            <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'arrived' })} className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-medium transition-colors">Arrived</button>
                           )}
-                          {ref.status === 'entered' && (
+                          {ref.status === 'arrived' && (
                             <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'completed' })} className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-medium transition-colors">Completed</button>
                           )}
                           {ref.status === 'completed' && currentUser?.role === 'admin' && (
                             <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'payment_approved' })} className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-xs font-medium transition-colors">Approve</button>
                           )}
-                          {(ref.status === 'pending' || ref.status === 'entered') && (
+                          {ref.status === 'payment_approved' && currentUser?.role === 'admin' && (
+                            <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'payment_made' })} className="px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-medium transition-colors">Mark Paid</button>
+                          )}
+                          {(ref.status === 'pending' || ref.status === 'arrived') && (
                             <button onClick={() => setPendingStatusUpdate({ id: ref.id, status: 'rejected' })} className="p-1 text-zinc-400 hover:text-red-500 transition-colors" title="Reject">
                               <Trash2 size={16} />
                             </button>
