@@ -553,13 +553,13 @@ interface RolesConfig {
   [role: string]: RolePermissions;
 }
 
-export const safeFetch = async (url: string, options?: RequestInit, retries = 3, backoff = 1000): Promise<{ res: Response, data: any }> => {
+export const safeFetch = async (url: string, options?: RequestInit, retries = 2, backoff = 500): Promise<{ res: Response, data: any }> => {
   try {
     console.log(`Fetching: ${url}`, options?.method || 'GET');
     const res = await fetch(url, options);
     
-    // Handle rate limiting (429) or server errors (500, 502, 503, 504) with retries
-    if ((res.status === 429 || res.status >= 500) && retries > 0) {
+    // Retry on rate limiting (429) or server errors (502, 503, 504) but NOT on 500 data errors or 4xx
+    if ((res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504) && retries > 0) {
       console.warn(`Request to ${url} failed with status ${res.status}. Retrying in ${backoff}ms...`);
       await new Promise(resolve => setTimeout(resolve, backoff));
       return safeFetch(url, options, retries - 1, backoff * 2);
@@ -1512,6 +1512,7 @@ export default function App() {
   useEffect(() => {
     if (currentUser) {
       fetchStaff();
+      fetchReferrals(); // ensure referrals reload when user context changes
       if (currentUser.role === 'admin' || currentUser.role === 'manager') {
         fetchBranchChangeRequests();
       }
@@ -1713,7 +1714,19 @@ export default function App() {
     }
 
     const { res, data } = await safeFetch(url);
-    if (res.ok && Array.isArray(data)) setReferrals(data);
+    console.log('[fetchReferrals] status:', res.status, '| isArray:', Array.isArray(data));
+    if (res.ok) {
+      if (Array.isArray(data)) {
+        setReferrals(data);
+      } else if (data?.referrals && Array.isArray(data.referrals)) {
+        setReferrals(data.referrals);
+      } else {
+        console.error('[fetchReferrals] Unexpected response shape:', data);
+        setReferrals([]);
+      }
+    } else {
+      console.error('[fetchReferrals] API error:', res.status, data);
+    }
   };
 
   const fetchWarmLeads = async () => {

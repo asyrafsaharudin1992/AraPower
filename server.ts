@@ -1287,6 +1287,10 @@ app.get("/api/staff/email", async (req, res) => {
       return res.status(500).json({ error: `Database error: ${error.message}` });
     }
 
+    if (!staff) {
+      console.warn('[GET /api/staff/email] No staff record found for email:', email);
+    }
+
     if (staff && staff.employment_status === 'deleted') {
       return res.status(403).json({ error: "This account has been deleted. Please contact an administrator." });
     }
@@ -2102,6 +2106,7 @@ app.get("/api/schema", (req, res) => {
 
 app.get("/api/referrals", async (req, res) => {
   const { staffId, branch, requesterRole, requesterBranch } = req.query;
+  console.log('[GET /api/referrals]', { staffId, branch, requesterRole, requesterBranch });
   
   // Fetch referrals first without joins to avoid relationship errors
   let query = supabase
@@ -2110,7 +2115,8 @@ app.get("/api/referrals", async (req, res) => {
     .order('created_at', { ascending: false });
 
   if (staffId && staffId !== 'undefined' && staffId !== 'null') {
-    query = query.eq('staff_id', staffId);
+    // Use string coercion to handle UUID vs integer mismatch
+    query = query.eq('staff_id', String(staffId));
   }
   
   const { upcoming } = req.query;
@@ -2187,6 +2193,7 @@ app.get("/api/referrals", async (req, res) => {
   }
   
   if (!referrals || referrals.length === 0) {
+    console.log('[GET /api/referrals] Query returned 0 rows.', { staffId, branch, requesterRole, requesterBranch });
     return res.json([]);
   }
 
