@@ -25,7 +25,7 @@ export const PromotionsCarousel = ({ items, onClick, size = 'large' }: Promotion
         return (
           <div
             key={item.id}
-            className={`${size === 'small' ? 'w-[45vw]' : 'w-[70vw]'} flex-shrink-0 snap-start bg-eggshell ${isMockup ? 'opacity-60 cursor-default' : 'cursor-pointer'}`}
+            className={`${size === 'small' ? 'w-[45vw]' : 'w-[70vw]'} flex-shrink-0 snap-start ${isMockup ? 'opacity-60 cursor-default' : 'cursor-pointer'}`}
             onClick={() => !isMockup && onClick(item)}
           >
             <div className={`${size === 'small' ? 'aspect-[1/1]' : 'aspect-[3/4]'} rounded-xl overflow-hidden shadow-md ${isMockup ? mockupColor : ''} relative`}>
@@ -45,7 +45,7 @@ export const PromotionsCarousel = ({ items, onClick, size = 'large' }: Promotion
                 {item.name}
               </h3>
               <p className={`${size === 'small' ? 'text-[10px]' : 'text-[14px]'} text-twilight-indigo/80 font-medium uppercase leading-[1.2] mt-1`}>
-                {isMockup ? 'Stay Tuned' : `${item.promo_price ? `RM${item.promo_price}` : `RM${item.base_price || 0}`} Incentive`}
+                {isMockup ? 'Stay Tuned' : item.commission_rate ? `RM${item.commission_rate} Incentive` : `RM${item.promo_price || item.base_price || 0} Price`}
               </p>
             </div>
           </div>
