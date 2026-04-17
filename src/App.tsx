@@ -6,6 +6,7 @@ import Markdown from 'react-markdown';
 import AuthUI from './AuthUI';
 import { PromotionsCarousel } from './components/PromotionsCarousel';
 import { AdminUI } from './components/AdminUI';
+import { AffiliateManagement } from './components/AffiliateManagement';
 import { DashboardUI } from './components/DashboardUI';
 import { CategoryScrollRow } from './components/CategoryScrollRow';
 import { PayoutManagement } from './components/PayoutManagement';
@@ -553,13 +554,13 @@ interface RolesConfig {
   [role: string]: RolePermissions;
 }
 
-export const safeFetch = async (url: string, options?: RequestInit, retries = 2, backoff = 500): Promise<{ res: Response, data: any }> => {
+export const safeFetch = async (url: string, options?: RequestInit, retries = 3, backoff = 1000): Promise<{ res: Response, data: any }> => {
   try {
     console.log(`Fetching: ${url}`, options?.method || 'GET');
     const res = await fetch(url, options);
     
-    // Retry on rate limiting (429) or server errors (502, 503, 504) but NOT on 500 data errors or 4xx
-    if ((res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504) && retries > 0) {
+    // Handle rate limiting (429) or server errors (500, 502, 503, 504) with retries
+    if ((res.status === 429 || res.status >= 500) && retries > 0) {
       console.warn(`Request to ${url} failed with status ${res.status}. Retrying in ${backoff}ms...`);
       await new Promise(resolve => setTimeout(resolve, backoff));
       return safeFetch(url, options, retries - 1, backoff * 2);
@@ -955,11 +956,11 @@ export default function App() {
   });
 
   // Commission Tiers Configuration
-  const TIERS = [
+  const [TIERS, setTIERS] = useState([
     { name: 'Bronze', min: 0, bonus: 1, color: 'text-white', bg: 'bg-[#1580c2]' },
     { name: 'Silver', min: 6, bonus: 1.2, color: 'text-white', bg: 'bg-[#1580c2]' },
     { name: 'Gold', min: 11, bonus: 1.5, color: 'text-white', bg: 'bg-rose-500' }
-  ];
+  ]);
 
   // Form states
   const [patientName, setPatientName] = useState('');
@@ -1512,7 +1513,6 @@ export default function App() {
   useEffect(() => {
     if (currentUser) {
       fetchStaff();
-      fetchReferrals(); // ensure referrals reload when user context changes
       if (currentUser.role === 'admin' || currentUser.role === 'manager') {
         fetchBranchChangeRequests();
       }
@@ -1714,19 +1714,7 @@ export default function App() {
     }
 
     const { res, data } = await safeFetch(url);
-    console.log('[fetchReferrals] status:', res.status, '| isArray:', Array.isArray(data));
-    if (res.ok) {
-      if (Array.isArray(data)) {
-        setReferrals(data);
-      } else if (data?.referrals && Array.isArray(data.referrals)) {
-        setReferrals(data.referrals);
-      } else {
-        console.error('[fetchReferrals] Unexpected response shape:', data);
-        setReferrals([]);
-      }
-    } else {
-      console.error('[fetchReferrals] API error:', res.status, data);
-    }
+    if (res.ok && Array.isArray(data)) setReferrals(data);
   };
 
   const fetchWarmLeads = async () => {
@@ -3403,25 +3391,38 @@ export default function App() {
           )}
 
           {activeTab === 'admin' && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
-            <AdminUI 
-              currentUser={currentUser}
-              referrals={referrals}
-              clinicProfile={clinicProfile}
-              staffPerformance={staffPerformance}
-              activeStaffList={activeStaffList}
-              staffList={staffList}
-              warmLeads={warmLeads}
-              services={services}
-              adminSearch={adminSearch}
-              setAdminSearch={setAdminSearch}
-              handleApproveStaff={handleApproveStaff}
-              handleRejectStaff={handleRejectStaff}
-              handleDeleteStaff={handleDeleteStaff}
-              setSelectedStaffDetail={setSelectedStaffDetail}
-              setShowStaffModal={setShowStaffModal}
-              handleUpdateWarmLeadStatus={handleUpdateWarmLeadStatus}
-              handleAdminResetPassword={handleAdminResetPassword}
-            />
+            <div className="space-y-8">
+              <AdminUI 
+                currentUser={currentUser}
+                referrals={referrals}
+                clinicProfile={clinicProfile}
+                staffPerformance={staffPerformance}
+                activeStaffList={activeStaffList}
+                staffList={staffList}
+                warmLeads={warmLeads}
+                services={services}
+                adminSearch={adminSearch}
+                setAdminSearch={setAdminSearch}
+                handleApproveStaff={handleApproveStaff}
+                handleRejectStaff={handleRejectStaff}
+                handleDeleteStaff={handleDeleteStaff}
+                setSelectedStaffDetail={setSelectedStaffDetail}
+                setShowStaffModal={setShowStaffModal}
+                handleUpdateWarmLeadStatus={handleUpdateWarmLeadStatus}
+                handleAdminResetPassword={handleAdminResetPassword}
+              />
+              <AffiliateManagement
+                currentUser={currentUser}
+                staffPerformance={staffPerformance}
+                staffList={staffList}
+                referrals={referrals}
+                services={services}
+                apiBaseUrl={apiBaseUrl}
+                safeFetch={safeFetch}
+                TIERS={TIERS}
+                onTiersChange={setTIERS}
+              />
+            </div>
           )}
 
           {activeTab === 'communication' && rolesConfig[currentUser.role]?.canManageCommunication && (
