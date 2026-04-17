@@ -78,7 +78,7 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
   // NEW: Extract unique services dynamically from the referrals data
   const uniqueServices = useMemo(() => {
     if (!referrals) return [];
-    const services = Array.from(
+    const services: string[] = Array.from(
       new Set(referrals.map(ref => ref.service_name).filter(Boolean))
     );
     return services.sort(); // Sort alphabetically
@@ -134,124 +134,130 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
     document.body.removeChild(link);
   };
 
-  // Standard classes for your filter dropdowns to keep things DRY
-  const filterSelectClass = `px-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`;
+  const blue = '#1580c2';
+  const P = "'Poppins', sans-serif";
+
+  const inputStyle: React.CSSProperties = {
+    background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '12px',
+    padding: '8px 14px', fontSize: '12px', fontWeight: 500, color: blue,
+    fontFamily: P, outline: 'none',
+  };
+  const selectStyle: React.CSSProperties = { ...inputStyle, cursor: 'pointer' };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`${darkMode ? 'bg-[#1e293b] border-violet-500' : 'bg-white border-black/5 shadow-sm'} rounded-3xl border overflow-hidden`}
+      style={{ background: '#ffffff', borderRadius: '1.5rem', border: '1.5px solid #e2e8f0', overflow: 'hidden', fontFamily: P }}
     >
-      <div className={`p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${darkMode ? 'border-zinc-800' : 'border-zinc-100'}`}>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>Referral History</h3>
-          <div className="flex flex-wrap gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={14} />
-              <input 
-                type="text"
-                placeholder="Search patient, staff, or service..."
-                value={referralSearch}
-                onChange={(e) => setReferralSearch(e.target.value)}
-                className={`pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:ring-2 w-full sm:w-64 ${darkMode ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20' : 'bg-zinc-50 border-zinc-100 text-zinc-900 focus:ring-violet-500'}`}
-              />
-            </div>
-            
-            <select value={referralBranchFilter} onChange={(e) => setReferralBranchFilter(e.target.value)} className={filterSelectClass}>
-              <option value="all">All Branches</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.name}>{b.name}</option>
-              ))}
-            </select>
-
-            {/* NEW: Service Filter Dropdown */}
-            <select value={referralServiceFilter} onChange={(e) => setReferralServiceFilter(e.target.value)} className={filterSelectClass}>
-              <option value="all">All Services</option>
-              {uniqueServices.map(service => (
-                <option key={service} value={service}>{service}</option>
-              ))}
-            </select>
-
-            <select value={referralStatusFilter} onChange={(e) => setReferralStatusFilter(e.target.value)} className={filterSelectClass}>
-              <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="arrived">Arrived</option>
-              <option value="in_session">In Session</option>
-              <option value="completed">Completed</option>
-              <option value="payment_approved">Payment Approved</option>
-              <option value="payment_made">Payment Made</option>
-              <option value="rejected">Rejected</option>
-            </select>
+      {/* ── Header: search + filters + actions ── */}
+      <div style={{ padding: '20px 24px', borderBottom: '1.5px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <h3 style={{ fontSize: '17px', fontWeight: 700, color: blue, margin: 0 }}>Referral History</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button onClick={fetchReferrals}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: blue, background: 'none', border: 'none', cursor: 'pointer', padding: '7px 12px', borderRadius: '10px', fontFamily: P, transition: 'background 0.15s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = `${blue}10`)}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+              <RefreshCw size={13} /> Refresh
+            </button>
+            <button onClick={exportToCSV}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: '#ffffff', background: blue, border: 'none', cursor: 'pointer', padding: '7px 14px', borderRadius: '10px', fontFamily: P }}>
+              <Download size={13} /> Export CSV
+            </button>
           </div>
         </div>
-        
-        {/* Rest of your JSX remains exactly the same below... */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <button onClick={fetchReferrals} className={`flex items-center gap-2 text-xs font-bold transition-colors px-3 py-2 rounded-xl ${darkMode ? 'text-brand-accent hover:bg-zinc-50' : 'text-zinc-900 hover:bg-violet-500 hover:text-white'}`}>
-            <RefreshCw size={14} /> Refresh
-          </button>
-          <button onClick={exportToCSV} className={`flex items-center gap-2 text-xs font-bold transition-colors px-3 py-2 rounded-xl ${darkMode ? 'text-brand-accent hover:bg-zinc-50' : 'text-zinc-900 hover:bg-violet-500 hover:text-white'}`}>
-            <Download size={14} /> Export CSV
-          </button>
+
+        {/* Filters */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ position: 'relative' }}>
+            <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: `${blue}80` }} size={13} />
+            <input
+              type="text"
+              placeholder="Search patient, staff, or service..."
+              value={referralSearch}
+              onChange={(e) => setReferralSearch(e.target.value)}
+              style={{ ...inputStyle, paddingLeft: '30px', width: '220px' }}
+            />
+          </div>
+          <select value={referralBranchFilter} onChange={(e) => setReferralBranchFilter(e.target.value)} style={selectStyle}>
+            <option value="all">All Branches</option>
+            {branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+          </select>
+          <select value={referralServiceFilter} onChange={(e) => setReferralServiceFilter(e.target.value)} style={selectStyle}>
+            <option value="all">All Services</option>
+            {uniqueServices.map(service => <option key={service} value={service}>{service}</option>)}
+          </select>
+          <select value={referralStatusFilter} onChange={(e) => setReferralStatusFilter(e.target.value)} style={selectStyle}>
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="arrived">Arrived</option>
+            <option value="in_session">In Session</option>
+            <option value="completed">Completed</option>
+            <option value="payment_approved">Payment Approved</option>
+            <option value="payment_made">Payment Made</option>
+            <option value="rejected">Rejected</option>
+          </select>
         </div>
       </div>
 
-      {/* Mobile View */}
+      {/* ── Mobile View ── */}
       {isMobile ? (
-        <div className={`divide-y ${darkMode ? 'divide-zinc-800' : 'divide-zinc-100'}`}>
+        <div>
           {filteredReferrals.length === 0 ? (
-            <p className="p-8 text-center text-zinc-500 text-sm">No referrals found.</p>
+            <p style={{ padding: '48px', textAlign: 'center', fontSize: '14px', fontWeight: 500, color: blue, opacity: 0.45 }}>No referrals found.</p>
           ) : (
             filteredReferrals.map((ref) => (
-              <div key={ref.id} className="p-4 space-y-3">
-                <div className="flex justify-between items-start">
+              <div key={ref.id}
+                style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', background: '#ffffff', transition: 'background 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#f8fbff')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#ffffff')}
+              >
+                {/* Top row: name + status */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                   <div>
-                    <p className={`font-medium ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{ref.patient_name}</p>
-                    <p className="text-xs text-zinc-500">{ref.service_name}</p>
+                    <p style={{ fontSize: '14px', fontWeight: 700, color: blue, margin: '0 0 2px 0' }}>{ref.patient_name}</p>
+                    <p style={{ fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.55, margin: 0 }}>{ref.service_name}</p>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(ref.status)}`}>
+                  <span className={getStatusColor(ref.status)}
+                    style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', marginLeft: '8px' }}>
                     {getStatusLabel(ref.status)}
                   </span>
                 </div>
-                
-                <div className="flex justify-between items-center text-xs text-zinc-500">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-zinc-700">Appt:</span>
-                      <span>{formatDate(ref.appointment_date)}{ref.booking_time ? ` @ ${ref.booking_time}` : ''}</span>
+
+                {/* Middle row: meta + incentive */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: blue }}>
+                      <span style={{ fontWeight: 600, opacity: 0.55 }}>Appt:</span>
+                      <span style={{ fontWeight: 500 }}>{formatDate(ref.appointment_date)}{ref.booking_time ? ` @ ${ref.booking_time}` : ''}</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-zinc-700">Branch:</span>
-                      <span>{ref.branch || '—'}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: blue }}>
+                      <span style={{ fontWeight: 600, opacity: 0.55 }}>Branch:</span>
+                      <span style={{ fontWeight: 500 }}>{ref.branch || '—'}</span>
                     </div>
-                    <div className="text-zinc-400">Submitted: {formatDate(ref.date)}</div>
+                    <div style={{ fontSize: '11px', fontWeight: 500, color: blue, opacity: 0.4 }}>Submitted: {formatDate(ref.date)}</div>
                   </div>
-                  <span className="font-medium text-brand-accent">
+                  <span style={{ fontSize: '15px', fontWeight: 700, color: blue }}>
                     {clinicProfile?.currency || 'RM'} {ref.commission_amount?.toFixed(2) || '0.00'}
                   </span>
                 </div>
 
-                {/* Status Actions — dropdown */}
+                {/* Status action dropdown */}
                 {(() => {
                   const actions = getAvailableActions(ref);
                   if (actions.length === 0) return null;
                   return (
-                    <div className="pt-2">
+                    <div style={{ marginTop: '12px' }}>
                       <select
                         defaultValue=""
                         onChange={(e) => {
-                          if (e.target.value) {
-                            setPendingStatusUpdate({ id: ref.id, status: e.target.value });
-                            e.target.value = '';
-                          }
+                          if (e.target.value) { setPendingStatusUpdate({ id: ref.id, status: e.target.value }); e.target.value = ''; }
                         }}
-                        className={`w-full px-3 py-2 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-2 focus:ring-violet-500 ${darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-200 text-zinc-900'}`}
+                        style={{ ...selectStyle, width: '100%' }}
                       >
                         <option value="" disabled>Update Status...</option>
-                        {actions.map(a => (
-                          <option key={a.status} value={a.status}>{a.label}</option>
-                        ))}
+                        {actions.map(a => <option key={a.status} value={a.status}>{a.label}</option>)}
                       </select>
                     </div>
                   );
@@ -261,72 +267,55 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
           )}
         </div>
       ) : (
-        // Desktop View
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        /* ── Desktop View ── */
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr className={`text-xs uppercase tracking-wider ${darkMode ? 'bg-zinc-800/50 text-zinc-400' : 'bg-zinc-50 text-zinc-500'}`}>
-                <th className="p-4 font-medium">Submitted</th>
-                <th className="p-4 font-medium">Patient</th>
-                <th className="p-4 font-medium">Service</th>
-                <th className="p-4 font-medium">Branch</th>
-                <th className="p-4 font-medium">Appt Date</th>
-                <th className="p-4 font-medium">Appt Time</th>
-                <th className="p-4 font-medium">Staff</th>
-                <th className="p-4 font-medium">Incentive</th>
-                <th className="p-4 font-medium">Status</th>
-                <th className="p-4 font-medium text-right">Actions</th>
+              <tr style={{ background: '#f8fafc' }}>
+                {['Submitted','Patient','Service','Branch','Appt Date','Appt Time','Staff','Incentive','Status','Actions'].map(h => (
+                  <th key={h} style={{ padding: '12px 16px', fontSize: '10px', fontWeight: 600, color: blue, opacity: 0.55, textTransform: 'uppercase', letterSpacing: '0.12em', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className={`divide-y ${darkMode ? 'divide-zinc-800' : 'divide-zinc-50'}`}>
+            <tbody>
               {filteredReferrals.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-8 text-center text-zinc-500 text-sm">No referrals found.</td>
+                  <td colSpan={10} style={{ padding: '48px', textAlign: 'center', fontSize: '14px', fontWeight: 500, color: blue, opacity: 0.4 }}>No referrals found.</td>
                 </tr>
               ) : (
                 filteredReferrals.map((ref) => (
-                  <tr key={ref.id} className={`transition-colors ${darkMode ? 'hover:bg-zinc-800/30' : 'hover:bg-zinc-50/50'}`}>
-                    <td className="p-4 text-sm text-zinc-500">{formatDate(ref.date)}</td>
-                    <td className="p-4">
-                      <p className={`font-medium text-sm ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{ref.patient_name}</p>
-                      <p className="text-xs text-zinc-500">{ref.patient_phone}</p>
+                  <tr key={ref.id} style={{ borderTop: '1px solid #f1f5f9', transition: 'background 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#f8fbff')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.55 }}>{formatDate(ref.date)}</td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <p style={{ fontSize: '13px', fontWeight: 700, color: blue, margin: '0 0 2px 0' }}>{ref.patient_name}</p>
+                      <p style={{ fontSize: '11px', fontWeight: 500, color: blue, opacity: 0.5, margin: 0 }}>{ref.patient_phone}</p>
                     </td>
-                    <td className="p-4 text-sm text-zinc-600">{ref.service_name}</td>
-                    <td className="p-4 text-sm text-zinc-600">{ref.branch || '—'}</td>
-                    <td className="p-4 text-sm text-zinc-600 font-medium">
-                      {formatDate(ref.appointment_date)}
+                    <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.75 }}>{ref.service_name}</td>
+                    <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.75 }}>{ref.branch || '—'}</td>
+                    <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 600, color: blue }}>{formatDate(ref.appointment_date)}</td>
+                    <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.75 }}>{ref.booking_time || '—'}</td>
+                    <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.75 }}>{staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || 'Direct Walk-in'}</td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: blue }}>{clinicProfile?.currency || 'RM'} {ref.commission_amount?.toFixed(2) || '0.00'}</span>
                     </td>
-                    <td className="p-4 text-sm text-zinc-600">{ref.booking_time || '—'}</td>
-                    <td className="p-4 text-sm text-zinc-600">{staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || 'Direct Walk-in'}</td>
-                    <td className="p-4">
-                      <span className="font-medium text-brand-accent text-sm">
-                        {clinicProfile?.currency || 'RM'} {ref.commission_amount?.toFixed(2) || '0.00'}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(ref.status)}`}>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span className={getStatusColor(ref.status)}
+                        style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                         {getStatusLabel(ref.status)}
                       </span>
                     </td>
-                    <td className="p-4 text-right">
+                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                       {(() => {
                         const actions = getAvailableActions(ref);
                         if (actions.length === 0) return null;
                         return (
-                          <select
-                            defaultValue=""
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                setPendingStatusUpdate({ id: ref.id, status: e.target.value });
-                                e.target.value = '';
-                              }
-                            }}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border focus:outline-none focus:ring-2 focus:ring-violet-500 ${darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-200 text-zinc-900'}`}
-                          >
+                          <select defaultValue=""
+                            onChange={(e) => { if (e.target.value) { setPendingStatusUpdate({ id: ref.id, status: e.target.value }); e.target.value = ''; } }}
+                            style={selectStyle}>
                             <option value="" disabled>Action...</option>
-                            {actions.map(a => (
-                              <option key={a.status} value={a.status}>{a.label}</option>
-                            ))}
+                            {actions.map(a => <option key={a.status} value={a.status}>{a.label}</option>)}
                           </select>
                         );
                       })()}
@@ -339,40 +328,31 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
         </div>
       )}
 
-      {/* Safeguard Modal */}
+      {/* ── Confirm modal ── */}
       <AnimatePresence>
         {pendingStatusUpdate && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className={`${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'} rounded-2xl shadow-xl w-full max-w-md overflow-hidden border`}
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              style={{ background: '#ffffff', borderRadius: '1.5rem', boxShadow: '0 24px 60px rgba(21,128,194,0.15)', width: '100%', maxWidth: '420px', overflow: 'hidden', fontFamily: P }}
             >
-              <div className="p-6">
-                <h3 className={`text-lg font-bold mb-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>Confirm Status Update</h3>
-                <p className={`text-sm mb-6 ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                  Are you sure you want to change this referral's status to <span className="font-semibold">{getStatusLabel(pendingStatusUpdate.status)}</span>?
+              <div style={{ padding: '28px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 700, color: blue, margin: '0 0 8px 0' }}>Confirm Status Update</h3>
+                <p style={{ fontSize: '14px', fontWeight: 400, color: blue, opacity: 0.65, margin: '0 0 24px 0' }}>
+                  Are you sure you want to change this referral's status to{' '}
+                  <span style={{ fontWeight: 700, opacity: 1 }}>{getStatusLabel(pendingStatusUpdate.status)}</span>?
                 </p>
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => setPendingStatusUpdate(null)}
-                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${darkMode ? 'bg-zinc-800 text-white hover:bg-zinc-700' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'}`}
-                  >
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button onClick={() => setPendingStatusUpdate(null)}
+                    style={{ padding: '10px 20px', borderRadius: '40px', fontSize: '13px', fontWeight: 600, color: blue, background: `${blue}12`, border: 'none', cursor: 'pointer', fontFamily: P }}>
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
-                      handleClinicStatusUpdate(pendingStatusUpdate.id, pendingStatusUpdate.status);
-                      setPendingStatusUpdate(null);
-                    }}
-                    className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-medium transition-colors"
-                  >
+                    onClick={() => { handleClinicStatusUpdate(pendingStatusUpdate.id, pendingStatusUpdate.status); setPendingStatusUpdate(null); }}
+                    style={{ padding: '10px 20px', borderRadius: '40px', fontSize: '13px', fontWeight: 600, color: '#ffffff', background: blue, border: 'none', cursor: 'pointer', fontFamily: P }}>
                     Confirm Update
                   </button>
                 </div>
@@ -384,3 +364,4 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
     </motion.div>
   );
 };
+export default ReferralBoard;

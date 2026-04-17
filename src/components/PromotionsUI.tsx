@@ -49,81 +49,118 @@ export const PromotionsUI: React.FC<PromotionsUIProps> = ({
   isPromoModalOpen,
   setIsPromoModalOpen
 }) => {
+  const blue = '#1580c2';
+  const P = "'Poppins', sans-serif";
+
+  const cardStyle: React.CSSProperties = {
+    background: blue, borderRadius: '2rem', border: 'none', padding: '32px', position: 'relative', overflow: 'hidden',
+  };
+  const labelStyle: React.CSSProperties = {
+    fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '4px',
+  };
+  const valueStyle: React.CSSProperties = {
+    fontSize: '13px', fontWeight: 600, color: '#ffffff',
+  };
+
+  const statusBadge = (status: string) => {
+    const map: Record<string, { bg: string; color: string }> = {
+      active:    { bg: 'rgba(255,255,255,0.9)', color: blue },
+      upcoming:  { bg: 'rgba(255,255,255,0.25)', color: '#ffffff' },
+      expired:   { bg: 'rgba(239,68,68,0.25)', color: '#fca5a5' },
+    };
+    const s = map[status] || map.expired;
+    return (
+      <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', background: s.bg, color: s.color }}>
+        {status}
+      </span>
+    );
+  };
+
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`mx-auto space-y-8 px-4 pb-44 ${ (currentUser.role === 'admin' || currentUser.role === 'manager') ? 'max-w-6xl' : 'max-w-md'}`}
+      style={{ fontFamily: P }}
+      className={`mx-auto space-y-8 px-4 pb-44 ${(currentUser.role === 'admin' || currentUser.role === 'manager') ? 'max-w-6xl' : 'max-w-md'}`}
     >
-      <div className={`mb-8 ${darkMode ? 'bg-brand-primary p-8 rounded-[2.5rem] shadow-2xl shadow-brand-primary/20 relative overflow-hidden' : ''}`}>
-        {darkMode && <div className="absolute top-0 right-0 w-32 h-32 bg-brand-accent/10 rounded-full blur-3xl -mr-16 -mt-16" />}
-        <h2 className={`text-4xl font-black tracking-tighter mb-2 ${darkMode ? 'text-zinc-900 relative z-10' : 'text-zinc-900'}`}>Promotions & Services</h2>
-        <p className={`${darkMode ? 'text-zinc-900/70 relative z-10' : 'text-zinc-500'} text-sm font-medium`}>Download posters to share with your network</p>
+      {/* ── Header ── */}
+      <div className="mb-8">
+        <h2 style={{ fontSize: '32px', fontWeight: 700, color: blue, letterSpacing: '-0.5px', margin: '0 0 6px 0' }}>
+          Promotions & Services
+        </h2>
+        <p style={{ fontSize: '14px', fontWeight: 400, color: blue, opacity: 0.55, margin: 0 }}>
+          Download posters to share with your network
+        </p>
       </div>
 
-      { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
+      {/* ── Admin / Manager view ── */}
+      {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
         <div className="space-y-12">
-          <div className={`flex items-center gap-4 border-b pb-4 ${darkMode ? 'border-zinc-800' : 'border-zinc-100'}`}>
-            <button 
+          {/* Tab bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: `1.5px solid rgba(21,128,194,0.15)`, paddingBottom: '16px' }}>
+            <button
               onClick={() => setPromoSubTab('manage')}
-              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${promoSubTab === 'manage' ? (darkMode ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white') : (darkMode ? 'text-zinc-500' : 'text-zinc-500 hover:bg-zinc-50')}`}
+              style={{
+                padding: '8px 18px', borderRadius: '12px', fontSize: '13px', fontWeight: 600, fontFamily: P, cursor: 'pointer', border: 'none', transition: 'all 0.2s',
+                background: promoSubTab === 'manage' ? blue : 'transparent',
+                color: promoSubTab === 'manage' ? '#ffffff' : blue,
+              }}
             >
               Manage Services & Promotions
             </button>
           </div>
 
-          <div className={`${darkMode ? 'bg-[#1e293b] border-violet-500' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border`}>
-            <div className="flex items-center justify-between mb-8">
+          {/* Add / Edit Service panel */}
+          <div style={cardStyle}>
+            <div style={{ position: 'absolute', top: 0, right: 0, width: '160px', height: '160px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', transform: 'translate(40%, -40%)' }} />
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px', position: 'relative', zIndex: 1 }}>
               <div>
-                <h3 className={`text-2xl font-black tracking-tighter ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{editingService?.id ? 'Edit Service / Promotion' : 'Add New Service / Promotion'}</h3>
-                <p className={`text-sm font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Configure service details, incentives, and marketing materials</p>
+                <h3 style={{ fontSize: '22px', fontWeight: 700, color: '#ffffff', margin: '0 0 4px 0' }}>
+                  {editingService?.id ? 'Edit Service / Promotion' : 'Add New Service / Promotion'}
+                </h3>
+                <p style={{ fontSize: '13px', fontWeight: 400, color: '#ffffff', opacity: 0.65, margin: 0 }}>
+                  Configure service details, incentives, and marketing materials
+                </p>
               </div>
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${darkMode ? 'bg-brand-accent text-white shadow-brand-accent/20' : 'bg-rose-500 text-white shadow-brand-accent'}`}>
-                <Zap size={24} />
+              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Zap size={22} color="white" />
               </div>
             </div>
-
-            <AddServiceForm 
-              onSuccess={() => {
-                fetchServices();
-                setEditingService(null);
-              }} 
-              onCancel={() => setEditingService(null)}
-              initialData={editingService} 
-              categories={serviceCategories}
-            />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <AddServiceForm
+                onSuccess={() => { fetchServices(); setEditingService(null); }}
+                onCancel={() => setEditingService(null)}
+                initialData={editingService}
+                categories={serviceCategories}
+              />
+            </div>
           </div>
-          
-          <div className={`${darkMode ? 'bg-[#1e293b] border-violet-500' : 'bg-white border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border mt-8`}>
-            <div className="space-y-6">
-              <label className="block text-xs font-bold text-zinc-500 uppercase ml-1">Existing Services & Promotions</label>
+
+          {/* Existing Services list */}
+          <div style={cardStyle}>
+            <div style={{ position: 'absolute', top: 0, right: 0, width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', transform: 'translate(40%, -40%)' }} />
+            <div className="space-y-6" style={{ position: 'relative', zIndex: 1 }}>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+                Existing Services & Promotions
+              </label>
               <div className="space-y-4 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
                 {services.map(service => (
-                  <div key={service.id} className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-transparent border-zinc-100 hover:border-violet-500'}`}>
-                    <div className="flex justify-between items-start mb-4">
+                  <div key={service.id} style={{ padding: '20px', borderRadius: '1.5rem', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', transition: 'background 0.2s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.16)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
                       <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className={`font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{service.name}</h4>
-                          {service.is_featured && <Star size={10} className="text-brand-accent" fill="currentColor" />}
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${service.type === 'Promotion' ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white'}`}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                          <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff', margin: 0 }}>{service.name}</h4>
+                          {service.is_featured && <Star size={10} color="rgba(255,255,255,0.8)" fill="rgba(255,255,255,0.8)" />}
+                          <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', background: 'rgba(255,255,255,0.2)', color: '#ffffff' }}>
                             {service.type || 'Service'}
                           </span>
-                          {(() => {
-                            const status = getServiceStatus(service);
-                            return (
-                              <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${
-                                status === 'active' ? 'bg-emerald-500 text-white' : 
-                                status === 'upcoming' ? 'bg-brand-surface text-zinc-900' : 
-                                'bg-rose-500 text-white'
-                              }`}>
-                                {status}
-                              </span>
-                            );
-                          })()}
+                          {statusBadge(getServiceStatus(service))}
                         </div>
-                        <p className="text-[10px] text-zinc-500 font-medium line-clamp-1">{service.description || 'No description provided'}</p>
+                        <p style={{ fontSize: '10px', fontWeight: 500, color: '#ffffff', opacity: 0.6, margin: 0 }}>{service.description || 'No description provided'}</p>
                         {(service.start_date || service.end_date) && (
-                          <div className="flex items-center gap-1 mt-1 text-[8px] font-bold text-zinc-500">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '8px', fontWeight: 600, color: '#ffffff', opacity: 0.55 }}>
                             <Clock size={8} />
                             <span>
                               {(() => {
@@ -131,18 +168,18 @@ export const PromotionsUI: React.FC<PromotionsUIProps> = ({
                                 if (!d) return 'Start';
                                 if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
                                   const [y, m, day] = d.split('-').map(Number);
-                                  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                                   return `${day} ${months[m-1]} ${y}`;
                                 }
                                 return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-                              })()} 
-                              {' - '} 
+                              })()}
+                              {' - '}
                               {(() => {
                                 const d = service.end_date;
                                 if (!d) return 'End';
                                 if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
                                   const [y, m, day] = d.split('-').map(Number);
-                                  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                                   return `${day} ${months[m-1]} ${y}`;
                                 }
                                 return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
@@ -151,37 +188,38 @@ export const PromotionsUI: React.FC<PromotionsUIProps> = ({
                           </div>
                         )}
                       </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => {
-                          setEditingService(service);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }} className="p-2 text-zinc-500 hover:text-zinc-900 transition-colors">
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button onClick={() => { setEditingService(service); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                          style={{ padding: '6px', color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '8px', transition: 'color 0.15s' }}
+                          onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = '#ffffff')}
+                          onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.5)')}>
                           <Edit2 size={14} />
                         </button>
-                        <button onClick={() => handleDeleteService(service.id)} className="p-2 text-zinc-500 hover:text-zinc-900 transition-colors">
+                        <button onClick={() => handleDeleteService(service.id)}
+                          style={{ padding: '6px', color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '8px', transition: 'color 0.15s' }}
+                          onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = '#fca5a5')}
+                          onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.5)')}>
                           <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-1">Price</p>
-                        <p className="text-xs font-bold">{clinicProfile.currency}{service.base_price}</p>
-                      </div>
-                      <div>
-                        <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-1">Incentive</p>
-                        <p className="text-xs font-bold text-zinc-900">{clinicProfile.currency}{service.commission_rate}</p>
-                      </div>
-                      <div>
-                        <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-1">Poster</p>
-                        <p className="text-xs font-bold">{service.image_url ? 'Yes' : 'No'}</p>
-                      </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                      {[
+                        { label: 'Price', val: `${clinicProfile.currency}${service.base_price}` },
+                        { label: 'Incentive', val: `${clinicProfile.currency}${service.commission_rate}` },
+                        { label: 'Poster', val: service.image_url ? 'Yes' : 'No' },
+                      ].map(({ label, val }) => (
+                        <div key={label}>
+                          <p style={labelStyle}>{label}</p>
+                          <p style={valueStyle}>{val}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
                 {services.length === 0 && (
-                  <div className="text-center py-12 border-2 border-dashed border-zinc-100 rounded-3xl">
-                    <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">No services configured</p>
+                  <div style={{ textAlign: 'center', padding: '48px 0', border: '1.5px dashed rgba(255,255,255,0.25)', borderRadius: '1.5rem' }}>
+                    <p style={{ fontSize: '11px', fontWeight: 600, color: '#ffffff', opacity: 0.5, textTransform: 'uppercase', letterSpacing: '0.15em', margin: 0 }}>No services configured</p>
                   </div>
                 )}
               </div>
@@ -190,13 +228,13 @@ export const PromotionsUI: React.FC<PromotionsUIProps> = ({
         </div>
       )}
 
-      {/* Carousel: affiliate view only — hidden for admin/manager/receptionist */}
+      {/* ── Affiliate / Staff carousel view ── */}
       {currentUser.role !== 'admin' && currentUser.role !== 'manager' && currentUser.role !== 'receptionist' && (
         <div className="space-y-12">
           {[
             { title: 'Featured', filter: (s: any) => s.is_featured && checkBranchAccess(s) },
-            ...serviceCategories.map(cat => ({ 
-              title: cat, 
+            ...serviceCategories.map(cat => ({
+              title: cat,
               filter: (s: any) => {
                 const sCat = (s.category || '').trim().toLowerCase();
                 const targetCat = cat.trim().toLowerCase();
@@ -205,22 +243,12 @@ export const PromotionsUI: React.FC<PromotionsUIProps> = ({
             }))
           ].map((category, idx) => {
             const displayServices = services.length > 0 ? services : promotions.map(p => ({
-              id: p.id,
-              name: p.title,
-              description: p.description,
-              start_date: p.start_date,
-              end_date: p.end_date,
-              type: 'Promotion',
-              base_price: 0,
-              commission_rate: 0,
-              is_featured: true,
-              allowances: {},
-              branches: {}
+              id: p.id, name: p.title, description: p.description,
+              start_date: p.start_date, end_date: p.end_date, type: 'Promotion',
+              base_price: 0, commission_rate: 0, is_featured: true, allowances: {}, branches: {}
             }));
 
-            let filteredServices = displayServices.filter(item => {
-              return checkBranchAccess(item) && category.filter(item);
-            });
+            let filteredServices = displayServices.filter(item => checkBranchAccess(item) && category.filter(item));
 
             if (filteredServices.length === 0) {
               filteredServices = [
@@ -231,38 +259,38 @@ export const PromotionsUI: React.FC<PromotionsUIProps> = ({
 
             return (
               <div key={idx} className="space-y-6">
-                <h3 className={`text-2xl font-bold tracking-tight px-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+                <h3 style={{ fontSize: '22px', fontWeight: 700, color: blue, margin: '0 0 4px 0' }}>
                   {category.title}
                 </h3>
                 {isMobile ? (
-                  <PromotionsCarousel 
+                  <PromotionsCarousel
                     size={idx === 0 ? 'large' : 'small'}
-                    items={filteredServices} 
+                    items={filteredServices}
                     onClick={(item) => {
                       if (typeof item.id === 'string' && !item.id.startsWith('coming-soon')) {
                         setSelectedPromo(item);
                         setIsPromoModalOpen(true);
                       }
-                    }} 
+                    }}
                   />
                 ) : (
                   <div className="flex overflow-x-auto gap-6 pb-4 px-2 scrollbar-hide flex-nowrap">
                     {filteredServices.map((item) => (
                       <div key={item.id} className="flex-shrink-0 w-[3.2rem] h-[4rem] flex flex-col gap-2">
                         <div className="scale-[0.2] origin-top-left">
-                          <ModernPromotionCard 
-                            item={item} 
+                          <ModernPromotionCard
+                            item={item}
                             onClick={() => {
                               if (typeof item.id === 'string' && !item.id.startsWith('coming-soon')) {
                                 setSelectedPromo(item);
                                 setIsPromoModalOpen(true);
                               }
-                            }} 
+                            }}
                           />
                         </div>
                         <div className="px-1">
-                          <h4 className="text-[6px] font-bold text-zinc-900 truncate">{item.name}</h4>
-                          <p className="text-[5px] text-zinc-500 font-medium">
+                          <h4 style={{ fontSize: '6px', fontWeight: 700, color: blue, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</h4>
+                          <p style={{ fontSize: '5px', fontWeight: 500, color: blue, opacity: 0.6, margin: 0 }}>
                             {item.promo_price ? `RM${item.promo_price}` : `RM${item.base_price || 0}`}
                           </p>
                         </div>
@@ -279,21 +307,21 @@ export const PromotionsUI: React.FC<PromotionsUIProps> = ({
               (Array.isArray(item.branches) && (item.branches.length === 0 || !currentUser.branch || item.branches.includes(currentUser.branch))) ||
               (!Array.isArray(item.branches) && (Object.keys(item.branches).length === 0 || !currentUser.branch || (item.branches[currentUser.branch] && item.branches[currentUser.branch].active)));
           }).length === 0 && (
-            <div className="col-span-full text-center py-20">
-              <div className={`w-20 h-20 ${darkMode ? 'bg-zinc-900' : 'bg-transparent'} rounded-[2rem] flex items-center justify-center mx-auto mb-6`}>
-                <Zap size={32} className="text-zinc-500" />
+            <div style={{ textAlign: 'center', padding: '80px 0' }}>
+              <div style={{ width: '72px', height: '72px', borderRadius: '1.5rem', background: `${blue}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                <Zap size={28} color={blue} />
               </div>
-              <h3 className={`text-xl font-black tracking-tight mb-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>No active promotions</h3>
-              <p className="text-zinc-500 text-sm font-medium">Check back later for exciting new offers!</p>
+              <h3 style={{ fontSize: '20px', fontWeight: 700, color: blue, margin: '0 0 6px 0' }}>No active promotions</h3>
+              <p style={{ fontSize: '14px', fontWeight: 400, color: blue, opacity: 0.55, margin: 0 }}>Check back later for exciting new offers!</p>
             </div>
           )}
         </div>
       )}
 
-      <PromotionDetailModal 
-        item={selectedPromo} 
-        isOpen={isPromoModalOpen} 
-        onClose={() => setIsPromoModalOpen(false)} 
+      <PromotionDetailModal
+        item={selectedPromo}
+        isOpen={isPromoModalOpen}
+        onClose={() => setIsPromoModalOpen(false)}
         clinicProfile={clinicProfile}
         darkMode={darkMode}
         currentUser={currentUser}

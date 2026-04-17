@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
-import { 
+import {
   UserCircle, RefreshCw, PlusCircle, Trash2, DollarSign, Palette, Sun, Moon, BookOpen, ChevronRight, Lock, MessageSquare
 } from 'lucide-react';
 
@@ -27,134 +27,84 @@ export interface ProfileUIProps {
 }
 
 const MALAYSIAN_BANKS = [
-  "Affin Bank Berhad",
-  "Alliance Bank Malaysia Berhad",
-  "AmBank (M) Berhad",
-  "BNP Paribas Malaysia Berhad",
-  "Bangkok Bank Berhad",
-  "Bank of America Malaysia Berhad",
-  "Bank of China (Malaysia) Berhad",
-  "Bank of Tokyo-Mitsubishi UFJ (Malaysia) Berhad",
-  "CIMB Bank Berhad",
-  "Citibank Berhad",
-  "Deutsche Bank (Malaysia) Berhad",
-  "HSBC Bank Malaysia Berhad",
-  "Hong Leong Bank Berhad",
-  "India International Bank (Malaysia) Berhad",
-  "Industrial and Commercial Bank of China (Malaysia) Berhad",
-  "J.P. Morgan Chase Bank Berhad",
-  "Malayan Banking Berhad",
-  "Mizuho Bank (Malaysia) Berhad",
-  "National Bank of Abu Dhabi Malaysia Berhad",
-  "OCBC Bank (Malaysia) Berhad",
-  "Public Bank Berhad",
-  "RHB Bank Berhad",
-  "Standard Chartered Bank Malaysia Berhad",
-  "Sumitomo Mitsui Banking Corporation Malaysia Berhad",
-  "The Bank of Nova Scotia Berhad",
-  "The Royal Bank of Scotland Berhad",
-  "United Overseas Bank (Malaysia) Bhd.",
-  "Affin Islamic Bank Berhad",
-  "Al Rajhi Banking & Investment Corporation (Malaysia) Berhad",
-  "Alliance Islamic Bank Berhad",
-  "AmBank Islamic Berhad",
-  "Asian Finance Bank Berhad",
-  "Bank Islam Malaysia Berhad",
-  "Bank Muamalat Malaysia Berhad",
-  "CIMB Islamic Bank Berhad",
-  "HSBC Amanah Malaysia Berhad",
-  "Hong Leong Islamic Bank Berhad",
-  "Kuwait Finance House (Malaysia) Berhad",
-  "Maybank Islamic Berhad",
-  "OCBC Al-Amin Bank Berhad",
-  "Public Islamic Bank Berhad",
-  "RHB Islamic Bank Berhad",
-  "Standard Chartered Saadiq Berhad",
-  "Affin Hwang Investment Bank Berhad",
-  "Alliance Investment Bank Berhad",
-  "AmInvestment Bank Berhad",
-  "CIMB Investment Bank Berhad",
-  "Hong Leong Investment Bank Berhad",
-  "KAF Investment Bank Berhad",
-  "Kenanga Investment Bank Berhad",
-  "MIMB Investment Bank Berhad",
-  "Maybank Investment Bank Berhad",
-  "Public Investment Bank Berhad",
-  "RHB Investment Bank Berhad",
-  "Al Rajhi Banking & Investment Corporation",
-  "Deutsche Bank Aktiengesellschaft",
-  "PT Bank Muamalat Indonesia, Tbk",
+  "Affin Bank Berhad","Alliance Bank Malaysia Berhad","AmBank (M) Berhad","BNP Paribas Malaysia Berhad",
+  "Bangkok Bank Berhad","Bank of America Malaysia Berhad","Bank of China (Malaysia) Berhad",
+  "Bank of Tokyo-Mitsubishi UFJ (Malaysia) Berhad","CIMB Bank Berhad","Citibank Berhad",
+  "Deutsche Bank (Malaysia) Berhad","HSBC Bank Malaysia Berhad","Hong Leong Bank Berhad",
+  "India International Bank (Malaysia) Berhad","Industrial and Commercial Bank of China (Malaysia) Berhad",
+  "J.P. Morgan Chase Bank Berhad","Malayan Banking Berhad","Mizuho Bank (Malaysia) Berhad",
+  "National Bank of Abu Dhabi Malaysia Berhad","OCBC Bank (Malaysia) Berhad","Public Bank Berhad",
+  "RHB Bank Berhad","Standard Chartered Bank Malaysia Berhad","Sumitomo Mitsui Banking Corporation Malaysia Berhad",
+  "The Bank of Nova Scotia Berhad","The Royal Bank of Scotland Berhad","United Overseas Bank (Malaysia) Bhd.",
+  "Affin Islamic Bank Berhad","Al Rajhi Banking & Investment Corporation (Malaysia) Berhad",
+  "Alliance Islamic Bank Berhad","AmBank Islamic Berhad","Asian Finance Bank Berhad",
+  "Bank Islam Malaysia Berhad","Bank Muamalat Malaysia Berhad","CIMB Islamic Bank Berhad",
+  "HSBC Amanah Malaysia Berhad","Hong Leong Islamic Bank Berhad","Kuwait Finance House (Malaysia) Berhad",
+  "Maybank Islamic Berhad","OCBC Al-Amin Bank Berhad","Public Islamic Bank Berhad",
+  "RHB Islamic Bank Berhad","Standard Chartered Saadiq Berhad","Affin Hwang Investment Bank Berhad",
+  "Alliance Investment Bank Berhad","AmInvestment Bank Berhad","CIMB Investment Bank Berhad",
+  "Hong Leong Investment Bank Berhad","KAF Investment Bank Berhad","Kenanga Investment Bank Berhad",
+  "MIMB Investment Bank Berhad","Maybank Investment Bank Berhad","Public Investment Bank Berhad",
+  "RHB Investment Bank Berhad","Al Rajhi Banking & Investment Corporation",
+  "Deutsche Bank Aktiengesellschaft","PT Bank Muamalat Indonesia, Tbk",
 ];
 
-const BankSelector: React.FC<{ currentBank: string; darkMode: boolean }> = ({ currentBank, darkMode }) => {
+const BLUE = '#1580c2';
+const P = "'Poppins', sans-serif";
+
+const inputOnBlue: React.CSSProperties = {
+  width: '100%', padding: '14px 20px', borderRadius: '16px', fontSize: '14px', fontWeight: 500,
+  background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.25)',
+  color: '#ffffff', outline: 'none', fontFamily: P, transition: 'border-color 0.2s, background 0.2s',
+  boxSizing: 'border-box',
+};
+
+const ghostBtn = (active: boolean): React.CSSProperties => ({
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '14px',
+  borderRadius: '16px', border: `2px solid ${active ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.2)'}`,
+  background: active ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)', cursor: 'pointer',
+  transition: 'all 0.2s', fontFamily: P, color: active ? '#ffffff' : 'rgba(255,255,255,0.55)',
+});
+
+// ── BankSelector ──────────────────────────────────────────────────────────────
+const BankSelector: React.FC<{ currentBank: string; darkMode: boolean }> = ({ currentBank }) => {
   const [selected, setSelected] = useState(currentBank);
-  const [search, setSearch] = useState('');
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const filtered = MALAYSIAN_BANKS.filter(b =>
-    b.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const inputClass = `w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
-    darkMode
-      ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent'
-      : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
-  }`;
+  const [search, setSearch]     = useState('');
+  const [open, setOpen]         = useState(false);
+  const containerRef            = useRef<HTMLDivElement>(null);
+  const filtered = MALAYSIAN_BANKS.filter(b => b.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="space-y-2" ref={containerRef}>
-      <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Bank Name</label>
-      {/* Hidden input so FormData picks up the value */}
+      <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px' }}>
+        Bank Name
+      </label>
       <input type="hidden" name="bank_name" value={selected} />
-      <div className="relative">
-        {/* Trigger button */}
-        <button
-          type="button"
-          onClick={() => { setOpen(o => !o); setSearch(''); }}
-          className={`${inputClass} text-left flex items-center justify-between`}
-        >
-          <span className={selected ? '' : 'text-zinc-400'}>{selected || 'Select your bank...'}</span>
-          <svg className={`w-4 h-4 flex-shrink-0 ml-2 transition-transform ${open ? 'rotate-180' : ''} ${darkMode ? 'text-zinc-400' : 'text-zinc-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div style={{ position: 'relative' }}>
+        <button type="button" onClick={() => { setOpen(o => !o); setSearch(''); }}
+          style={{ ...inputOnBlue, textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+          <span style={{ color: selected ? '#ffffff' : 'rgba(255,255,255,0.4)' }}>{selected || 'Select your bank...'}</span>
+          <svg style={{ width: '16px', height: '16px', flexShrink: 0, marginLeft: '8px', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', color: 'rgba(255,255,255,0.6)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
 
-        {/* Dropdown */}
         {open && (
-          <div className={`absolute z-50 w-full mt-2 rounded-2xl border shadow-xl overflow-hidden ${
-            darkMode ? 'bg-zinc-50 border-violet-500' : 'bg-white border-zinc-100'
-          }`}>
-            {/* Search input */}
-            <div className="p-3 border-b border-zinc-100">
-              <input
-                autoFocus
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search bank..."
-                className={`w-full px-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 ${
-                  darkMode
-                    ? 'bg-zinc-100 text-zinc-900 focus:ring-brand-accent/30'
-                    : 'bg-zinc-50 text-zinc-900 focus:ring-violet-500'
-                }`}
-              />
+          <div style={{ position: 'absolute', zIndex: 50, width: '100%', marginTop: '8px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.2)', background: '#0f6aa8', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+            <div style={{ padding: '10px', borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
+              <input autoFocus type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search bank..."
+                style={{ width: '100%', padding: '8px 14px', borderRadius: '10px', fontSize: '13px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', color: '#ffffff', outline: 'none', fontFamily: P, boxSizing: 'border-box' }} />
             </div>
-            {/* Options list */}
-            <ul className="max-h-56 overflow-y-auto">
+            <ul style={{ maxHeight: '224px', overflowY: 'auto', margin: 0, padding: 0, listStyle: 'none' }}>
               {filtered.length === 0 ? (
-                <li className="px-5 py-3 text-sm text-zinc-400">No banks found</li>
+                <li style={{ padding: '12px 20px', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>No banks found</li>
               ) : filtered.map(bank => (
                 <li key={bank}>
-                  <button
-                    type="button"
-                    onClick={() => { setSelected(bank); setOpen(false); setSearch(''); }}
-                    className={`w-full text-left px-5 py-3 text-sm transition-colors ${
-                      selected === bank
-                        ? (darkMode ? 'bg-brand-accent/10 text-brand-accent font-bold' : 'bg-violet-50 text-violet-600 font-bold')
-                        : (darkMode ? 'hover:bg-zinc-100 text-zinc-900' : 'hover:bg-zinc-50 text-zinc-800')
-                    }`}
-                  >
+                  <button type="button" onClick={() => { setSelected(bank); setOpen(false); setSearch(''); }}
+                    style={{ width: '100%', textAlign: 'left', padding: '10px 20px', fontSize: '13px', cursor: 'pointer', border: 'none', fontFamily: P, transition: 'background 0.1s',
+                      background: selected === bank ? 'rgba(255,255,255,0.2)' : 'transparent',
+                      color: selected === bank ? '#ffffff' : 'rgba(255,255,255,0.8)',
+                      fontWeight: selected === bank ? 700 : 500 }}>
                     {bank}
                   </button>
                 </li>
@@ -167,369 +117,228 @@ const BankSelector: React.FC<{ currentBank: string; darkMode: boolean }> = ({ cu
   );
 };
 
+// ── ProfileUI ─────────────────────────────────────────────────────────────────
 export const ProfileUI: React.FC<ProfileUIProps> = ({
-  currentUser,
-  darkMode,
-  isUploading,
-  handleImageUpload,
-  handleUpdateProfile,
-  THEMES,
-  selectedTheme,
-  setSelectedTheme,
-  windowWidth,
-  setDarkMode,
-  reduceTranslucency,
-  setReduceTranslucency,
-  setActiveTab,
-  setShowPasswordModal,
-  feedbackMessage,
-  setFeedbackMessage,
-  handleSendFeedback,
-  isSendingFeedback,
-  handleLogout
+  currentUser, darkMode, isUploading, handleImageUpload, handleUpdateProfile,
+  THEMES, selectedTheme, setSelectedTheme, windowWidth, setDarkMode,
+  reduceTranslucency, setReduceTranslucency, setActiveTab, setShowPasswordModal,
+  feedbackMessage, setFeedbackMessage, handleSendFeedback, isSendingFeedback, handleLogout,
 }) => {
   if (!currentUser) return null;
 
+  const sectionLabel = (icon: React.ReactNode, text: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+      {icon}
+      <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>{text}</span>
+    </div>
+  );
+
+  const fieldLabel = (text: string) => (
+    <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px' }}>
+      {text}
+    </label>
+  );
+
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       className="max-w-2xl mx-auto space-y-8"
+      style={{ fontFamily: P }}
     >
-      <div className={`${darkMode ? 'bg-[#1e293b] border-violet-500' : 'bg-[#EDEADE] border-black/5 shadow-sm'} p-8 rounded-[2.5rem] border relative overflow-hidden`}>
-        <div className={`absolute top-0 right-0 w-32 h-32 ${darkMode ? 'bg-brand-accent/10' : 'bg-violet-500'} rounded-full blur-3xl -mr-16 -mt-16`} />
-        
-        <div className="flex flex-col items-center text-center mb-10 relative z-10">
-          <div className="relative group mb-6 flex flex-col items-center">
-            <div className={`w-32 h-32 rounded-[2.5rem] ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#EDEADE]'} border-4 shadow-xl overflow-hidden flex items-center justify-center relative`}>
-              {currentUser.profile_picture ? (
-                <img src={currentUser.profile_picture} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <UserCircle size={64} className={darkMode ? 'text-zinc-900/20' : 'text-zinc-500'} />
-              )}
+      {/* ── Blue card ── */}
+      <div style={{ background: BLUE, borderRadius: '2rem', padding: '32px', position: 'relative', overflow: 'hidden' }}>
+        {/* Decorative circles */}
+        <div style={{ position: 'absolute', top: 0, right: 0, width: '220px', height: '220px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', transform: 'translate(40%,-40%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '160px', height: '160px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', transform: 'translate(-40%,40%)', pointerEvents: 'none' }} />
+
+        {/* ── Avatar + name ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '36px', position: 'relative', zIndex: 1 }}>
+          <div style={{ position: 'relative', marginBottom: '16px' }}>
+            <div style={{ width: '112px', height: '112px', borderRadius: '28px', background: 'rgba(255,255,255,0.15)', border: '3px solid rgba(255,255,255,0.3)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {currentUser.profile_picture
+                ? <img src={currentUser.profile_picture} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
+                : <UserCircle size={56} color="rgba(255,255,255,0.5)" />}
               {isUploading && (
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                  <RefreshCw className="text-zinc-900 animate-spin" size={24} />
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <RefreshCw color="white" size={24} className="animate-spin" />
                 </div>
               )}
             </div>
-            <div className="mt-4 flex gap-2">
-              <label className={`cursor-pointer ${darkMode ? 'bg-brand-accent text-white' : 'bg-brand-primary text-white'} px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2`}>
-                <PlusCircle size={14} />
-                Choose Image
-                <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
-              </label>
-              {currentUser.profile_picture && (
-                <button 
-                  type="button"
-                  onClick={() => handleUpdateProfile({ profile_picture: '' })}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${darkMode ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white hover:bg-rose-500'}`}
-                >
-                  <Trash2 size={14} />
-                  Remove
-                </button>
-              )}
-            </div>
           </div>
-          <h3 className={`text-2xl font-black tracking-tighter ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{currentUser.nickname || currentUser.name}</h3>
-          <p className={`text-sm font-medium uppercase tracking-widest ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>{currentUser.role}</p>
+
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+            <label style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.2)', color: '#ffffff', padding: '7px 16px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <PlusCircle size={13} /> Choose Image
+              <input type="file" style={{ display: 'none' }} accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
+            </label>
+            {currentUser.profile_picture && (
+              <button type="button" onClick={() => handleUpdateProfile({ profile_picture: '' })}
+                style={{ background: 'rgba(239,68,68,0.3)', color: '#fca5a5', padding: '7px 16px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', display: 'flex', alignItems: 'center', gap: '6px', border: 'none', cursor: 'pointer', fontFamily: P }}>
+                <Trash2 size={13} /> Remove
+              </button>
+            )}
+          </div>
+
+          <h3 style={{ fontSize: '24px', fontWeight: 700, color: '#ffffff', margin: '0 0 4px 0' }}>{currentUser.nickname || currentUser.name}</h3>
+          <p style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>{currentUser.role}</p>
         </div>
 
-        <form 
+        {/* ── Form ── */}
+        <form
           onSubmit={(e) => {
             e.preventDefault();
-            const formData = new FormData(e.currentTarget);
+            const fd = new FormData(e.currentTarget);
             handleUpdateProfile({
-              nickname: formData.get('nickname') as string,
+              nickname: fd.get('nickname') as string,
               profile_picture: currentUser.profile_picture,
-              bank_name: formData.get('bank_name') as string,
-              bank_account_number: formData.get('bank_account_number') as string,
-              id_type: formData.get('id_type') as string,
-              id_number: formData.get('id_number') as string,
+              bank_name: fd.get('bank_name') as string,
+              bank_account_number: fd.get('bank_account_number') as string,
+              id_type: fd.get('id_type') as string,
+              id_number: fd.get('id_number') as string,
             });
           }}
           className="space-y-6"
+          style={{ position: 'relative', zIndex: 1 }}
         >
-          <div className="grid grid-cols-1 gap-6">
-            <div className="space-y-2">
-              <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Nickname</label>
-              <input 
-                name="nickname"
-                type="text"
-                defaultValue={currentUser.nickname || ''}
-                className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
-                  darkMode 
-                    ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                    : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
-                }`}
-                placeholder="Your preferred name"
-              />
-            </div>
+          {/* Nickname */}
+          <div>
+            {fieldLabel('Nickname')}
+            <input name="nickname" type="text" defaultValue={currentUser.nickname || ''} placeholder="Your preferred name" style={inputOnBlue} />
           </div>
 
-          <div className={`pt-6 border-t ${darkMode ? 'border-zinc-800' : 'border-zinc-100'}`}>
-            <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
-              <DollarSign size={14} className={darkMode ? 'text-brand-accent' : 'text-brand-accent'} />
-              Bank Account Details
-            </h4>
+          {/* Bank Details */}
+          <div style={{ paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+            {sectionLabel(<DollarSign size={14} color="rgba(255,255,255,0.7)" />, 'Bank Account Details')}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <BankSelector
-                currentBank={currentUser.bank_name || ''}
-                darkMode={darkMode}
-              />
-              <div className="space-y-2">
-                <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Account Number</label>
-                <input 
-                  name="bank_account_number"
-                  type="text"
-                  defaultValue={currentUser.bank_account_number || ''}
-                  className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
-                    darkMode 
-                      ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                      : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
-                  }`}
-                  placeholder="1234567890"
-                />
+              <BankSelector currentBank={currentUser.bank_name || ''} darkMode={false} />
+              <div>
+                {fieldLabel('Account Number')}
+                <input name="bank_account_number" type="text" defaultValue={currentUser.bank_account_number || ''} placeholder="1234567890" style={inputOnBlue} />
               </div>
-              <div className="space-y-2">
-                <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>ID Type</label>
-                <select 
-                  name="id_type"
-                  defaultValue={currentUser.id_type || 'NRIC'}
-                  className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
-                    darkMode 
-                      ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                      : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
-                  }`}
-                >
-                  <option value="NRIC">NRIC</option>
-                  <option value="PASSPORT">Passport</option>
-                  <option value="BUSINESS_REG">Business Registration</option>
+              <div>
+                {fieldLabel('ID Type')}
+                <select name="id_type" defaultValue={currentUser.id_type || 'NRIC'} style={{ ...inputOnBlue, cursor: 'pointer' }}>
+                  <option value="NRIC"          style={{ background: BLUE }}>NRIC</option>
+                  <option value="PASSPORT"      style={{ background: BLUE }}>Passport</option>
+                  <option value="BUSINESS_REG"  style={{ background: BLUE }}>Business Registration</option>
                 </select>
               </div>
-              <div className="space-y-2">
-                <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>ID Number</label>
-                <input 
-                  name="id_number"
-                  type="text"
-                  defaultValue={currentUser.id_number || ''}
-                  className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium ${
-                    darkMode 
-                      ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                      : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
-                  }`}
-                  placeholder="e.g. 900101-10-5050"
-                />
+              <div>
+                {fieldLabel('ID Number')}
+                <input name="id_number" type="text" defaultValue={currentUser.id_number || ''} placeholder="e.g. 900101-10-5050" style={inputOnBlue} />
               </div>
             </div>
           </div>
 
-          <div className={`pt-6 border-t ${darkMode ? 'border-zinc-800' : 'border-zinc-100'}`}>
-            <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
-              <Palette size={14} className={darkMode ? 'text-brand-accent' : 'text-brand-accent'} />
-              Appearance & Theme
-            </h4>
-            
-            <div className="mb-8">
-              <label className={`block text-[10px] font-black uppercase tracking-widest mb-4 ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Color Theme</label>
+          {/* Appearance */}
+          <div style={{ paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+            {sectionLabel(<Palette size={14} color="rgba(255,255,255,0.7)" />, 'Appearance & Theme')}
+
+            {/* Color theme picker */}
+            <div style={{ marginBottom: '28px' }}>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '14px' }}>Color Theme</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {Object.entries(THEMES).map(([key, theme]: [string, any]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setSelectedTheme(key)}
-                    className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
-                      selectedTheme === key 
-                        ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-500')
-                        : (darkMode ? 'border-violet-500 bg-zinc-50' : 'border-black/5 bg-white hover:border-zinc-200')
-                    }`}
-                  >
-                    <div 
-                      className="w-8 h-8 rounded-full shadow-inner"
-                      style={{ backgroundColor: theme.accent }}
-                    />
-                    <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                      selectedTheme === key 
-                        ? (darkMode ? 'text-brand-accent' : 'text-zinc-900')
-                        : (darkMode ? 'text-zinc-500' : 'text-zinc-500')
-                    }`}>
-                      {theme.name}
-                    </span>
-                  </button>
-                ))}
+                {Object.entries(THEMES).map(([key, theme]: [string, any]) => {
+                  const active = selectedTheme === key;
+                  return (
+                    <button key={key} type="button" onClick={() => setSelectedTheme(key)} style={ghostBtn(active)}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: theme.accent, boxShadow: '0 2px 8px rgba(0,0,0,0.3)', flexShrink: 0 }} />
+                      <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{theme.name}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
+            {/* Display mode — desktop only */}
             {windowWidth >= 768 && (
-              <div className="mb-8">
-                <label className={`block text-[10px] font-black uppercase tracking-widest mb-4 ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Display Mode</label>
+              <div style={{ marginBottom: '28px' }}>
+                <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '14px' }}>Display Mode</label>
                 <div className="grid grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setDarkMode(false)}
-                    className={`flex items-center justify-center gap-3 p-4 rounded-2xl border-2 transition-all ${
-                      !darkMode 
-                        ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-500')
-                        : (darkMode ? 'border-violet-500 bg-zinc-50' : 'border-black/5 bg-white hover:border-zinc-200')
-                    }`}
-                  >
-                    <Sun size={18} className={!darkMode ? 'text-white' : 'text-zinc-500'} />
-                    <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                      !darkMode 
-                        ? (darkMode ? 'text-brand-accent' : 'text-zinc-900')
-                        : (darkMode ? 'text-zinc-500' : 'text-zinc-500')
-                    }`}>
-                      Light Mode
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDarkMode(true)}
-                    className={`flex items-center justify-center gap-3 p-4 rounded-2xl border-2 transition-all ${
-                      darkMode 
-                        ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-500')
-                        : (darkMode ? 'border-violet-500 bg-zinc-50' : 'border-black/5 bg-white hover:border-zinc-200')
-                    }`}
-                  >
-                    <Moon size={18} className={darkMode ? 'text-white' : 'text-zinc-500'} />
-                    <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                      darkMode 
-                        ? (darkMode ? 'text-brand-accent' : 'text-zinc-900')
-                        : (darkMode ? 'text-zinc-500' : 'text-zinc-500')
-                    }`}>
-                      Dark Mode
-                    </span>
-                  </button>
+                  {([
+                    { label: 'Light Mode', icon: <Sun size={18} />,  active: !darkMode, action: () => setDarkMode(false) },
+                    { label: 'Dark Mode',  icon: <Moon size={18} />, active: darkMode,  action: () => setDarkMode(true)  },
+                  ] as const).map(({ label, icon, active, action }) => (
+                    <button key={label} type="button" onClick={action} style={ghostBtn(active)}>
+                      {icon}
+                      <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
 
-            <div className="mb-8">
-              <label className={`block text-[10px] font-black uppercase tracking-widest mb-4 ml-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>App Appearance</label>
-              <button
-                type="button"
-                onClick={() => setReduceTranslucency(!reduceTranslucency)}
-                className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
-                  reduceTranslucency 
-                    ? (darkMode ? 'border-brand-accent bg-brand-accent/10' : 'border-violet-500 bg-violet-500')
-                    : (darkMode ? 'border-violet-500 bg-zinc-50' : 'border-black/5 bg-white hover:border-zinc-200')
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-5 rounded-full relative transition-colors ${reduceTranslucency ? 'bg-brand-accent' : 'bg-zinc-50'}`}>
-                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${reduceTranslucency ? 'left-6' : 'left-1'}`} />
+            {/* Translucency toggle */}
+            <div>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '14px' }}>App Appearance</label>
+              <button type="button" onClick={() => setReduceTranslucency(!reduceTranslucency)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderRadius: '16px',
+                  border: `2px solid ${reduceTranslucency ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.2)'}`,
+                  background: reduceTranslucency ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)', cursor: 'pointer', transition: 'all 0.2s', fontFamily: P }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '40px', height: '20px', borderRadius: '999px', background: reduceTranslucency ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.25)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                    <div style={{ position: 'absolute', top: '3px', width: '14px', height: '14px', background: reduceTranslucency ? BLUE : '#ffffff', borderRadius: '50%', transition: 'left 0.2s', left: reduceTranslucency ? '23px' : '3px' }} />
                   </div>
-                  <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                    reduceTranslucency 
-                      ? (darkMode ? 'text-brand-accent' : 'text-zinc-900')
-                      : (darkMode ? 'text-zinc-500' : 'text-zinc-500')
-                  }`}>
-                    Reduce deck translucent
+                  <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: reduceTranslucency ? '#ffffff' : 'rgba(255,255,255,0.6)' }}>
+                    Reduce Translucency
                   </span>
                 </div>
               </button>
             </div>
           </div>
 
-          <div className={`pt-6 border-t ${darkMode ? 'border-zinc-800' : 'border-zinc-100'}`}>
-            <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
-              <BookOpen size={14} className={darkMode ? 'text-brand-accent' : 'text-brand-accent'} />
-              Resources
-            </h4>
-            <button 
-              type="button"
-              onClick={() => setActiveTab('guide')}
-              className={`w-full px-6 py-4 rounded-2xl text-sm font-bold transition-all flex items-center justify-between group mb-4 ${
-                darkMode 
-                  ? 'bg-zinc-50 border-violet-500 text-zinc-900 hover:bg-brand-accent/10' 
-                  : 'bg-brand-surface border-brand-accent/10 text-brand-accent hover:bg-brand-accent/5'
-              }`}
-            >
+          {/* Resources & Security */}
+          <div style={{ paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+            {sectionLabel(<BookOpen size={14} color="rgba(255,255,255,0.7)" />, 'Resources')}
+            <button type="button" onClick={() => setActiveTab('guide')}
+              style={{ width: '100%', padding: '14px 18px', borderRadius: '16px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', color: '#ffffff', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', fontFamily: P, transition: 'background 0.15s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.18)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}>
               <span>View User Guide & FAQ</span>
-              <ChevronRight size={16} className={`${darkMode ? 'text-zinc-500' : 'text-brand-accent/60'} group-hover:text-brand-accent transition-colors`} />
+              <ChevronRight size={16} color="rgba(255,255,255,0.6)" />
             </button>
-            <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
-              <Lock size={14} className={darkMode ? 'text-zinc-900/20' : 'text-zinc-500'} />
-              Security
-            </h4>
-            <button 
-              type="button"
-              onClick={() => setShowPasswordModal(true)}
-              className={`w-full px-6 py-4 rounded-2xl text-sm font-bold transition-all flex items-center justify-between group ${
-                darkMode 
-                  ? 'bg-zinc-50 border-violet-500 text-zinc-900/60 hover:bg-brand-accent/10' 
-                  : 'bg-zinc-50 border-zinc-100 text-zinc-500 hover:bg-zinc-50'
-              }`}
-            >
+
+            {sectionLabel(<Lock size={14} color="rgba(255,255,255,0.7)" />, 'Security')}
+            <button type="button" onClick={() => setShowPasswordModal(true)}
+              style={{ width: '100%', padding: '14px 18px', borderRadius: '16px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', color: '#ffffff', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontFamily: P, transition: 'background 0.15s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.18)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}>
               <span>Change Account Password</span>
-              <ChevronRight size={16} className={`${darkMode ? 'text-zinc-900/20' : 'text-zinc-500'} group-hover:text-brand-accent transition-colors`} />
+              <ChevronRight size={16} color="rgba(255,255,255,0.6)" />
             </button>
           </div>
 
-          <div className={`pt-6 border-t ${darkMode ? 'border-zinc-800' : 'border-zinc-100'}`}>
-            <h4 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
-              <MessageSquare size={14} className={darkMode ? 'text-brand-accent' : 'text-brand-accent'} />
-              Developer Feedback
-            </h4>
-            <div className="space-y-4">
-              <p className={`text-xs font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                Have a suggestion or found a bug? Send a message directly to the developer.
-              </p>
-              <textarea 
-                value={feedbackMessage}
-                onChange={(e) => setFeedbackMessage(e.target.value)}
-                className={`w-full px-6 py-4 rounded-2xl focus:outline-none focus:ring-4 transition-all text-sm font-medium min-h-[120px] resize-none ${
-                  darkMode 
-                    ? 'bg-zinc-50 border-violet-500 text-zinc-900 focus:ring-brand-accent/20 focus:border-brand-accent' 
-                    : 'bg-white border-black/5 text-zinc-900 focus:ring-violet-500 focus:border-violet-500'
-                }`}
-                placeholder="Type your feedback here..."
-              />
-              <button 
-                type="button"
-                onClick={handleSendFeedback}
-                disabled={isSendingFeedback || !feedbackMessage.trim()}
-                className={`w-full py-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                  isSendingFeedback 
-                    ? 'opacity-50 cursor-not-allowed' 
-                    : ''
-                } ${
-                  darkMode 
-                    ? 'bg-brand-accent/10 text-brand-accent hover:bg-brand-accent/20' 
-                    : 'bg-violet-500 text-white hover:bg-violet-500'
-                }`}
-              >
-                {isSendingFeedback ? (
-                  <RefreshCw size={16} className="animate-spin" />
-                ) : (
-                  <MessageSquare size={16} />
-                )}
-                {isSendingFeedback ? 'Sending...' : 'Send Feedback'}
-              </button>
-            </div>
+          {/* Feedback */}
+          <div style={{ paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+            {sectionLabel(<MessageSquare size={14} color="rgba(255,255,255,0.7)" />, 'Developer Feedback')}
+            <p style={{ fontSize: '13px', fontWeight: 400, color: 'rgba(255,255,255,0.6)', marginBottom: '14px' }}>
+              Have a suggestion or found a bug? Send a message directly to the developer.
+            </p>
+            <textarea value={feedbackMessage} onChange={(e) => setFeedbackMessage(e.target.value)}
+              placeholder="Type your feedback here..."
+              style={{ ...inputOnBlue, minHeight: '120px', resize: 'none', display: 'block', marginBottom: '12px' }} />
+            <button type="button" onClick={handleSendFeedback}
+              disabled={isSendingFeedback || !feedbackMessage.trim()}
+              style={{ width: '100%', height: '52px', borderRadius: '40px', background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.3)', color: '#ffffff', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: P, opacity: (isSendingFeedback || !feedbackMessage.trim()) ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+              {isSendingFeedback ? <RefreshCw size={16} className="animate-spin" /> : <MessageSquare size={16} />}
+              {isSendingFeedback ? 'Sending...' : 'Send Feedback'}
+            </button>
           </div>
 
-          <div className="pt-8">
-            <button 
-              type="submit"
-              className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] shadow-xl mb-4 ${
-                darkMode 
-                  ? 'bg-brand-accent text-brand-primary shadow-brand-accent/20 hover:bg-brand-accent/90' 
-                  : 'bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 shadow-violet-500 hover:from-violet-500 hover:to-rose-500'
-              }`}
-            >
+          {/* Save + Sign Out */}
+          <div style={{ paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <button type="submit"
+              style={{ width: '100%', height: '58px', borderRadius: '40px', background: '#ffffff', border: 'none', color: BLUE, fontSize: '14px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: P, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', transition: 'transform 0.15s, box-shadow 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.01)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.25)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.2)'; }}>
               Save Profile Changes
             </button>
-            <button 
-              type="button"
-              onClick={handleLogout}
-              className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] border-2 ${
-                darkMode 
-                  ? 'border-rose-500/20 text-rose-500 hover:bg-rose-500/10' 
-                  : 'border-rose-500/20 text-rose-500 hover:bg-rose-50'
-              }`}
-            >
+            <button type="button" onClick={handleLogout}
+              style={{ width: '100%', height: '52px', borderRadius: '40px', background: 'transparent', border: '2px solid rgba(252,165,165,0.5)', color: '#fca5a5', fontSize: '14px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: P, transition: 'background 0.15s, border-color 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; e.currentTarget.style.borderColor = 'rgba(252,165,165,0.8)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(252,165,165,0.5)'; }}>
               Sign Out
             </button>
           </div>
