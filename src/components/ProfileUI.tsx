@@ -72,6 +72,14 @@ const BankSelector: React.FC<{ currentBank: string; darkMode: boolean }> = ({ cu
   const [search, setSearch]     = useState('');
   const [open, setOpen]         = useState(false);
   const containerRef            = useRef<HTMLDivElement>(null);
+
+  // Sync when currentUser data arrives async after initial mount
+  React.useEffect(() => {
+    if (currentBank && currentBank !== selected) {
+      setSelected(currentBank);
+    }
+  }, [currentBank]);
+
   const filtered = MALAYSIAN_BANKS.filter(b => b.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -187,6 +195,7 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
 
         {/* ── Form ── */}
         <form
+          key={currentUser.id || currentUser.email}
           onSubmit={(e) => {
             e.preventDefault();
             const fd = new FormData(e.currentTarget);
@@ -319,7 +328,7 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
             <textarea value={feedbackMessage} onChange={(e) => setFeedbackMessage(e.target.value)}
               placeholder="Type your feedback here..."
               style={{ ...inputOnBlue, minHeight: '120px', resize: 'none', display: 'block', marginBottom: '12px' }} />
-            <button type="button" onClick={handleSendFeedback}
+            <button type="button" onClick={(e) => { e.preventDefault(); handleSendFeedback(e); }}
               disabled={isSendingFeedback || !feedbackMessage.trim()}
               style={{ width: '100%', height: '52px', borderRadius: '40px', background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.3)', color: '#ffffff', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: P, opacity: (isSendingFeedback || !feedbackMessage.trim()) ? 0.5 : 1, transition: 'opacity 0.2s' }}>
               {isSendingFeedback ? <RefreshCw size={16} className="animate-spin" /> : <MessageSquare size={16} />}
