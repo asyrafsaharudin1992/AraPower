@@ -1200,8 +1200,6 @@ export default function App() {
       if (event === 'PASSWORD_RECOVERY') {
         // Set flag to block normal login flow during password recovery
         isPasswordRecovery.current = true;
-        setShowResetPasswordModal(true);
-        window.history.replaceState({}, document.title, '/');
         return;
       }
       
@@ -1270,7 +1268,7 @@ export default function App() {
     } catch (error: any) {
       console.error('Error in fetchStaffByEmail:', error);
       if (await handleAuthError(error)) return;
-      setAuthError(error.message || 'Failed to load user profile.');
+      toast.error(error.message || 'Failed to load user profile.');
       
       const isNetworkError = error.message && error.message.includes('Network error');
       
@@ -1755,20 +1753,6 @@ export default function App() {
     await Promise.all(promises);
   };
 
-  useEffect(() => {
-    // Handle Supabase password recovery redirect
-    // Do NOT wipe the hash here — let onAuthStateChange handle the token first
-    const hash = window.location.hash;
-    const path = window.location.pathname;
-    if (path === '/update-password' || hash.includes('type=recovery')) {
-      setShowResetPasswordModal(true);
-      // Clean URL after a short delay so Supabase can read the token from the hash
-      setTimeout(() => {
-        window.history.replaceState({}, document.title, '/');
-      }, 2000);
-    }
-  }, []);
-
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -1785,12 +1769,6 @@ export default function App() {
       localStorage.removeItem('currentUser');
       setCurrentUser(null);
       setActiveTab('dashboard');
-      setAuthEmail('');
-      setAuthPassword('');
-      setAuthName('');
-      setAuthBranch('');
-      setAuthPhone('');
-      setAuthError('');
     }
   };
 
@@ -2494,6 +2472,8 @@ export default function App() {
         branches={branches}
         isSupabaseConfigured={isSupabaseConfigured}
         Logo={Logo}
+        safeFetch={safeFetch}
+        supabase={supabase}
       />
     );
   }

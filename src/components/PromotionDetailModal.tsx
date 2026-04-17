@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Zap, Download, Copy, MessageCircle, ArrowLeft } from 'lucide-react';
+import { X, Zap, Download, ArrowLeft, Share2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getServiceStatus } from './ModernPromotionCard';
 
@@ -11,44 +12,48 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
 
   const generateAffiliateLink = () => {
     if (!linkCode) return '';
-    
-    // 1. Get the custom target URL entered during Service Setup. 
+
     let baseUrl = (item as any).target_url || window.location.origin;
-    
-    // Strip trailing slash if it exists
+
     if (baseUrl.endsWith('/')) {
       baseUrl = baseUrl.slice(0, -1);
     }
-    
-    // Ensure the URL has 'http' if the admin forgot to add it, unless it's a localhost URL
+
     if (!baseUrl.startsWith('http') && !baseUrl.includes('localhost')) {
       baseUrl = `https://${baseUrl}`;
     }
 
-    // 2. Append the required parameters: Service Name, Service Code, and Affiliate Code
-    // Use '?' if the base URL doesn't have parameters yet, otherwise use '&'
     const separator = baseUrl.includes('?') ? '&' : '?';
-    
-    const shareUrl = `${baseUrl}${separator}serviceName=${encodeURIComponent(item.name)}&serviceCode=${item.id}&ref=${linkCode}`;
-    return shareUrl;
+    return `${baseUrl}${separator}serviceName=${encodeURIComponent(item.name)}&serviceCode=${item.id}&ref=${linkCode}`;
   };
 
-  const shareLink = generateAffiliateLink();
+  const handleShareLink = async () => {
+    const shareLink = generateAffiliateLink();
 
-  const handleCopyLink = async () => {
     if (!shareLink) {
-      toast.error('Code not generated yet');
+      toast.error('Link not ready yet');
       return;
     }
+
     try {
+      if (navigator.share) {
+        await navigator.share({
+          title: item.name,
+          text: `Check out this promotion: ${item.name}`,
+          url: shareLink,
+        });
+        return;
+      }
+
       await navigator.clipboard.writeText(shareLink);
-      toast.success('Pautan disalin!');
-    } catch (err) {
-      console.error('Failed to copy:', err);
+      toast.success('Link copied');
+    } catch (error: any) {
+      if (error?.name !== 'AbortError') {
+        console.error('Share failed:', error);
+        toast.error('Unable to share link');
+      }
     }
   };
-
-
 
   const handleDownloadPoster = async (url: string, fileName: string) => {
     try {
@@ -172,40 +177,30 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
                   </div>
                 </div>
 
-                {/* Action Button */}
-                <button
-                  onClick={() => item.image_url && handleDownloadPoster(item.image_url, `${item.name}-poster.jpg`)}
-                  disabled={!item.image_url}
-                  className="w-full py-5 bg-white text-zinc-900 rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
-                >
-                  <Download size={20} />
-                  Download Poster to Share
-                </button>
-
-                {/* Share Buttons */}
-                <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Action Button */}
                   <button
-                    onClick={handleCopyLink}
-                    className="py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    onClick={() => item.image_url && handleDownloadPoster(item.image_url, `${item.name}-poster.jpg`)}
+                    disabled={!item.image_url}
+                    className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
                   >
-                    <Copy size={16} />
-                    Copy Link
+                    <Download size={16} />
+                    Poster
                   </button>
-                  <a
-                    href={`https://wa.me/?text=${encodeURIComponent(`Check out this promotion at our clinic: ${shareLink}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="py-4 bg-emerald-500 text-white rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+
+                  <button
+                    onClick={handleShareLink}
+                    className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
                   >
-                    <MessageCircle size={16} />
-                    WhatsApp
-                  </a>
+                    <Share2 size={16} />
+                    Share Link
+                  </button>
                 </div>
 
                 <div className="pt-4">
                   <button
                     onClick={onClose}
-                    className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    className="w-full py-4 bg-white text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all border border-zinc-200"
                   >
                     <ArrowLeft size={16} />
                     Back to Promotions

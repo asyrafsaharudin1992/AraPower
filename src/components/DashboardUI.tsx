@@ -80,12 +80,10 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
       exit={{ opacity: 0, y: -10 }}
       className="space-y-8"
     >
-      {/* Top Stats Section - Unified for Admin/Receptionist/Dispensary */}
       {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {(currentUser.role === 'admin' || currentUser.role === 'manager') ? (
             <>
-              {/* Total Referrals Card */}
               <div className="bg-white p-6 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group flex items-center gap-6">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
                 <div className="w-14 h-14 rounded-[1.5rem] bg-violet-500 text-white flex items-center justify-center shrink-0">
@@ -99,8 +97,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                   </div>
                 </div>
               </div>
-              
-              {/* Processed Payouts Card */}
+
               <div className="bg-white p-6 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group flex items-center gap-6">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
                 <div className="w-14 h-14 rounded-[1.5rem] bg-emerald-500 text-white flex items-center justify-center shrink-0">
@@ -113,7 +110,6 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                 </div>
               </div>
 
-              {/* Active Staff Card */}
               <div className="bg-white p-6 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group flex items-center gap-6">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-brand-primary/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
                 <div className="w-14 h-14 rounded-[1.5rem] bg-brand-primary text-white flex items-center justify-center shrink-0">
@@ -128,7 +124,6 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
             </>
           ) : (
             <>
-              {/* Receptionist/Dispensary Cards */}
               <div className="bg-white p-6 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group flex items-center gap-6">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
                 <div className="w-14 h-14 rounded-[1.5rem] bg-violet-500 text-white flex items-center justify-center shrink-0">
@@ -170,7 +165,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                 </div>
                 <div className="relative z-10 flex-1">
                   <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-1">New Leads</p>
-                  <p className="text-3xl font-black text-zinc-900 tracking-tighter">
+                  <p className="text-3xl font-black text-zinc-900 tracking-tighters">
                     {referrals.filter(r => r.status === 'new').length}
                   </p>
                   <p className="text-[10px] font-bold text-zinc-400 mt-1">Requires follow-up</p>
@@ -181,7 +176,6 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
         </div>
       )}
 
-      {/* Staff Dashboard - Tier Progress & Stats */}
       {currentUser.role !== 'admin' && currentUser.role !== 'manager' && currentUser.role !== 'receptionist' && currentUserStats && (
         <div className="space-y-6">
           <div className="bg-white rounded-[2.5rem] border border-black/5 shadow-sm p-8 relative overflow-hidden">
@@ -241,7 +235,6 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
         </div>
       )}
 
-      {/* Services Quick Access */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-black tracking-tight text-zinc-900">Available Services</h3>
@@ -257,15 +250,14 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
           services={services.filter(s => s.is_affiliate_enabled !== false)} 
           onClick={(service) => {
             setSelectedPromo(service);
+            setActiveTab('promotions');
             setIsPromoModalOpen(true);
           }} 
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content Area */}
         <div className="lg:col-span-2 space-y-8">
-          {/* Performance Chart for Admin/Manager */}
           {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
             <div className="bg-white p-6 rounded-[2.5rem] border border-black/5 shadow-sm">
               <div className="flex items-center justify-between mb-6">
@@ -324,7 +316,6 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
             </div>
           )}
 
-          {/* Recent Referrals List */}
           <div className="bg-white rounded-[2.5rem] border border-black/5 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
               <div>
@@ -359,7 +350,6 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                       {getStatusLabel(referral.status)}
                     </span>
                     
-                    {/* Action Buttons based on Role */}
                     {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
                       <button 
                         onClick={() => handleDeleteReferral(referral.id)}
