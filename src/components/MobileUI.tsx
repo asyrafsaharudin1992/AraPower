@@ -88,8 +88,6 @@ export interface MobileUIProps {
   isPromoModalOpen: boolean;
 
   // Profile
-  isUploading: boolean;
-  handleImageUpload: (e: any) => void;
   handleUpdateProfile: (data: any) => void;
   THEMES: Record<string, { accent: string; surface: string; name: string }>;
   selectedTheme: string;
@@ -151,8 +149,6 @@ export const MobileUI: React.FC<MobileUIProps> = ({
   fetchServices,
   selectedPromo,
   isPromoModalOpen,
-  isUploading,
-  handleImageUpload,
   handleUpdateProfile,
   THEMES,
   selectedTheme,
@@ -417,8 +413,6 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                   <ProfileUI
                     currentUser={currentUser}
                     darkMode={darkMode}
-                    isUploading={isUploading}
-                    handleImageUpload={handleImageUpload}
                     handleUpdateProfile={handleUpdateProfile}
                     THEMES={THEMES}
                     selectedTheme={selectedTheme}
