@@ -471,7 +471,7 @@ async function sendApprovalNotification(staff: any) {
         </html>
       `
     });
-    console.log(\`[sendApprovalNotification] Approval email sent to \${staff.email}\`);
+    console.log('[sendApprovalNotification] Approval email sent to ' + staff.email);
   } catch (err) {
     console.error('[sendApprovalNotification] Failed to send email:', err);
   }
