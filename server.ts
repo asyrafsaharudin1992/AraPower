@@ -206,7 +206,7 @@ let referralColumns: Set<string> = new Set([
 ]);
 let serviceColumns: Set<string> = new Set([
   'id', 'name', 'category', 'type', 'description', 'base_price',
-  'promo_price', 'aracoins_perk', 'is_featured', 'image_url',
+  'promo_price', 'aracoins_perk', 'is_featured', 'image_url', 'poster_images',
   'branches', 'start_date', 'end_date', 'start_time', 'end_time',
   'duration_mins', 'created_at', 'target_url', 'commission_rate'
 ]);
@@ -2188,7 +2188,7 @@ app.get("/api/services", async (req, res) => {
 });
 
 app.post("/api/services", async (req, res) => {
-  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category, target_url } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, poster_images, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category, target_url } = req.body;
   
   const insertData: any = {
     name
@@ -2208,6 +2208,7 @@ app.post("/api/services", async (req, res) => {
   if (category !== undefined && serviceColumns.has('category')) insertData.category = category;
   if (description !== undefined && serviceColumns.has('description')) insertData.description = description;
   if (image_url !== undefined && serviceColumns.has('image_url')) insertData.image_url = image_url;
+  if (poster_images !== undefined && serviceColumns.has('poster_images')) insertData.poster_images = JSON.stringify(poster_images);
   if (serviceColumns.has('promo_price')) insertData.promo_price = promo_price === undefined ? null : promo_price;
   if (type !== undefined && serviceColumns.has('type')) insertData.type = type;
   if (serviceColumns.has('branches')) insertData.branches = JSON.stringify(branches || []);
@@ -2248,7 +2249,7 @@ app.post("/api/services", async (req, res) => {
 
 app.patch("/api/services/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category, target_url } = req.body;
+  const { name, base_price, commission_rate, aracoins_perk, allowances, description, image_url, poster_images, promo_price, type, branches, start_date, end_date, start_time, end_time, is_featured, category, target_url } = req.body;
   
   const updateData: any = {};
 
@@ -2276,6 +2277,7 @@ app.patch("/api/services/:id", async (req, res) => {
   if (is_featured !== undefined && serviceColumns.has('is_featured')) updateData.is_featured = is_featured;
   if (aracoins_perk !== undefined && serviceColumns.has('aracoins_perk')) updateData.aracoins_perk = aracoins_perk;
   if (target_url !== undefined && serviceColumns.has('target_url')) updateData.target_url = target_url;
+  if (poster_images !== undefined && serviceColumns.has('poster_images')) updateData.poster_images = JSON.stringify(poster_images);
 
   console.log(`PATCH /api/services/${id} - Update Data:`, JSON.stringify(updateData, null, 2));
 

@@ -85,7 +85,8 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
   const [tierGold, setTierGold] = useState('');
 
   // --- CARD 4: App Display & Media ---
-  const [posterUrl, setPosterUrl] = useState('');
+  const [posterUrl, setPosterUrl] = useState(''); // primary image (backwards compat)
+  const [posterImages, setPosterImages] = useState<string[]>([]); // gallery
   const [isUploading, setIsUploading] = useState(false);
   const [topFeatured, setTopFeatured] = useState(false);
   const [categoryCarousel, setCategoryCarousel] = useState(true);
@@ -198,6 +199,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
         setTierGold(initialData.allowances.gold ? String(initialData.allowances.gold) : '');
       }
       setPosterUrl(initialData.image_url || '');
+      setPosterImages(initialData.poster_images || (initialData.image_url ? [initialData.image_url] : []));
       setTopFeatured(initialData.is_featured || false);
       setCategoryCarousel(initialData.category_carousel || false);
     } else {
@@ -294,32 +296,70 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
     }));
   };
 
+  const MAX_FILE_SIZE = 200 * 1024; // 200kb
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Validate all files before uploading
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE) {
+        alert(`"${file.name}" is ${(file.size / 1024).toFixed(0)}kb — maximum allowed is 200kb. Please compress the image and try again.`);
+        e.target.value = '';
+        return;
+      }
+    }
 
     setIsUploading(true);
+    const newUrls: string[] = [];
+
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      
-      const { data, error } = await supabase.storage
-        .from('posters')
-        .upload(fileName, file, { cacheControl: '3600', upsert: false });
+      for (const file of files) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-      if (error) throw error;
+        const { data, error } = await supabase.storage
+          .from('posters')
+          .upload(fileName, file, { cacheControl: '3600', upsert: false });
 
-      const { data: urlData } = supabase.storage
-        .from('posters')
-        .getPublicUrl(data.path);
-      
-      setPosterUrl(urlData.publicUrl);
+        if (error) throw error;
+
+        const { data: urlData } = supabase.storage
+          .from('posters')
+          .getPublicUrl(data.path);
+
+        newUrls.push(urlData.publicUrl);
+      }
+
+      // Add to gallery
+      setPosterImages(prev => {
+        const updated = [...prev, ...newUrls];
+        // First image becomes primary
+        if (updated.length > 0) setPosterUrl(updated[0]);
+        return updated;
+      });
     } catch (error: any) {
       console.error('Error uploading image:', error);
       alert(`Upload failed: ${error.message}`);
     } finally {
       setIsUploading(false);
+      e.target.value = ''; // reset input so same file can be re-selected
     }
+  };
+
+  const handleRemovePoster = (url: string) => {
+    setPosterImages(prev => {
+      const updated = prev.filter(u => u !== url);
+      setPosterUrl(updated[0] || '');
+      return updated;
+    });
+  };
+
+  const handleSetPrimaryPoster = (url: string) => {
+    setPosterUrl(url);
+    // Move to front of array
+    setPosterImages(prev => [url, ...prev.filter(u => u !== url)]);
   };
 
   const handleAutoFill = async () => {
@@ -386,6 +426,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
           gold: tierGold ? parseFloat(tierGold) : 0,
         },
         image_url: posterUrl,
+        poster_images: posterImages.length > 0 ? posterImages : (posterUrl ? [posterUrl] : []),
         is_featured: topFeatured,
         category_carousel: categoryCarousel,
       };
@@ -997,36 +1038,62 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
               </h2>
 
               <div className="mb-6">
-                <label className="block text-xs font-bold text-gray-500 mb-2">MARKETING POSTER</label>
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl h-48 flex flex-col items-center justify-center cursor-pointer transition overflow-hidden relative ${
-                    posterUrl ? 'border-indigo-300 bg-indigo-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
-                  }`}
-                >
-                  {posterUrl ? (
-                    <>
-                      <img src={posterUrl} alt="Poster preview" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition">
-                        <span className="text-white font-semibold flex items-center gap-2"><Upload size={18} /> Change Image</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center p-4">
-                      <ImageIcon className="mx-auto text-gray-400 mb-2" size={32} />
-                      <span className="block text-sm font-bold text-gray-600 tracking-wide">
-                        {isUploading ? 'UPLOADING...' : 'UPLOAD PROMO GRAPHIC'}
-                      </span>
-                      <span className="block text-xs mt-1 text-gray-400">Click to browse (JPG, PNG)</span>
-                    </div>
-                  )}
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-gray-500">MARKETING POSTERS ({posterImages.length}/5)</label>
+                  <span className="text-[10px] text-gray-400">Max 200kb per image · First image = primary</span>
                 </div>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileUpload} 
-                  accept="image/*"
-                  className="hidden" 
+
+                {/* Gallery grid */}
+                {posterImages.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {posterImages.map((url, idx) => (
+                      <div key={url} className="relative group rounded-lg overflow-hidden aspect-[3/4] border-2 border-transparent" style={{ borderColor: posterUrl === url ? '#6366f1' : 'transparent' }}>
+                        <img src={url} alt={`Poster ${idx + 1}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-1.5">
+                          {posterUrl !== url && (
+                            <button type="button" onClick={() => handleSetPrimaryPoster(url)}
+                              className="text-[10px] font-bold bg-white text-indigo-600 px-2 py-1 rounded-full">
+                              Set Primary
+                            </button>
+                          )}
+                          {posterUrl === url && (
+                            <span className="text-[10px] font-bold bg-indigo-500 text-white px-2 py-1 rounded-full">Primary</span>
+                          )}
+                          <button type="button" onClick={() => handleRemovePoster(url)}
+                            className="text-[10px] font-bold bg-red-500 text-white px-2 py-1 rounded-full">
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Upload button */}
+                {posterImages.length < 5 && (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400 rounded-xl h-24 flex flex-col items-center justify-center cursor-pointer transition"
+                  >
+                    {isUploading ? (
+                      <span className="text-sm font-bold text-indigo-500">Uploading...</span>
+                    ) : (
+                      <>
+                        <Upload size={20} className="text-gray-400 mb-1" />
+                        <span className="text-xs font-bold text-gray-500">Add Poster{posterImages.length > 0 ? ' (up to ' + (5 - posterImages.length) + ' more)' : ''}</span>
+                        <span className="text-[10px] text-gray-400 mt-0.5">JPG, PNG · max 200kb</span>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  className="hidden"
                 />
               </div>
 

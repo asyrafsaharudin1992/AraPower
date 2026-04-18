@@ -201,6 +201,12 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
 
   const shareLink = generateAffiliateLink();
 
+  // Poster gallery state
+  const [showPosterGallery, setShowPosterGallery] = React.useState(false);
+  const allPosters: string[] = (item as any).poster_images?.length
+    ? (item as any).poster_images
+    : (item.image_url ? [item.image_url] : []);
+
   const handleCopyLink = async () => {
     if (!shareLink) {
       toast.error('Code not generated yet');
@@ -344,13 +350,73 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
 
                 {/* Action Button */}
                 <button
-                  onClick={() => item.image_url && handleDownloadPoster(item.image_url, `${item.name}-poster.jpg`)}
-                  disabled={!item.image_url}
+                  onClick={() => {
+                    if (!isProfileComplete(currentUser)) {
+                      toast.error('Complete your profile (IC & bank details) to share links');
+                      return;
+                    }
+                    if (allPosters.length === 0) {
+                      toast.error('No poster available for this service');
+                      return;
+                    }
+                    if (allPosters.length === 1) {
+                      handleDownloadPoster(allPosters[0], `${item.name}-poster.jpg`);
+                    } else {
+                      setShowPosterGallery(true);
+                    }
+                  }}
+                  disabled={allPosters.length === 0}
                   className="w-full py-5 bg-white text-zinc-900 rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
                 >
                   <Download size={20} />
-                  Download Poster to Share
+                  {allPosters.length > 1 ? `Download Poster (${allPosters.length})` : 'Download Poster to Share'}
                 </button>
+
+                {/* Poster Gallery Modal */}
+                {showPosterGallery && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[200] flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm"
+                    onClick={() => setShowPosterGallery(false)}
+                  >
+                    <motion.div
+                      initial={{ y: 60, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: 60, opacity: 0 }}
+                      onClick={e => e.stopPropagation()}
+                      className="bg-white rounded-[2rem] p-6 w-full max-w-md"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-black text-zinc-900 text-lg">Choose Poster</h3>
+                        <button onClick={() => setShowPosterGallery(false)}
+                          className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:bg-zinc-200">
+                          <X size={16} />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        {allPosters.map((url, idx) => (
+                          <div key={url}
+                            onClick={() => { handleDownloadPoster(url, `${item.name}-poster-${idx + 1}.jpg`); setShowPosterGallery(false); }}
+                            className="aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer border-2 border-zinc-100 hover:border-[#1580c2] transition-all active:scale-95 relative group"
+                          >
+                            <img src={url} alt={`Poster ${idx + 1}`} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <div className="bg-white text-zinc-900 text-xs font-black px-3 py-1.5 rounded-full flex items-center gap-1">
+                                <Download size={12} /> Download
+                              </div>
+                            </div>
+                            {idx === 0 && (
+                              <div className="absolute top-2 left-2 bg-[#1580c2] text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide">Primary</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-zinc-400 text-center">Tap a poster to download it</p>
+                    </motion.div>
+                  </motion.div>
+                )}
 
                 {/* Share Buttons */}
                 <div className="grid grid-cols-2 gap-4 mt-4">
