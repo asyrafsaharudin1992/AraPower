@@ -694,25 +694,33 @@ export default function AuthUI({
                   </div>
                 </div>
                 <div className="pt-2">
-                  <label className="flex items-start gap-3 cursor-pointer">
+                  {!agreedToTerms ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowTermsModal(true)}
+                      className="w-full active:scale-[0.97] transition-all"
+                      style={{ height: '52px', borderRadius: '40px', background: 'transparent', border: '2px solid #1580c2', color: '#1580c2', fontSize: '14px', fontWeight: 600, fontFamily: "'Poppins', sans-serif", cursor: 'pointer' }}
+                    >
+                      Read Terms of Service
+                    </button>
+                  ) : (
                     <div
-                      onClick={() => setAgreedToTerms(!agreedToTerms)}
-                      className="flex items-center justify-center shrink-0 mt-0.5 transition-all"
-                      style={{ width: '20px', height: '20px', borderRadius: '6px', border: `2px solid ${agreedToTerms ? '#1580c2' : '#e2e8f0'}`, background: agreedToTerms ? '#1580c2' : 'transparent', cursor: 'pointer' }}>
-                      <input type="checkbox" className="hidden" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} />
-                      {agreedToTerms && <div style={{ width: '8px', height: '8px', background: 'white', borderRadius: '2px' }} />}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', height: '52px', borderRadius: '40px', background: '#f0fdf4', border: '2px solid #bbf7d0', color: '#16a34a', fontSize: '14px', fontWeight: 700, fontFamily: "'Poppins', sans-serif" }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                      Terms Agreed
                     </div>
-                    <span style={{ fontSize: '12px', fontWeight: 500, color: '#1580c2', opacity: 0.7, lineHeight: 1.5 }}>
-                      I agree to the{' '}
-                      <button type="button" onClick={() => setShowTermsModal(true)}
-                        style={{ color: '#1580c2', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Poppins', sans-serif", textDecoration: 'underline' }}>
-                        Terms of Service
-                      </button>
-                    </span>
-                  </label>
+                  )}
                 </div>
               </div>
               <div className="mt-auto space-y-4">
+                {!agreedToTerms && (
+                  <p style={{ textAlign: 'center', fontSize: '12px', fontWeight: 600, color: '#1580c2', opacity: 0.5, fontFamily: "'Poppins', sans-serif", lineHeight: 1.5 }}>
+                    📋 Please read and agree to the Terms of Service above before creating your account.
+                  </p>
+                )}
                 <button type="submit" disabled={isSubmitting || !agreedToTerms}
                   className="w-full flex items-center justify-center gap-2 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ height: '58px', borderRadius: '40px', background: '#1580c2', border: 'none', color: '#ffffff', fontSize: '16px', fontWeight: 600, fontFamily: "'Poppins', sans-serif", cursor: 'pointer' }}>
