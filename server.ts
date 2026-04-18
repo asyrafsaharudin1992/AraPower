@@ -1146,16 +1146,33 @@ app.post("/api/special-offers", async (req, res) => {
 
 app.post("/api/settings", async (req, res) => {
   const { key, value } = req.body;
-  const { error } = await supabase
+  if (!key) return res.status(400).json({ error: "key is required" });
+
+  console.log(`[POST /api/settings] Saving key: ${key}`);
+
+  // Delete existing row first, then insert — avoids upsert unique constraint issues
+  const { error: delError } = await supabase
     .from('settings')
-    .upsert({ key, value: JSON.stringify(value) });
-    
-  if (error) {
-    if (error.code === 'PGRST205') {
+    .delete()
+    .eq('key', key);
+
+  if (delError && delError.code !== 'PGRST205') {
+    console.warn(`[POST /api/settings] Delete warning for key "${key}":`, delError.message);
+  }
+
+  const { error: insertError } = await supabase
+    .from('settings')
+    .insert({ key, value: JSON.stringify(value) });
+
+  if (insertError) {
+    if (insertError.code === 'PGRST205') {
       return res.status(500).json({ error: "Settings table does not exist in the database." });
     }
-    return res.status(500).json({ error: error.message });
+    console.error(`[POST /api/settings] Insert error for key "${key}":`, insertError.message);
+    return res.status(500).json({ error: insertError.message });
   }
+
+  console.log(`[POST /api/settings] Saved key "${key}" successfully`);
   res.json({ success: true });
 });
 
@@ -1285,10 +1302,6 @@ app.get("/api/staff/email", async (req, res) => {
     if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
       console.error('Error fetching staff by email:', error);
       return res.status(500).json({ error: `Database error: ${error.message}` });
-    }
-
-    if (!staff) {
-      console.warn('[GET /api/staff/email] No staff record found for email:', email);
     }
 
     if (staff && staff.employment_status === 'deleted') {
@@ -2106,7 +2119,6 @@ app.get("/api/schema", (req, res) => {
 
 app.get("/api/referrals", async (req, res) => {
   const { staffId, branch, requesterRole, requesterBranch } = req.query;
-  console.log('[GET /api/referrals]', { staffId, branch, requesterRole, requesterBranch });
   
   // Fetch referrals first without joins to avoid relationship errors
   let query = supabase
@@ -2115,8 +2127,7 @@ app.get("/api/referrals", async (req, res) => {
     .order('created_at', { ascending: false });
 
   if (staffId && staffId !== 'undefined' && staffId !== 'null') {
-    // Use string coercion to handle UUID vs integer mismatch
-    query = query.eq('staff_id', String(staffId));
+    query = query.eq('staff_id', staffId);
   }
   
   const { upcoming } = req.query;
@@ -2193,7 +2204,6 @@ app.get("/api/referrals", async (req, res) => {
   }
   
   if (!referrals || referrals.length === 0) {
-    console.log('[GET /api/referrals] Query returned 0 rows.', { staffId, branch, requesterRole, requesterBranch });
     return res.json([]);
   }
 
