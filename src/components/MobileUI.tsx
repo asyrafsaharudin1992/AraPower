@@ -170,7 +170,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
   markNotificationAsRead,
 }) => {
   return (
-    <div className="pb-44 min-h-screen bg-eggshell relative">
+    <div className="pb-44 min-h-screen bg-white relative">
 
       {/* Background ambient gradients */}
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-muted-teal/10 to-transparent -z-10 pointer-events-none" />
@@ -178,7 +178,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
 
       {/* ── BOTTOM NAV ─────────────────────────────────────────── */}
       <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
-        <nav className={`max-w-md mx-auto ${reduceTranslucency ? 'bg-eggshell' : 'bg-eggshell/80 backdrop-blur-2xl'} border border-twilight-indigo/10 px-4 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto`}>
+        <nav className={`max-w-md mx-auto ${reduceTranslucency ? 'bg-white' : 'bg-white/80 backdrop-blur-2xl'} border border-[#1580c2]/10 px-4 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto`}>
 
           <div className="flex flex-1 justify-around items-center">
             <button onClick={() => setActiveTab('dashboard')}
@@ -192,14 +192,6 @@ export const MobileUI: React.FC<MobileUIProps> = ({
               <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-burnt-peach/10' : ''}`}>
                 <Calendar size={22} />
               </div>
-            </button>
-          </div>
-
-          {/* Central FAB */}
-          <div className="px-2">
-            <button onClick={() => setShowReferralModal(true)}
-              className="w-14 h-14 bg-burnt-peach text-white rounded-full flex items-center justify-center shadow-lg shadow-burnt-peach/40 active:scale-95 transition-transform">
-              <Plus size={28} strokeWidth={3} />
             </button>
           </div>
 
@@ -239,7 +231,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                 Welcome to {clinicProfile.name}! Your account has been successfully created and is currently being reviewed by our administration team.
               </p>
             </div>
-            <div className="bg-eggshell p-8 rounded-[2.5rem] border border-twilight-indigo/10 shadow-sm max-w-sm w-full">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-[#1580c2]/10 shadow-sm max-w-sm w-full">
               <ul className="space-y-5 text-left">
                 <li className="flex gap-4 items-center text-xs font-bold text-twilight-indigo/60">
                   <div className="w-2.5 h-2.5 rounded-full bg-burnt-peach shadow-[0_0_10px_rgba(224,122,95,0.5)]" />
@@ -272,7 +264,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
         ) : (
           <>
             {/* ── STICKY HEADER ──────────────────────────────────── */}
-            <header className="flex flex-row items-center justify-between gap-4 z-[100] sticky top-0 bg-eggshell/80 backdrop-blur-xl py-4 -mx-4 px-4 border-b border-twilight-indigo/10 mb-6">
+            <header className="flex flex-row items-center justify-between gap-4 z-[100] sticky top-0 bg-white/80 backdrop-blur-xl py-4 -mx-4 px-4 border-b border-[#1580c2]/10 mb-6">
               <div>
                 <h2 className="text-3xl font-black tracking-tighter capitalize text-twilight-indigo">
                   {activeTab === 'profile' ? 'My Profile' : activeTab}
@@ -282,7 +274,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
               <div className="flex items-center gap-4">
                 {activeTab === 'dashboard' && (
                   <button onClick={() => setActiveTab('profile')}
-                    className="flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all active:scale-95 bg-eggshell hover:bg-twilight-indigo/5 border-twilight-indigo/10 shadow-sm border">
+                    className="flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all active:scale-95 bg-white hover:bg-[#1580c2]/5 border-[#1580c2]/10 shadow-sm border">
                     <div className="w-8 h-8 rounded-xl bg-burnt-peach text-white flex items-center justify-center text-xs font-black shadow-lg shadow-burnt-peach/20 overflow-hidden relative">
                       {currentUser.profile_picture ? (
                         <img src={currentUser.profile_picture} alt={currentUser.name}
@@ -291,7 +283,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                         currentUser?.name?.charAt(0) || '?'
                       )}
                       {unreadNotificationsCount > 0 && (
-                        <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-rose-500 border-2 border-eggshell rounded-full" />
+                        <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-rose-500 border-2 border-white rounded-full" />
                       )}
                     </div>
                     <div className="text-left">

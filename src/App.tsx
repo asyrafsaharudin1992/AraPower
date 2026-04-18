@@ -2924,16 +2924,9 @@ export default function App() {
           </div>
         )}
         
-        {/* Main Content */}
+        {/* Main Content — desktop only, MobileUI handles mobile */}
         <MobilePullToRefreshWrapper isMobile={isMobile} onRefresh={handleRefresh}>
-          <main className={`${!isMobile ? `ml-64 bg-white` : `pb-44 min-h-screen bg-white`} p-4 lg:p-8 relative ${!isMobile ? 'overflow-hidden' : ''}`}>
-          {isMobile && (
-            <>
-              <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-[#1580c2]/5 to-transparent -z-10" />
-              <div className="absolute top-[10%] -right-[20%] w-[80%] h-[40%] bg-[#1580c2]/4 rounded-full blur-[100px] -z-10" />
-            </>
-          )}
-
+          {!isMobile && <main className="ml-64 bg-white p-4 lg:p-8 relative overflow-hidden">
           {currentUser.is_approved === 0 && currentUser.role !== 'admin' && activeTab !== 'profile' ? (
             (() => {
               console.log('Current User State (Main Content Pending):', currentUser);
@@ -2990,7 +2983,7 @@ export default function App() {
             })()
           ) : (
             <>
-              <header className={`flex flex-row items-center justify-between gap-4 z-[100] ${isMobile ? `sticky top-0 bg-white/90 backdrop-blur-xl py-4 -mx-4 px-4 border-b border-[#1580c2]/10 mb-6` : 'mb-8 relative'}`}>
+              <header className="flex flex-row items-center justify-between gap-4 z-[100] mb-8 relative">
                 <div className={isMobile ? '' : ''}>
                   <h2 className={`text-3xl sm:text-3xl font-black tracking-tighter capitalize text-[#1580c2]`}>
                     {activeTab === 'guide' ? 'User Guide' : activeTab === 'profile' ? 'My Profile' : activeTab}
@@ -5952,7 +5945,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
         </AnimatePresence>
       </>
     )}
-      </main>
+      </main>}
       </MobilePullToRefreshWrapper>
     </div>
   );

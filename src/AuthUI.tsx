@@ -61,7 +61,7 @@ const onboardingSlides = [
     iconColor: '#10b981',   // emerald — growth colour
     bgColor: '#f0fdf4',     // light green background
     title: 'More Active, Greater Rewards',
-    description: 'Reach Silver and Gold tier for up to 50% commission bonus. The more people you help, the more you earn.'
+    description: 'Reach Silver and Gold tier to earn higher commission bonus. The more people you help, the more you earn.'
   }
 ];
 
@@ -72,7 +72,7 @@ interface AuthUIProps {
   branches: any[];
   isSupabaseConfigured: boolean;
   Logo: any;
-  safeFetch: typeof safeFetch;
+  safeFetch: (url: string, options?: RequestInit, retries?: number, backoff?: number) => Promise<{ res: Response, data: any }>;
   supabase: any;
 }
 
@@ -264,7 +264,6 @@ export default function AuthUI({
       }
       setResetPasswordStatus({ type: 'success', message: 'Password updated. Redirecting...' });
       setTimeout(async () => {
-        isPasswordRecovery.current = false;
         setShowResetPasswordModal(false);
         setResetPasswordNewPassword('');
         await supabase.auth.signOut();
