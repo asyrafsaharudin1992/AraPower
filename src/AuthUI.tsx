@@ -11,9 +11,9 @@ import {
   X,
   RefreshCw,
   HeartPulse,
-  BarChart3,
-  Users,
-  ChevronRight
+  Coins,
+  TrendingUp,
+  ChevronRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -43,22 +43,25 @@ const ARA_POWER_LOGO = 'https://firebasestorage.googleapis.com/v0/b/new-website-
 
 const onboardingSlides = [
   {
+    icon: Coins,
+    iconColor: '#f59e0b',   // amber — money/coins colour
+    bgColor: '#fffbeb',     // warm cream background
+    title: 'Earn Extra Income',
+    description: 'Share Klinik Ara health services and earn commission every time your referral succeeds. Easy, flexible, right from your phone.'
+  },
+  {
     icon: HeartPulse,
-    title: 'Premium Health Services',
-    description: 'Access top-tier health screenings, diagnostics, and wellness programs tailored for your community.',
-    gradient: 'from-violet-500 to-indigo-600'
+    iconColor: '#ef4444',   // red — heart colour
+    bgColor: '#fef2f2',     // light red background
+    title: 'Help Your Community',
+    description: 'Many people need healthcare but don\'t know where to go. You can be the bridge — connect them to trusted health services.'
   },
   {
-    icon: BarChart3,
-    title: 'Track Your Impact',
-    description: 'Monitor your referrals in real-time, track wellness progress, and manage your health journey seamlessly.',
-    gradient: 'from-burnt-peach to-rose-500'
-  },
-  {
-    icon: Users,
-    title: 'Grow Your Network',
-    description: 'Share the gift of health with your followers and unlock exclusive rewards and tier benefits.',
-    gradient: 'from-emerald-500 to-teal-600'
+    icon: TrendingUp,
+    iconColor: '#10b981',   // emerald — growth colour
+    bgColor: '#f0fdf4',     // light green background
+    title: 'More Active, Greater Rewards',
+    description: 'Reach Silver and Gold tier for up to 50% commission bonus. The more people you help, the more you earn.'
   }
 ];
 
@@ -69,7 +72,7 @@ interface AuthUIProps {
   branches: any[];
   isSupabaseConfigured: boolean;
   Logo: any;
-  safeFetch: (url: string, options?: RequestInit, retries?: number, backoff?: number) => Promise<{ res: Response, data: any }>;
+  safeFetch: typeof safeFetch;
   supabase: any;
 }
 
@@ -129,6 +132,27 @@ export default function AuthUI({
   const [confirmResetPasswordNewPassword, setConfirmResetPasswordNewPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [resetPasswordStatus, setResetPasswordStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const [canProceed, setCanProceed] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+
+  // Reset timer when slide changes
+  React.useEffect(() => {
+    setCanProceed(false);
+    const duration = 3;
+    setCountdown(duration);
+    const interval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setCanProceed(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [onboardingStep]);
 
   const goToEntry = () => {
     setAuthError('');
@@ -240,6 +264,7 @@ export default function AuthUI({
       }
       setResetPasswordStatus({ type: 'success', message: 'Password updated. Redirecting...' });
       setTimeout(async () => {
+        isPasswordRecovery.current = false;
         setShowResetPasswordModal(false);
         setResetPasswordNewPassword('');
         await supabase.auth.signOut();
@@ -310,7 +335,7 @@ export default function AuthUI({
             fontFamily: "'Poppins', sans-serif",
           }}
         >
-          Jom jadi<br />duta Ara
+          Become an<br />Ara Ambassador
         </h2>
 
         <p
@@ -323,15 +348,15 @@ export default function AuthUI({
             fontFamily: "'Poppins', sans-serif",
           }}
         >
-          Program affiliate<br />
-          khusus untuk<br />
+          The exclusive affiliate<br />
+          programme for<br />
           TeamAra
         </p>
       </div>
 
       {/* Bottom: CTA Buttons */}
       <div className="px-8 pb-14 flex items-center gap-4">
-        {/* Outlined Sertai pill button */}
+        {/* Join button */}
         <button
           onClick={goToSignupFlow}
           className="flex-1 active:scale-[0.97] transition-all"
@@ -348,7 +373,7 @@ export default function AuthUI({
             letterSpacing: '0.02em',
           }}
         >
-          Sertai
+          Join
         </button>
 
         {/* Solid blue circle arrow button */}
@@ -463,33 +488,27 @@ export default function AuthUI({
       <div className="flex-1 flex flex-col items-center justify-center px-10">
         <AnimatePresence mode="wait">
           <motion.div
-            key={`icon-${onboardingStep}`}
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: -20 }}
-            transition={{ duration: 0.5 }}
-            className="flex items-center justify-center mb-10"
-            style={{ width: '120px', height: '120px', borderRadius: '2.5rem', background: '#1580c2' }}
-          >
-            {React.createElement(onboardingSlides[onboardingStep].icon, { size: 56, strokeWidth: 1.5, color: 'white' })}
-          </motion.div>
-        </AnimatePresence>
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`text-${onboardingStep}`}
+            key={`slide-${onboardingStep}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="text-center"
+            transition={{ duration: 0.5 }}
+            className="flex flex-col items-center"
           >
-            <h2 style={{ fontSize: '28px', fontWeight: 600, color: '#1580c2', marginBottom: '12px', lineHeight: 1.2 }}>
-              {onboardingSlides[onboardingStep].title}
-            </h2>
-            <p style={{ fontSize: '15px', fontWeight: 400, color: '#1580c2', opacity: 0.6, lineHeight: 1.6, maxWidth: '280px', margin: '0 auto' }}>
-              {onboardingSlides[onboardingStep].description}
-            </p>
+            <div
+              className="flex items-center justify-center mb-10"
+              style={{ width: '120px', height: '120px', borderRadius: '2.5rem', background: onboardingSlides[onboardingStep].bgColor, border: `2px solid ${onboardingSlides[onboardingStep].iconColor}20` }}
+            >
+              {React.createElement((onboardingSlides[onboardingStep] as any).icon, { size: 56, strokeWidth: 1.5, color: onboardingSlides[onboardingStep].iconColor })}
+            </div>
+            <div className="text-center">
+              <h2 style={{ fontSize: '28px', fontWeight: 600, color: '#1580c2', marginBottom: '12px', lineHeight: 1.2 }}>
+                {onboardingSlides[onboardingStep].title}
+              </h2>
+              <p style={{ fontSize: '15px', fontWeight: 400, color: '#1580c2', opacity: 0.6, lineHeight: 1.6, maxWidth: '280px', margin: '0 auto' }}>
+                {onboardingSlides[onboardingStep].description}
+              </p>
+            </div>
           </motion.div>
         </AnimatePresence>
       </div>
@@ -512,19 +531,26 @@ export default function AuthUI({
         </div>
 
         <button
+          disabled={!canProceed}
           onClick={() => {
+            if (!canProceed) return;
             if (onboardingStep === onboardingSlides.length - 1) goToRegister();
             else setOnboardingStep(prev => prev + 1);
           }}
-          className="w-full flex items-center justify-center gap-3 active:scale-[0.97] transition-all"
+          className="w-full flex items-center justify-center gap-3 transition-all"
           style={{
-            height: '58px', borderRadius: '40px', background: '#1580c2',
+            height: '58px', borderRadius: '40px',
+            background: canProceed ? '#1580c2' : 'rgba(21,128,194,0.25)',
             border: 'none', color: '#ffffff', fontSize: '16px', fontWeight: 600,
-            fontFamily: "'Poppins', sans-serif", cursor: 'pointer',
+            fontFamily: "'Poppins', sans-serif",
+            cursor: canProceed ? 'pointer' : 'not-allowed',
+            transition: 'background 0.3s',
           }}
         >
-          {onboardingStep === onboardingSlides.length - 1 ? 'Create Account' : 'Next'}
-          <ChevronRight size={20} />
+          {canProceed
+            ? (onboardingStep === onboardingSlides.length - 1 ? 'Create Account' : 'Next')
+            : `Wait ${countdown}s...`}
+          {canProceed && <ChevronRight size={20} />}
         </button>
       </div>
     </div>
