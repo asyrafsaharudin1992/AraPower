@@ -2758,8 +2758,6 @@ export default function App() {
             fetchServices={fetchServices}
             selectedPromo={selectedPromo}
             isPromoModalOpen={isPromoModalOpen}
-            isUploading={isUploading}
-            handleImageUpload={handleImageUpload}
             handleUpdateProfile={handleUpdateProfile}
             THEMES={THEMES}
             selectedTheme={selectedTheme}
@@ -3230,8 +3228,6 @@ export default function App() {
             <ProfileUI 
               currentUser={currentUser}
               darkMode={darkMode}
-              isUploading={isUploading}
-              handleImageUpload={handleImageUpload}
               handleUpdateProfile={handleUpdateProfile}
               THEMES={THEMES}
               selectedTheme={selectedTheme}

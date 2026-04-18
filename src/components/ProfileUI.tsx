@@ -1,14 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
-  UserCircle, RefreshCw, PlusCircle, Trash2, DollarSign, Palette, Sun, Moon, BookOpen, ChevronRight, Lock, MessageSquare
+  RefreshCw, DollarSign, Palette, Sun, Moon, BookOpen, ChevronRight, Lock, MessageSquare
 } from 'lucide-react';
 
 export interface ProfileUIProps {
   currentUser: any;
   darkMode: boolean;
-  isUploading: boolean;
-  handleImageUpload: (e: any) => void;
   handleUpdateProfile: (data: any) => void;
   THEMES: any;
   selectedTheme: string;
@@ -130,7 +128,7 @@ const BankSelector: React.FC<{ currentBank: string; darkMode: boolean }> = ({ cu
 
 // ── ProfileUI ─────────────────────────────────────────────────────────────────
 export const ProfileUI: React.FC<ProfileUIProps> = ({
-  currentUser, darkMode, isUploading, handleImageUpload, handleUpdateProfile,
+  currentUser, darkMode, handleUpdateProfile,
   THEMES, selectedTheme, setSelectedTheme, windowWidth, setDarkMode,
   reduceTranslucency, setReduceTranslucency, setActiveTab, setShowPasswordModal,
   feedbackMessage, setFeedbackMessage, handleSendFeedback, isSendingFeedback, handleLogout,
@@ -164,34 +162,8 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
         <div style={{ position: 'absolute', top: 0, right: 0, width: '220px', height: '220px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', transform: 'translate(40%,-40%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: 0, left: 0, width: '160px', height: '160px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', transform: 'translate(-40%,40%)', pointerEvents: 'none' }} />
 
-        {/* ── Avatar + name ── */}
+        {/* ── Name + role ── */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '36px', position: 'relative', zIndex: 1 }}>
-          <div style={{ position: 'relative', marginBottom: '16px' }}>
-            <div style={{ width: '112px', height: '112px', borderRadius: '28px', background: 'rgba(255,255,255,0.15)', border: '3px solid rgba(255,255,255,0.3)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {currentUser.profile_picture
-                ? <img src={currentUser.profile_picture} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
-                : <UserCircle size={56} color="rgba(255,255,255,0.5)" />}
-              {isUploading && (
-                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <RefreshCw color="white" size={24} className="animate-spin" />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-            <label style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.2)', color: '#ffffff', padding: '7px 16px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <PlusCircle size={13} /> Choose Image
-              <input type="file" style={{ display: 'none' }} accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
-            </label>
-            {currentUser.profile_picture && (
-              <button type="button" onClick={() => handleUpdateProfile({ profile_picture: '' })}
-                style={{ background: 'rgba(239,68,68,0.3)', color: '#fca5a5', padding: '7px 16px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', display: 'flex', alignItems: 'center', gap: '6px', border: 'none', cursor: 'pointer', fontFamily: P }}>
-                <Trash2 size={13} /> Remove
-              </button>
-            )}
-          </div>
-
           <h3 style={{ fontSize: '24px', fontWeight: 700, color: '#ffffff', margin: '0 0 4px 0' }}>{currentUser.nickname || currentUser.name}</h3>
           <p style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>{currentUser.role}</p>
         </div>
@@ -204,7 +176,6 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
             const fd = new FormData(e.currentTarget);
             handleUpdateProfile({
               nickname: fd.get('nickname') as string,
-              profile_picture: currentUser.profile_picture,
               bank_name: fd.get('bank_name') as string,
               bank_account_number: fd.get('bank_account_number') as string,
               id_type: 'MyKad',
