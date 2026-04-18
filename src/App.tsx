@@ -6,6 +6,7 @@ import Markdown from 'react-markdown';
 import AuthUI from './AuthUI';
 import { PromotionsCarousel } from './components/PromotionsCarousel';
 import { AdminUI } from './components/AdminUI';
+import { AffiliateManagement } from './components/AffiliateManagement';
 import { DashboardUI } from './components/DashboardUI';
 import { CategoryScrollRow } from './components/CategoryScrollRow';
 import { PayoutManagement } from './components/PayoutManagement';
@@ -74,7 +75,8 @@ import {
   MessageSquare,
   Send,
   ArrowLeft,
-  X
+  X,
+  Award
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
@@ -349,13 +351,7 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
                 {/* Share Buttons */}
                 <div className="grid grid-cols-2 gap-4 mt-4">
                   <button
-                    onClick={() => {
-                      if (!isProfileComplete(currentUser)) {
-                        toast.error('Complete your profile (bank & ID details) to share links');
-                        return;
-                      }
-                      handleCopyLink();
-                    }}
+                    onClick={handleCopyLink}
                     className="py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
                   >
                     <Copy size={16} />
@@ -640,25 +636,6 @@ export const Logo = ({ className = "w-8 h-8", logoUrl }: { className?: string, l
   );
 };
 
-
-// Normalise Malaysian phone → 60XXXXXXXXX
-const formatMalaysianPhone = (raw: string): string => {
-  let v = raw.replace(/[\s\-().+]/g, '');   // strip spaces, dashes, parens, dots, +
-  if (v.startsWith('60')) return v;
-  if (v.startsWith('0')) v = '60' + v.slice(1);
-  else v = '60' + v;
-  return v;
-};
-
-// Normalise Malaysian IC → 12 digits, no dashes
-const formatMalaysianIC = (raw: string): string => raw.replace(/[-\s]/g, '');
-
-// Check if user has completed required profile fields for sharing
-const isProfileComplete = (user: any): boolean => {
-  if (!user) return false;
-  return !!(user.bank_name && user.bank_account_number && user.id_number);
-};
-
 const getShareUrl = (customDomain?: string) => {
   if (customDomain && typeof customDomain === 'string') {
     let domain = customDomain.trim();
@@ -738,7 +715,7 @@ export default function App() {
       created_at: new Date().toISOString()
     }
   ]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'promotions' | 'payouts' | 'inbox' | 'communication' | 'warm-leads'>(() => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'promotions' | 'payouts' | 'inbox' | 'communication' | 'warm-leads' | 'affiliates'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('lastActiveTab');
       if (saved) return saved as any;
@@ -980,11 +957,11 @@ export default function App() {
   });
 
   // Commission Tiers Configuration
-  const TIERS = [
+  const [TIERS, setTIERS] = useState([
     { name: 'Bronze', min: 0, bonus: 1, color: 'text-white', bg: 'bg-[#1580c2]' },
     { name: 'Silver', min: 6, bonus: 1.2, color: 'text-white', bg: 'bg-[#1580c2]' },
     { name: 'Gold', min: 11, bonus: 1.5, color: 'text-white', bg: 'bg-rose-500' }
-  ];
+  ]);
 
   // Form states
   const [patientName, setPatientName] = useState('');
@@ -1409,6 +1386,7 @@ export default function App() {
       if (data.clinic) setClinicProfile(data.clinic);
       if (data.roles) setRolesConfig(data.roles);
       if (data.referral) setReferralSettings(data.referral);
+      if (data.tiers && Array.isArray(data.tiers) && data.tiers.length > 0) setTIERS(data.tiers);
     }
   };
 
@@ -2201,8 +2179,8 @@ export default function App() {
     }
   };
 
-  const handleSendFeedback = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendFeedback = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!feedbackMessage.trim() || !currentUser) return;
     
     setIsSendingFeedback(true);
@@ -2859,6 +2837,15 @@ export default function App() {
               )}
               {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
                 <button 
+                  onClick={() => setActiveTab('affiliates')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'affiliates' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
+                >
+                  <Award size={18} />
+                  <span className="text-sm font-bold">Affiliates</span>
+                </button>
+              )}
+              {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
+                <button 
                   onClick={() => setActiveTab('warm-leads')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'warm-leads' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
                 >
@@ -3433,6 +3420,20 @@ export default function App() {
               setShowStaffModal={setShowStaffModal}
               handleUpdateWarmLeadStatus={handleUpdateWarmLeadStatus}
               handleAdminResetPassword={handleAdminResetPassword}
+            />
+          )}
+
+          {activeTab === 'affiliates' && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
+            <AffiliateManagement
+              currentUser={currentUser}
+              staffPerformance={staffPerformance}
+              staffList={staffList}
+              referrals={referrals}
+              services={services}
+              apiBaseUrl={apiBaseUrl}
+              safeFetch={safeFetch}
+              TIERS={TIERS}
+              onTiersChange={setTIERS}
             />
           )}
 

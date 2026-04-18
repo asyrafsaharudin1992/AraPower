@@ -69,7 +69,7 @@ interface AuthUIProps {
   branches: any[];
   isSupabaseConfigured: boolean;
   Logo: any;
-  safeFetch: typeof safeFetch;
+  safeFetch: (url: string, options?: RequestInit, retries?: number, backoff?: number) => Promise<{ res: Response, data: any }>;
   supabase: any;
 }
 
@@ -240,7 +240,6 @@ export default function AuthUI({
       }
       setResetPasswordStatus({ type: 'success', message: 'Password updated. Redirecting...' });
       setTimeout(async () => {
-        isPasswordRecovery.current = false;
         setShowResetPasswordModal(false);
         setResetPasswordNewPassword('');
         await supabase.auth.signOut();
