@@ -2,7 +2,6 @@
 // Force rebuild - Logo update
 import { GoogleGenAI } from "@google/genai";
 import React, { useState, useEffect, useRef } from 'react';
-import { handleDownloadPoster } from './utils';
 import Markdown from 'react-markdown';
 import AuthUI from './AuthUI';
 import { PromotionsCarousel } from './components/PromotionsCarousel';
@@ -14,7 +13,6 @@ import { PayoutManagement } from './components/PayoutManagement';
 import { ReferralBoard } from './components/ReferralBoard';
 import { MobileUI, MobileTab } from './components/MobileUI';
 import { PromotionsUI } from './components/PromotionsUI';
-import { PromotionDetailModal } from './components/PromotionDetailModal';
 import { ProfileUI } from './components/ProfileUI';
 import AddServiceForm from './components/AddServiceForm';
 import { Service, Promotion, Staff, Referral, AppSettings, ClinicProfile } from './types';
@@ -181,12 +179,337 @@ const ModernPromotionCard = ({ item, onClick }: { item: Service, onClick: () => 
   );
 };
 
-const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, darkMode: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: string) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
+const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, currentUser }: { item: Service | null, isOpen: boolean, onClose: () => void, clinicProfile: ClinicProfile, darkMode: boolean, currentUser: Staff | null }) => {
+  if (!item) return null;
+
+  const linkCode = currentUser?.id || currentUser?.referral_code || currentUser?.promo_code;
+
+  const generateAffiliateLink = () => {
+    if (!linkCode) return '';
+    
+    let baseUrl = (item as any).target_url || window.location.origin;
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.slice(0, -1);
+    }
+    if (!baseUrl.startsWith('http') && !baseUrl.includes('localhost')) {
+      baseUrl = `https://${baseUrl}`;
+    }
+
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    return `${baseUrl}${separator}serviceName=${encodeURIComponent(item.name)}&serviceCode=${item.id}&ref=${linkCode}`;
+  };
+
+  const shareLink = generateAffiliateLink();
+
   // Poster gallery state
   const [showPosterGallery, setShowPosterGallery] = React.useState(false);
-  const allPosters: string[] = (item as any)?.poster_images?.length
-    ? (item as any).poster_images
-    : (item?.image_url ? [item.image_url] : []);
+  const parsePosterImages = (raw: any): string[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+      try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; }
+    }
+    return [];
+  };
+  const allPosters: string[] = parsePosterImages((item as any).poster_images).length > 0
+    ? parsePosterImages((item as any).poster_images)
+    : (item.image_url ? [item.image_url] : []);
+
+  const handleCopyLink = async () => {
+    if (!shareLink) {
+      toast.error('Code not generated yet');
+      return;
+    }
+    if (!isProfileComplete(currentUser)) {
+      toast.error('Complete your profile (IC & bank details) to share links');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      toast.success('Pautan disalin!');
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+
+
+  const handleDownloadPoster = async (url: string, fileName: string) => {
+    if (!url) {
+      toast.error('No poster available for this service');
+      return;
+    }
+    try {
+      // Try fetch first (works for same-origin / CORS-enabled URLs)
+      const response = await fetch(url, { mode: 'cors' });
+      if (response.ok) {
+        const blob = await response.blob();
+        const file = new File([blob], fileName, { type: blob.type });
+
+        // On mobile — use native share sheet if available
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: fileName });
+            return;
+          } catch (shareError: any) {
+            if (shareError.name === 'AbortError') return; // user cancelled
+          }
+        }
+
+        // Desktop / fallback — blob download
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName || 'poster.jpg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+        return;
+      }
+    } catch (_) {
+      // CORS blocked (e.g. Firebase Storage) — fall through to direct open
+    }
+
+    // Fallback: open in new tab so user can long-press save (mobile) or right-click save (desktop)
+    toast.success('Poster opened in new tab — long press / right-click to save', { duration: 4000 });
+    window.open(url, '_blank', 'noopener');
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]"
+          />
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[32px] z-[101] max-h-[90vh] overflow-y-auto custom-scrollbar"
+          >
+            <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 flex flex-col items-center">
+              <div className="w-12 h-1.5 bg-[#1580c2]/40 rounded-full my-4" />
+              <button 
+                onClick={onClose}
+                className="absolute top-2 right-6 w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:bg-zinc-200 transition-colors active:scale-90"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="px-6 pb-36 space-y-8">
+              {/* Poster */}
+              {item.image_url ? (
+                <div className="rounded-2xl overflow-hidden shadow-2xl">
+                  <img src={item.image_url} alt={item.name} className="w-full aspect-[4/5] object-cover" />
+                </div>
+              ) : (
+                <div className="w-full aspect-[4/5] bg-gradient-to-br from-brand-primary to-violet-500 rounded-2xl flex items-center justify-center">
+                  <Zap size={48} className="text-zinc-900" />
+                </div>
+              )}
+
+              {/* Info */}
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    <span className="px-2 py-1 rounded-md bg-[#1580c2]/20 text-[10px] font-black text-zinc-900 uppercase tracking-widest border border-[#1580c2]/20">
+                      {item.type || 'SERVICE'}
+                    </span>
+                    {(() => {
+                      const status = getServiceStatus(item);
+                      return (
+                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border border-[#1580c2]/20 ${
+                          status === 'active' ? 'bg-emerald-500 text-white' : 
+                          status === 'upcoming' ? 'bg-brand-surface text-zinc-900' : 
+                          'bg-rose-500 text-white'
+                        }`}>
+                          {status}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <h2 className="text-3xl font-black text-zinc-900 tracking-tight mb-2">{item.name}</h2>
+                  <p className="text-zinc-500 text-sm leading-relaxed">{item.description || 'No description provided'}</p>
+                </div>
+
+                {/* Pricing */}
+                <div className={`${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-transparent border-[#1580c2]/20/20'} rounded-3xl p-6 border space-y-4`}>
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Base Price</span>
+                    <span className="text-zinc-500 text-lg line-through font-medium">
+                      {clinicProfile.currency}{(item.base_price || 0).toFixed(0)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Promo Price</span>
+                    <span className="text-zinc-900 text-3xl font-black">
+                      {clinicProfile.currency}{(item.promo_price || item.base_price || 0).toFixed(0)}
+                    </span>
+                  </div>
+
+                  <div className="pt-4 border-t border-[#1580c2]/20 flex justify-between items-center">
+                    <span className="text-[#1580c2] text-xs font-bold uppercase tracking-widest">Agent Incentive</span>
+                    <span className="text-[#1580c2] text-xl font-black">
+                      {clinicProfile.currency}{(item.commission_rate || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <button
+                  onClick={() => {
+                    if (allPosters.length === 0) {
+                      toast.error('No poster available for this service');
+                      return;
+                    }
+                    if (allPosters.length === 1) {
+                      handleDownloadPoster(allPosters[0], `${item.name}-poster.jpg`);
+                    } else {
+                      setShowPosterGallery(true);
+                    }
+                  }}
+                  disabled={allPosters.length === 0}
+                  className="w-full py-5 bg-white text-zinc-900 rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  <Download size={20} />
+                  {allPosters.length > 1 ? `Download Poster (${allPosters.length})` : 'Download Poster to Share'}
+                </button>
+
+                {/* Poster Gallery Modal */}
+                {showPosterGallery && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[200] flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm"
+                    onClick={() => setShowPosterGallery(false)}
+                  >
+                    <motion.div
+                      initial={{ y: 60, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: 60, opacity: 0 }}
+                      onClick={e => e.stopPropagation()}
+                      className="bg-white rounded-[2rem] p-6 w-full max-w-md"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-black text-zinc-900 text-lg">Choose Poster</h3>
+                        <button onClick={() => setShowPosterGallery(false)}
+                          className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:bg-zinc-200">
+                          <X size={16} />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        {allPosters.map((url, idx) => (
+                          <div key={url}
+                            onClick={() => { handleDownloadPoster(url, `${item.name}-poster-${idx + 1}.jpg`); setShowPosterGallery(false); }}
+                            className="aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer border-2 border-zinc-100 hover:border-[#1580c2] transition-all active:scale-95 relative group"
+                          >
+                            <img src={url} alt={`Poster ${idx + 1}`} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <div className="bg-white text-zinc-900 text-xs font-black px-3 py-1.5 rounded-full flex items-center gap-1">
+                                <Download size={12} /> Download
+                              </div>
+                            </div>
+                            {idx === 0 && (
+                              <div className="absolute top-2 left-2 bg-[#1580c2] text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide">Primary</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-zinc-400 text-center">Tap a poster to download it</p>
+                    </motion.div>
+                  </motion.div>
+                )}
+
+                {/* Share Buttons */}
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <button
+                    onClick={handleCopyLink}
+                    className="py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <Copy size={16} />
+                    Copy Link
+                  </button>
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`Check out this promotion at our clinic: ${shareLink}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-4 bg-emerald-500 text-white rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <MessageCircle size={16} />
+                    WhatsApp
+                  </a>
+                </div>
+
+                <div className="pt-4">
+                  <button
+                    onClick={onClose}
+                    className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <ArrowLeft size={16} />
+                    Back to Promotions
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+};
+
+const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDeleteService, setEditingService }: { item: Service, darkMode: boolean, clinicProfile: ClinicProfile, currentUser: Staff, handleDeleteService: (id: string) => void, setEditingService: (service: Partial<Service> | null) => void }) => {
+  const handleDownloadPoster = async (url: string, fileName: string) => {
+    if (!url) {
+      toast.error('No poster available for this service');
+      return;
+    }
+    try {
+      // Try fetch first (works for same-origin / CORS-enabled URLs)
+      const response = await fetch(url, { mode: 'cors' });
+      if (response.ok) {
+        const blob = await response.blob();
+        const file = new File([blob], fileName, { type: blob.type });
+
+        // On mobile — use native share sheet if available
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: fileName });
+            return;
+          } catch (shareError: any) {
+            if (shareError.name === 'AbortError') return; // user cancelled
+          }
+        }
+
+        // Desktop / fallback — blob download
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName || 'poster.jpg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+        return;
+      }
+    } catch (_) {
+      // CORS blocked (e.g. Firebase Storage) — fall through to direct open
+    }
+
+    // Fallback: open in new tab so user can long-press save (mobile) or right-click save (desktop)
+    toast.success('Poster opened in new tab — long press / right-click to save', { duration: 4000 });
+    window.open(url, '_blank', 'noopener');
+  };
 
   const status = getServiceStatus(item);
 
@@ -268,72 +591,16 @@ const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDelet
 
           {/* Action Button */}
           <button
-            onClick={() => {
-              if (allPosters.length === 0) {
-                toast.error('No poster available for this service');
-                return;
-              }
-              if (allPosters.length === 1) {
-                handleDownloadPoster(allPosters[0], `${item.name}-poster.jpg`);
-              } else {
-                setShowPosterGallery(true);
-              }
-            }}
-            disabled={allPosters.length === 0}
+            onClick={() => item.image_url && handleDownloadPoster(item.image_url, `${item.name}-poster.jpg`)}
+            disabled={!item.image_url}
             className="w-full py-4 bg-[#1580c2] text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-[#1580c2]/20"
           >
             <Download size={20} className="text-white" />
-            {allPosters.length > 1 ? `DOWNLOAD POSTER (${allPosters.length})` : 'DOWNLOAD POSTER'}
+            DOWNLOAD POSTER
           </button>
         </div>
       </div>
       
-      {/* Poster Gallery Modal */}
-      {showPosterGallery && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[200] flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm"
-          onClick={() => setShowPosterGallery(false)}
-        >
-          <motion.div
-            initial={{ y: 60, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 60, opacity: 0 }}
-            onClick={e => e.stopPropagation()}
-            className="bg-white rounded-[2rem] p-6 w-full max-w-md"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-black text-zinc-900 text-lg">Choose Poster</h3>
-              <button onClick={() => setShowPosterGallery(false)}
-                className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:bg-zinc-200">
-                <X size={16} />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              {allPosters.map((url, idx) => (
-                <div key={url}
-                  onClick={() => { handleDownloadPoster(url, `${item.name}-poster-${idx + 1}.jpg`); setShowPosterGallery(false); }}
-                  className="aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer border-2 border-zinc-100 hover:border-[#1580c2] transition-all active:scale-95 relative group"
-                >
-                  <img src={url} alt={`Poster ${idx + 1}`} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <div className="bg-white text-zinc-900 text-xs font-black px-3 py-1.5 rounded-full flex items-center gap-1">
-                      <Download size={12} /> Download
-                    </div>
-                  </div>
-                  {idx === 0 && (
-                    <div className="absolute top-2 left-2 bg-[#1580c2] text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide">Primary</div>
-                  )}
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-zinc-400 text-center">Tap a poster to download it</p>
-          </motion.div>
-        </motion.div>
-      )}
-
       {/* Admin Controls */}
       {currentUser.role === 'admin' && (
         <div className="flex justify-end gap-2 mt-4 px-2">

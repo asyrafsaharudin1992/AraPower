@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Zap, Download, ArrowLeft, Share2 } from 'lucide-react';
@@ -29,8 +28,18 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
   };
 
   const [showPosterGallery, setShowPosterGallery] = React.useState(false);
-  const allPosters: string[] = item?.poster_images?.length
-    ? item.poster_images
+  // poster_images may be stored as JSON string from server — parse it
+  const parsePosterImages = (raw: any): string[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+      try { const parsed = JSON.parse(raw); return Array.isArray(parsed) ? parsed : []; }
+      catch { return []; }
+    }
+    return [];
+  };
+  const allPosters: string[] = parsePosterImages(item?.poster_images).length > 0
+    ? parsePosterImages(item?.poster_images)
     : (item?.image_url ? [item.image_url] : []);
 
   const handleShareLink = async () => {
@@ -113,7 +122,7 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
                       return (
                         <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border border-violet-500 ${
                           status === 'active' ? 'bg-emerald-500 text-white' : 
-                          status === 'upcoming' ? 'bg-brand-surface text-zinc-900' : 
+                          status === 'upcoming' ? 'bg-white text-zinc-900' : 
                           'bg-rose-500 text-white'
                         }`}>
                           {status}

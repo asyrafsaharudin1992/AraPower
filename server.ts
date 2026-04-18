@@ -2177,12 +2177,15 @@ app.get("/api/services", async (req, res) => {
   res.json(services.map((s: any) => {
     let allowances = {};
     let branches = [];
+    let poster_images: string[] = [];
     try { allowances = s.allowances_json ? JSON.parse(s.allowances_json) : {}; } catch (e) {}
     try { branches = s.branches ? JSON.parse(s.branches) : []; } catch (e) {}
+    try { poster_images = s.poster_images ? JSON.parse(s.poster_images) : []; } catch (e) {}
     return {
       ...s,
       allowances,
-      branches
+      branches,
+      poster_images
     };
   }));
 });
