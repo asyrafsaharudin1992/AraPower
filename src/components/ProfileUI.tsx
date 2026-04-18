@@ -207,7 +207,7 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
               profile_picture: currentUser.profile_picture,
               bank_name: fd.get('bank_name') as string,
               bank_account_number: fd.get('bank_account_number') as string,
-              id_type: fd.get('id_type') as string,
+              id_type: 'MyKad',
               id_number: formatMalaysianIC(fd.get('id_number') as string || ''),
             });
           }}
@@ -231,16 +231,32 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
               </div>
               <div>
                 {fieldLabel('ID Type')}
-                <select name="id_type" defaultValue={currentUser.id_type || 'NRIC'} style={{ ...inputOnBlue, cursor: 'pointer' }}>
-                  <option value="NRIC"          style={{ background: BLUE }}>NRIC</option>
-                  <option value="PASSPORT"      style={{ background: BLUE }}>Passport</option>
-                  <option value="BUSINESS_REG"  style={{ background: BLUE }}>Business Registration</option>
-                </select>
+                <input type="hidden" name="id_type" value="MyKad" />
+                <div style={{ ...inputOnBlue, display: 'flex', alignItems: 'center', opacity: 0.7, cursor: 'default' }}>
+                  MyKad (Malaysian IC)
+                </div>
               </div>
               <div>
-                {fieldLabel('ID Number')}
-                <input name="id_number" type="text" defaultValue={currentUser.id_number || ''} placeholder="e.g. 900101-10-5050" style={inputOnBlue}
-                  onBlur={(e) => { e.target.value = formatMalaysianIC(e.target.value); }} />
+                {fieldLabel('IC Number (MyKad)')}
+                <input
+                  name="id_number"
+                  type="text"
+                  inputMode="numeric"
+                  defaultValue={currentUser.id_number || ''}
+                  placeholder="e.g. 900101105050"
+                  style={inputOnBlue}
+                  maxLength={12}
+                  onChange={(e) => {
+                    // Strip all non-numeric characters as user types
+                    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                  }}
+                  onBlur={(e) => {
+                    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                  }}
+                />
+                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '6px', fontFamily: "'Poppins', sans-serif" }}>
+                  12 digits, numbers only — no dashes
+                </p>
               </div>
             </div>
           </div>
