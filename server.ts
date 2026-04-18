@@ -368,6 +368,115 @@ async function sendAdminNotification(newUser: any) {
   }
 }
 
+
+async function sendApprovalNotification(staff: any) {
+  if (!resend) {
+    console.log('RESEND_API_KEY not found. Skipping approval email.');
+    return;
+  }
+  if (!staff?.email) {
+    console.warn('sendApprovalNotification: no email address for staff', staff?.id);
+    return;
+  }
+
+  const appUrl = process.env.APP_URL || 'https://arapower.hsohealthcare.com';
+  const firstName = staff.name?.split(' ')[0] || 'there';
+
+  try {
+    await resend.emails.send({
+      from: 'Klinik Ara 24 Jam <noreply@hsohealthcare.com>',
+      to: staff.email,
+      subject: '🎉 Your AraPower account has been approved!',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"></head>
+        <body style="margin:0;padding:0;background:#f8fafc;font-family:'Helvetica Neue',Arial,sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:40px 0;">
+            <tr><td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.07);max-width:600px;width:100%;">
+                
+                <!-- Header -->
+                <tr>
+                  <td style="background:#1580c2;padding:36px 40px;text-align:center;">
+                    <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-0.5px;">AraPower</h1>
+                    <p style="margin:6px 0 0;color:rgba(255,255,255,0.7);font-size:13px;">by Klinik Ara 24 Jam</p>
+                  </td>
+                </tr>
+
+                <!-- Body -->
+                <tr>
+                  <td style="padding:40px;">
+                    <div style="text-align:center;margin-bottom:32px;">
+                      <div style="display:inline-block;background:#f0fdf4;border-radius:50%;width:72px;height:72px;line-height:72px;font-size:36px;margin-bottom:16px;">🎉</div>
+                      <h2 style="margin:0;color:#1580c2;font-size:24px;font-weight:800;">You're approved, ${firstName}!</h2>
+                      <p style="margin:10px 0 0;color:#64748b;font-size:15px;line-height:1.6;">
+                        Your AraPower affiliate account has been reviewed and approved by our admin team. You can now start sharing and earning.
+                      </p>
+                    </div>
+
+                    <!-- What's next -->
+                    <div style="background:#f8fafc;border-radius:12px;padding:24px;margin-bottom:28px;">
+                      <p style="margin:0 0 16px;font-size:13px;font-weight:700;color:#1580c2;text-transform:uppercase;letter-spacing:0.1em;">What's next</p>
+                      <table width="100%" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="padding:8px 0;font-size:14px;color:#374151;">
+                            <span style="color:#1580c2;font-weight:700;margin-right:10px;">①</span>
+                            Complete your profile — add your IC and bank details to receive payouts
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="padding:8px 0;font-size:14px;color:#374151;">
+                            <span style="color:#1580c2;font-weight:700;margin-right:10px;">②</span>
+                            Share your personal link or QR code with your network
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="padding:8px 0;font-size:14px;color:#374151;">
+                            <span style="color:#1580c2;font-weight:700;margin-right:10px;">③</span>
+                            Earn commission every time a referral successfully completes a visit
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
+
+                    <!-- CTA -->
+                    <div style="text-align:center;margin-bottom:32px;">
+                      <a href="${appUrl}" style="display:inline-block;background:#1580c2;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:16px 40px;border-radius:40px;letter-spacing:0.03em;">
+                        Open AraPower →
+                      </a>
+                    </div>
+
+                    <p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;line-height:1.6;">
+                      If you have any questions, reach out to us at 
+                      <a href="mailto:support@hsohealthcare.com" style="color:#1580c2;">support@hsohealthcare.com</a>
+                    </p>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td style="background:#f1f5f9;padding:20px 40px;text-align:center;">
+                    <p style="margin:0;font-size:12px;color:#94a3b8;">
+                      © ${new Date().getFullYear()} Klinik Ara 24 Jam · 
+                      <a href="${appUrl}" style="color:#1580c2;text-decoration:none;">arapower.hsohealthcare.com</a>
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+            </td></tr>
+          </table>
+        </body>
+        </html>
+      `
+    });
+    console.log(\`[sendApprovalNotification] Approval email sent to \${staff.email}\`);
+  } catch (err) {
+    console.error('[sendApprovalNotification] Failed to send email:', err);
+  }
+}
+
 // Seed Supabase if empty
 async function seedSupabase() {
   if (!supabase) {
@@ -1846,12 +1955,22 @@ app.post("/api/staff/:id/approve", async (req, res) => {
     updateData.employment_status = 'active';
   }
   
-  const { error } = await supabase
+  const { data: updatedStaff, error } = await supabase
     .from('staff')
     .update(updateData)
-    .eq('id', id);
+    .eq('id', id)
+    .select('id, name, email')
+    .single();
     
   if (error) return res.status(500).json({ error: error.message });
+
+  // Send approval email if account was just approved
+  if (is_approved && updatedStaff?.email) {
+    sendApprovalNotification(updatedStaff).catch(e =>
+      console.error('[approve] Email send failed (non-blocking):', e)
+    );
+  }
+
   res.json({ success: true });
 });
 
