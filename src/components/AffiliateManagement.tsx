@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'react-hot-toast';
 import {
-  Trophy, TrendingUp, Users, DollarSign, Settings,
+  Trophy, TrendingUp, Users, DollarSign,
   ChevronRight, Search, Save, Plus, Trash2, RefreshCw,
   Award, Zap, BarChart2, Edit2, Check, X
 } from 'lucide-react';
@@ -73,6 +73,11 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
   const [isSavingTiers, setIsSavingTiers] = useState(false);
   const [editingTierIdx, setEditingTierIdx] = useState<number | null>(null);
 
+  // Sync editingTiers when TIERS prop updates (e.g. after fetchSettings loads saved tiers)
+  React.useEffect(() => {
+    setEditingTiers(JSON.parse(JSON.stringify(TIERS)));
+  }, [JSON.stringify(TIERS)]);
+
   // ── Commission state ───────────────────────────────────────────────────────
   const [defaultCommission, setDefaultCommission] = useState(5);
   const [isSavingCommission, setIsSavingCommission] = useState(false);
@@ -121,7 +126,7 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
   const handleSaveTiers = async () => {
     setIsSavingTiers(true);
     try {
-      const { res } = await safeFetch(`${apiBaseUrl}/api/settings`, {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'tiers', value: editingTiers }),
@@ -130,10 +135,12 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
         onTiersChange(editingTiers);
         toast.success('Tier settings saved!');
       } else {
-        toast.error('Failed to save tiers');
+        console.error('[AffiliateManagement] Save tiers failed:', res.status, data);
+        toast.error(`Failed to save tiers: ${data?.error || res.status}`);
       }
-    } catch {
-      toast.error('Failed to save tiers');
+    } catch (err: any) {
+      console.error('[AffiliateManagement] Save tiers exception:', err);
+      toast.error(`Failed to save tiers: ${err?.message || 'Unknown error'}`);
     } finally {
       setIsSavingTiers(false);
     }
