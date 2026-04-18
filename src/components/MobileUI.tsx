@@ -305,6 +305,38 @@ export const MobileUI: React.FC<MobileUIProps> = ({
               </div>
             </header>
 
+
+            {/* ── PROFILE COMPLETION BANNER ─────────────────────── */}
+            {activeTab === 'dashboard' &&
+              !!(!(currentUser.bank_name && currentUser.bank_account_number && currentUser.id_number)) && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-4 mx-0"
+              >
+                <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                  <div className="w-8 h-8 rounded-xl bg-amber-400 text-white flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                      <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-black text-amber-800 leading-tight">Complete your profile</p>
+                    <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                      Add your IC number and bank details to receive payouts and unlock sharing.
+                    </p>
+                    <button
+                      onClick={() => setActiveTab('profile')}
+                      className="mt-2 text-xs font-black text-amber-800 underline underline-offset-2 active:opacity-70"
+                    >
+                      Complete Now →
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {/* ── TAB CONTENT ──────────────────────────────────────── */}
             <AnimatePresence mode="wait">
 

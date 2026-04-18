@@ -1146,33 +1146,16 @@ app.post("/api/special-offers", async (req, res) => {
 
 app.post("/api/settings", async (req, res) => {
   const { key, value } = req.body;
-  if (!key) return res.status(400).json({ error: "key is required" });
-
-  console.log(`[POST /api/settings] Saving key: ${key}`);
-
-  // Delete existing row first, then insert — avoids upsert unique constraint issues
-  const { error: delError } = await supabase
+  const { error } = await supabase
     .from('settings')
-    .delete()
-    .eq('key', key);
-
-  if (delError && delError.code !== 'PGRST205') {
-    console.warn(`[POST /api/settings] Delete warning for key "${key}":`, delError.message);
-  }
-
-  const { error: insertError } = await supabase
-    .from('settings')
-    .insert({ key, value: JSON.stringify(value) });
-
-  if (insertError) {
-    if (insertError.code === 'PGRST205') {
+    .upsert({ key, value: JSON.stringify(value) });
+    
+  if (error) {
+    if (error.code === 'PGRST205') {
       return res.status(500).json({ error: "Settings table does not exist in the database." });
     }
-    console.error(`[POST /api/settings] Insert error for key "${key}":`, insertError.message);
-    return res.status(500).json({ error: insertError.message });
+    return res.status(500).json({ error: error.message });
   }
-
-  console.log(`[POST /api/settings] Saved key "${key}" successfully`);
   res.json({ success: true });
 });
 
@@ -2284,7 +2267,22 @@ app.get("/api/payouts/summary", async (req, res) => {
     payoutSummary[affiliateId].patient_ids.push(ref.id);
   });
 
-  return res.json(Object.values(payoutSummary));
+  // Flag affiliates with incomplete profiles — admin warned before processing
+  const result = Object.values(payoutSummary).map((p: any) => {
+    const staff = staffMap[p.affiliate_id];
+    const profileIncomplete = !staff?.bank_account_number || !staff?.id_number;
+    return {
+      ...p,
+      profile_incomplete: profileIncomplete,
+      missing_fields: [
+        !staff?.bank_name ? 'bank_name' : null,
+        !staff?.bank_account_number ? 'bank_account_number' : null,
+        !staff?.id_number ? 'id_number' : null,
+      ].filter(Boolean)
+    };
+  });
+
+  return res.json(result);
 });
 
 app.post("/api/payouts/process", async (req, res) => {
@@ -2294,6 +2292,21 @@ app.post("/api/payouts/process", async (req, res) => {
   
   if (!patient_ids || patient_ids.length === 0) {
     return res.status(400).json({ error: "No patients selected for payout" });
+  }
+
+  // Layer 3: Block payout if affiliate profile is incomplete
+  const resolvedAffiliateId = affiliate_id || staff_id;
+  if (resolvedAffiliateId) {
+    const { data: staffCheck } = await supabase
+      .from('staff')
+      .select('bank_account_number, id_number, name')
+      .eq('id', resolvedAffiliateId)
+      .single();
+    if (staffCheck && (!staffCheck.bank_account_number || !staffCheck.id_number)) {
+      return res.status(400).json({
+        error: `Cannot process payout for ${staffCheck.name || 'this affiliate'} — bank account or IC number is missing from their profile.`
+      });
+    }
   }
 
   // Set to payment_approved (not payment_made) — admin must confirm payment separately

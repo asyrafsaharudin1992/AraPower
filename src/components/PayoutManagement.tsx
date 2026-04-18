@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, CheckCircle2, Download, DollarSign, RefreshCw } from 'lucide-react';
+import { Search, CheckCircle2, Download, DollarSign, RefreshCw , AlertTriangle } from 'lucide-react';
 
 interface PayoutManagementProps {
   currentUser: any;
@@ -28,68 +28,27 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
   const [selectedForApproval, setSelectedForApproval] = useState<string[]>([]);
   const [selectedForPayout, setSelectedForPayout] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [branchFilter, setBranchFilter] = useState('all');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [groupBy, setGroupBy] = useState<'none' | 'affiliate' | 'branch'>('none');
 
-  if (!rolesConfig[currentUser.role]?.canManagePayouts) return null;
-
-  const getAffiliateName = (r: any) =>
-    staffList.find(s => String(s.id) === String(r.staff_id))?.name || r.staff_name || 'Unknown';
-
-  const formatDate = (d: string) => {
-    if (!d) return '—';
-    const s = d.split('T')[0];
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return d;
-    const [y, m, day] = s.split('-');
-    return `${day}/${m}/${y}`;
-  };
+  if (!rolesConfig[currentUser.role]?.canViewAnalytics) return null;
 
   const completedCases = referrals.filter(r => r.status?.toLowerCase() === 'completed' && r.commission_amount > 0 && r.staff_id);
   const approvedCases = referrals.filter(r => r.status?.toLowerCase() === 'payment_approved' && r.commission_amount > 0 && r.staff_id);
   const paidCases = referrals.filter(r => r.status?.toLowerCase() === 'payment_made' && r.commission_amount > 0 && r.staff_id);
 
-  const filteredCompleted = completedCases.filter(r => {
-    const name = getAffiliateName(r).toLowerCase();
-    const search = searchQuery.toLowerCase();
-    return (affiliateFilter === 'all' || String(r.staff_id) === affiliateFilter) &&
-      (branchFilter === 'all' || r.branch === branchFilter) &&
-      (!dateFrom || (r.appointment_date || r.date) >= dateFrom) &&
-      (!dateTo || (r.appointment_date || r.date) <= dateTo) &&
-      (r.patient_name?.toLowerCase().includes(search) || name.includes(search));
-  });
+  const filteredCompleted = completedCases.filter(r => 
+    (affiliateFilter === 'all' || String(r.staff_id) === affiliateFilter) &&
+    (r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) || r.staff_name?.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
-  const filteredApproved = approvedCases.filter(r => {
-    const name = getAffiliateName(r).toLowerCase();
-    const search = searchQuery.toLowerCase();
-    return (affiliateFilter === 'all' || String(r.staff_id) === affiliateFilter) &&
-      (branchFilter === 'all' || r.branch === branchFilter) &&
-      (!dateFrom || (r.appointment_date || r.date) >= dateFrom) &&
-      (!dateTo || (r.appointment_date || r.date) <= dateTo) &&
-      (r.patient_name?.toLowerCase().includes(search) || name.includes(search));
-  });
+  const filteredApproved = approvedCases.filter(r => 
+    (affiliateFilter === 'all' || String(r.staff_id) === affiliateFilter) &&
+    (r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) || r.staff_name?.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
-  // Grouped approved cases for payout tab
-  const groupedApproved = useMemo(() => {
-    if (groupBy === 'none') return { 'All Cases': filteredApproved };
-    return filteredApproved.reduce((acc: Record<string, any[]>, r) => {
-      const key = groupBy === 'affiliate' ? getAffiliateName(r) : (r.branch || 'Unknown Branch');
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(r);
-      return acc;
-    }, {});
-  }, [filteredApproved, groupBy]);
-
-  const filteredPaid = paidCases.filter(r => {
-    const name = getAffiliateName(r).toLowerCase();
-    const search = searchQuery.toLowerCase();
-    return (affiliateFilter === 'all' || String(r.staff_id) === affiliateFilter) &&
-      (branchFilter === 'all' || r.branch === branchFilter) &&
-      (!dateFrom || (r.appointment_date || r.date) >= dateFrom) &&
-      (!dateTo || (r.appointment_date || r.date) <= dateTo) &&
-      (r.patient_name?.toLowerCase().includes(search) || name.includes(search));
-  });
+  const filteredPaid = paidCases.filter(r => 
+    (affiliateFilter === 'all' || String(r.staff_id) === affiliateFilter) &&
+    (r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) || r.staff_name?.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   const handleApproveSelected = async () => {
     if (selectedForApproval.length === 0) return;
@@ -218,20 +177,6 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
-          <select
-            value={branchFilter}
-            onChange={(e) => setBranchFilter(e.target.value)}
-            className="px-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500"
-          >
-            <option value="all">All Branches</option>
-            {branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-          </select>
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-            className="px-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500"
-          />
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-            className="px-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500"
-          />
         </div>
       </div>
 
@@ -264,13 +209,11 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
                 <th className="p-4">Affiliate</th>
                 <th className="p-4">Patient</th>
                 <th className="p-4">Service</th>
-                <th className="p-4">Branch</th>
-                <th className="p-4">Appt Date</th>
                 <th className="p-4 text-right">Incentive</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
-              {filteredCompleted.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-zinc-500">No completed cases awaiting approval.</td></tr>}
+              {filteredCompleted.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-zinc-500">No completed cases awaiting approval.</td></tr>}
               {filteredCompleted.map(ref => (
                 <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors cursor-pointer" onClick={() => setSelectedForApproval(prev => prev.includes(String(ref.id)) ? prev.filter(id => id !== String(ref.id)) : [...prev, String(ref.id)])}>
                   <td className="p-4">
@@ -281,11 +224,9 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
                       className="w-5 h-5 rounded border-zinc-300 text-violet-500 focus:ring-violet-500"
                     />
                   </td>
-                  <td className="p-4 font-bold text-sm text-zinc-900">{getAffiliateName(ref)}</td>
+                  <td className="p-4 font-bold text-sm text-zinc-900">{ref.staff_name}</td>
                   <td className="p-4 text-sm text-zinc-600">{ref.patient_name}</td>
                   <td className="p-4 text-sm text-zinc-600">{ref.service_name}</td>
-                  <td className="p-4 text-sm text-zinc-600">{ref.branch || '—'}</td>
-                  <td className="p-4 text-sm text-zinc-600">{formatDate(ref.appointment_date || ref.date)}</td>
                   <td className="p-4 text-sm font-black text-emerald-600 text-right">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
                 </tr>
               ))}
@@ -295,6 +236,26 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
       )}
 
       {activeTab === 'payout' && (
+        <div className="space-y-4">
+        {/* Warning for affiliates with incomplete profiles */}
+        {(() => {
+          const incomplete = filteredApproved.filter(ref => {
+            const staff = staffList.find(s => String(s.id) === String(ref.staff_id));
+            return !staff?.bank_account_number || !staff?.id_number;
+          });
+          const uniqueNames = [...new Set(incomplete.map(r => r.staff_name).filter(Boolean))];
+          return uniqueNames.length > 0 ? (
+            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4">
+              <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-black text-amber-800">Incomplete profiles detected</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  {uniqueNames.join(', ')} — missing bank account or IC number. Payouts may fail. Ask them to complete their profile first.
+                </p>
+              </div>
+            </div>
+          ) : null;
+        })()}
         <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between flex-wrap gap-4">
             <label className="flex items-center gap-3 cursor-pointer">
@@ -307,12 +268,6 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
               <span className="text-sm font-bold text-zinc-700">Select All ({filteredApproved.length})</span>
             </label>
             <div className="flex items-center gap-2">
-              <select value={groupBy} onChange={e => setGroupBy(e.target.value as any)}
-                className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-200 text-xs font-bold uppercase tracking-widest focus:outline-none">
-                <option value="none">No Grouping</option>
-                <option value="affiliate">Group by Affiliate</option>
-                <option value="branch">Group by Branch</option>
-              </select>
               <button 
                 onClick={generateBulkCSV}
                 disabled={selectedForPayout.length === 0}
@@ -332,70 +287,58 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
             </div>
           </div>
           
-          {filteredApproved.length === 0 ? (
-            <p className="p-8 text-center text-zinc-500">No approved cases waiting for payout.</p>
-          ) : Object.entries(groupedApproved).map(([groupName, groupRows]: [string, any[]]) => {
-            const groupTotal = groupRows.reduce((s, r) => s + (r.commission_amount || 0), 0);
-            const groupIds = groupRows.map(r => String(r.id));
-            const groupAllSelected = groupIds.every(id => selectedForPayout.includes(id));
-            return (
-              <div key={groupName}>
-                {groupBy !== 'none' && (
-                  <div className="px-5 py-3 bg-zinc-50 border-y border-zinc-100 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <input type="checkbox" checked={groupAllSelected}
-                        onChange={() => groupAllSelected
-                          ? setSelectedForPayout(p => p.filter(id => !groupIds.includes(id)))
-                          : setSelectedForPayout(p => [...new Set([...p, ...groupIds])])}
-                        className="w-4 h-4 rounded border-zinc-300 text-emerald-500"
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-white border-b border-zinc-100 text-[10px] font-black text-zinc-500 uppercase tracking-widest">
+                <th className="p-4 w-12"></th>
+                <th className="p-4">Affiliate & Bank</th>
+                <th className="p-4">Patient</th>
+                <th className="p-4">Service</th>
+                <th className="p-4 text-right">Incentive</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-50">
+              {filteredApproved.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-zinc-500">No approved cases waiting for payout.</td></tr>}
+              {filteredApproved.map(ref => {
+                const staff = staffList.find(s => String(s.id) === String(ref.staff_id));
+                return (
+                  <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors cursor-pointer" onClick={() => setSelectedForPayout(prev => prev.includes(String(ref.id)) ? prev.filter(id => id !== String(ref.id)) : [...prev, String(ref.id)])}>
+                    <td className="p-4">
+                      <input 
+                        type="checkbox"
+                        checked={selectedForPayout.includes(String(ref.id))}
+                        readOnly
+                        className="w-5 h-5 rounded border-zinc-300 text-emerald-500 focus:ring-emerald-500"
                       />
-                      <span className="text-sm font-bold text-zinc-900">{groupName}</span>
-                      <span className="text-xs text-zinc-400">{groupRows.length} case{groupRows.length !== 1 ? 's' : ''}</span>
-                    </div>
-                    <span className="text-sm font-bold text-emerald-600">{clinicProfile.currency}{groupTotal.toFixed(2)}</span>
-                  </div>
-                )}
-                <table className="w-full text-left">
-                  {groupBy === 'none' && (
-                    <thead>
-                      <tr className="bg-white border-b border-zinc-100 text-[10px] font-black text-zinc-500 uppercase tracking-widest">
-                        <th className="p-4 w-12"></th>
-                        <th className="p-4">Affiliate & Bank</th>
-                        <th className="p-4">Patient</th>
-                        <th className="p-4">Service</th>
-                        <th className="p-4">Branch</th>
-                        <th className="p-4">Appt Date</th>
-                        <th className="p-4 text-right">Incentive</th>
-                      </tr>
-                    </thead>
-                  )}
-                  <tbody className="divide-y divide-zinc-50">
-                    {groupRows.map((ref: any) => {
-                      const staff = staffList.find(s => String(s.id) === String(ref.staff_id));
-                      return (
-                        <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors cursor-pointer"
-                          onClick={() => setSelectedForPayout(prev => prev.includes(String(ref.id)) ? prev.filter(id => id !== String(ref.id)) : [...prev, String(ref.id)])}>
-                          <td className="p-4">
-                            <input type="checkbox" checked={selectedForPayout.includes(String(ref.id))} readOnly
-                              className="w-5 h-5 rounded border-zinc-300 text-emerald-500 focus:ring-emerald-500" />
-                          </td>
-                          <td className="p-4">
-                            <p className="font-bold text-sm text-zinc-900">{getAffiliateName(ref)}</p>
-                            <p className="text-xs text-zinc-500 font-mono mt-0.5">{staff?.bank_name || 'N/A'} · {staff?.bank_account_number || staff?.account_number || 'N/A'}</p>
-                          </td>
-                          <td className="p-4 text-sm text-zinc-600">{ref.patient_name}</td>
-                          <td className="p-4 text-sm text-zinc-600">{ref.service_name}</td>
-                          <td className="p-4 text-sm text-zinc-600">{ref.branch || '—'}</td>
-                          <td className="p-4 text-sm text-zinc-600">{formatDate(ref.appointment_date || ref.date)}</td>
-                          <td className="p-4 text-sm font-black text-emerald-600 text-right">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            );
-          })}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-sm text-zinc-900">{ref.staff_name}</p>
+                        {(!staff?.bank_account_number || !staff?.id_number) && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 rounded-lg text-[10px] font-black text-amber-700 uppercase tracking-wider flex-shrink-0">
+                            <AlertTriangle size={10} />
+                            Incomplete Profile
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-500 font-mono mt-0.5">
+                        {staff?.bank_name || <span className="text-amber-600">No bank</span>}
+                        {' - '}
+                        {staff?.bank_account_number || staff?.account_number || <span className="text-amber-600">No account</span>}
+                      </p>
+                      {!staff?.id_number && (
+                        <p className="text-[10px] text-amber-600 font-bold mt-0.5">⚠ IC number missing</p>
+                      )}
+                    </td>
+                    <td className="p-4 text-sm text-zinc-600">{ref.patient_name}</td>
+                    <td className="p-4 text-sm text-zinc-600">{ref.service_name}</td>
+                    <td className="p-4 text-sm font-black text-emerald-600 text-right">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
         </div>
       )}
 
@@ -412,21 +355,17 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
                 <th className="p-4">Affiliate</th>
                 <th className="p-4">Patient</th>
                 <th className="p-4">Service</th>
-                <th className="p-4">Branch</th>
-                <th className="p-4">Appt Date</th>
                 <th className="p-4">Status</th>
                 <th className="p-4 text-right">Incentive Paid</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
-              {filteredPaid.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-zinc-500">No historical payments found.</td></tr>}
+              {filteredPaid.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-zinc-500">No historical payments found.</td></tr>}
               {filteredPaid.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(ref => (
                 <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
-                  <td className="p-4 font-bold text-sm text-zinc-900">{getAffiliateName(ref)}</td>
+                  <td className="p-4 font-bold text-sm text-zinc-900">{ref.staff_name}</td>
                   <td className="p-4 text-sm text-zinc-600">{ref.patient_name}</td>
                   <td className="p-4 text-sm text-zinc-600">{ref.service_name}</td>
-                  <td className="p-4 text-sm text-zinc-600">{ref.branch || '—'}</td>
-                  <td className="p-4 text-sm text-zinc-600">{formatDate(ref.appointment_date || ref.date)}</td>
                   <td className="p-4">
                     <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit">
                       <CheckCircle2 size={12} /> Paid

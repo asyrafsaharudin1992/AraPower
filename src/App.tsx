@@ -206,6 +206,10 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
       toast.error('Code not generated yet');
       return;
     }
+    if (!isProfileComplete(currentUser)) {
+      toast.error('Complete your profile (IC & bank details) to share links');
+      return;
+    }
     try {
       await navigator.clipboard.writeText(shareLink);
       toast.success('Pautan disalin!');
@@ -634,6 +638,12 @@ export const Logo = ({ className = "w-8 h-8", logoUrl }: { className?: string, l
       <Activity className="text-zinc-900" size={size * 0.7} strokeWidth={2.5} />
     </div>
   );
+};
+
+// Check if user has complete profile for payouts
+const isProfileComplete = (user: any): boolean => {
+  if (!user) return false;
+  return !!(user.bank_name && user.bank_account_number && user.id_number);
 };
 
 const getShareUrl = (customDomain?: string) => {
