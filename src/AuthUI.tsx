@@ -1,5 +1,5 @@
 // src/AuthUI.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import { Staff, ClinicProfile } from './types';
 import {
@@ -16,7 +16,19 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { safeFetch } from './App';
+
+
+// Normalise Malaysian phone → 60XXXXXXXXX
+const formatMalaysianPhone = (raw: string): string => {
+  let v = raw.replace(/[\s\-().+]/g, '');   // strip spaces, dashes, parens, dots, +
+  if (v.startsWith('60')) return v;
+  if (v.startsWith('0')) v = '60' + v.slice(1);
+  else v = '60' + v;
+  return v;
+};
+
+// Normalise Malaysian IC → 12 digits, no dashes
+const formatMalaysianIC = (raw: string): string => raw.replace(/[-\s]/g, '');
 
 const TERMS_OF_SERVICE = `
 # User Agreement & Privacy Policy
@@ -94,7 +106,6 @@ export default function AuthUI({
   const [authMode, setAuthMode] = useState<'welcome' | 'entry' | 'onboarding' | 'login' | 'register'>('welcome');
   const [onboardingStep, setOnboardingStep] = useState(0);
 
-  const isPasswordRecovery = useRef(false);
   const [showPassword, setShowPassword] = useState(false);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -173,16 +184,20 @@ export default function AuthUI({
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: authName, email: authEmail, branch: authBranch, phone: authPhone, password: authPassword })
+        body: JSON.stringify({ name: authName, email: authEmail, branch: authBranch, phone: formatMalaysianPhone(authPhone), password: authPassword })
       });
       if (!res.ok) throw new Error(data?.error || 'Registration failed');
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
-      if (signInError) {
+      // Auto sign in after registration
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+      if (signInError || !signInData?.user?.email) {
         setAuthError('Registration successful! Please log in.');
         setAuthMode('login');
-      } else {
-        onAuthSuccess(data);
+        return;
       }
+      // Fetch full staff profile — don't pass raw register response
+      const { res: profileRes, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${signInData.user.email}`);
+      if (!profileRes.ok) throw new Error(profileData?.error || 'Failed to load profile');
+      onAuthSuccess(profileData);
     } catch (error: any) {
       setAuthError(error.message || 'Registration failed');
     } finally {
@@ -633,29 +648,18 @@ export default function AuthUI({
                 {[
                   { label: 'Full Name', type: 'text', value: authName, onChange: (e: any) => setAuthName(e.target.value), placeholder: 'Your full name', icon: User },
                   { label: 'Email Address', type: 'email', value: authEmail, onChange: (e: any) => setAuthEmail(e.target.value), placeholder: 'name@example.com', icon: Mail },
-                  { label: 'Phone Number', type: 'tel', value: authPhone, onChange: (e: any) => setAuthPhone(e.target.value), placeholder: '60123456789', icon: Phone },
-                ].map(({ label, type, value, onChange, placeholder, icon: Icon }) => (
+                  { label: 'Phone Number', type: 'tel', value: authPhone, onChange: (e: any) => setAuthPhone(e.target.value), onBlur: (e: any) => setAuthPhone(formatMalaysianPhone(e.target.value)), placeholder: '60123456789', icon: Phone },
+                ].map(({ label, type, value, onChange, onBlur, placeholder, icon: Icon }: any) => (
                   <div key={label} className="space-y-2">
                     <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1580c2', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</label>
                     <div className="flex items-center gap-3" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px' }}>
                       <Icon size={18} style={{ color: '#1580c2', opacity: 0.4, flexShrink: 0 }} />
-                      <input type={type} required value={value} onChange={onChange} placeholder={placeholder}
+                      <input type={type} required value={value} onChange={onChange} onBlur={onBlur} placeholder={placeholder}
                         style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif" }} />
                     </div>
                   </div>
                 ))}
-                <div className="space-y-2">
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1580c2', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Branch</label>
-                  <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px' }}>
-                    <select required value={authBranch} onChange={(e) => setAuthBranch(e.target.value)}
-                      style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif" }}>
-                      <option value="">Select branch</option>
-                      {branches.map((branch) => (
-                        <option key={branch.id || branch.name} value={branch.name}>{branch.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+
                 <div className="space-y-2">
                   <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1580c2', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Password</label>
                   <div className="flex items-center gap-3" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px' }}>

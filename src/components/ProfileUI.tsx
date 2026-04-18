@@ -49,6 +49,9 @@ const MALAYSIAN_BANKS = [
   "Deutsche Bank Aktiengesellschaft","PT Bank Muamalat Indonesia, Tbk",
 ];
 
+// Strip dashes from IC number → 900101105050
+const formatMalaysianIC = (raw: string): string => raw.replace(/[-\s]/g, '');
+
 const BLUE = '#1580c2';
 const P = "'Poppins', sans-serif";
 
@@ -205,7 +208,7 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
               bank_name: fd.get('bank_name') as string,
               bank_account_number: fd.get('bank_account_number') as string,
               id_type: fd.get('id_type') as string,
-              id_number: fd.get('id_number') as string,
+              id_number: formatMalaysianIC(fd.get('id_number') as string || ''),
             });
           }}
           className="space-y-6"
@@ -236,7 +239,8 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
               </div>
               <div>
                 {fieldLabel('ID Number')}
-                <input name="id_number" type="text" defaultValue={currentUser.id_number || ''} placeholder="e.g. 900101-10-5050" style={inputOnBlue} />
+                <input name="id_number" type="text" defaultValue={currentUser.id_number || ''} placeholder="e.g. 900101-10-5050" style={inputOnBlue}
+                  onBlur={(e) => { e.target.value = formatMalaysianIC(e.target.value); }} />
               </div>
             </div>
           </div>

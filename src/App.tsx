@@ -6,7 +6,6 @@ import Markdown from 'react-markdown';
 import AuthUI from './AuthUI';
 import { PromotionsCarousel } from './components/PromotionsCarousel';
 import { AdminUI } from './components/AdminUI';
-import { AffiliateManagement } from './components/AffiliateManagement';
 import { DashboardUI } from './components/DashboardUI';
 import { CategoryScrollRow } from './components/CategoryScrollRow';
 import { PayoutManagement } from './components/PayoutManagement';
@@ -350,7 +349,13 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
                 {/* Share Buttons */}
                 <div className="grid grid-cols-2 gap-4 mt-4">
                   <button
-                    onClick={handleCopyLink}
+                    onClick={() => {
+                      if (!isProfileComplete(currentUser)) {
+                        toast.error('Complete your profile (bank & ID details) to share links');
+                        return;
+                      }
+                      handleCopyLink();
+                    }}
                     className="py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
                   >
                     <Copy size={16} />
@@ -633,6 +638,25 @@ export const Logo = ({ className = "w-8 h-8", logoUrl }: { className?: string, l
       <Activity className="text-zinc-900" size={size * 0.7} strokeWidth={2.5} />
     </div>
   );
+};
+
+
+// Normalise Malaysian phone → 60XXXXXXXXX
+const formatMalaysianPhone = (raw: string): string => {
+  let v = raw.replace(/[\s\-().+]/g, '');   // strip spaces, dashes, parens, dots, +
+  if (v.startsWith('60')) return v;
+  if (v.startsWith('0')) v = '60' + v.slice(1);
+  else v = '60' + v;
+  return v;
+};
+
+// Normalise Malaysian IC → 12 digits, no dashes
+const formatMalaysianIC = (raw: string): string => raw.replace(/[-\s]/g, '');
+
+// Check if user has completed required profile fields for sharing
+const isProfileComplete = (user: any): boolean => {
+  if (!user) return false;
+  return !!(user.bank_name && user.bank_account_number && user.id_number);
 };
 
 const getShareUrl = (customDomain?: string) => {
@@ -956,11 +980,11 @@ export default function App() {
   });
 
   // Commission Tiers Configuration
-  const [TIERS, setTIERS] = useState([
+  const TIERS = [
     { name: 'Bronze', min: 0, bonus: 1, color: 'text-white', bg: 'bg-[#1580c2]' },
     { name: 'Silver', min: 6, bonus: 1.2, color: 'text-white', bg: 'bg-[#1580c2]' },
     { name: 'Gold', min: 11, bonus: 1.5, color: 'text-white', bg: 'bg-rose-500' }
-  ]);
+  ];
 
   // Form states
   const [patientName, setPatientName] = useState('');
@@ -3391,38 +3415,25 @@ export default function App() {
           )}
 
           {activeTab === 'admin' && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
-            <div className="space-y-8">
-              <AdminUI 
-                currentUser={currentUser}
-                referrals={referrals}
-                clinicProfile={clinicProfile}
-                staffPerformance={staffPerformance}
-                activeStaffList={activeStaffList}
-                staffList={staffList}
-                warmLeads={warmLeads}
-                services={services}
-                adminSearch={adminSearch}
-                setAdminSearch={setAdminSearch}
-                handleApproveStaff={handleApproveStaff}
-                handleRejectStaff={handleRejectStaff}
-                handleDeleteStaff={handleDeleteStaff}
-                setSelectedStaffDetail={setSelectedStaffDetail}
-                setShowStaffModal={setShowStaffModal}
-                handleUpdateWarmLeadStatus={handleUpdateWarmLeadStatus}
-                handleAdminResetPassword={handleAdminResetPassword}
-              />
-              <AffiliateManagement
-                currentUser={currentUser}
-                staffPerformance={staffPerformance}
-                staffList={staffList}
-                referrals={referrals}
-                services={services}
-                apiBaseUrl={apiBaseUrl}
-                safeFetch={safeFetch}
-                TIERS={TIERS}
-                onTiersChange={setTIERS}
-              />
-            </div>
+            <AdminUI 
+              currentUser={currentUser}
+              referrals={referrals}
+              clinicProfile={clinicProfile}
+              staffPerformance={staffPerformance}
+              activeStaffList={activeStaffList}
+              staffList={staffList}
+              warmLeads={warmLeads}
+              services={services}
+              adminSearch={adminSearch}
+              setAdminSearch={setAdminSearch}
+              handleApproveStaff={handleApproveStaff}
+              handleRejectStaff={handleRejectStaff}
+              handleDeleteStaff={handleDeleteStaff}
+              setSelectedStaffDetail={setSelectedStaffDetail}
+              setShowStaffModal={setShowStaffModal}
+              handleUpdateWarmLeadStatus={handleUpdateWarmLeadStatus}
+              handleAdminResetPassword={handleAdminResetPassword}
+            />
           )}
 
           {activeTab === 'communication' && rolesConfig[currentUser.role]?.canManageCommunication && (
