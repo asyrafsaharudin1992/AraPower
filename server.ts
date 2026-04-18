@@ -477,6 +477,105 @@ async function sendApprovalNotification(staff: any) {
   }
 }
 
+
+async function sendReferralNotification(staff: any, referral: any) {
+  if (!resend || !staff?.email) return;
+
+  const appUrl = process.env.APP_URL || 'https://arapower.hsohealthcare.com';
+  const firstName = staff.name?.split(' ')[0] || 'there';
+  const serviceName = referral.service_name || 'a service';
+  const patientName = referral.patient_name || 'A patient';
+  const appointmentDate = referral.appointment_date
+    ? new Date(referral.appointment_date).toLocaleDateString('ms-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+
+  try {
+    await resend.emails.send({
+      from: 'Klinik Ara 24 Jam <noreply@hsohealthcare.com>',
+      to: staff.email,
+      subject: '🔔 New referral booked under your link!',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"></head>
+        <body style="margin:0;padding:0;background:#f8fafc;font-family:'Helvetica Neue',Arial,sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:40px 0;">
+            <tr><td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.07);max-width:600px;width:100%;">
+
+                <tr>
+                  <td style="background:#1580c2;padding:28px 40px;text-align:center;">
+                    <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:800;letter-spacing:-0.5px;">AraPower</h1>
+                    <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:12px;">by Klinik Ara 24 Jam</p>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:36px 40px;">
+                    <p style="margin:0 0 6px;font-size:15px;color:#374151;">Hi <strong>${firstName}</strong>,</p>
+                    <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;">
+                      Great news! Someone just booked an appointment through your referral link. Here are the details:
+                    </p>
+
+                    <div style="background:#f0f7ff;border-radius:12px;padding:20px 24px;margin-bottom:24px;border-left:4px solid #1580c2;">
+                      <table width="100%" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="padding:6px 0;font-size:13px;color:#64748b;width:40%;">Patient</td>
+                          <td style="padding:6px 0;font-size:14px;font-weight:700;color:#1e293b;">${patientName}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding:6px 0;font-size:13px;color:#64748b;">Service</td>
+                          <td style="padding:6px 0;font-size:14px;font-weight:700;color:#1e293b;">${serviceName}</td>
+                        </tr>
+                        ${appointmentDate ? `
+                        <tr>
+                          <td style="padding:6px 0;font-size:13px;color:#64748b;">Appointment</td>
+                          <td style="padding:6px 0;font-size:14px;font-weight:700;color:#1e293b;">${appointmentDate}</td>
+                        </tr>` : ''}
+                        <tr>
+                          <td style="padding:6px 0;font-size:13px;color:#64748b;">Status</td>
+                          <td style="padding:6px 0;font-size:14px;font-weight:700;color:#f59e0b;">Pending</td>
+                        </tr>
+                      </table>
+                    </div>
+
+                    <p style="margin:0 0 24px;font-size:13px;color:#64748b;line-height:1.6;">
+                      Your commission will be credited once the patient completes their visit. Keep sharing your link to earn more!
+                    </p>
+
+                    <div style="text-align:center;margin-bottom:28px;">
+                      <a href="${appUrl}" style="display:inline-block;background:#1580c2;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:14px 36px;border-radius:40px;">
+                        View in AraPower →
+                      </a>
+                    </div>
+
+                    <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">
+                      You're receiving this because you're an AraPower affiliate.
+                    </p>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="background:#f1f5f9;padding:16px 40px;text-align:center;">
+                    <p style="margin:0;font-size:11px;color:#94a3b8;">
+                      © Klinik Ara 24 Jam · <a href="${appUrl}" style="color:#1580c2;text-decoration:none;">arapower.hsohealthcare.com</a>
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+            </td></tr>
+          </table>
+        </body>
+        </html>
+      `
+    });
+    console.log('[sendReferralNotification] Email sent to ' + staff.email);
+  } catch (err) {
+    console.error('[sendReferralNotification] Failed:', err);
+  }
+}
+
 // Seed Supabase if empty
 async function seedSupabase() {
   if (!supabase) {
@@ -2551,6 +2650,38 @@ app.post("/api/referrals", async (req, res) => {
   if (insertError) {
     console.error("Database Insert Error:", insertError);
     return res.status(500).json({ error: insertError.message, details: insertError });
+  }
+
+  // ── Notify affiliate: in-app + email ────────────────────────────────
+  if (finalStaffId) {
+    try {
+      // a) In-app notification
+      await supabase.from('notifications').insert({
+        user_id: finalStaffId,
+        title: 'New Referral Booked!',
+        message: referral.patient_name
+          ? referral.patient_name + ' just booked ' + (referral.service_name || 'a service') + ' through your link.'
+          : 'Someone just booked through your referral link.',
+        type: 'referral',
+        is_read: false
+      });
+
+      // b) Email notification — fetch staff email first
+      const { data: staffForNotif } = await supabase
+        .from('staff')
+        .select('id, name, email')
+        .eq('id', finalStaffId)
+        .single();
+
+      if (staffForNotif?.email) {
+        sendReferralNotification(staffForNotif, referral).catch(e =>
+          console.error('[referral POST] Email notify failed (non-blocking):', e)
+        );
+      }
+    } catch (notifErr) {
+      // Notification failure must never block the referral response
+      console.error('[referral POST] Notification error (non-blocking):', notifErr);
+    }
   }
 
   return res.json({ message: "Referral logged successfully", referral });
