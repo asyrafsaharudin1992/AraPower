@@ -211,9 +211,8 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
     }
     return [];
   };
-  const allPosters: string[] = parsePosterImages((item as any).poster_images).length > 0
-    ? parsePosterImages((item as any).poster_images)
-    : (item.image_url ? [item.image_url] : []);
+  // Only Supabase-uploaded posters are downloadable — Firebase image_url is display only
+  const allPosters: string[] = parsePosterImages((item as any).poster_images);
 
   const handleCopyLink = async () => {
     if (!shareLink) {
@@ -419,9 +418,7 @@ const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, 
                                 <Download size={12} /> Download
                               </div>
                             </div>
-                            {idx === 0 && (
-                              <div className="absolute top-2 left-2 bg-[#1580c2] text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide">Primary</div>
-                            )}
+
                           </div>
                         ))}
                       </div>

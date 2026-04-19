@@ -5,50 +5,64 @@ import { toast } from 'react-hot-toast';
 import { getServiceStatus } from './ModernPromotionCard';
 import { handleDownloadPoster } from '../utils';
 
-export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, darkMode, currentUser }: { item: any | null, isOpen: boolean, onClose: () => void, clinicProfile: any, darkMode: boolean, currentUser: any | null }) => {
+export const PromotionDetailModal = ({ 
+  item, 
+  isOpen, 
+  onClose, 
+  clinicProfile, 
+  darkMode, 
+  currentUser 
+}: { 
+  item: any | null, 
+  isOpen: boolean, 
+  onClose: () => void, 
+  clinicProfile: any, 
+  darkMode: boolean, 
+  currentUser: any | null 
+}) => {
   if (!item) return null;
 
   const linkCode = currentUser?.id || currentUser?.referral_code || currentUser?.promo_code;
 
   const generateAffiliateLink = () => {
     if (!linkCode) return '';
-
     let baseUrl = (item as any).target_url || window.location.origin;
-
-    if (baseUrl.endsWith('/')) {
-      baseUrl = baseUrl.slice(0, -1);
-    }
-
-    if (!baseUrl.startsWith('http') && !baseUrl.includes('localhost')) {
-      baseUrl = `https://${baseUrl}`;
-    }
-
+    if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+    if (!baseUrl.startsWith('http') && !baseUrl.includes('localhost')) baseUrl = `https://${baseUrl}`;
     const separator = baseUrl.includes('?') ? '&' : '?';
     return `${baseUrl}${separator}serviceName=${encodeURIComponent(item.name)}&serviceCode=${item.id}&ref=${linkCode}`;
   };
 
   const [showPosterGallery, setShowPosterGallery] = React.useState(false);
-  // poster_images may be stored as JSON string from server — parse it
+
+  // 1. Parse the raw array from the database
   const parsePosterImages = (raw: any): string[] => {
     if (!raw) return [];
     if (Array.isArray(raw)) return raw;
     if (typeof raw === 'string') {
-      try { const parsed = JSON.parse(raw); return Array.isArray(parsed) ? parsed : []; }
-      catch { return []; }
+      try { 
+        const parsed = JSON.parse(raw); 
+        return Array.isArray(parsed) ? parsed : []; 
+      } catch { 
+        return []; 
+      }
     }
     return [];
   };
-  // Only Supabase-uploaded posters are downloadable — Firebase image_url is display only
-  const allPosters: string[] = parsePosterImages(item?.poster_images);
+
+  const allParsedPosters: string[] = parsePosterImages(item?.poster_images);
+
+  // 2. CRITICAL FIX: Explicitly filter out the Firebase image_url so it NEVER shows in the download gallery
+  const downloadablePosters: string[] = allParsedPosters.filter(
+    (url) => url !== item.image_url
+  );
 
   const handleShareLink = async () => {
     const shareLink = generateAffiliateLink();
-
     if (!shareLink) {
       toast.error('Link not ready yet');
       return;
     }
-
     try {
       if (navigator.share) {
         await navigator.share({
@@ -58,7 +72,6 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
         });
         return;
       }
-
       await navigator.clipboard.writeText(shareLink);
       toast.success('Link copied');
     } catch (error: any) {
@@ -80,6 +93,7 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
             onClick={onClose}
             className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]"
           />
+          
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
@@ -98,10 +112,15 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
             </div>
             
             <div className="px-6 pb-36 space-y-8">
-              {/* Poster */}
+              {/* HERO IMAGE: Source = image_url (Firebase) | Behaviour = Display only, no download */}
               {item.image_url ? (
                 <div className="rounded-2xl overflow-hidden shadow-2xl">
-                  <img src={item.image_url} alt={item.name} className="w-full aspect-[4/5] object-cover" />
+                  <img 
+                    src={item.image_url} 
+                    alt={item.name} 
+                    className="w-full aspect-[4/5] object-cover pointer-events-none select-none" 
+                    draggable="false"
+                  />
                 </div>
               ) : (
                 <div className="w-full aspect-[4/5] bg-gradient-to-br from-brand-primary to-violet-500 rounded-2xl flex items-center justify-center">
@@ -158,24 +177,24 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  {/* Action Button */}
+                  {/* ACTION BUTTON: Triggers ONLY downloadablePosters (Supabase) */}
                   <button
                     onClick={() => {
-                      if (allPosters.length === 0) {
-                        toast.error('No downloadable poster available — check back later');
+                      if (downloadablePosters.length === 0) {
+                        toast.error('No downloadable poster available');
                         return;
                       }
-                      if (allPosters.length === 1) {
-                        handleDownloadPoster(allPosters[0], `${item.name}-poster.jpg`);
+                      if (downloadablePosters.length === 1) {
+                        handleDownloadPoster(downloadablePosters[0], `${item.name}-poster.jpg`);
                       } else {
                         setShowPosterGallery(true);
                       }
                     }}
-                    disabled={allPosters.length === 0}
+                    disabled={downloadablePosters.length === 0}
                     className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
                   >
                     <Download size={16} />
-                    {allPosters.length === 0 ? 'No Poster' : allPosters.length > 1 ? `Poster (${allPosters.length})` : 'Download Poster'}
+                    {downloadablePosters.length === 0 ? 'No Poster' : downloadablePosters.length > 1 ? `Poster (${downloadablePosters.length})` : 'Download Poster'}
                   </button>
 
                   <button
@@ -187,49 +206,57 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
                   </button>
                 </div>
 
-                {/* Poster Gallery Modal */}
-                {showPosterGallery && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[200] flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm"
-                    onClick={() => setShowPosterGallery(false)}
-                  >
+                {/* POSTER GALLERY MODAL: Shows ONLY poster_images (Supabase) for direct download */}
+                <AnimatePresence>
+                  {showPosterGallery && (
                     <motion.div
-                      initial={{ y: 60, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      exit={{ y: 60, opacity: 0 }}
-                      onClick={e => e.stopPropagation()}
-                      className="bg-white rounded-[2rem] p-6 w-full max-w-md"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-[200] flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm"
+                      onClick={() => setShowPosterGallery(false)}
                     >
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-black text-zinc-900 text-lg">Choose Poster</h3>
-                        <button onClick={() => setShowPosterGallery(false)}
-                          className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:bg-zinc-200">
-                          <X size={16} />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 mb-4">
-                        {allPosters.map((url, idx) => (
-                          <div key={url}
-                            onClick={() => { handleDownloadPoster(url, `${item.name}-poster-${idx + 1}.jpg`); setShowPosterGallery(false); }}
-                            className="aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer border-2 border-zinc-100 hover:border-[#1580c2] transition-all active:scale-95 relative group"
+                      <motion.div
+                        initial={{ y: 60, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 60, opacity: 0 }}
+                        onClick={e => e.stopPropagation()}
+                        className="bg-white rounded-[2rem] p-6 w-full max-w-md"
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-black text-zinc-900 text-lg">Choose Poster</h3>
+                          <button 
+                            onClick={() => setShowPosterGallery(false)}
+                            className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:bg-zinc-200"
                           >
-                            <img src={url} alt={`Poster ${idx + 1}`} className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                              <div className="bg-white text-zinc-900 text-xs font-black px-3 py-1.5 rounded-full flex items-center gap-1">
-                                <Download size={12} /> Download
+                            <X size={16} />
+                          </button>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                          {downloadablePosters.map((url, idx) => (
+                            <div 
+                              key={idx}
+                              onClick={() => { 
+                                handleDownloadPoster(url, `${item.name}-poster-${idx + 1}.jpg`); 
+                                setShowPosterGallery(false); 
+                              }}
+                              className="aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer border-2 border-zinc-100 hover:border-[#1580c2] transition-all active:scale-95 relative group"
+                            >
+                              <img src={url} alt={`Downloadable Poster ${idx + 1}`} className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <div className="bg-white text-zinc-900 text-xs font-black px-3 py-1.5 rounded-full flex items-center gap-1">
+                                  <Download size={12} /> Download
+                                </div>
                               </div>
                             </div>
-
-                          </div>
-                        ))}
-                      </div>
-                      <p className="text-xs text-zinc-400 text-center">Tap a poster to download it</p>
+                          ))}
+                        </div>
+                        <p className="text-xs text-zinc-400 text-center">Tap a poster to download it</p>
+                      </motion.div>
                     </motion.div>
-                  </motion.div>
-                )}
+                  )}
+                </AnimatePresence>
 
                 <div className="pt-4">
                   <button

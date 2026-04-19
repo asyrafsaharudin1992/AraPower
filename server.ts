@@ -1757,35 +1757,40 @@ app.get("/api/affiliate-lookup/:code", async (req, res) => {
 });
 
 app.get("/api/staff", async (req, res) => {
-  const { promoCode, id } = req.query;
-  
-  const selectColumns = Array.from(staffColumns).length > 0 
-    ? Array.from(staffColumns).join(',') 
-    : 'id, name, email, role';
+  try {
+    const { promoCode, id } = req.query;
+    
+    const selectColumns = Array.from(staffColumns).length > 0 
+      ? Array.from(staffColumns).join(',') 
+      : 'id, name, email, role';
 
-  let query = supabase.from('staff').select(selectColumns);
-  
-  if (id) {
-    const { data, error } = await query.eq('id', id).single();
-    return res.json(data || null);
-  }
-  
-  if (promoCode) {
-    if (staffColumns.has('referral_code')) {
-      const { data, error } = await query.eq('referral_code', promoCode).single();
+    let query = supabase.from('staff').select(selectColumns);
+    
+    if (id) {
+      const { data, error } = await query.eq('id', id).single();
       return res.json(data || null);
     }
-    return res.json(null);
-  }
-  
-  const { data, error } = await query;
-  if (error) return res.status(500).json({ error: error.message });
+    
+    if (promoCode) {
+      if (staffColumns.has('referral_code')) {
+        const { data, error } = await query.eq('referral_code', promoCode).single();
+        return res.json(data || null);
+      }
+      return res.json(null);
+    }
+    
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
 
-  if (data && data.length > 0) {
-    Object.keys(data[0]).forEach(key => staffColumns.add(key));
-  }
+    if (data && data.length > 0) {
+      Object.keys(data[0]).forEach(key => staffColumns.add(key));
+    }
 
-  res.json(data);
+    res.json(data);
+  } catch (err: any) {
+    console.error("Unhandled error in /api/staff:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 app.post("/api/staff", async (req, res) => {
@@ -2324,188 +2329,198 @@ app.get("/api/schema", (req, res) => {
 
 
 app.get("/api/referrals", async (req, res) => {
-  const { staffId, branch, requesterRole, requesterBranch } = req.query;
-  
-  // Fetch referrals first without joins to avoid relationship errors
-  let query = supabase
-    .from('referrals')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (staffId && staffId !== 'undefined' && staffId !== 'null') {
-    query = query.eq('staff_id', staffId);
-  }
-  
-  const { upcoming } = req.query;
-  if (upcoming === 'true') {
-    const today = new Date().toISOString().split('T')[0];
-    query = query.gte('appointment_date', today);
-  }
-  
-  if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
-    query = query.eq('branch', branch);
-  } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
-    query = query.eq('branch', requesterBranch);
-  }
-
-  let { data: referrals, error } = await query;
-
-  // Fallback for missing columns
-  if (error && error.message && error.message.includes('staff_id')) {
-    console.warn('Falling back to created_by instead of staff_id');
-    let fallbackQuery = supabase
+  try {
+    const { staffId, branch, requesterRole, requesterBranch } = req.query;
+    
+    // Fetch referrals first without joins to avoid relationship errors
+    let query = supabase
       .from('referrals')
       .select('*')
       .order('created_at', { ascending: false });
-      
+
     if (staffId && staffId !== 'undefined' && staffId !== 'null') {
-      fallbackQuery = fallbackQuery.eq('created_by', staffId);
+      query = query.eq('staff_id', staffId);
     }
-      
+    
+    const { upcoming } = req.query;
     if (upcoming === 'true') {
       const today = new Date().toISOString().split('T')[0];
-      fallbackQuery = fallbackQuery.gte('appointment_date', today);
-    }
-    if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
-      fallbackQuery = fallbackQuery.eq('branch', branch);
-    } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
-      fallbackQuery = fallbackQuery.eq('branch', requesterBranch);
+      query = query.gte('appointment_date', today);
     }
     
-    const fallbackResult = await fallbackQuery;
-    referrals = fallbackResult.data;
-    error = fallbackResult.error;
-  }
+    if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
+      query = query.eq('branch', branch);
+    } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
+      query = query.eq('branch', requesterBranch);
+    }
 
-  if (error && error.message && error.message.includes('appointment_date')) {
-    console.warn('Falling back to created_at instead of appointment_date');
-    let fallbackQuery = supabase
-      .from('referrals')
-      .select('*')
-      .order('created_at', { ascending: false });
+    let { data: referrals, error } = await query;
+
+    // Fallback for missing columns
+    if (error && error.message && error.message.includes('staff_id')) {
+      console.warn('Falling back to created_by instead of staff_id');
+      let fallbackQuery = supabase
+        .from('referrals')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (staffId && staffId !== 'undefined' && staffId !== 'null') {
+        fallbackQuery = fallbackQuery.eq('created_by', staffId);
+      }
+        
+      if (upcoming === 'true') {
+        const today = new Date().toISOString().split('T')[0];
+        fallbackQuery = fallbackQuery.gte('appointment_date', today);
+      }
+      if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
+        fallbackQuery = fallbackQuery.eq('branch', branch);
+      } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
+        fallbackQuery = fallbackQuery.eq('branch', requesterBranch);
+      }
       
-    if (staffId && staffId !== 'undefined' && staffId !== 'null') {
-      // Try created_by directly since staff_id might have failed
-      fallbackQuery = fallbackQuery.eq('created_by', staffId);
+      const fallbackResult = await fallbackQuery;
+      referrals = fallbackResult.data;
+      error = fallbackResult.error;
+    }
+
+    if (error && error.message && error.message.includes('appointment_date')) {
+      console.warn('Falling back to created_at instead of appointment_date');
+      let fallbackQuery = supabase
+        .from('referrals')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (staffId && staffId !== 'undefined' && staffId !== 'null') {
+        // Try created_by directly since staff_id might have failed
+        fallbackQuery = fallbackQuery.eq('created_by', staffId);
+      }
+      
+      if (upcoming === 'true') {
+        const today = new Date().toISOString().split('T')[0];
+        fallbackQuery = fallbackQuery.gte('created_at', today);
+      }
+      if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
+        fallbackQuery = fallbackQuery.eq('branch', branch);
+      } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
+        fallbackQuery = fallbackQuery.eq('branch', requesterBranch);
+      }
+      
+      const fallbackResult = await fallbackQuery;
+      referrals = fallbackResult.data;
+      error = fallbackResult.error;
+    }
+
+    if (error) {
+      logError('GET /api/referrals', error);
+      return res.status(500).json({ error: error.message });
     }
     
-    if (upcoming === 'true') {
-      const today = new Date().toISOString().split('T')[0];
-      fallbackQuery = fallbackQuery.gte('created_at', today);
+    if (!referrals || referrals.length === 0) {
+      return res.json([]);
     }
-    if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
-      fallbackQuery = fallbackQuery.eq('branch', branch);
-    } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
-      fallbackQuery = fallbackQuery.eq('branch', requesterBranch);
+
+    // Fetch related staff and services separately
+    const staffIds = [...new Set(referrals.map((r: any) => r.staff_id || r.created_by).filter(Boolean))];
+    const serviceIds = [...new Set(referrals.map((r: any) => r.service_id).filter(Boolean))];
+
+    const [staffRes, servicesRes] = await Promise.all([
+      staffIds.length > 0 ? supabase.from('staff').select('*').in('id', staffIds) : Promise.resolve({ data: [] }),
+      serviceIds.length > 0 ? supabase.from('services').select('*').in('id', serviceIds) : Promise.resolve({ data: [] })
+    ]);
+
+    if (staffRes.error) {
+      console.error('Error fetching staff for referrals:', staffRes.error);
     }
+    if (servicesRes.error) {
+      console.error('Error fetching services for referrals:', servicesRes.error);
+    }
+
+    const staffMap = Object.fromEntries((staffRes.data || []).map(s => [s.id, s]));
+    const servicesMap = Object.fromEntries((servicesRes.data || []).map(s => [s.id, s]));
+
+    const formattedReferrals = referrals.map((r: any) => {
+      const staff = staffMap[r.staff_id || r.created_by];
+      const service = servicesMap[r.service_id];
+      return {
+        ...r,
+        date: r.created_at,              // map created_at → date for frontend compatibility
+        staff_id: r.staff_id || r.created_by,
+        staff_name: staff?.name,
+        promo_code: staff?.referral_code || staff?.promo_code,
+        service_name: r.service_name || service?.name  // prefer saved name, fallback to current
+      };
+    });
     
-    const fallbackResult = await fallbackQuery;
-    referrals = fallbackResult.data;
-    error = fallbackResult.error;
+    res.json(formattedReferrals);
+  } catch (err: any) {
+    console.error("Unhandled error in /api/referrals:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
-
-  if (error) {
-    logError('GET /api/referrals', error);
-    return res.status(500).json({ error: error.message });
-  }
-  
-  if (!referrals || referrals.length === 0) {
-    return res.json([]);
-  }
-
-  // Fetch related staff and services separately
-  const staffIds = [...new Set(referrals.map(r => r.staff_id || r.created_by).filter(Boolean))];
-  const serviceIds = [...new Set(referrals.map(r => r.service_id).filter(Boolean))];
-
-  const [staffRes, servicesRes] = await Promise.all([
-    staffIds.length > 0 ? supabase.from('staff').select('*').in('id', staffIds) : Promise.resolve({ data: [] }),
-    serviceIds.length > 0 ? supabase.from('services').select('*').in('id', serviceIds) : Promise.resolve({ data: [] })
-  ]);
-
-  if (staffRes.error) {
-    console.error('Error fetching staff for referrals:', staffRes.error);
-  }
-  if (servicesRes.error) {
-    console.error('Error fetching services for referrals:', servicesRes.error);
-  }
-
-  const staffMap = Object.fromEntries((staffRes.data || []).map(s => [s.id, s]));
-  const servicesMap = Object.fromEntries((servicesRes.data || []).map(s => [s.id, s]));
-
-  const formattedReferrals = referrals.map(r => {
-    const staff = staffMap[r.staff_id || r.created_by];
-    const service = servicesMap[r.service_id];
-    return {
-      ...r,
-      date: r.created_at,              // map created_at → date for frontend compatibility
-      staff_id: r.staff_id || r.created_by,
-      staff_name: staff?.name,
-      promo_code: staff?.referral_code || staff?.promo_code,
-      service_name: r.service_name || service?.name  // prefer saved name, fallback to current
-    };
-  });
-  
-  res.json(formattedReferrals);
 });
 
 app.get("/api/payouts/summary", async (req, res) => {
-  // 1. Fetch all referrals that are 'completed' but NOT YET 'paid'
-  const { data: referrals, error } = await supabase
-    .from('referrals')
-    .select('id, staff_id, created_by, commission_amount, patient_name')
-    .eq('status', 'completed'); // 'completed' means visit done, but not paid out yet
+  try {
+    // 1. Fetch all referrals that are 'completed' but NOT YET 'paid'
+    const { data: referrals, error } = await supabase
+      .from('referrals')
+      .select('id, staff_id, created_by, commission_amount, patient_name')
+      .eq('status', 'completed'); // 'completed' means visit done, but not paid out yet
 
-  if (error) return res.status(500).json({ error: error.message });
-  if (!referrals || referrals.length === 0) return res.json([]);
+    if (error) return res.status(500).json({ error: error.message });
+    if (!referrals || referrals.length === 0) return res.json([]);
 
-  // 2. Fetch the staff details for these referrals
-  const staffIds = [...new Set(referrals.map(r => r.staff_id || r.created_by).filter(Boolean))];
-  const { data: staffData } = await supabase
-    .from('staff')
-    .select('id, name, bank_name, bank_account_number, id_type, id_number')
-    .in('id', staffIds);
+    // 2. Fetch the staff details for these referrals
+    const staffIds = [...new Set(referrals.map(r => r.staff_id || r.created_by).filter(Boolean))];
+    const { data: staffData } = await supabase
+      .from('staff')
+      .select('id, name, bank_name, bank_account_number, id_type, id_number')
+      .in('id', staffIds);
 
-  const staffMap = Object.fromEntries((staffData || []).map(s => [s.id, s]));
+    const staffMap = Object.fromEntries((staffData || []).map(s => [s.id, s]));
 
-  // 3. Aggregate the data by Affiliate
-  const payoutSummary: Record<string, any> = {};
+    // 3. Aggregate the data by Affiliate
+    const payoutSummary: Record<string, any> = {};
 
-  referrals.forEach(ref => {
-    const affiliateId = ref.staff_id || ref.created_by;
-    if (!affiliateId) return;
+    referrals.forEach(ref => {
+      const affiliateId = ref.staff_id || ref.created_by;
+      if (!affiliateId) return;
 
-    if (!payoutSummary[affiliateId]) {
-      payoutSummary[affiliateId] = {
-        affiliate_id: affiliateId,
-        affiliate_name: staffMap[affiliateId]?.name || 'Unknown Affiliate',
-        bank_details: `${staffMap[affiliateId]?.bank_name || 'No Bank'} - ${staffMap[affiliateId]?.bank_account_number || 'No Account'}`,
-        total_patients: 0,
-        total_commission_owed: 0,
-        patient_ids: [] // Keep track of exactly which patients are included in this batch
+      if (!payoutSummary[affiliateId]) {
+        payoutSummary[affiliateId] = {
+          affiliate_id: affiliateId,
+          affiliate_name: staffMap[affiliateId]?.name || 'Unknown Affiliate',
+          bank_details: `${staffMap[affiliateId]?.bank_name || 'No Bank'} - ${staffMap[affiliateId]?.bank_account_number || 'No Account'}`,
+          total_patients: 0,
+          total_commission_owed: 0,
+          patient_ids: [] // Keep track of exactly which patients are included in this batch
+        };
+      }
+
+      payoutSummary[affiliateId].total_patients += 1;
+      payoutSummary[affiliateId].total_commission_owed += Number(ref.commission_amount || 0);
+      payoutSummary[affiliateId].patient_ids.push(ref.id);
+    });
+
+    // Flag affiliates with incomplete profiles — admin warned before processing
+    const result = Object.values(payoutSummary).map((p: any) => {
+      const staff = staffMap[p.affiliate_id];
+      const profileIncomplete = !staff?.bank_account_number || !staff?.id_number;
+      return {
+        ...p,
+        profile_incomplete: profileIncomplete,
+        missing_fields: [
+          !staff?.bank_name ? 'bank_name' : null,
+          !staff?.bank_account_number ? 'bank_account_number' : null,
+          !staff?.id_number ? 'id_number' : null,
+        ].filter(Boolean)
       };
-    }
+    });
 
-    payoutSummary[affiliateId].total_patients += 1;
-    payoutSummary[affiliateId].total_commission_owed += Number(ref.commission_amount || 0);
-    payoutSummary[affiliateId].patient_ids.push(ref.id);
-  });
-
-  // Flag affiliates with incomplete profiles — admin warned before processing
-  const result = Object.values(payoutSummary).map((p: any) => {
-    const staff = staffMap[p.affiliate_id];
-    const profileIncomplete = !staff?.bank_account_number || !staff?.id_number;
-    return {
-      ...p,
-      profile_incomplete: profileIncomplete,
-      missing_fields: [
-        !staff?.bank_name ? 'bank_name' : null,
-        !staff?.bank_account_number ? 'bank_account_number' : null,
-        !staff?.id_number ? 'id_number' : null,
-      ].filter(Boolean)
-    };
-  });
-
-  return res.json(result);
+    return res.json(result);
+  } catch (err: any) {
+    console.error("Unhandled error in /api/payouts/summary:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 app.post("/api/payouts/process", async (req, res) => {
