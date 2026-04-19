@@ -52,7 +52,7 @@ export const PromotionDetailModal = ({
 
   const allParsedPosters: string[] = parsePosterImages(item?.poster_images);
 
-  // 2. CRITICAL FIX: Explicitly filter out the Firebase image_url so it NEVER shows in the download gallery
+  // 2. CRITICAL FIX: Explicitly filter out the Firebase image_url 
   const downloadablePosters: string[] = allParsedPosters.filter(
     (url) => url !== item.image_url
   );
@@ -177,24 +177,20 @@ export const PromotionDetailModal = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  {/* ACTION BUTTON: Triggers ONLY downloadablePosters (Supabase) */}
+                  {/* ACTION BUTTON: Always open preview first, no auto-downloading */}
                   <button
                     onClick={() => {
                       if (downloadablePosters.length === 0) {
                         toast.error('No downloadable poster available');
                         return;
                       }
-                      if (downloadablePosters.length === 1) {
-                        handleDownloadPoster(downloadablePosters[0], `${item.name}-poster.jpg`);
-                      } else {
-                        setShowPosterGallery(true);
-                      }
+                      setShowPosterGallery(true);
                     }}
                     disabled={downloadablePosters.length === 0}
                     className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
                   >
                     <Download size={16} />
-                    {downloadablePosters.length === 0 ? 'No Poster' : downloadablePosters.length > 1 ? `Poster (${downloadablePosters.length})` : 'Download Poster'}
+                    {downloadablePosters.length === 0 ? 'No Poster' : `View Poster${downloadablePosters.length > 1 ? 's' : ''}`}
                   </button>
 
                   <button
@@ -206,7 +202,7 @@ export const PromotionDetailModal = ({
                   </button>
                 </div>
 
-                {/* POSTER GALLERY MODAL: Shows ONLY poster_images (Supabase) for direct download */}
+                {/* POSTER GALLERY MODAL: Shows ONLY Supabase posters for user to preview then download */}
                 <AnimatePresence>
                   {showPosterGallery && (
                     <motion.div
@@ -224,7 +220,9 @@ export const PromotionDetailModal = ({
                         className="bg-white rounded-[2rem] p-6 w-full max-w-md"
                       >
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="font-black text-zinc-900 text-lg">Choose Poster</h3>
+                          <h3 className="font-black text-zinc-900 text-lg">
+                            {downloadablePosters.length === 1 ? 'Poster Preview' : 'Choose a Poster'}
+                          </h3>
                           <button 
                             onClick={() => setShowPosterGallery(false)}
                             className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:bg-zinc-200"
@@ -233,7 +231,12 @@ export const PromotionDetailModal = ({
                           </button>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-3 mb-4">
+                        {/* Dynamic Grid: 1 large centered poster, or 2-column grid for multiple */}
+                        <div className={`grid gap-3 mb-4 ${
+                          downloadablePosters.length === 1 
+                            ? 'grid-cols-1 max-w-[240px] mx-auto' 
+                            : 'grid-cols-2'
+                        }`}>
                           {downloadablePosters.map((url, idx) => (
                             <div 
                               key={idx}
@@ -252,7 +255,7 @@ export const PromotionDetailModal = ({
                             </div>
                           ))}
                         </div>
-                        <p className="text-xs text-zinc-400 text-center">Tap a poster to download it</p>
+                        <p className="text-xs text-zinc-400 text-center">Tap the poster to confirm download</p>
                       </motion.div>
                     </motion.div>
                   )}
