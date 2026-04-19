@@ -38,9 +38,8 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
     }
     return [];
   };
-  const allPosters: string[] = parsePosterImages(item?.poster_images).length > 0
-    ? parsePosterImages(item?.poster_images)
-    : (item?.image_url ? [item.image_url] : []);
+  // Only Supabase-uploaded posters are downloadable — Firebase image_url is display only
+  const allPosters: string[] = parsePosterImages(item?.poster_images);
 
   const handleShareLink = async () => {
     const shareLink = generateAffiliateLink();
@@ -163,7 +162,7 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
                   <button
                     onClick={() => {
                       if (allPosters.length === 0) {
-                        toast.error('No poster available for this service');
+                        toast.error('No downloadable poster available — check back later');
                         return;
                       }
                       if (allPosters.length === 1) {
@@ -176,7 +175,7 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
                     className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
                   >
                     <Download size={16} />
-                    {allPosters.length > 1 ? `Poster (${allPosters.length})` : 'Poster'}
+                    {allPosters.length === 0 ? 'No Poster' : allPosters.length > 1 ? `Poster (${allPosters.length})` : 'Download Poster'}
                   </button>
 
                   <button
@@ -223,9 +222,7 @@ export const PromotionDetailModal = ({ item, isOpen, onClose, clinicProfile, dar
                                 <Download size={12} /> Download
                               </div>
                             </div>
-                            {idx === 0 && (
-                              <div className="absolute top-2 left-2 bg-[#1580c2] text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide">Primary</div>
-                            )}
+
                           </div>
                         ))}
                       </div>
