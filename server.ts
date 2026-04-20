@@ -2013,17 +2013,22 @@ app.post("/api/ambassador/create", async (req, res) => {
 
   // Insert into staff table
   const referral_code = displayName.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now().toString(36);
-  const { data, error } = await supabase.from('staff').insert({
+  
+  const insertData: any = {
     name: displayName,
     email: authEmail,
     role: 'ambassador',
     is_approved: 1,
-    is_first_login: true,
-    incentive_mode: 'discount',
-    charity_pot: 0,
-    charities: '[]',
     referral_code
-  }).select().single();
+  };
+
+  if (staffColumns.has('is_first_login')) insertData.is_first_login = true;
+  if (staffColumns.has('incentive_mode')) insertData.incentive_mode = 'discount';
+  if (staffColumns.has('charity_pot')) insertData.charity_pot = 0;
+  if (staffColumns.has('charities')) insertData.charities = '[]';
+  if (staffColumns.has('auth_id')) insertData.auth_id = authData.user.id;
+
+  const { data, error } = await supabase.from('staff').insert(insertData).select().single();
 
   if (error) {
     // Attempt rollback
