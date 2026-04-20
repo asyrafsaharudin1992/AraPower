@@ -392,7 +392,7 @@ export default function AuthUI({
             fontFamily: "'Poppins', sans-serif",
           }}
         >
-          Become an<br />Ara Ambassador
+          Become a<br />health advocate
         </h2>
 
         <p
