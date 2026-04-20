@@ -117,7 +117,7 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
   // ── Derived data ───────────────────────────────────────────────────────────
   const affiliates = useMemo(() =>
     staffPerformance.filter(s =>
-      ['affiliate', 'staff', 'manager'].includes(s.role) &&
+      ['affiliate', 'ambassador', 'staff', 'manager'].includes(s.role) &&
       s.employment_status !== 'deleted'
     ), [staffPerformance]
   );
