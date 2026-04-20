@@ -12,6 +12,7 @@ import { PromotionsUI } from './PromotionsUI';
 // Lazy-loaded heavier components
 const DashboardUI = React.lazy(() => import('./DashboardUI').then(m => ({ default: m.DashboardUI })));
 const ProfileUI = React.lazy(() => import('./ProfileUI').then(m => ({ default: m.ProfileUI })));
+import { AmbassadorDashboard } from './AmbassadorDashboard';
 
 export type MobileTab =
   | 'dashboard'
@@ -105,6 +106,10 @@ export interface MobileUIProps {
   // Notifications
   markAllAsRead: () => void;
   markNotificationAsRead: (id: number) => void;
+
+  // Needed for AmbassadorDashboard
+  apiBaseUrl?: string;
+  safeFetch?: (url: string, options?: RequestInit, retries?: number, backoff?: number) => Promise<{ res: Response, data: any }>;
 }
 
 export const MobileUI: React.FC<MobileUIProps> = ({
@@ -164,6 +169,8 @@ export const MobileUI: React.FC<MobileUIProps> = ({
   handleLogout,
   markAllAsRead,
   markNotificationAsRead,
+  apiBaseUrl,
+  safeFetch
 }) => {
   return (
     <div className="pb-44 min-h-screen bg-white relative">
@@ -336,7 +343,18 @@ export const MobileUI: React.FC<MobileUIProps> = ({
             {/* ── TAB CONTENT ──────────────────────────────────────── */}
             <AnimatePresence mode="wait">
 
-              {activeTab === 'dashboard' && (
+              {activeTab === 'dashboard' && currentUser.role === 'ambassador' && (
+                <AmbassadorDashboard
+                  currentUser={currentUser}
+                  referrals={referrals}
+                  clinicProfile={clinicProfile}
+                  apiBaseUrl={apiBaseUrl || ''}
+                  safeFetch={safeFetch!}
+                  currentUserStats={currentUserStats}
+                />
+              )}
+
+              {activeTab === 'dashboard' && currentUser.role !== 'ambassador' && (
                 <React.Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-burnt-peach" /></div>}>
                   <DashboardUI
                     currentUser={currentUser}

@@ -7,7 +7,8 @@ import {
   AlertCircle,
   Lock,
   PlusCircle,
-  Home
+  Home,
+  Heart
 } from 'lucide-react';
 import { Service, Staff, ClinicProfile } from '../types';
 import { supabase } from '../supabase';
@@ -187,8 +188,9 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlRef = params.get('ref');
+    const urlAmbassador = params.get('ambassadorId');
     const storedRef = localStorage.getItem('araclinic_ref_code');
-    const effectiveRef = urlRef || storedRef;
+    const effectiveRef = urlAmbassador || urlRef || storedRef;
 
     if (effectiveRef) {
       localStorage.setItem('araclinic_ref_code', effectiveRef);
@@ -710,9 +712,58 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
               className="bg-white/10 backdrop-blur-sm rounded-3xl p-6 border border-white/10"
             >
 
-          {publicBookingStep === 'form' && (
-            <form onSubmit={onFormSubmit} className="space-y-5">
-              <div className="space-y-4">
+          {publicBookingStep === 'form' && (() => {
+            const currentService = services.find(s => String(s.id) === String(selectedService));
+            const basePrice = currentService ? (currentService.promo_price || currentService.base_price || 0) : 0;
+            const comm = currentService ? (currentService.commission_rate || 0) : 0;
+            const isAmbassador = referringStaff?.role === 'ambassador';
+            const mode = referringStaff?.incentive_mode || 'discount';
+
+            return (
+              <form onSubmit={onFormSubmit} className="space-y-5">
+                {isAmbassador && currentService && comm > 0 && mode !== 'earn' && (
+                  <div className="mb-4">
+                    {mode === 'discount' && (
+                      <div className="bg-[#1580c2]/20 border border-[#1580c2]/50 rounded-2xl p-4 text-white">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-white/70">Service price:</span>
+                          <span>RM{basePrice}</span>
+                        </div>
+                        <div className="flex justify-between text-sm mb-2 text-emerald-400 font-semibold">
+                          <span>Ambassador saves:</span>
+                          <span>-RM{comm}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-xl border-t border-white/20 pt-3 mt-2">
+                          <span>You pay:</span>
+                          <span>RM{Math.max(0, basePrice - comm)}</span>
+                        </div>
+                      </div>
+                    )}
+                    {mode === 'charity' && (
+                      <div className="space-y-3">
+                        <div className="bg-[#1580c2]/10 border border-[#1580c2]/30 rounded-2xl p-4 text-white">
+                          <div className="flex justify-between font-bold text-lg">
+                            <span>Service price:</span>
+                            <span>RM{basePrice}</span>
+                          </div>
+                        </div>
+                        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 text-orange-800 flex items-start gap-4">
+                          <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                            <Heart size={20} className="text-orange-500 fill-orange-500" />
+                          </div>
+                          <div className="flex-1 pt-0.5">
+                            <p className="text-sm font-semibold leading-relaxed">
+                              {referringStaff?.charities && referringStaff.charities.length > 0
+                                ? `Part of this payment will be donated to ${referringStaff.charities[0].name} on behalf of ${referringStaff?.name || 'our Ambassador'}.`
+                                : `Part of this payment will be donated to charity on behalf of ${referringStaff?.name || 'our Ambassador'}.`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="space-y-4">
 
                 {/* Service (locked or select) */}
                 <div>
@@ -845,7 +896,8 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                 </button>
               </div>
             </form>
-          )}
+            );
+          })()}
 
           {publicBookingStep === 'whatsapp' && (() => {
             const waNum = branches.find(b => b.name === selectedWaBranch)?.whatsapp_number || '60123456789';

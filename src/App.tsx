@@ -14,6 +14,7 @@ import { ReferralBoard } from './components/ReferralBoard';
 import { MobileUI, MobileTab } from './components/MobileUI';
 import { PromotionsUI } from './components/PromotionsUI';
 import { ProfileUI } from './components/ProfileUI';
+import { AmbassadorDashboard } from './components/AmbassadorDashboard';
 import AddServiceForm from './components/AddServiceForm';
 import { Service, Promotion, Staff, Referral, AppSettings, ClinicProfile } from './types';
 import { 
@@ -1745,7 +1746,7 @@ export default function App() {
   };
 
   const fetchPayoutSummaries = async () => {
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/payouts/summary`);
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/settlements/summary`);
     if (res.ok && Array.isArray(data)) {
       setPayoutSummaries(data);
     }
@@ -1753,7 +1754,7 @@ export default function App() {
 
   const handleProcessPayout = async (affiliate_id: string, patient_ids: string[]) => {
     try {
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/payouts/process`, {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/settlements/process`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ staff_id: affiliate_id, affiliate_id: affiliate_id, patient_ids })
@@ -1776,7 +1777,7 @@ export default function App() {
     try {
       // Update all selected referrals concurrently
       const promises = ids.map(id => 
-        safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+        safeFetch(`${apiBaseUrl}/api/patient-records/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: newStatus })
@@ -1797,8 +1798,8 @@ export default function App() {
     if (!currentUser) return;
     
     let url = (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') 
-      ? `${apiBaseUrl}/api/referrals?requesterRole=${currentUser.role}&requesterBranch=${currentUser.branch}` 
-      : `${apiBaseUrl}/api/referrals?staffId=${currentUser.id}`;
+      ? `${apiBaseUrl}/api/patient-records?requesterRole=${currentUser.role}&requesterBranch=${currentUser.branch}` 
+      : `${apiBaseUrl}/api/patient-records?staffId=${currentUser.id}`;
     
     if (currentUser.role === 'receptionist') {
       url += '&upcoming=true';
@@ -1950,7 +1951,7 @@ export default function App() {
         branch: data.selectedBranch || (isPublicBooking ? data.referringStaff?.branch : currentUser?.branch)
       };
 
-      const url = `${apiBaseUrl}/api/referrals`;
+      const url = `${apiBaseUrl}/api/patient-records`;
       const method = 'POST';
 
       const { res, data: resultData } = await safeFetch(url, {
@@ -2013,7 +2014,7 @@ export default function App() {
       
       console.log('Updating status:', { id, payload });
       
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/patient-records/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -2041,7 +2042,7 @@ export default function App() {
         verified_by: (currentUser?.role === 'receptionist' || currentUser?.role === 'manager' || currentUser?.role === 'admin') ? currentUser.id : undefined
       };
       
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/patient-records/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -2050,7 +2051,7 @@ export default function App() {
       if (res.ok) {
         // Auto-transition: arrived → in_session immediately
         if (newStatus === 'arrived') {
-          await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+          await safeFetch(`${apiBaseUrl}/api/patient-records/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'in_session' })
@@ -2075,7 +2076,7 @@ export default function App() {
       'Delete Referral',
       'Are you sure you want to delete this referral? This action cannot be undone.',
       async () => {
-        const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/patient-records/${id}`, {
           method: 'DELETE'
         });
         if (res.ok) {
@@ -2585,6 +2586,23 @@ export default function App() {
     );
   }
 
+  // Intercept ambassador that hasn't finished setup
+  if (currentUser?.role === 'ambassador' && currentUser?.is_first_login) {
+    return (
+      <AuthUI 
+        onAuthSuccess={handleAuthSuccess}
+        clinicProfile={clinicProfile}
+        apiBaseUrl={apiBaseUrl}
+        branches={branches}
+        isSupabaseConfigured={isSupabaseConfigured}
+        Logo={Logo}
+        safeFetch={safeFetch}
+        supabase={supabase}
+        forceAmbassadorSetup={currentUser}
+      />
+    );
+  }
+
   if (showWelcome && currentUser) {
     return (
       <div className="min-h-screen w-full overflow-x-hidden bg-white flex items-center justify-center p-0 sm:p-4 font-sans">
@@ -2856,6 +2874,8 @@ export default function App() {
             handleLogout={handleLogout}
             markAllAsRead={markAllAsRead}
             markNotificationAsRead={markNotificationAsRead}
+            apiBaseUrl={apiBaseUrl}
+            safeFetch={safeFetch}
           />
         )}
 
@@ -3135,7 +3155,18 @@ export default function App() {
               </header>
 
         <AnimatePresence mode="wait">
-          {activeTab === 'dashboard' && (
+          {activeTab === 'dashboard' && currentUser.role === 'ambassador' && (
+            <AmbassadorDashboard
+              currentUser={currentUser}
+              referrals={referrals}
+              clinicProfile={clinicProfile}
+              apiBaseUrl={apiBaseUrl}
+              safeFetch={safeFetch}
+              currentUserStats={currentUserStats}
+            />
+          )}
+
+          {activeTab === 'dashboard' && currentUser.role !== 'ambassador' && (
             <DashboardUI 
               currentUser={currentUser}
               referrals={referrals}

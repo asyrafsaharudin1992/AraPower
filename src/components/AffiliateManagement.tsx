@@ -78,9 +78,41 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
     setEditingTiers(JSON.parse(JSON.stringify(TIERS)));
   }, [JSON.stringify(TIERS)]);
 
-  // ── Commission state ───────────────────────────────────────────────────────
+  // ── Commissions state ───────────────────────────────────────────────────────
+  const [referralSettings, setReferralSettings] = useState<any>({});
   const [defaultCommission, setDefaultCommission] = useState(5);
+  const [ambassadorSameRate, setAmbassadorSameRate] = useState(true);
+  const [ambassadorCommissionRate, setAmbassadorCommissionRate] = useState<number | ''>('');
   const [isSavingCommission, setIsSavingCommission] = useState(false);
+
+  // ── Create Ambassador state ──────────────────────────────────────────────────
+  const [showAddAmbassador, setShowAddAmbassador] = useState(false);
+  const [newAmbassadorName, setNewAmbassadorName] = useState('');
+  const [newAmbassadorEmail, setNewAmbassadorEmail] = useState('');
+  const [isCreatingAmbassador, setIsCreatingAmbassador] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<any>(null);
+
+  React.useEffect(() => {
+    // Fetch actual settings to avoid overwriting existing properties
+    const fetchSettings = async () => {
+      try {
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/settings`);
+        if (res.ok && data?.referral) {
+          setReferralSettings(data.referral);
+          if (data.referral.defaultCommission) setDefaultCommission(data.referral.defaultCommission);
+          if (typeof data.referral.ambassador_same_rate !== 'undefined') {
+            setAmbassadorSameRate(data.referral.ambassador_same_rate);
+          }
+          if (data.referral.ambassador_commission_rate) {
+            setAmbassadorCommissionRate(data.referral.ambassador_commission_rate);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load referral config:', e);
+      }
+    };
+    fetchSettings();
+  }, [apiBaseUrl, safeFetch]);
 
   // ── Derived data ───────────────────────────────────────────────────────────
   const affiliates = useMemo(() =>
@@ -123,6 +155,35 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
+  const handleCreateAmbassador = async () => {
+    if (!newAmbassadorName.trim()) return toast.error("Please enter a name");
+    
+    setIsCreatingAmbassador(true);
+    setCreatedCredentials(null);
+
+    // Use a placeholder email if missing, to generate a temporary profile
+    const targetEmail = newAmbassadorEmail.trim() || `ambassador+${Date.now()}@arapower.com`;
+
+    try {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/ambassador/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: newAmbassadorName, username: targetEmail })
+      });
+
+      if (!res.ok) throw new Error(data?.error || 'Failed to create ambassador');
+      
+      setCreatedCredentials(data);
+      toast.success('Ambassador account created successfully');
+      
+      // Optionally could refresh staff array here, but they will show on next reload anyway
+    } catch (err: any) {
+      toast.error(`Creation failed: ${err.message}`);
+    } finally {
+      setIsCreatingAmbassador(false);
+    }
+  };
+
   const handleSaveTiers = async () => {
     setIsSavingTiers(true);
     try {
@@ -148,13 +209,24 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
 
   const handleSaveCommission = async () => {
     setIsSavingCommission(true);
+    
+    const newConfig = {
+      ...referralSettings,
+      defaultCommission,
+      ambassador_same_rate: ambassadorSameRate,
+      ambassador_commission_rate: ambassadorSameRate ? null : Number(ambassadorCommissionRate)
+    };
+    
     try {
       const { res } = await safeFetch(`${apiBaseUrl}/api/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'referral', value: { defaultCommission } }),
+        body: JSON.stringify({ key: 'referral', value: newConfig }),
       });
-      if (res.ok) toast.success('Commission rate saved!');
+      if (res.ok) {
+        setReferralSettings(newConfig);
+        toast.success('Commission rate saved!');
+      }
       else toast.error('Failed to save');
     } catch {
       toast.error('Failed to save');
@@ -253,6 +325,12 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
                 <option value="all">All Tiers</option>
                 {TIERS.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
               </select>
+              <button 
+                onClick={() => setShowAddAmbassador(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-[#1580c2] text-white rounded-xl text-sm font-bold shadow-sm hover:bg-[#1268a8] transition-colors"
+               >
+                <Plus size={16} /> Add Ambassador
+              </button>
             </div>
 
             {/* Affiliate table */}
@@ -553,6 +631,50 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
                 </div>
               </div>
 
+              {/* Ambassador Commission Rate */}
+              <div className="pt-5 border-t border-zinc-100">
+                <h3 className="font-black text-zinc-900">Ambassador Commission Rate</h3>
+                <p className="text-xs text-zinc-400 mt-0.5 mb-4">Configure how much ambassadors earn per successful referral.</p>
+                
+                <label className="flex items-center gap-3 cursor-pointer mb-4">
+                  <div className="relative">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only" 
+                      checked={ambassadorSameRate}
+                      onChange={(e) => {
+                        setAmbassadorSameRate(e.target.checked);
+                        if (e.target.checked) setAmbassadorCommissionRate('');
+                      }} 
+                    />
+                    <div className={`block w-10 h-6 rounded-full transition-colors ${ambassadorSameRate ? 'bg-[#1580c2]' : 'bg-zinc-200'}`}></div>
+                    <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${ambassadorSameRate ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                  </div>
+                  <span className="text-sm font-bold text-zinc-700">Use same rate as affiliate</span>
+                </label>
+
+                {!ambassadorSameRate && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-3">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">
+                      Custom Ambassador Rate
+                    </label>
+                    <div className="flex items-center gap-2 max-w-[200px] border border-zinc-200 rounded-xl px-3 py-2 bg-white focus-within:border-[#1580c2] focus-within:ring-1 focus-within:ring-[#1580c2]/20 transition-all">
+                      <span className="text-sm text-zinc-400 font-bold">RM</span>
+                      <input 
+                        type="number" 
+                        min="0" 
+                        step="0.01"
+                        placeholder="0.00"
+                        value={ambassadorCommissionRate}
+                        onChange={(e) => setAmbassadorCommissionRate(Number(e.target.value))}
+                        className="w-full text-sm font-black text-zinc-900 focus:outline-none bg-transparent" 
+                      />
+                      <span className="text-xs text-zinc-400 font-medium whitespace-nowrap">per referral</span>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+
               <button onClick={handleSaveCommission} disabled={isSavingCommission}
                 className="w-full py-4 bg-[#1580c2] text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-[#1268a8] transition-all shadow-lg shadow-[#1580c2]/20 disabled:opacity-50 flex items-center justify-center gap-2">
                 {isSavingCommission ? <><RefreshCw size={16} className="animate-spin" /> Saving...</> : <><Save size={16} /> Save Commission Rate</>}
@@ -593,6 +715,110 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
         )}
 
       </AnimatePresence>
+
+      {/* ── CREATE AMBASSADOR MODAL ────────────────────────────────────── */}
+      <AnimatePresence>
+        {showAddAmbassador && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"
+              onClick={() => {
+                if (!createdCredentials) setShowAddAmbassador(false);
+              }} />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-md bg-white rounded-[2rem] shadow-2xl p-6 md:p-8 overflow-hidden">
+              
+              {!createdCredentials ? (
+                <>
+                  <button onClick={() => setShowAddAmbassador(false)}
+                    className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center bg-zinc-100 hover:bg-zinc-200 text-zinc-500 rounded-full transition-colors">
+                    <X size={16} />
+                  </button>
+
+                  <h3 className="text-2xl font-black text-zinc-900 tracking-tight mb-2">New Ambassador</h3>
+                  <p className="text-sm text-zinc-500 mb-6">Instantly provision an ambassador account. Temporary credentials will be generated.</p>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[10px] uppercase tracking-widest font-black text-zinc-400 block mb-2">Display Name</label>
+                      <input 
+                        type="text" 
+                        value={newAmbassadorName}
+                        onChange={e => setNewAmbassadorName(e.target.value)}
+                        placeholder="e.g. Ali Hassan"
+                        className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 text-sm font-bold text-zinc-900 focus:outline-none focus:border-[#1580c2] focus:ring-1 focus:ring-[#1580c2]/20 transition-all placeholder:text-zinc-300 placeholder:font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-widest font-black text-zinc-400 block mb-2">Email Address (Optional)</label>
+                      <input 
+                        type="email" 
+                        value={newAmbassadorEmail}
+                        onChange={e => setNewAmbassadorEmail(e.target.value)}
+                        placeholder="If blank, a temporary email is used"
+                        className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 text-sm font-bold text-zinc-900 focus:outline-none focus:border-[#1580c2] focus:ring-1 focus:ring-[#1580c2]/20 transition-all placeholder:text-zinc-300 placeholder:font-medium"
+                      />
+                    </div>
+
+                    <button 
+                      onClick={handleCreateAmbassador}
+                      disabled={isCreatingAmbassador || !newAmbassadorName.trim()}
+                      className="w-full mt-4 py-3.5 bg-[#1580c2] hover:bg-[#1268a8] text-white rounded-xl text-sm font-black uppercase tracking-widest transition-colors shadow-lg shadow-[#1580c2]/20 disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2"
+                    >
+                      {isCreatingAmbassador ? <><RefreshCw size={18} className="animate-spin" /> Provisioning...</> : 'Generate Account'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center space-y-6">
+                  <div className="w-16 h-16 bg-emerald-100 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-2">
+                    <Check size={32} />
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-2xl font-black text-zinc-900 tracking-tight">Account Created!</h3>
+                    <p className="text-sm text-zinc-500 mt-2">Share these credentials with the new ambassador. They will be prompted to set their own secure credentials upon first login.</p>
+                  </div>
+
+                  <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-6 text-left space-y-4">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest font-black text-zinc-400 mb-1">Temporary Login Email</p>
+                      <div className="font-mono text-sm font-bold text-zinc-900 bg-white border border-zinc-100 rounded-lg py-2 px-3 break-all">
+                        {createdCredentials.username}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest font-black text-zinc-400 mb-1">Temporary Password</p>
+                      <div className="font-mono text-sm font-bold text-[#1580c2] bg-white border border-zinc-100 rounded-lg py-2 px-3">
+                        {createdCredentials.tempPassword}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest font-black text-zinc-400 mb-1">Assigned Referral Link</p>
+                      <div className="font-mono text-xs text-zinc-600 bg-white border border-zinc-100 rounded-lg py-2 px-3 break-all">
+                        {window.location.origin}/book?ref={createdCredentials.referral_code}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      setShowAddAmbassador(false);
+                      setNewAmbassadorName('');
+                      setNewAmbassadorEmail('');
+                      setCreatedCredentials(null);
+                    }}
+                    className="w-full py-3.5 bg-zinc-900 hover:bg-black text-white rounded-xl text-sm font-black uppercase tracking-widest transition-colors shadow-lg shadow-black/10"
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </motion.div>
   );
 };

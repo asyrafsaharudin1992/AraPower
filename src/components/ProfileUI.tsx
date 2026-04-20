@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
-  RefreshCw, DollarSign, Palette, Sun, Moon, BookOpen, ChevronRight, Lock, MessageSquare
+  RefreshCw, DollarSign, Palette, Sun, Moon, BookOpen, ChevronRight, Lock, MessageSquare, HandHeart, Tag, TrendingUp, Plus, Trash2, Heart, AlertTriangle
 } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
 
 export interface ProfileUIProps {
   currentUser: any;
@@ -68,7 +69,7 @@ const ghostBtn = (active: boolean): React.CSSProperties => ({
 });
 
 // ── BankSelector ──────────────────────────────────────────────────────────────
-const BankSelector: React.FC<{ currentBank: string; darkMode: boolean }> = ({ currentBank }) => {
+const BankSelector: React.FC<{ currentBank: string; darkMode: boolean; onChange?: (bank: string) => void }> = ({ currentBank, onChange }) => {
   const [selected, setSelected] = useState(currentBank);
   const [search, setSearch]     = useState('');
   const [open, setOpen]         = useState(false);
@@ -82,6 +83,13 @@ const BankSelector: React.FC<{ currentBank: string; darkMode: boolean }> = ({ cu
   }, [currentBank]);
 
   const filtered = MALAYSIAN_BANKS.filter(b => b.toLowerCase().includes(search.toLowerCase()));
+
+  const handleSelect = (bank: string) => {
+    setSelected(bank);
+    setOpen(false);
+    setSearch('');
+    if (onChange) onChange(bank);
+  };
 
   return (
     <div className="space-y-2" ref={containerRef}>
@@ -109,7 +117,7 @@ const BankSelector: React.FC<{ currentBank: string; darkMode: boolean }> = ({ cu
                 <li style={{ padding: '12px 20px', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>No banks found</li>
               ) : filtered.map(bank => (
                 <li key={bank}>
-                  <button type="button" onClick={() => { setSelected(bank); setOpen(false); setSearch(''); }}
+                  <button type="button" onClick={() => handleSelect(bank)}
                     style={{ width: '100%', textAlign: 'left', padding: '10px 20px', fontSize: '13px', cursor: 'pointer', border: 'none', fontFamily: P, transition: 'background 0.1s',
                       background: selected === bank ? 'rgba(255,255,255,0.2)' : 'transparent',
                       color: selected === bank ? '#ffffff' : 'rgba(255,255,255,0.8)',
@@ -133,7 +141,32 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
   reduceTranslucency, setReduceTranslucency, setActiveTab, setShowPasswordModal,
   feedbackMessage, setFeedbackMessage, handleSendFeedback, isSendingFeedback, handleLogout,
 }) => {
+  const [selectedMode, setSelectedMode] = useState<string>(currentUser?.incentive_mode || 'discount');
+  const [charityList, setCharityList] = useState<{name: string, amount_per_referral: string}[]>(
+    Array.isArray(currentUser?.charities) && currentUser?.charities.length > 0 
+      ? currentUser.charities 
+      : [{ name: '', amount_per_referral: '' }]
+  );
+
   if (!currentUser) return null;
+
+  const isAmbassador = currentUser.role === 'ambassador';
+  const commission_amount = 10; // Fallback / mock value as mentioned
+  
+  const totalCharityAmount = charityList.reduce((sum, item) => sum + (Number(item.amount_per_referral) || 0), 0);
+  
+  // Validation for Earn Mode
+  const bankRef = useRef<HTMLInputElement>(null);
+  const accRef = useRef<HTMLInputElement>(null);
+  const icRef = useRef<HTMLInputElement>(null);
+
+  // We need to check if current user has them, or if user typing them
+  const [tmpBank, setTmpBank] = useState(currentUser?.bank_name || '');
+  const [tmpAcc, setTmpAcc] = useState(currentUser?.bank_account_number || '');
+  const [tmpIc, setTmpIc] = useState(currentUser?.id_number || '');
+
+  const isEarnValid = selectedMode !== 'earn' || (tmpBank && tmpAcc && tmpIc);
+  const isCharityValid = selectedMode !== 'charity' || (totalCharityAmount > 0 && totalCharityAmount <= commission_amount && charityList.every(c => c.name.trim() !== ''));
 
   const sectionLabel = (icon: React.ReactNode, text: string) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
@@ -174,17 +207,160 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
           onSubmit={(e) => {
             e.preventDefault();
             const fd = new FormData(e.currentTarget);
-            handleUpdateProfile({
+            
+            const payload: any = {
               nickname: fd.get('nickname') as string,
               bank_name: fd.get('bank_name') as string,
               bank_account_number: fd.get('bank_account_number') as string,
               id_type: 'MyKad',
               id_number: formatMalaysianIC(fd.get('id_number') as string || ''),
-            });
+            };
+
+            if (isAmbassador) {
+              payload.incentive_mode = selectedMode;
+              if (selectedMode === 'charity') {
+                payload.charities = charityList.map(c => ({
+                  name: c.name,
+                  amount_per_referral: Number(c.amount_per_referral) || 0
+                }));
+              }
+            }
+
+            handleUpdateProfile(payload);
           }}
           className="space-y-6"
           style={{ position: 'relative', zIndex: 1 }}
         >
+          {isAmbassador && (
+            <div style={{ paddingTop: '12px', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                <TrendingUp size={14} color="rgba(255,255,255,0.7)" />
+                <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>Your Incentive Mode</span>
+              </div>
+              
+              <div className="flex gap-2 bg-white/10 p-1.5 rounded-2xl w-full border border-white/20">
+                <button
+                  type="button"
+                  onClick={() => setSelectedMode('discount')}
+                  className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${selectedMode === 'discount' ? 'bg-white text-[#1580c2] shadow-md' : 'text-white/60 hover:text-white/90 hover:bg-white/5'}`}
+                >
+                  <Tag size={16} className="inline-block mr-1.5" /> Discount
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMode('charity')}
+                  className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${selectedMode === 'charity' ? 'bg-white text-[#1580c2] shadow-md' : 'text-white/60 hover:text-white/90 hover:bg-white/5'}`}
+                >
+                  <HandHeart size={16} className="inline-block mr-1.5" /> Charity
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMode('earn')}
+                  className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${selectedMode === 'earn' ? 'bg-white text-[#1580c2] shadow-md' : 'text-white/60 hover:text-white/90 hover:bg-white/5'}`}
+                >
+                  <DollarSign size={16} className="inline-block mr-1.5" /> Earn
+                </button>
+              </div>
+
+              <AnimatePresence mode="wait">
+                {selectedMode === 'charity' && (
+                  <motion.div
+                    key="charity"
+                    initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                    animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+                    exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-white/10 border border-white/20 rounded-2xl p-5">
+                      <p className="text-[10px] font-bold text-white/60 uppercase tracking-wider mb-4">Supported Charities (Max 5)</p>
+                      
+                      <div className="space-y-3">
+                        {charityList.map((ch, i) => (
+                          <div key={i} className="flex gap-3">
+                            <input 
+                              type="text" 
+                              value={ch.name} 
+                              onChange={(e) => {
+                                const nw = [...charityList];
+                                nw[i].name = e.target.value;
+                                setCharityList(nw);
+                              }}
+                              placeholder="Charity Name" 
+                              className="flex-1 bg-white/20 border border-white/30 rounded-xl px-4 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:border-white/50" 
+                            />
+                            <div className="relative w-32">
+                              <span className="absolute left-3 top-2 text-sm text-white/50">RM</span>
+                              <input 
+                                type="number" 
+                                value={ch.amount_per_referral} 
+                                onChange={(e) => {
+                                  const nw = [...charityList];
+                                  nw[i].amount_per_referral = e.target.value;
+                                  setCharityList(nw);
+                                }}
+                                placeholder="0" 
+                                className="w-full pl-9 pr-4 py-2 bg-white/20 border border-white/30 rounded-xl text-sm text-white focus:outline-none focus:border-white/50 placeholder-white/40" 
+                              />
+                            </div>
+                            {charityList.length > 1 && (
+                              <button 
+                                type="button"
+                                onClick={() => setCharityList(charityList.filter((_, idx) => idx !== i))}
+                                className="w-10 h-10 flex items-center justify-center shrink-0 rounded-xl bg-red-500/20 text-red-100 hover:bg-red-500/40 transition-colors"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {charityList.length < 5 && (
+                        <button
+                          type="button"
+                          onClick={() => setCharityList([...charityList, { name: '', amount_per_referral: '' }])}
+                          className="w-full flex items-center justify-center gap-2 py-3 mt-4 border border-dashed border-white/30 rounded-xl text-sm font-semibold text-white/80 hover:bg-white/5 transition-colors"
+                        >
+                          <Plus size={16} /> Add Charity
+                        </button>
+                      )}
+
+                      <div className="mt-5 pt-4 border-t border-white/20 flex justify-between items-center">
+                        <span className="text-sm text-white/70">Total per referral:</span>
+                        <span className={`text-base font-bold ${totalCharityAmount > commission_amount ? 'text-red-300' : 'text-white'}`}>
+                          RM{totalCharityAmount.toFixed(2)}
+                        </span>
+                      </div>
+                      
+                      {totalCharityAmount > commission_amount && (
+                        <p className="text-xs text-red-300 font-semibold flex items-center gap-1.5 mt-2">
+                          <AlertTriangle size={12} /> Total exceeds available commission
+                        </p>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+
+                {selectedMode === 'earn' && (!tmpBank || !tmpAcc || !tmpIc) && (
+                  <motion.div
+                    key="earn"
+                    initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                    animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+                    exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-amber-500/20 border border-amber-500/50 rounded-2xl p-4 flex gap-3 text-amber-200">
+                      <AlertTriangle size={20} className="shrink-0 text-amber-400" />
+                      <p className="text-sm font-medium">
+                        Bank Account and IC Number must be provided below to activate Earn mode. Save changes will be disabled until completed.
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
           {/* Nickname */}
           <div>
             {fieldLabel('Nickname')}
@@ -195,10 +371,22 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
           <div style={{ paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
             {sectionLabel(<DollarSign size={14} color="rgba(255,255,255,0.7)" />, 'Bank Account Details')}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <BankSelector currentBank={currentUser.bank_name || ''} darkMode={false} />
+              {/* Note: BankSelector must update tmpBank. We will pass a callback */}
+              <BankSelector 
+                currentBank={tmpBank} 
+                darkMode={false} 
+                onChange={(bName: string) => setTmpBank(bName)}
+              />
               <div>
                 {fieldLabel('Account Number')}
-                <input name="bank_account_number" type="text" defaultValue={currentUser.bank_account_number || ''} placeholder="1234567890" style={inputOnBlue} />
+                <input 
+                  name="bank_account_number" 
+                  type="text" 
+                  value={tmpAcc}
+                  onChange={(e) => setTmpAcc(e.target.value)}
+                  placeholder="1234567890" 
+                  style={inputOnBlue} 
+                />
               </div>
               <div>
                 {fieldLabel('ID Type')}
@@ -213,16 +401,17 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
                   name="id_number"
                   type="text"
                   inputMode="numeric"
-                  defaultValue={currentUser.id_number || ''}
+                  value={tmpIc}
                   placeholder="e.g. 900101105050"
                   style={inputOnBlue}
                   maxLength={12}
                   onChange={(e) => {
-                    // Strip all non-numeric characters as user types
-                    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                    const clean = e.target.value.replace(/[^0-9]/g, '');
+                    setTmpIc(clean);
                   }}
                   onBlur={(e) => {
-                    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                    const clean = e.target.value.replace(/[^0-9]/g, '');
+                    setTmpIc(clean);
                   }}
                 />
                 <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '6px', fontFamily: "'Poppins', sans-serif" }}>
@@ -330,9 +519,10 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
           {/* Save + Sign Out */}
           <div style={{ paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <button type="submit"
-              style={{ width: '100%', height: '58px', borderRadius: '40px', background: '#ffffff', border: 'none', color: BLUE, fontSize: '14px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: P, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', transition: 'transform 0.15s, box-shadow 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.01)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.25)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.2)'; }}>
+              disabled={isAmbassador && (!isEarnValid || !isCharityValid)}
+              style={{ width: '100%', height: '58px', borderRadius: '40px', background: '#ffffff', border: 'none', color: BLUE, fontSize: '14px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: (isAmbassador && (!isEarnValid || !isCharityValid)) ? 'not-allowed' : 'pointer', fontFamily: P, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', transition: 'transform 0.15s, box-shadow 0.15s', opacity: (isAmbassador && (!isEarnValid || !isCharityValid)) ? 0.5 : 1 }}
+              onMouseEnter={e => { if (!(isAmbassador && (!isEarnValid || !isCharityValid))) { e.currentTarget.style.transform = 'scale(1.01)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.25)'; } }}
+              onMouseLeave={e => { if (!(isAmbassador && (!isEarnValid || !isCharityValid))) { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.2)'; } }}>
               Save Profile Changes
             </button>
             <button type="button" onClick={handleLogout}

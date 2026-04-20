@@ -74,6 +74,7 @@ interface AuthUIProps {
   Logo: any;
   safeFetch: (url: string, options?: RequestInit, retries?: number, backoff?: number) => Promise<{ res: Response, data: any }>;
   supabase: any;
+  forceAmbassadorSetup?: Staff;
 }
 
 export default function AuthUI({
@@ -84,7 +85,8 @@ export default function AuthUI({
   isSupabaseConfigured,
   Logo,
   safeFetch,
-  supabase
+  supabase,
+  forceAmbassadorSetup
 }: AuthUIProps) {
   useEffect(() => {
     const link = document.createElement('link');
@@ -106,16 +108,20 @@ export default function AuthUI({
     return () => { document.title = 'AraPower'; };
   }, [clinicProfile.name]);
 
-  const [authMode, setAuthMode] = useState<'welcome' | 'entry' | 'onboarding' | 'login' | 'register'>('welcome');
+  const [authMode, setAuthMode] = useState<'welcome' | 'entry' | 'onboarding' | 'login' | 'register' | 'ambassador-setup'>(forceAmbassadorSetup ? 'ambassador-setup' : 'welcome');
   const [onboardingStep, setOnboardingStep] = useState(0);
 
   const [showPassword, setShowPassword] = useState(false);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [authConfirmPassword, setAuthConfirmPassword] = useState('');
   const [authName, setAuthName] = useState('');
   const [authBranch, setAuthBranch] = useState('');
   const [authPhone, setAuthPhone] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  
+  const [ambassadorSetupId, setAmbassadorSetupId] = useState<string | null>(forceAmbassadorSetup?.id ? String(forceAmbassadorSetup.id) : null);
+  const [ambassadorSetupName, setAmbassadorSetupName] = useState(forceAmbassadorSetup?.name || '');
 
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
@@ -181,11 +187,23 @@ export default function AuthUI({
     setIsSubmitting(true);
     try {
       if (!isSupabaseConfigured) throw new Error('Authentication service is not configured.');
+
       const { data, error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
       if (error) throw error;
       if (data.user?.email) {
         const { res, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${data.user.email}`);
         if (!res.ok) throw new Error(profileData?.error || 'Server error');
+        
+        // Check for ambassador first login
+        if (profileData.role === 'ambassador' && profileData.is_first_login === true) {
+          setAmbassadorSetupId(profileData.id);
+          setAmbassadorSetupName(profileData.name);
+          setAuthMode('ambassador-setup');
+          setAuthEmail('');
+          setAuthPassword('');
+          return;
+        }
+
         onAuthSuccess(profileData);
       }
     } catch (error: any) {
@@ -245,6 +263,41 @@ export default function AuthUI({
       setForgotPasswordStatus({ type: 'error', message: error.message });
     } finally {
       setIsSendingForgotPassword(false);
+    }
+  };
+
+  const handleAmbassadorSetupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    if (!authEmail.includes('@') || authPassword.length < 8) {
+       setAuthError('Please enter a valid email and a password (min 8 characters).');
+       return;
+    }
+    if (authPassword !== authConfirmPassword) {
+       setAuthError('Passwords do not match.');
+       return;
+    }
+    setIsSubmitting(true);
+    try {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/ambassador/${ambassadorSetupId}/setup`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail, password: authPassword })
+      });
+      if (!res.ok) throw new Error(data?.error || 'Setup failed');
+      
+      // Auto login
+      await supabase.auth.signOut();
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+      if (signInError || !signInData?.user?.email) throw new Error('Setup successful, but auto-login failed. Please log in.');
+      
+      const { res: profileRes, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${signInData.user.email}`);
+      if (!profileRes.ok) throw new Error(profileData?.error || 'Failed to load profile');
+      onAuthSuccess(profileData);
+    } catch (error: any) {
+      setAuthError(error.message || 'Setup failed');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -401,14 +454,16 @@ export default function AuthUI({
       style={{ background: '#ffffff', fontFamily: "'Poppins', sans-serif" }}
     >
       {/* Top nav */}
-      <div className="px-8 pt-10 flex items-center">
-        <button
-          onClick={() => setAuthMode('welcome')}
-          className="w-10 h-10 rounded-full border flex items-center justify-center active:scale-95 transition-transform"
-          style={{ borderColor: '#1580c2', color: '#1580c2', background: 'transparent' }}
-        >
-          <ArrowLeft size={18} />
-        </button>
+      <div className="px-8 pt-10 flex items-center min-h-[40px]">
+        {authMode !== 'ambassador-setup' && (
+          <button
+            onClick={() => setAuthMode('welcome')}
+            className="w-10 h-10 rounded-full border flex items-center justify-center active:scale-95 transition-transform"
+            style={{ borderColor: '#1580c2', color: '#1580c2', background: 'transparent' }}
+          >
+            <ArrowLeft size={18} />
+          </button>
+        )}
       </div>
 
       {/* Logo */}
@@ -581,11 +636,11 @@ export default function AuthUI({
         >
           <img src={ARA_POWER_LOGO} alt="Klinik Ara Logo" style={{ height: '40px', width: 'auto', objectFit: 'contain', marginBottom: '20px' }} />
           <h1 style={{ fontSize: '32px', fontWeight: 600, color: '#1580c2', margin: '0 0 6px 0', lineHeight: 1.1 }}>
-            {authMode === 'login' ? 'Welcome back' : 'Create Account'}
+            {authMode === 'login' ? 'Welcome back' : authMode === 'ambassador-setup' ? 'Ambassador Setup' : 'Create Account'}
           </h1>
           <div style={{ width: '40px', height: '4px', background: '#1580c2', borderRadius: '9999px', marginBottom: '8px' }} />
           <p style={{ fontSize: '14px', fontWeight: 400, color: '#1580c2', opacity: 0.55 }}>
-            {authMode === 'login' ? 'Sign in to continue to AraPower' : 'Join the AraPower healthcare network'}
+            {authMode === 'login' ? 'Sign in to continue to AraPower' : authMode === 'ambassador-setup' ? 'Secure your ambassador account' : 'Join the AraPower healthcare network'}
           </p>
         </motion.div>
 
@@ -618,13 +673,13 @@ export default function AuthUI({
             >
               <div className="space-y-5 mb-8">
                 <div className="space-y-2">
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1580c2', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Email Address</label>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1580c2', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Email or Login Code</label>
                   <div className="flex items-center gap-3 px-4 transition-all"
                     style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px' }}>
                     <Mail size={18} style={{ color: '#1580c2', opacity: 0.4, flexShrink: 0 }} />
-                    <input type="email" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)}
+                    <input type="text" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)}
                       style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif" }}
-                      placeholder="name@example.com" />
+                      placeholder="name@example.com or CODE" />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -657,6 +712,58 @@ export default function AuthUI({
                     Sign Up
                   </button>
                 </p>
+              </div>
+            </motion.form>
+          ) : authMode === 'ambassador-setup' ? (
+            <motion.form
+              key="setup-form"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.05 }}
+              onSubmit={handleAmbassadorSetupSubmit}
+              className="flex-1 flex flex-col"
+            >
+              <div className="space-y-5 mb-8">
+                <p className="text-sm font-medium" style={{ color: '#1580c2', opacity: 0.8 }}>
+                  Welcome <strong className="font-bold border-b border-[#1580c2]/30 px-1">{ambassadorSetupName}</strong>! Please choose an email address and password to secure your Ambassador account.
+                </p>
+                <div className="space-y-2">
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1580c2', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>New Email Address</label>
+                  <div className="flex items-center gap-3 px-4 transition-all"
+                    style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px' }}>
+                    <Mail size={18} style={{ color: '#1580c2', opacity: 0.4, flexShrink: 0 }} />
+                    <input type="email" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)}
+                      style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif" }}
+                      placeholder="name@example.com" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1580c2', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Create Password</label>
+                  <div className="flex items-center gap-3"
+                    style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px' }}>
+                    <Lock size={18} style={{ color: '#1580c2', opacity: 0.4, flexShrink: 0 }} />
+                    <input type={showPassword ? 'text' : 'password'} required value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} minLength={8}
+                      style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif" }}
+                      placeholder="Enter a new password" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1580c2', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Confirm Password</label>
+                  <div className="flex items-center gap-3"
+                    style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px' }}>
+                    <Lock size={18} style={{ color: '#1580c2', opacity: 0.4, flexShrink: 0 }} />
+                    <input type={showPassword ? 'text' : 'password'} required value={authConfirmPassword} onChange={(e) => setAuthConfirmPassword(e.target.value)} minLength={8}
+                      style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif" }}
+                      placeholder="Confirm your new password" />
+                  </div>
+                </div>
+              </div>
+              <div className="mt-auto space-y-4">
+                <button type="submit" disabled={isSubmitting}
+                  className="w-full flex items-center justify-center gap-2 active:scale-[0.97] transition-all disabled:opacity-50"
+                  style={{ height: '58px', borderRadius: '40px', background: '#1580c2', border: 'none', color: '#ffffff', fontSize: '16px', fontWeight: 600, fontFamily: "'Poppins', sans-serif", cursor: 'pointer' }}>
+                  {isSubmitting ? <RefreshCw size={18} className="animate-spin" /> : 'Complete Setup'}
+                </button>
               </div>
             </motion.form>
           ) : (

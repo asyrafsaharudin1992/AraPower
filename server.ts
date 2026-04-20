@@ -210,7 +210,7 @@ let serviceColumns: Set<string> = new Set([
   'branches', 'start_date', 'end_date', 'start_time', 'end_time',
   'duration_mins', 'created_at', 'target_url', 'commission_rate'
 ]);
-let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'created_at', 'is_approved']);
+let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'created_at', 'is_approved', 'incentive_mode', 'charity_pot', 'charities', 'is_first_login']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
 let branchColumns: Set<string> = new Set(['id', 'name', 'location', 'whatsapp_number']);
 let settingsColumns: Set<string> = new Set(['key', 'value']);
@@ -1733,20 +1733,21 @@ app.delete("/api/notifications/:id", async (req, res) => {
 app.get("/api/affiliate-lookup/:code", async (req, res) => {
   const { code } = req.params;
   let data = null;
+  const selectFields = 'id, name, role, incentive_mode, charities';
 
   // 1. Try matching the exact Database ID
-  const { data: idData, error: idError } = await supabase.from('staff').select('id, name').eq('id', code).maybeSingle();
+  const { data: idData, error: idError } = await supabase.from('staff').select(selectFields).eq('id', code).maybeSingle();
   if (idData) data = idData;
 
   // 2. Try referral_code text
   if (!data) {
-    const { data: refData } = await supabase.from('staff').select('id, name').ilike('referral_code', code).maybeSingle();
+    const { data: refData } = await supabase.from('staff').select(selectFields).ilike('referral_code', code).maybeSingle();
     if (refData) data = refData;
   }
 
   // 3. Try promo_code text
   if (!data) {
-    const { data: promoData } = await supabase.from('staff').select('id, name').ilike('promo_code', code).maybeSingle();
+    const { data: promoData } = await supabase.from('staff').select(selectFields).ilike('promo_code', code).maybeSingle();
     if (promoData) data = promoData;
   }
 
@@ -1812,9 +1813,9 @@ app.post("/api/staff", async (req, res) => {
     let auth_id = null;
     const initialPassword = password || 'password123';
 
-    // 1. Create the user in Supabase Auth FIRST (if service role key is available)
+    // 1. Create the user in Supabase Auth FIRST (if service role key is available AND email is provided)
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (serviceRoleKey && !isPlaceholderUrl(process.env.VITE_SUPABASE_URL || '') && !isPlaceholderKey(serviceRoleKey)) {
+    if (email && serviceRoleKey && !isPlaceholderUrl(process.env.VITE_SUPABASE_URL || '') && !isPlaceholderKey(serviceRoleKey)) {
       const adminSupabase = createClient(
         process.env.VITE_SUPABASE_URL!,
         serviceRoleKey,
@@ -1858,10 +1859,10 @@ app.post("/api/staff", async (req, res) => {
     // 2. Create the record in the staff table
     const insertData: any = {
       name,
-      email,
       role,
       password: initialPassword
     };
+    if (email) insertData.email = email;
 
     if (auth_id && staffColumns.has('auth_id')) insertData.auth_id = auth_id;
     if (staffColumns.has('referral_code')) insertData.referral_code = final_referral_code;
@@ -1976,6 +1977,171 @@ app.post("/api/auth/change-password", async (req, res) => {
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
+});
+
+app.post("/api/ambassador/create", async (req, res) => {
+  const { displayName, username } = req.body;
+  
+  if (!displayName || !username) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey || isPlaceholderKey(serviceRoleKey)) {
+    return res.status(500).json({ error: "Server authentication configuration missing" });
+  }
+
+  const adminSupabase = createClient(process.env.VITE_SUPABASE_URL!, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+
+  // Generate a random temporary password
+  const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + "1!";
+
+  // Create a pseudo-email for Auth if one isn't provided (assuming username is string, need email format for Auth)
+  const authEmail = username.includes("@") ? username : `${username}@ambassador.local`;
+
+  // Create user in Auth
+  const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
+    email: authEmail,
+    password: tempPassword,
+    email_confirm: true,
+    user_metadata: { name: displayName, role: 'ambassador' }
+  });
+
+  if (authError) {
+    return res.status(500).json({ error: authError.message });
+  }
+
+  // Insert into staff table
+  const referral_code = displayName.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now().toString(36);
+  const { data, error } = await supabase.from('staff').insert({
+    name: displayName,
+    email: authEmail,
+    role: 'ambassador',
+    is_approved: 1,
+    is_first_login: true,
+    incentive_mode: 'discount',
+    charity_pot: 0,
+    charities: '[]',
+    referral_code
+  }).select().single();
+
+  if (error) {
+    // Attempt rollback
+    await adminSupabase.auth.admin.deleteUser(authData.user.id);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json({
+    id: data.id,
+    userId: authData.user.id,
+    username: authEmail,
+    tempPassword,
+    referral_code
+  });
+});
+
+app.patch("/api/ambassador/:id/setup", async (req, res) => {
+  const { id } = req.params;
+  const { email, password } = req.body;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey || isPlaceholderKey(serviceRoleKey)) {
+    return res.status(500).json({ error: "Server authentication configuration missing" });
+  }
+  const adminSupabase = createClient(process.env.VITE_SUPABASE_URL!, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  
+  // Fetch auth_id from staff table
+  const { data: staffMember, error: staffError } = await supabase.from('staff').select('auth_id').eq('id', id).single();
+  if (staffError || !staffMember?.auth_id) {
+    return res.status(404).json({ error: 'Staff member or associated auth identity not found' });
+  }
+
+  // Update Auth identity with genuine email & new password
+  const { error: authError } = await adminSupabase.auth.admin.updateUserById(staffMember.auth_id, { email, password });
+  if (authError) return res.status(500).json({ error: authError.message });
+
+  // Update staff record
+  const { error } = await supabase.from('staff').update({
+    is_first_login: false,
+    email: email
+  }).eq('id', id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+app.patch("/api/ambassador/:id/mode", async (req, res) => {
+  const { id } = req.params;
+  const { incentive_mode, charities, bank_details } = req.body;
+  
+  const updateData: any = {
+    incentive_mode,
+    charities: JSON.stringify(charities || [])
+  };
+
+  if (incentive_mode === 'earn') {
+    if (bank_details) {
+      // If client provides bank details, update them
+      updateData.bank_name = bank_details.bank_name;
+      updateData.bank_account_number = bank_details.bank_account_number;
+      updateData.id_number = bank_details.id_number;
+    } else {
+      // If not provided in body, verify they exist
+      const { data: staffData } = await supabase.from('staff').select('bank_account_number, id_number').eq('id', id).single();
+      if (!staffData?.bank_account_number || !staffData?.id_number) {
+        return res.status(400).json({ error: "Bank account and IC number required to activate earn mode" });
+      }
+    }
+  }
+
+  const { error } = await supabase.from('staff').update(updateData).eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({ success: true });
+});
+
+app.get("/api/ambassador/:id/dashboard", async (req, res) => {
+  const { id } = req.params;
+  
+  // Fetch staff record
+  const { data: ambassador, error: staffError } = await supabase
+    .from('staff')
+    .select('name, incentive_mode, charity_pot, charities')
+    .eq('id', id)
+    .single();
+  if (staffError) return res.status(500).json({ error: staffError.message });
+
+  // Fetch all referrals
+  const { data: referrals, error: refError } = await supabase
+    .from('referrals')
+    .select('id, status, commission_amount')
+    .eq('staff_id', id);
+  if (refError) return res.status(500).json({ error: refError.message });
+
+  const total_referrals = referrals?.length || 0;
+  
+  const completed_referrals = referrals?.filter((r: any) => 
+    r.status === 'completed' || r.status === 'payment_approved' || r.status === 'payment_made'
+  ).length || 0;
+
+  const total_savings_given = referrals?.filter((r: any) => 
+    r.status === 'completed' || r.status === 'payment_approved' || r.status === 'payment_made'
+  ).reduce((sum: number, r: any) => sum + (Number(r.commission_amount) || 0), 0) || 0;
+
+  // Fetch donation requests
+  const { data: donation_requests, error: donError } = await supabase
+    .from('donation_requests')
+    .select('*')
+    .eq('ambassador_id', id)
+    .order('submitted_at', { ascending: false });
+  if (donError) return res.status(500).json({ error: donError.message });
+
+  res.json({
+    ambassador,
+    total_referrals,
+    completed_referrals,
+    total_savings_given,
+    donation_requests: donation_requests || []
+  });
 });
 
 app.post("/api/admin/reset-password", async (req, res) => {
@@ -2328,7 +2494,7 @@ app.get("/api/schema", (req, res) => {
 });
 
 
-app.get("/api/referrals", async (req, res) => {
+app.get("/api/patient-records", async (req, res) => {
   try {
     const { staffId, branch, requesterRole, requesterBranch } = req.query;
     
@@ -2411,7 +2577,7 @@ app.get("/api/referrals", async (req, res) => {
     }
 
     if (error) {
-      logError('GET /api/referrals', error);
+      logError('GET /api/patient-records', error);
       return res.status(500).json({ error: error.message });
     }
     
@@ -2453,12 +2619,12 @@ app.get("/api/referrals", async (req, res) => {
     
     res.json(formattedReferrals);
   } catch (err: any) {
-    console.error("Unhandled error in /api/referrals:", err);
+    console.error("Unhandled error in /api/patient-records:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-app.get("/api/payouts/summary", async (req, res) => {
+app.get("/api/settlements/summary", async (req, res) => {
   try {
     // 1. Fetch all referrals that are 'completed' but NOT YET 'paid'
     const { data: referrals, error } = await supabase
@@ -2473,7 +2639,7 @@ app.get("/api/payouts/summary", async (req, res) => {
     const staffIds = [...new Set(referrals.map(r => r.staff_id || r.created_by).filter(Boolean))];
     const { data: staffData } = await supabase
       .from('staff')
-      .select('id, name, bank_name, bank_account_number, id_type, id_number')
+      .select('id, name, bank_name, bank_account_number, id_type, id_number, role, incentive_mode')
       .in('id', staffIds);
 
     const staffMap = Object.fromEntries((staffData || []).map(s => [s.id, s]));
@@ -2486,10 +2652,16 @@ app.get("/api/payouts/summary", async (req, res) => {
       if (!affiliateId) return;
 
       if (!payoutSummary[affiliateId]) {
+        const staff = staffMap[affiliateId];
+        let bankDesc = `${staff?.bank_name || 'No Bank'} - ${staff?.bank_account_number || 'No Account'}`;
+        if (staff?.role === 'ambassador' && staff?.incentive_mode === 'charity') {
+          bankDesc = 'Charity Pot Fund (No Bank Required)';
+        }
+
         payoutSummary[affiliateId] = {
           affiliate_id: affiliateId,
-          affiliate_name: staffMap[affiliateId]?.name || 'Unknown Affiliate',
-          bank_details: `${staffMap[affiliateId]?.bank_name || 'No Bank'} - ${staffMap[affiliateId]?.bank_account_number || 'No Account'}`,
+          affiliate_name: staff?.name || 'Unknown Affiliate',
+          bank_details: bankDesc,
           total_patients: 0,
           total_commission_owed: 0,
           patient_ids: [] // Keep track of exactly which patients are included in this batch
@@ -2504,11 +2676,12 @@ app.get("/api/payouts/summary", async (req, res) => {
     // Flag affiliates with incomplete profiles — admin warned before processing
     const result = Object.values(payoutSummary).map((p: any) => {
       const staff = staffMap[p.affiliate_id];
-      const profileIncomplete = !staff?.bank_account_number || !staff?.id_number;
+      const isCharityAmbassador = staff?.role === 'ambassador' && staff?.incentive_mode === 'charity';
+      const profileIncomplete = !isCharityAmbassador && (!staff?.bank_account_number || !staff?.id_number);
       return {
         ...p,
         profile_incomplete: profileIncomplete,
-        missing_fields: [
+        missing_fields: isCharityAmbassador ? [] : [
           !staff?.bank_name ? 'bank_name' : null,
           !staff?.bank_account_number ? 'bank_account_number' : null,
           !staff?.id_number ? 'id_number' : null,
@@ -2518,13 +2691,13 @@ app.get("/api/payouts/summary", async (req, res) => {
 
     return res.json(result);
   } catch (err: any) {
-    console.error("Unhandled error in /api/payouts/summary:", err);
+    console.error("Unhandled error in /api/settlements/summary:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-app.post("/api/payouts/process", async (req, res) => {
-  // DEPRECATED: PayoutManagement now uses PATCH /api/referrals/:id directly.
+app.post("/api/settlements/process", async (req, res) => {
+  // DEPRECATED: PayoutManagement now uses PATCH /api/patient-records/:id directly.
   // This endpoint is kept for backwards compatibility but redirects to payment_approved.
   const { affiliate_id, staff_id, patient_ids } = req.body;
   
@@ -2537,10 +2710,13 @@ app.post("/api/payouts/process", async (req, res) => {
   if (resolvedAffiliateId) {
     const { data: staffCheck } = await supabase
       .from('staff')
-      .select('bank_account_number, id_number, name')
+      .select('bank_account_number, id_number, name, role, incentive_mode')
       .eq('id', resolvedAffiliateId)
       .single();
-    if (staffCheck && (!staffCheck.bank_account_number || !staffCheck.id_number)) {
+      
+    const isCharityAmbassador = staffCheck?.role === 'ambassador' && staffCheck?.incentive_mode === 'charity';
+    
+    if (staffCheck && !isCharityAmbassador && (!staffCheck.bank_account_number || !staffCheck.id_number)) {
       return res.status(400).json({
         error: `Cannot process payout for ${staffCheck.name || 'this affiliate'} — bank account or IC number is missing from their profile.`
       });
@@ -2561,7 +2737,96 @@ app.post("/api/payouts/process", async (req, res) => {
   return res.json({ message: "Payout approved successfully" });
 });
 
-app.post("/api/referrals", async (req, res) => {
+app.post("/api/donation-requests", async (req, res) => {
+  const { ambassador_id, charities, total_amount } = req.body;
+  
+  // Check no existing pending donation request for this ambassador
+  const { data: pending } = await supabase.from('donation_requests').select('id').eq('ambassador_id', ambassador_id).eq('status', 'pending');
+  if (pending && pending.length > 0) return res.status(400).json({ error: "You already have a pending donation request" });
+
+  // Fetch ambassador's charity_pot
+  const { data: staff, error: staffError } = await supabase.from('staff').select('charity_pot').eq('id', ambassador_id).single();
+  if (staffError || !staff) return res.status(404).json({ error: "Ambassador not found" });
+
+  if (total_amount > (staff.charity_pot || 0)) {
+    return res.status(400).json({ error: "Amount exceeds your charity pot balance" });
+  }
+
+  const { data, error } = await supabase.from('donation_requests').insert({
+    ambassador_id,
+    status: 'pending',
+    total_amount,
+    charities: JSON.stringify(charities)
+  }).select().single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.get("/api/donation-requests/pending", async (req, res) => {
+  const { data: donation_requests, error: donError } = await supabase
+    .from('donation_requests')
+    .select('*, staff:staff!inner(name, charity_pot)')
+    .eq('status', 'pending');
+    
+  if (donError) {
+    if (donError.message.includes('relation "donation_requests" does not exist')) {
+      return res.json([]);
+    }
+    return res.status(500).json({ error: donError.message });
+  }
+
+  // Format response to include ambassador_name and charity_pot at root level of each request
+  const formattedData = (donation_requests || []).map((req: any) => ({
+    ...req,
+    ambassador_name: req.staff?.name,
+    charity_pot: req.staff?.charity_pot,
+    staff: undefined
+  }));
+
+  res.json(formattedData);
+});
+
+app.get("/api/donation-requests/:ambassadorId", async (req, res) => {
+  const { ambassadorId } = req.params;
+  const { data, error } = await supabase
+    .from('donation_requests')
+    .select('*')
+    .eq('ambassador_id', ambassadorId)
+    .order('submitted_at', { ascending: false });
+
+  if (error) {
+    if (error.message.includes('relation "donation_requests" does not exist')) {
+      return res.json([]);
+    }
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json(data || []);
+});
+
+app.patch("/api/donation-requests/:id/complete", async (req, res) => {
+  const { id } = req.params;
+  const { admin_reference, admin_notes } = req.body;
+
+  const { data: request, error: fetchError } = await supabase.from('donation_requests').select('*').eq('id', id).single();
+  if (fetchError || !request) return res.status(404).json({ error: "Not found" });
+  
+  if (request.status === 'completed') return res.status(400).json({ error: "Already completed" });
+
+  const { error } = await supabase.from('donation_requests').update({
+    status: 'completed',
+    completed_at: new Date().toISOString(),
+    admin_reference,
+    admin_notes
+  }).eq('id', id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  
+  res.json({ success: true });
+});
+
+app.post("/api/patient-records", async (req, res) => {
   const { staff_id, service_id, patient_name, patient_phone, patient_ic, patient_address, patient_type, appointment_date, booking_time, created_by, branch, referral_code, status, commission_amount, service_name } = req.body;
 
   // BACKEND GUARD: Verify staff_id exists in the database
@@ -2646,19 +2911,47 @@ app.post("/api/referrals", async (req, res) => {
     }
   }
 
+  // Fetch service base price if possible
+  let final_price = 0;
+  if (service_id) {
+    const { data: svcData } = await supabase.from('services').select('base_price').eq('id', service_id).maybeSingle();
+    if (svcData?.base_price) {
+      final_price = Number(svcData.base_price);
+    }
+  }
+
   if (finalStaffId) {
     insertData.staff_id = finalStaffId;
     insertData.created_by = finalStaffId;
 
-    // NAME CATCHER: Automatically fetch the affiliate's name if it is missing
-    if (!insertData.staff_name) {
-      const { data: staffData } = await supabase.from('staff').select('name').eq('id', finalStaffId).maybeSingle();
-      if (staffData) {
-        insertData.staff_name = staffData.name;
+    // Fetch the affiliate's details
+    const { data: staffData } = await supabase.from('staff').select('name, role, incentive_mode').eq('id', finalStaffId).maybeSingle();
+    if (staffData) {
+      if (!insertData.staff_name) insertData.staff_name = staffData.name;
+      
+      if (staffData.role === 'ambassador') {
+        const mode = staffData.incentive_mode || 'discount';
+        if (mode === 'discount') {
+          // Discount Mode: Apply commission as a discount to the patient
+          const calculatedFinal = Math.max(0, final_price - Number(commission_amount || 0));
+          insertData.final_price = calculatedFinal;
+          insertData.discount_applied = true;
+          // By reducing the price, the ambassador theoretically earns zero commission, but keep record for analytics if needed
+        } else if (mode === 'charity') {
+          // Charity Mode: Price remains identical
+          insertData.final_price = final_price;
+          insertData.charity_applied = true;
+        } else {
+          // Earn Mode
+          insertData.final_price = final_price;
+        }
+      } else {
+        insertData.final_price = final_price;
       }
     }
   } else if (created_by) {
     insertData.created_by = created_by;
+    insertData.final_price = final_price;
   }
 
   const { data: referral, error: insertError } = await supabase
@@ -2674,6 +2967,26 @@ app.post("/api/referrals", async (req, res) => {
 
   // ── Notify affiliate: in-app + email ────────────────────────────────
   if (finalStaffId) {
+    // Fetch ambassador's incentive_mode
+    const { data: ambassadorData } = await supabase
+      .from('staff')
+      .select('role, incentive_mode, charity_pot, charities')
+      .eq('id', finalStaffId)
+      .single();
+
+    if (ambassadorData?.role === 'ambassador') {
+      if (ambassadorData.incentive_mode === 'charity') {
+        // Add commission_amount to charity_pot
+        await supabase
+          .from('staff')
+          .update({ charity_pot: (ambassadorData.charity_pot || 0) + (commission_amount || 0) })
+          .eq('id', finalStaffId);
+      }
+      // discount and earn modes: no extra action needed here
+      // discount: price already adjusted at booking creation (handled in PublicBookingUI)
+      // earn: existing payout pipeline handles it
+    }
+
     try {
       // a) In-app notification
       await supabase.from('notifications').insert({
@@ -2707,7 +3020,7 @@ app.post("/api/referrals", async (req, res) => {
   return res.json({ message: "Referral logged successfully", referral });
 });
 
-app.patch("/api/referrals/:id", async (req, res) => {
+app.patch("/api/patient-records/:id", async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   
@@ -2731,7 +3044,7 @@ app.patch("/api/referrals/:id", async (req, res) => {
   return res.json({ message: "Referral updated successfully", data });
 });
 
-app.delete("/api/referrals/:id", async (req, res) => {
+app.delete("/api/patient-records/:id", async (req, res) => {
   const { id } = req.params;
   
   const { error } = await supabase

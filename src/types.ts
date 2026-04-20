@@ -74,12 +74,16 @@ export interface Staff {
   pending_earnings: number;
   approved_earnings: number;
   paid_earnings: number;
+  is_approved?: number | boolean;
+  aracoins?: number;
+  is_first_login?: boolean;
+  incentive_mode?: 'discount' | 'charity' | 'earn';
+  charities?: any;
+  charity_pot?: number;
   lifetime_earnings: number;
   last_payout_date?: string;
   referrer_type: string;
   phone?: string;
-  aracoins?: number;
-  is_approved?: number;
   nickname?: string;
   profile_picture?: string;
   bank_name?: string;
