@@ -157,21 +157,21 @@ export const PromotionDetailModal = ({
                   <div className="flex justify-between items-center">
                     <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Base Price</span>
                     <span className="text-zinc-500 text-lg line-through font-medium">
-                      {clinicProfile.currency}{(item.base_price || 0).toFixed(0)}
+                      {clinicProfile?.currency || 'RM'}{(item.base_price || 0).toFixed(0)}
                     </span>
                   </div>
                   
                   <div className="flex justify-between items-center">
                     <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Promo Price</span>
                     <span className="text-zinc-900 text-3xl font-black">
-                      {clinicProfile.currency}{(item.promo_price || item.base_price || 0).toFixed(0)}
+                      {clinicProfile?.currency || 'RM'}{(item.promo_price || item.base_price || 0).toFixed(0)}
                     </span>
                   </div>
 
                   <div className="pt-4 border-t border-violet-500 flex justify-between items-center">
                     <span className="text-brand-accent text-xs font-bold uppercase tracking-widest">Agent Incentive</span>
                     <span className="text-brand-accent text-xl font-black">
-                      {clinicProfile.currency}{(item.commission_rate || 0).toFixed(2)}
+                      {clinicProfile?.currency || 'RM'}{(item.commission_rate || 0).toFixed(2)}
                     </span>
                   </div>
                 </div>

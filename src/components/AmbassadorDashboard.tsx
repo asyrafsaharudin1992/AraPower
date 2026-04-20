@@ -60,7 +60,7 @@ export const AmbassadorDashboard: React.FC<AmbassadorDashboardProps> = ({
     if (navigator.share) {
       navigator.share({
         title: 'Book Appointment',
-        text: `Book an appointment with ${clinicProfile.name} using my referral code!`,
+        text: `Book an appointment with ${clinicProfile?.name || 'the clinic'} using my referral code!`,
         url: url,
       }).catch(console.error);
     } else {
@@ -267,9 +267,9 @@ export const AmbassadorDashboard: React.FC<AmbassadorDashboardProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
                 <h3 className="font-bold text-[#1580c2]">Donation History</h3>
                 <div className="text-xs font-semibold text-[#1580c2]/80 bg-white px-3 py-1.5 rounded-full border border-gray-100">
-                  <span className="opacity-80">Total donated:</span> {clinicProfile?.currency || 'RM'}{(dashboardData?.donation_requests?.filter((r: any) => r.status === 'completed').reduce((sum: number, r: any) => sum + r.total_amount, 0) || 0).toFixed(2)} 
+                  <span className="opacity-80">Total donated:</span> {clinicProfile?.currency || 'RM'}{(dashboardData?.donation_requests || []).filter((r: any) => r.status === 'completed').reduce((sum: number, r: any) => sum + (r.total_amount || 0), 0).toFixed(2)} 
                   <span className="mx-2 opacity-30">|</span> 
-                  <span className="opacity-80">Pending:</span> {clinicProfile?.currency || 'RM'}{(dashboardData?.donation_requests?.filter((r: any) => r.status === 'pending').reduce((sum: number, r: any) => sum + r.total_amount, 0) || 0).toFixed(2)}
+                  <span className="opacity-80">Pending:</span> {clinicProfile?.currency || 'RM'}{(dashboardData?.donation_requests || []).filter((r: any) => r.status === 'pending').reduce((sum: number, r: any) => sum + (r.total_amount || 0), 0).toFixed(2)}
                 </div>
               </div>
               {dashboardData?.donation_requests && dashboardData.donation_requests.length > 0 ? (
@@ -284,7 +284,7 @@ export const AmbassadorDashboard: React.FC<AmbassadorDashboardProps> = ({
                       </div>
                       <div className="flex justify-between items-end">
                         <span className="text-xs text-gray-500 font-mono">Ref: {req.id.split('-')[0]}</span>
-                        <span className="font-black text-[#1580c2] text-lg">{clinicProfile?.currency || 'RM'}{req.total_amount.toFixed(2)}</span>
+                        <span className="font-black text-[#1580c2] text-lg">{clinicProfile?.currency || 'RM'}{(req.total_amount || 0).toFixed(2)}</span>
                       </div>
                     </div>
                   ))}

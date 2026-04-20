@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Search, CheckCircle2, Download, DollarSign, RefreshCw , AlertTriangle } from 'lucide-react';
 
 interface PayoutManagementProps {
@@ -398,7 +398,7 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
                     </td>
                     <td className="p-4 text-sm text-zinc-600">{ref.patient_name}</td>
                     <td className="p-4 text-sm text-zinc-600">{ref.service_name}</td>
-                    <td className="p-4 text-sm font-black text-emerald-600 text-right">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
+                    <td className="p-4 text-sm font-black text-emerald-600 text-right">{clinicProfile?.currency || 'RM'}{(ref.commission_amount || 0).toFixed(2)}</td>
                   </tr>
                 );
               })}
@@ -437,7 +437,7 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
                       <CheckCircle2 size={12} /> Paid
                     </span>
                   </td>
-                  <td className="p-4 text-sm font-black text-emerald-600 text-right">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
+                  <td className="p-4 text-sm font-black text-emerald-600 text-right">{clinicProfile?.currency || 'RM'}{(ref.commission_amount || 0).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>

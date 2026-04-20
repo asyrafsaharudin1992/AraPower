@@ -1998,8 +1998,8 @@ app.post("/api/ambassador/create", async (req, res) => {
 
     const adminSupabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-    // Generate a random temporary password
-    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + "1!";
+    // Generate a simpler temporary password (e.g., ara123456)
+    const tempPassword = "ara" + Math.floor(100000 + Math.random() * 900000);
 
     // Create a pseudo-email for Auth if one isn't provided
     const authEmail = (username.includes("@") ? username : `${username}@ambassador.local`).toLowerCase();
@@ -2151,20 +2151,31 @@ app.get("/api/ambassador/:id/dashboard", async (req, res) => {
     r.status === 'completed' || r.status === 'payment_approved' || r.status === 'payment_made'
   ).reduce((sum: number, r: any) => sum + (Number(r.commission_amount) || 0), 0) || 0;
 
-  // Fetch donation requests
-  const { data: donation_requests, error: donError } = await supabase
-    .from('donation_requests')
-    .select('*')
-    .eq('ambassador_id', id)
-    .order('submitted_at', { ascending: false });
-  if (donError) return res.status(500).json({ error: donError.message });
+  // Fetch donation requests - handle missing table gracefully
+  let donation_requests: any[] = [];
+  try {
+    const { data: donData, error: donError } = await supabase
+      .from('donation_requests')
+      .select('*')
+      .eq('ambassador_id', id)
+      .order('submitted_at', { ascending: false });
+    
+    if (!donError) {
+      donation_requests = donData || [];
+    } else if (donError.code !== '42P01') {
+      // Only log if it's not a "table does not exist" error
+      console.warn('Non-critical error fetching donation_requests:', donError.message);
+    }
+  } catch (err) {
+    console.warn('Caught exception fetching donation_requests:', err);
+  }
 
   res.json({
     ambassador,
     total_referrals,
     completed_referrals,
     total_savings_given,
-    donation_requests: donation_requests || []
+    donation_requests
   });
 });
 

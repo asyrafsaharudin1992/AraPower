@@ -161,14 +161,14 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
     setIsCreatingAmbassador(true);
     setCreatedCredentials(null);
 
-    // Use a placeholder email if missing, to generate a temporary profile
-    const targetEmail = newAmbassadorEmail.trim() || `ambassador+${Date.now()}@arapower.com`;
+    // Use a simplified username if email is missing
+    const targetUsername = newAmbassadorEmail.trim() || newAmbassadorName.toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(100 + Math.random() * 899);
 
     try {
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/ambassador/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ displayName: newAmbassadorName, username: targetEmail })
+        body: JSON.stringify({ displayName: newAmbassadorName, username: targetUsername })
       });
 
       if (!res.ok) throw new Error(data?.error || 'Failed to create ambassador');

@@ -91,7 +91,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
             <>
               {[
                 { icon: ClipboardList, label: 'Total Referrals', value: adminStats.totalReferrals, sub: <span style={{ fontSize: '10px', fontWeight: 600, color: '#1580c2', background: 'rgba(255,255,255,0.9)', padding: '2px 8px', borderRadius: '8px' }}>Active</span> },
-                { icon: DollarSign, label: 'Processed Payouts', value: `${clinicProfile.currency}${(adminStats.totalPayout || 0).toFixed(0)}`, sub: <span style={{ fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65 }}>Payable: {clinicProfile.currency}{(adminStats.pendingPayout || 0).toFixed(0)}</span> },
+                { icon: DollarSign, label: 'Processed Payouts', value: `${clinicProfile?.currency || 'RM'}${(adminStats.totalPayout || 0).toFixed(0)}`, sub: <span style={{ fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65 }}>Payable: {clinicProfile?.currency || 'RM'}{(adminStats.pendingPayout || 0).toFixed(0)}</span> },
                 { icon: Users, label: 'Active Staff', value: activeStaffList.length, sub: <span style={{ fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65 }}>{staffList.length} Registered</span> },
               ].map(({ icon: Icon, label, value, sub }) => (
                 <div key={label} style={{ background: '#1580c2', borderRadius: '2rem', border: 'none', padding: '24px', display: 'flex', alignItems: 'center', gap: '20px', overflow: 'hidden', position: 'relative' }}>
@@ -202,7 +202,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
             </div>
             <div style={{ background: '#1580c2', borderRadius: '1.5rem', border: 'none', padding: '24px' }}>
               <p style={{ fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.15em', margin: '0 0 4px 0' }}>Total Earned</p>
-              <p style={{ fontSize: '28px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.5px', margin: '0 0 4px 0' }}>{clinicProfile.currency}{(currentUserStats?.earned || 0).toFixed(0)}</p>
+              <p style={{ fontSize: '28px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.5px', margin: '0 0 4px 0' }}>{clinicProfile?.currency || 'RM'}{(currentUserStats?.earned || 0).toFixed(0)}</p>
               <p style={{ fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65, margin: 0 }}>Lifetime</p>
             </div>
           </div>

@@ -205,8 +205,8 @@ export const PromotionsUI: React.FC<PromotionsUIProps> = ({
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                       {[
-                        { label: 'Price', val: `${clinicProfile.currency}${service.base_price}` },
-                        { label: 'Incentive', val: `${clinicProfile.currency}${service.commission_rate}` },
+                        { label: 'Price', val: `${clinicProfile?.currency || 'RM'}${service.base_price}` },
+                        { label: 'Incentive', val: `${clinicProfile?.currency || 'RM'}${service.commission_rate}` },
                         { label: 'Poster', val: service.image_url ? 'Yes' : 'No' },
                       ].map(({ label, val }) => (
                         <div key={label}>

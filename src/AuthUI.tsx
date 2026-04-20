@@ -188,7 +188,9 @@ export default function AuthUI({
     try {
       if (!isSupabaseConfigured) throw new Error('Authentication service is not configured.');
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+      const rawEmail = authEmail.trim().toLowerCase();
+      const loginIdentifier = rawEmail.includes('@') ? rawEmail : `${rawEmail}@ambassador.local`;
+      const { data, error } = await supabase.auth.signInWithPassword({ email: loginIdentifier, password: authPassword.trim() });
       if (error) throw error;
       if (data.user?.email) {
         const { res, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${encodeURIComponent(data.user.email)}`);
@@ -281,17 +283,19 @@ export default function AuthUI({
        return;
     }
     setIsSubmitting(true);
+    const finalEmail = authEmail.trim().toLowerCase();
+    const finalPassword = authPassword.trim();
     try {
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/ambassador/${ambassadorSetupId}/setup`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: authEmail, password: authPassword })
+        body: JSON.stringify({ email: finalEmail, password: finalPassword })
       });
       if (!res.ok) throw new Error(data?.error || 'Setup failed');
       
       // Auto login
       await supabase.auth.signOut();
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: finalEmail, password: finalPassword });
       if (signInError || !signInData?.user?.email) throw new Error('Setup successful, but auto-login failed. Please log in.');
       
       const { res: profileRes, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${encodeURIComponent(signInData.user.email)}`);
