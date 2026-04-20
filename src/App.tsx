@@ -1353,7 +1353,7 @@ export default function App() {
   const fetchStaffByEmail = async (email: string, user?: any) => {
     try {
       const authIdQuery = user?.id ? `&auth_id=${user.id}` : '';
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${email}${authIdQuery}`);
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${encodeURIComponent(email)}${authIdQuery}`);
       
       if (!res.ok) {
         throw new Error(data?.error || `Server error: ${res.status}`);

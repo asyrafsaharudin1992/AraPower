@@ -191,8 +191,9 @@ export default function AuthUI({
       const { data, error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
       if (error) throw error;
       if (data.user?.email) {
-        const { res, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${data.user.email}`);
+        const { res, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${encodeURIComponent(data.user.email)}`);
         if (!res.ok) throw new Error(profileData?.error || 'Server error');
+        if (!profileData) throw new Error('Account authenticated, but team profile not found.');
         
         // Check for ambassador first login
         if (profileData.role === 'ambassador' && profileData.is_first_login === true) {
@@ -237,8 +238,10 @@ export default function AuthUI({
         return;
       }
       // Fetch full staff profile — don't pass raw register response
-      const { res: profileRes, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${signInData.user.email}`);
+      const { res: profileRes, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${encodeURIComponent(signInData.user.email)}`);
       if (!profileRes.ok) throw new Error(profileData?.error || 'Failed to load profile');
+      if (!profileData) throw new Error('Account authenticated, but team profile not found.');
+
       onAuthSuccess(profileData);
     } catch (error: any) {
       setAuthError(error.message || 'Registration failed');
@@ -291,8 +294,10 @@ export default function AuthUI({
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
       if (signInError || !signInData?.user?.email) throw new Error('Setup successful, but auto-login failed. Please log in.');
       
-      const { res: profileRes, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${signInData.user.email}`);
+      const { res: profileRes, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${encodeURIComponent(signInData.user.email)}`);
       if (!profileRes.ok) throw new Error(profileData?.error || 'Failed to load profile');
+      if (!profileData) throw new Error('Account authenticated, but team profile not found.');
+
       onAuthSuccess(profileData);
     } catch (error: any) {
       setAuthError(error.message || 'Setup failed');

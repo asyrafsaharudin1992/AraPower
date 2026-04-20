@@ -1483,9 +1483,9 @@ app.get("/api/staff/email", async (req, res) => {
     let query = dbClient.from('staff').select(selectColumns);
     
     if (auth_id && staffColumns.has('auth_id')) {
-      query = query.or(`auth_id.eq.${auth_id},email.eq.${email}`);
+      query = query.or(`auth_id.eq.${auth_id},email.ilike.${email}`);
     } else {
-      query = query.eq('email', email);
+      query = query.ilike('email', email);
     }
 
     const { data: staff, error } = await query.single();
@@ -2002,7 +2002,7 @@ app.post("/api/ambassador/create", async (req, res) => {
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + "1!";
 
     // Create a pseudo-email for Auth if one isn't provided
-    const authEmail = username.includes("@") ? username : `${username}@ambassador.local`;
+    const authEmail = (username.includes("@") ? username : `${username}@ambassador.local`).toLowerCase();
 
     // Create user in Auth
     const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
