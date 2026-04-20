@@ -1992,11 +1992,11 @@ app.post("/api/ambassador/create", async (req, res) => {
       return res.status(500).json({ error: "Server authentication configuration missing (Check SUPABASE_SERVICE_ROLE_KEY in Vercel)" });
     }
 
-    if (!process.env.VITE_SUPABASE_URL) {
-      return res.status(500).json({ error: "VITE_SUPABASE_URL missing in Vercel" });
+    if (!supabaseUrl || isPlaceholderUrl(supabaseUrl)) {
+      return res.status(500).json({ error: "Supabase URL missing in Vercel" });
     }
 
-    const adminSupabase = createClient(process.env.VITE_SUPABASE_URL!, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    const adminSupabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
     // Generate a random temporary password
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + "1!";
@@ -2057,32 +2057,40 @@ app.post("/api/ambassador/create", async (req, res) => {
 });
 
 app.patch("/api/ambassador/:id/setup", async (req, res) => {
-  const { id } = req.params;
-  const { email, password } = req.body;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey || isPlaceholderKey(serviceRoleKey)) {
-    return res.status(500).json({ error: "Server authentication configuration missing" });
+  try {
+    const { id } = req.params;
+    const { email, password } = req.body;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey || isPlaceholderKey(serviceRoleKey)) {
+      return res.status(500).json({ error: "Server authentication configuration missing" });
+    }
+    if (!supabaseUrl || isPlaceholderUrl(supabaseUrl)) {
+      return res.status(500).json({ error: "Supabase URL missing in Vercel" });
+    }
+    const adminSupabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    
+    // Fetch auth_id from staff table
+    const { data: staffMember, error: staffError } = await supabase.from('staff').select('auth_id').eq('id', id).single();
+    if (staffError || !staffMember?.auth_id) {
+      return res.status(404).json({ error: 'Staff member or associated auth identity not found' });
+    }
+
+    // Update Auth identity with genuine email & new password
+    const { error: authError } = await adminSupabase.auth.admin.updateUserById(staffMember.auth_id, { email, password });
+    if (authError) return res.status(500).json({ error: authError.message });
+
+    // Update staff record
+    const { error } = await supabase.from('staff').update({
+      is_first_login: false,
+      email: email
+    }).eq('id', id);
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error("Vercel Unhandled Ambassador Setup Exception:", err);
+    res.status(500).json({ error: err.message || "Unknown backend failure during ambassador setup" });
   }
-  const adminSupabase = createClient(process.env.VITE_SUPABASE_URL!, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
-  
-  // Fetch auth_id from staff table
-  const { data: staffMember, error: staffError } = await supabase.from('staff').select('auth_id').eq('id', id).single();
-  if (staffError || !staffMember?.auth_id) {
-    return res.status(404).json({ error: 'Staff member or associated auth identity not found' });
-  }
-
-  // Update Auth identity with genuine email & new password
-  const { error: authError } = await adminSupabase.auth.admin.updateUserById(staffMember.auth_id, { email, password });
-  if (authError) return res.status(500).json({ error: authError.message });
-
-  // Update staff record
-  const { error } = await supabase.from('staff').update({
-    is_first_login: false,
-    email: email
-  }).eq('id', id);
-
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true });
 });
 
 app.patch("/api/ambassador/:id/mode", async (req, res) => {
