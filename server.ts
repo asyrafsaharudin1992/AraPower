@@ -210,7 +210,7 @@ let serviceColumns: Set<string> = new Set([
   'branches', 'start_date', 'end_date', 'start_time', 'end_time',
   'duration_mins', 'created_at', 'target_url', 'commission_rate'
 ]);
-let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'created_at', 'is_approved', 'incentive_mode', 'charity_pot', 'charities', 'is_first_login']);
+let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'created_at', 'is_approved', 'incentive_mode', 'charity_pot', 'charities', 'is_first_login', 'auth_id']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
 let branchColumns: Set<string> = new Set(['id', 'name', 'location', 'whatsapp_number']);
 let settingsColumns: Set<string> = new Set(['key', 'value']);
@@ -1980,69 +1980,80 @@ app.post("/api/auth/change-password", async (req, res) => {
 });
 
 app.post("/api/ambassador/create", async (req, res) => {
-  const { displayName, username } = req.body;
-  
-  if (!displayName || !username) {
-    return res.status(400).json({ error: "Missing required fields" });
+  try {
+    const { displayName, username } = req.body;
+    
+    if (!displayName || !username) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey || isPlaceholderKey(serviceRoleKey)) {
+      return res.status(500).json({ error: "Server authentication configuration missing (Check SUPABASE_SERVICE_ROLE_KEY in Vercel)" });
+    }
+
+    if (!process.env.VITE_SUPABASE_URL) {
+      return res.status(500).json({ error: "VITE_SUPABASE_URL missing in Vercel" });
+    }
+
+    const adminSupabase = createClient(process.env.VITE_SUPABASE_URL!, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+
+    // Generate a random temporary password
+    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + "1!";
+
+    // Create a pseudo-email for Auth if one isn't provided
+    const authEmail = username.includes("@") ? username : `${username}@ambassador.local`;
+
+    // Create user in Auth
+    const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
+      email: authEmail,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { name: displayName, role: 'ambassador' }
+    });
+
+    if (authError) {
+      console.error("Vercel createUser Auth Error:", authError);
+      return res.status(500).json({ error: authError.message });
+    }
+
+    // Insert into staff table
+    const referral_code = displayName.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now().toString(36);
+    
+    const insertData: any = {
+      name: displayName,
+      email: authEmail,
+      role: 'ambassador',
+      is_approved: 1,
+      referral_code
+    };
+
+    if (staffColumns.has('is_first_login')) insertData.is_first_login = true;
+    if (staffColumns.has('incentive_mode')) insertData.incentive_mode = 'discount';
+    if (staffColumns.has('charity_pot')) insertData.charity_pot = 0;
+    if (staffColumns.has('charities')) insertData.charities = '[]';
+    if (staffColumns.has('auth_id')) insertData.auth_id = authData.user.id;
+
+    const { data, error } = await supabase.from('staff').insert(insertData).select().single();
+
+    if (error) {
+      console.error("Vercel staff insert Database Error:", error);
+      // Attempt rollback safely
+      await adminSupabase.auth.admin.deleteUser(authData.user.id).catch(e => console.error("Rollback failed:", e));
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({
+      id: data.id,
+      userId: authData.user.id,
+      username: authEmail,
+      tempPassword,
+      referral_code
+    });
+  } catch (err: any) {
+    console.error("Vercel Unhandled Ambassador Create Exception:", err);
+    res.status(500).json({ error: err.message || "Unknown backend failure during ambassador creation" });
   }
-
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey || isPlaceholderKey(serviceRoleKey)) {
-    return res.status(500).json({ error: "Server authentication configuration missing" });
-  }
-
-  const adminSupabase = createClient(process.env.VITE_SUPABASE_URL!, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
-
-  // Generate a random temporary password
-  const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + "1!";
-
-  // Create a pseudo-email for Auth if one isn't provided (assuming username is string, need email format for Auth)
-  const authEmail = username.includes("@") ? username : `${username}@ambassador.local`;
-
-  // Create user in Auth
-  const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
-    email: authEmail,
-    password: tempPassword,
-    email_confirm: true,
-    user_metadata: { name: displayName, role: 'ambassador' }
-  });
-
-  if (authError) {
-    return res.status(500).json({ error: authError.message });
-  }
-
-  // Insert into staff table
-  const referral_code = displayName.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now().toString(36);
-  
-  const insertData: any = {
-    name: displayName,
-    email: authEmail,
-    role: 'ambassador',
-    is_approved: 1,
-    referral_code
-  };
-
-  if (staffColumns.has('is_first_login')) insertData.is_first_login = true;
-  if (staffColumns.has('incentive_mode')) insertData.incentive_mode = 'discount';
-  if (staffColumns.has('charity_pot')) insertData.charity_pot = 0;
-  if (staffColumns.has('charities')) insertData.charities = '[]';
-  if (staffColumns.has('auth_id')) insertData.auth_id = authData.user.id;
-
-  const { data, error } = await supabase.from('staff').insert(insertData).select().single();
-
-  if (error) {
-    // Attempt rollback
-    await adminSupabase.auth.admin.deleteUser(authData.user.id);
-    return res.status(500).json({ error: error.message });
-  }
-
-  res.json({
-    id: data.id,
-    userId: authData.user.id,
-    username: authEmail,
-    tempPassword,
-    referral_code
-  });
 });
 
 app.patch("/api/ambassador/:id/setup", async (req, res) => {
