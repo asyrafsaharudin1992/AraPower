@@ -85,9 +85,9 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
       style={{ fontFamily: P }}
     >
       {/* ── Admin / Manager / Receptionist stat cards ── */}
-      {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
+      {(currentUser?.role === 'admin' || currentUser?.role === 'manager' || currentUser?.role === 'receptionist') && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {(currentUser.role === 'admin' || currentUser.role === 'manager') ? (
+          {(currentUser?.role === 'admin' || currentUser?.role === 'manager') ? (
             <>
               {[
                 { icon: ClipboardList, label: 'Total Referrals', value: adminStats.totalReferrals, sub: <span style={{ fontSize: '10px', fontWeight: 600, color: '#1580c2', background: 'rgba(255,255,255,0.9)', padding: '2px 8px', borderRadius: '8px' }}>Active</span> },
@@ -112,15 +112,15 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
               {[
                 {
                   icon: CheckCircle2,
-                  label: currentUser.role === 'receptionist' ? 'Arrived Today' : 'Paid Today',
-                  value: currentUser.role === 'receptionist' ? receptionistStats.arrivedToday : referrals.filter((r: any) => r.status === 'payment_made' && r.date === new Date().toISOString().split('T')[0]).length,
-                  sub: currentUser.role === 'receptionist' ? 'Patients checked in' : 'Referrals completed',
+                  label: currentUser?.role === 'receptionist' ? 'Arrived Today' : 'Paid Today',
+                  value: currentUser?.role === 'receptionist' ? receptionistStats.arrivedToday : referrals.filter((r: any) => r.status === 'payment_made' && r.date === new Date().toISOString().split('T')[0]).length,
+                  sub: currentUser?.role === 'receptionist' ? 'Patients checked in' : 'Referrals completed',
                 },
                 {
                   icon: Clock,
                   label: 'Pending Action',
-                  value: currentUser.role === 'receptionist' ? receptionistStats.pendingArrivals : referrals.filter((r: any) => r.status === 'payment_approved').length,
-                  sub: currentUser.role === 'receptionist' ? 'Expected today' : 'Awaiting payment',
+                  value: currentUser?.role === 'receptionist' ? receptionistStats.pendingArrivals : referrals.filter((r: any) => r.status === 'payment_approved').length,
+                  sub: currentUser?.role === 'receptionist' ? 'Expected today' : 'Awaiting payment',
                 },
                 {
                   icon: MessageCircle,
@@ -147,7 +147,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
       )}
 
       {/* ── Staff / Ambassador tier card ── */}
-      {currentUser.role !== 'admin' && currentUser.role !== 'manager' && currentUser.role !== 'receptionist' && currentUserStats && (
+      {currentUser?.role !== 'admin' && currentUser?.role !== 'manager' && currentUser?.role !== 'receptionist' && currentUserStats && (
         <div className="space-y-6">
           <div style={{ background: '#1580c2', borderRadius: '2rem', border: 'none', padding: '32px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, right: 0, width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', transform: 'translate(30%, -30%)' }} />
@@ -233,7 +233,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
 
-          {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
+          {(currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
             <div style={{ background: '#1580c2', borderRadius: '2rem', border: 'none', padding: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                 <div>
@@ -302,7 +302,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                       style={{ padding: '3px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                       {getStatusLabel(referral.status)}
                     </span>
-                    {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
+                    {(currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
                       <button onClick={() => handleDeleteReferral(referral.id)}
                         style={{ padding: '6px', color: 'rgba(255,255,255,0.45)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '8px' }}
                         onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = '#ef4444')}

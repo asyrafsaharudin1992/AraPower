@@ -219,7 +219,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
       <div className="p-4">
 
         {/* Account pending approval screen */}
-        {!currentUser.is_approved && currentUser.role !== 'admin' && activeTab !== 'profile' ? (
+        {!currentUser?.is_approved && currentUser?.role !== 'admin' && activeTab !== 'profile' ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -279,8 +279,8 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                   <button onClick={() => setActiveTab('profile')}
                     className="flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all active:scale-95 bg-white hover:bg-[#1580c2]/5 border-[#1580c2]/10 shadow-sm border">
                     <div className="w-8 h-8 rounded-xl bg-burnt-peach text-white flex items-center justify-center text-xs font-black shadow-lg shadow-burnt-peach/20 overflow-hidden relative">
-                      {currentUser.profile_picture ? (
-                        <img src={currentUser.profile_picture} alt={currentUser.name}
+                      {currentUser?.profile_picture ? (
+                        <img src={currentUser.profile_picture} alt={currentUser?.name}
                           className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
                         currentUser?.name?.charAt(0) || '?'
@@ -290,8 +290,8 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                       )}
                     </div>
                     <div className="text-left">
-                      <p className="text-xs font-black tracking-tight text-twilight-indigo">{currentUser.name}</p>
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-twilight-indigo/40">{currentUser.role}</p>
+                      <p className="text-xs font-black tracking-tight text-twilight-indigo">{currentUser?.name}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-twilight-indigo/40">{currentUser?.role}</p>
                     </div>
                   </button>
                 )}

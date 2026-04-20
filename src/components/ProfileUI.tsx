@@ -144,13 +144,13 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
   const [selectedMode, setSelectedMode] = useState<string>(currentUser?.incentive_mode || 'discount');
   const [charityList, setCharityList] = useState<{name: string, amount_per_referral: string}[]>(
     Array.isArray(currentUser?.charities) && currentUser?.charities.length > 0 
-      ? currentUser.charities 
+      ? currentUser?.charities 
       : [{ name: '', amount_per_referral: '' }]
   );
 
   if (!currentUser) return null;
 
-  const isAmbassador = currentUser.role === 'ambassador';
+  const isAmbassador = currentUser?.role === 'ambassador';
   const commission_amount = 10; // Fallback / mock value as mentioned
   
   const totalCharityAmount = charityList.reduce((sum, item) => sum + (Number(item.amount_per_referral) || 0), 0);
@@ -197,13 +197,13 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
 
         {/* ── Name + role ── */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '36px', position: 'relative', zIndex: 1 }}>
-          <h3 style={{ fontSize: '24px', fontWeight: 700, color: '#ffffff', margin: '0 0 4px 0' }}>{currentUser.nickname || currentUser.name}</h3>
-          <p style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>{currentUser.role}</p>
+          <h3 style={{ fontSize: '24px', fontWeight: 700, color: '#ffffff', margin: '0 0 4px 0' }}>{currentUser?.nickname || currentUser?.name}</h3>
+          <p style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>{currentUser?.role}</p>
         </div>
 
         {/* ── Form ── */}
         <form
-          key={currentUser.id || currentUser.email}
+          key={currentUser?.id || currentUser?.email}
           onSubmit={(e) => {
             e.preventDefault();
             const fd = new FormData(e.currentTarget);
@@ -364,7 +364,7 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
           {/* Nickname */}
           <div>
             {fieldLabel('Nickname')}
-            <input name="nickname" type="text" defaultValue={currentUser.nickname || ''} placeholder="Your preferred name" style={inputOnBlue} />
+            <input name="nickname" type="text" defaultValue={currentUser?.nickname || ''} placeholder="Your preferred name" style={inputOnBlue} />
           </div>
 
           {/* Bank Details */}
