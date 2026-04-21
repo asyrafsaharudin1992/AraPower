@@ -118,6 +118,7 @@ export default function AuthUI({
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPendingModal, setShowPendingModal] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
 
@@ -190,7 +191,8 @@ export default function AuthUI({
         // Block entry if account is pending admin approval
         if (!profileData.is_approved || profileData.is_approved === 0) {
           await supabase.auth.signOut();
-          throw new Error('Your account is pending admin approval. You will receive an email once approved.');
+          setShowPendingModal(true);
+          return;
         }
 
         onAuthSuccess(profileData);
@@ -228,6 +230,14 @@ export default function AuthUI({
       // Fetch full staff profile — don't pass raw register response
       const { res: profileRes, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${signInData.user.email}`);
       if (!profileRes.ok) throw new Error(profileData?.error || 'Failed to load profile');
+
+      // Block entry if account is pending admin approval
+      if (!profileData.is_approved || profileData.is_approved === 0) {
+        await supabase.auth.signOut();
+        setShowPendingModal(true);
+        return;
+      }
+
       onAuthSuccess(profileData);
     } catch (error: any) {
       setAuthError(error.message || 'Registration failed');
@@ -745,6 +755,62 @@ export default function AuthUI({
           )}
         </AnimatePresence>
       </div>
+
+      {/* ── Pending Approval Modal ─────────────────────────────── */}
+      <AnimatePresence>
+        {showPendingModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowPendingModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: '#ffffff', borderRadius: '2rem', boxShadow: '0 24px 60px rgba(0,0,0,0.2)', padding: '32px', fontFamily: "'Poppins', sans-serif", width: '100%', maxWidth: '380px' }}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                </div>
+                <button
+                  onClick={() => setShowPendingModal(false)}
+                  style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1.5px solid #e2e8f0', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1580c2' }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#1580c2', margin: '0 0 10px 0' }}>
+                Account Pending Approval
+              </h3>
+              <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.6, margin: '0 0 24px 0' }}>
+                Your account has been created and is currently under review by our admin team. You will receive an email notification once your account is approved.
+              </p>
+              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 24px 0' }}>
+                Estimated time: 24–48 hours
+              </p>
+
+              {/* Close button */}
+              <button
+                onClick={() => setShowPendingModal(false)}
+                style={{ width: '100%', height: '52px', borderRadius: '40px', background: '#1580c2', border: 'none', color: '#ffffff', fontSize: '15px', fontWeight: 600, fontFamily: "'Poppins', sans-serif", cursor: 'pointer' }}
+              >
+                Okay, got it
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
 
       <AnimatePresence>
         {showTermsModal && (
