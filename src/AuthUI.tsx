@@ -186,6 +186,13 @@ export default function AuthUI({
       if (data.user?.email) {
         const { res, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${data.user.email}`);
         if (!res.ok) throw new Error(profileData?.error || 'Server error');
+
+        // Block entry if account is pending admin approval
+        if (!profileData.is_approved || profileData.is_approved === 0) {
+          await supabase.auth.signOut();
+          throw new Error('Your account is pending admin approval. You will receive an email once approved.');
+        }
+
         onAuthSuccess(profileData);
       }
     } catch (error: any) {
