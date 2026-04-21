@@ -191,7 +191,7 @@ export default function AuthUI({
         // Block entry if account is pending admin approval
         if (!profileData.is_approved || profileData.is_approved === 0) {
           await supabase.auth.signOut();
-          setShowPendingModal(true);
+          setShowPendingModal(true); // Triggers the popup
           return;
         }
 
@@ -234,7 +234,7 @@ export default function AuthUI({
       // Block entry if account is pending admin approval
       if (!profileData.is_approved || profileData.is_approved === 0) {
         await supabase.auth.signOut();
-        setShowPendingModal(true);
+        setShowPendingModal(true); // Triggers the popup
         return;
       }
 
@@ -755,201 +755,6 @@ export default function AuthUI({
           )}
         </AnimatePresence>
       </div>
-
-      {/* ── Pending Approval Modal ─────────────────────────────── */}
-      <AnimatePresence>
-        {showPendingModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowPendingModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              style={{ background: '#ffffff', borderRadius: '2rem', boxShadow: '0 24px 60px rgba(0,0,0,0.2)', padding: '32px', fontFamily: "'Poppins', sans-serif", width: '100%', maxWidth: '380px' }}
-            >
-              {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                  </svg>
-                </div>
-                <button
-                  onClick={() => setShowPendingModal(false)}
-                  style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1.5px solid #e2e8f0', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1580c2' }}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              {/* Body */}
-              <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#1580c2', margin: '0 0 10px 0' }}>
-                Account Pending Approval
-              </h3>
-              <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.6, margin: '0 0 24px 0' }}>
-                Your account has been created and is currently under review by our admin team. You will receive an email notification once your account is approved.
-              </p>
-              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 24px 0' }}>
-                Estimated time: 24–48 hours
-              </p>
-
-              {/* Close button */}
-              <button
-                onClick={() => setShowPendingModal(false)}
-                style={{ width: '100%', height: '52px', borderRadius: '40px', background: '#1580c2', border: 'none', color: '#ffffff', fontSize: '15px', fontWeight: 600, fontFamily: "'Poppins', sans-serif", cursor: 'pointer' }}
-              >
-                Okay, got it
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-
-      <AnimatePresence>
-        {showTermsModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-            onClick={() => setShowTermsModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-2xl overflow-hidden flex flex-col"
-              style={{ background: '#ffffff', borderRadius: '2rem', boxShadow: '0 24px 60px rgba(0,0,0,0.2)', maxHeight: '80vh', fontFamily: "'Poppins', sans-serif" }}
-            >
-              <div className="flex justify-between items-center p-6" style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#1580c2', margin: 0 }}>Terms of Service</h2>
-                <button onClick={() => setShowTermsModal(false)}
-                  className="flex items-center justify-center active:scale-95 transition-transform"
-                  style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1.5px solid #e2e8f0', background: 'transparent', cursor: 'pointer', color: '#1580c2' }}>
-                  <X size={16} />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-6 prose prose-sm max-w-none" style={{ color: '#1580c2' }}>
-                <Markdown>{TERMS_OF_SERVICE}</Markdown>
-              </div>
-              <div className="p-4 flex justify-end" style={{ borderTop: '1px solid #e2e8f0' }}>
-                <button
-                  onClick={() => { setAgreedToTerms(true); setShowTermsModal(false); }}
-                  className="active:scale-95 transition-transform"
-                  style={{ padding: '12px 28px', background: '#1580c2', color: '#ffffff', borderRadius: '40px', border: 'none', fontSize: '14px', fontWeight: 600, fontFamily: "'Poppins', sans-serif", cursor: 'pointer' }}>
-                  I Agree
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showForgotPasswordModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-            onClick={() => setShowForgotPasswordModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-md"
-              style={{ background: '#ffffff', borderRadius: '2rem', boxShadow: '0 24px 60px rgba(0,0,0,0.2)', padding: '32px', fontFamily: "'Poppins', sans-serif" }}
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 style={{ fontSize: '22px', fontWeight: 700, color: '#1580c2', margin: 0 }}>Forgot Password</h3>
-                <button onClick={() => setShowForgotPasswordModal(false)}
-                  className="flex items-center justify-center active:scale-95 transition-transform"
-                  style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1.5px solid #e2e8f0', background: 'transparent', cursor: 'pointer', color: '#1580c2' }}>
-                  <X size={16} />
-                </button>
-              </div>
-              {forgotPasswordStatus && (
-                <div className="mb-4 p-4 text-sm font-semibold" style={{ borderRadius: '12px', background: forgotPasswordStatus.type === 'success' ? '#f0fdf4' : '#fef2f2', color: forgotPasswordStatus.type === 'success' ? '#16a34a' : '#dc2626' }}>
-                  {forgotPasswordStatus.message}
-                </div>
-              )}
-              <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
-                <div className="flex items-center gap-3" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px' }}>
-                  <Mail size={18} style={{ color: '#1580c2', opacity: 0.4, flexShrink: 0 }} />
-                  <input type="email" required value={forgotPasswordEmail} onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif" }} />
-                </div>
-                <button type="submit" disabled={isSendingForgotPassword}
-                  className="w-full active:scale-[0.97] transition-all disabled:opacity-50"
-                  style={{ height: '52px', borderRadius: '40px', background: '#1580c2', border: 'none', color: '#ffffff', fontSize: '15px', fontWeight: 600, fontFamily: "'Poppins', sans-serif", cursor: 'pointer' }}>
-                  {isSendingForgotPassword ? 'Sending...' : 'Send Reset Link'}
-                </button>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showResetPasswordModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-            onClick={() => setShowResetPasswordModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-md"
-              style={{ background: '#ffffff', borderRadius: '2rem', boxShadow: '0 24px 60px rgba(0,0,0,0.2)', padding: '32px', fontFamily: "'Poppins', sans-serif" }}
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 style={{ fontSize: '22px', fontWeight: 700, color: '#1580c2', margin: 0 }}>Reset Password</h3>
-                <button onClick={() => setShowResetPasswordModal(false)}
-                  className="flex items-center justify-center active:scale-95 transition-transform"
-                  style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1.5px solid #e2e8f0', background: 'transparent', cursor: 'pointer', color: '#1580c2' }}>
-                  <X size={16} />
-                </button>
-              </div>
-              {resetPasswordStatus && (
-                <div className="mb-4 p-4 text-sm font-semibold" style={{ borderRadius: '12px', background: resetPasswordStatus.type === 'success' ? '#f0fdf4' : '#fef2f2', color: resetPasswordStatus.type === 'success' ? '#16a34a' : '#dc2626' }}>
-                  {resetPasswordStatus.message}
-                </div>
-              )}
-              <form onSubmit={handleUpdatePassword} className="space-y-4">
-                <input type="password" required minLength={6} value={resetPasswordNewPassword}
-                  onChange={(e) => setResetPasswordNewPassword(e.target.value)}
-                  placeholder="New Password (min 6 chars)"
-                  style={{ width: '100%', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif", outline: 'none', boxSizing: 'border-box' }} />
-                <input type="password" required minLength={6} value={confirmResetPasswordNewPassword}
-                  onChange={(e) => setConfirmResetPasswordNewPassword(e.target.value)}
-                  placeholder="Confirm New Password"
-                  style={{ width: '100%', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif", outline: 'none', boxSizing: 'border-box' }} />
-                <button type="submit" disabled={isUpdatingPassword || resetPasswordNewPassword !== confirmResetPasswordNewPassword}
-                  className="w-full flex items-center justify-center gap-2 active:scale-[0.97] transition-all disabled:opacity-50"
-                  style={{ height: '52px', borderRadius: '40px', background: '#1580c2', border: 'none', color: '#ffffff', fontSize: '15px', fontWeight: 600, fontFamily: "'Poppins', sans-serif", cursor: 'pointer' }}>
-                  {isUpdatingPassword ? <RefreshCw size={16} className="animate-spin" /> : 'Update Password'}
-                </button>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 
@@ -1005,6 +810,206 @@ export default function AuthUI({
             className="w-full"
           >
             {renderAuth()}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Global Modals ────────────────────────────────────────── */}
+
+      {/* Pending Approval Modal */}
+      <AnimatePresence>
+        {showPendingModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowPendingModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: '#ffffff', borderRadius: '2rem', boxShadow: '0 24px 60px rgba(0,0,0,0.2)', padding: '32px', fontFamily: "'Poppins', sans-serif", width: '100%', maxWidth: '380px' }}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                </div>
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowPendingModal(false)}
+                  style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1.5px solid #e2e8f0', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1580c2' }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#1580c2', margin: '0 0 10px 0' }}>
+                Account Pending Approval
+              </h3>
+              <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.6, margin: '0 0 24px 0' }}>
+                Your account has been created and is currently under review by our admin team. You will receive an email notification once your account is approved.
+              </p>
+              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 24px 0' }}>
+                Estimated time: 24–48 hours
+              </p>
+
+              {/* Close Action Button */}
+              <button
+                onClick={() => setShowPendingModal(false)}
+                style={{ width: '100%', height: '52px', borderRadius: '40px', background: '#1580c2', border: 'none', color: '#ffffff', fontSize: '15px', fontWeight: 600, fontFamily: "'Poppins', sans-serif", cursor: 'pointer' }}
+              >
+                Okay, got it
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Terms of Service Modal */}
+      <AnimatePresence>
+        {showTermsModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowTermsModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-2xl overflow-hidden flex flex-col"
+              style={{ background: '#ffffff', borderRadius: '2rem', boxShadow: '0 24px 60px rgba(0,0,0,0.2)', maxHeight: '80vh', fontFamily: "'Poppins', sans-serif" }}
+            >
+              <div className="flex justify-between items-center p-6" style={{ borderBottom: '1px solid #e2e8f0' }}>
+                <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#1580c2', margin: 0 }}>Terms of Service</h2>
+                <button onClick={() => setShowTermsModal(false)}
+                  className="flex items-center justify-center active:scale-95 transition-transform"
+                  style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1.5px solid #e2e8f0', background: 'transparent', cursor: 'pointer', color: '#1580c2' }}>
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6 prose prose-sm max-w-none" style={{ color: '#1580c2' }}>
+                <Markdown>{TERMS_OF_SERVICE}</Markdown>
+              </div>
+              <div className="p-4 flex justify-end" style={{ borderTop: '1px solid #e2e8f0' }}>
+                <button
+                  onClick={() => { setAgreedToTerms(true); setShowTermsModal(false); }}
+                  className="active:scale-95 transition-transform"
+                  style={{ padding: '12px 28px', background: '#1580c2', color: '#ffffff', borderRadius: '40px', border: 'none', fontSize: '14px', fontWeight: 600, fontFamily: "'Poppins', sans-serif", cursor: 'pointer' }}>
+                  I Agree
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Forgot Password Modal */}
+      <AnimatePresence>
+        {showForgotPasswordModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowForgotPasswordModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md"
+              style={{ background: '#ffffff', borderRadius: '2rem', boxShadow: '0 24px 60px rgba(0,0,0,0.2)', padding: '32px', fontFamily: "'Poppins', sans-serif" }}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 style={{ fontSize: '22px', fontWeight: 700, color: '#1580c2', margin: 0 }}>Forgot Password</h3>
+                <button onClick={() => setShowForgotPasswordModal(false)}
+                  className="flex items-center justify-center active:scale-95 transition-transform"
+                  style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1.5px solid #e2e8f0', background: 'transparent', cursor: 'pointer', color: '#1580c2' }}>
+                  <X size={16} />
+                </button>
+              </div>
+              {forgotPasswordStatus && (
+                <div className="mb-4 p-4 text-sm font-semibold" style={{ borderRadius: '12px', background: forgotPasswordStatus.type === 'success' ? '#f0fdf4' : '#fef2f2', color: forgotPasswordStatus.type === 'success' ? '#16a34a' : '#dc2626' }}>
+                  {forgotPasswordStatus.message}
+                </div>
+              )}
+              <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+                <div className="flex items-center gap-3" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px' }}>
+                  <Mail size={18} style={{ color: '#1580c2', opacity: 0.4, flexShrink: 0 }} />
+                  <input type="email" required value={forgotPasswordEmail} onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif" }} />
+                </div>
+                <button type="submit" disabled={isSendingForgotPassword}
+                  className="w-full active:scale-[0.97] transition-all disabled:opacity-50"
+                  style={{ height: '52px', borderRadius: '40px', background: '#1580c2', border: 'none', color: '#ffffff', fontSize: '15px', fontWeight: 600, fontFamily: "'Poppins', sans-serif", cursor: 'pointer' }}>
+                  {isSendingForgotPassword ? 'Sending...' : 'Send Reset Link'}
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Reset Password Modal */}
+      <AnimatePresence>
+        {showResetPasswordModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowResetPasswordModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md"
+              style={{ background: '#ffffff', borderRadius: '2rem', boxShadow: '0 24px 60px rgba(0,0,0,0.2)', padding: '32px', fontFamily: "'Poppins', sans-serif" }}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 style={{ fontSize: '22px', fontWeight: 700, color: '#1580c2', margin: 0 }}>Reset Password</h3>
+                <button onClick={() => setShowResetPasswordModal(false)}
+                  className="flex items-center justify-center active:scale-95 transition-transform"
+                  style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1.5px solid #e2e8f0', background: 'transparent', cursor: 'pointer', color: '#1580c2' }}>
+                  <X size={16} />
+                </button>
+              </div>
+              {resetPasswordStatus && (
+                <div className="mb-4 p-4 text-sm font-semibold" style={{ borderRadius: '12px', background: resetPasswordStatus.type === 'success' ? '#f0fdf4' : '#fef2f2', color: resetPasswordStatus.type === 'success' ? '#16a34a' : '#dc2626' }}>
+                  {resetPasswordStatus.message}
+                </div>
+              )}
+              <form onSubmit={handleUpdatePassword} className="space-y-4">
+                <input type="password" required minLength={6} value={resetPasswordNewPassword}
+                  onChange={(e) => setResetPasswordNewPassword(e.target.value)}
+                  placeholder="New Password (min 6 chars)"
+                  style={{ width: '100%', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif", outline: 'none', boxSizing: 'border-box' }} />
+                <input type="password" required minLength={6} value={confirmResetPasswordNewPassword}
+                  onChange={(e) => setConfirmResetPasswordNewPassword(e.target.value)}
+                  placeholder="Confirm New Password"
+                  style={{ width: '100%', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif", outline: 'none', boxSizing: 'border-box' }} />
+                <button type="submit" disabled={isUpdatingPassword || resetPasswordNewPassword !== confirmResetPasswordNewPassword}
+                  className="w-full flex items-center justify-center gap-2 active:scale-[0.97] transition-all disabled:opacity-50"
+                  style={{ height: '52px', borderRadius: '40px', background: '#1580c2', border: 'none', color: '#ffffff', fontSize: '15px', fontWeight: 600, fontFamily: "'Poppins', sans-serif", cursor: 'pointer' }}>
+                  {isUpdatingPassword ? <RefreshCw size={16} className="animate-spin" /> : 'Update Password'}
+                </button>
+              </form>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
