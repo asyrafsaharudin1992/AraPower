@@ -64,7 +64,7 @@ export const AdminUI: React.FC<AdminUIProps> = ({
         <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
           <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">Total Payouts</p>
           <p className="text-3xl font-bold tracking-tight text-zinc-900">
-            {clinicProfile?.currency || 'RM'}{staffPerformance.reduce((s, staff) => s + (staff.paid_earnings || 0), 0).toFixed(2)}
+            {clinicProfile.currency}{staffPerformance.reduce((s, staff) => s + (staff.paid_earnings || 0), 0).toFixed(2)}
           </p>
         </div>
         <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
@@ -196,7 +196,7 @@ export const AdminUI: React.FC<AdminUIProps> = ({
                 </td>
                 <td className="p-4 text-sm font-semibold text-center">{staff.monthlySuccessfulRefs}</td>
                 <td className="p-4 text-sm font-bold text-right text-zinc-900">
-                  {clinicProfile?.currency || 'RM'}{(staff.earned || 0).toFixed(2)}
+                  {clinicProfile.currency}{(staff.earned || 0).toFixed(2)}
                 </td>
                 <td className="p-4 text-right">
                   <button 

@@ -14,7 +14,6 @@ import { ReferralBoard } from './components/ReferralBoard';
 import { MobileUI, MobileTab } from './components/MobileUI';
 import { PromotionsUI } from './components/PromotionsUI';
 import { ProfileUI } from './components/ProfileUI';
-import { AmbassadorDashboard } from './components/AmbassadorDashboard';
 import AddServiceForm from './components/AddServiceForm';
 import { Service, Promotion, Staff, Referral, AppSettings, ClinicProfile } from './types';
 import { 
@@ -600,7 +599,7 @@ const PromotionCard = ({ item, darkMode, clinicProfile, currentUser, handleDelet
       </div>
       
       {/* Admin Controls */}
-      {currentUser?.role === 'admin' && (
+      {currentUser.role === 'admin' && (
         <div className="flex justify-end gap-2 mt-4 px-2">
           <button onClick={() => {
             setEditingService(item);
@@ -844,9 +843,9 @@ export default function App() {
 
   // Add auto-refresh for approval status
   useEffect(() => {
-    if (currentUser?.is_approved === 0 && currentUser?.role !== 'admin') {
+    if (currentUser && currentUser.is_approved === 0 && currentUser.role !== 'admin') {
       const interval = setInterval(async () => {
-        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser?.id}`);
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser.id}`);
         if (res.ok && data && data.is_approved) {
           setCurrentUser(data);
           localStorage.setItem('currentUser', JSON.stringify(data));
@@ -1002,7 +1001,7 @@ export default function App() {
   const fetchNotifications = async () => {
     if (!currentUser?.id) return;
     try {
-      const response = await fetch(`/api/notifications/${currentUser?.id}`);
+      const response = await fetch(`/api/notifications/${currentUser.id}`);
       const contentType = response.headers.get("content-type");
       if (response.ok && contentType && contentType.includes("application/json")) {
         const data = await response.json();
@@ -1353,7 +1352,7 @@ export default function App() {
   const fetchStaffByEmail = async (email: string, user?: any) => {
     try {
       const authIdQuery = user?.id ? `&auth_id=${user.id}` : '';
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${encodeURIComponent(email)}${authIdQuery}`);
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${email}${authIdQuery}`);
       
       if (!res.ok) {
         throw new Error(data?.error || `Server error: ${res.status}`);
@@ -1467,7 +1466,7 @@ export default function App() {
   const fetchTasks = async () => {
     if (!currentUser) return;
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks`, {
-      headers: { 'x-user-id': String(currentUser?.id ?? '') }
+      headers: { 'x-user-id': String(currentUser.id ?? '') }
     });
     if (res.ok && Array.isArray(data)) setTasks(data);
   };
@@ -1587,16 +1586,16 @@ export default function App() {
 
   useEffect(() => {
     if (currentUser) {
-      console.log('Current user detected:', currentUser?.email, currentUser?.role, currentUser?.branch);
+      console.log('Current user detected:', currentUser.email, currentUser.role, currentUser.branch);
       fetchReferrals();
-      if (currentUser?.role === 'admin' || currentUser?.role === 'manager') {
+      if (currentUser.role === 'admin' || currentUser.role === 'manager') {
         fetchWarmLeads();
         fetchPayoutSummaries();
       }
       
       const interval = setInterval(() => {
         fetchReferrals();
-        if (currentUser?.role === 'admin' || currentUser?.role === 'manager') {
+        if (currentUser.role === 'admin' || currentUser.role === 'manager') {
           fetchWarmLeads();
           fetchPayoutSummaries();
         }
@@ -1609,7 +1608,7 @@ export default function App() {
   useEffect(() => {
     if (currentUser) {
       fetchStaff();
-      if (currentUser?.role === 'admin' || currentUser?.role === 'manager') {
+      if (currentUser.role === 'admin' || currentUser.role === 'manager') {
         fetchBranchChangeRequests();
       }
     }
@@ -1639,7 +1638,7 @@ export default function App() {
     if (res.ok && Array.isArray(data)) {
       setStaffList(data);
       if (currentUser) {
-        const updatedMe = data.find((s: Staff) => s.id === currentUser?.id);
+        const updatedMe = data.find((s: Staff) => s.id === currentUser.id);
         if (updatedMe && JSON.stringify(updatedMe) !== JSON.stringify(currentUser)) {
           setCurrentUser(updatedMe);
         }
@@ -1649,7 +1648,7 @@ export default function App() {
 
   const checkBranchAccess = (item: Service) => {
     if (!currentUser) return true;
-    if (currentUser?.role === 'admin' || currentUser?.role === 'manager') return true;
+    if (currentUser.role === 'admin' || currentUser.role === 'manager') return true;
     
     let branches: any = item.branches;
     
@@ -1670,7 +1669,7 @@ export default function App() {
     // If no branches are specified, it's available to all
     if (!branches || (Array.isArray(branches) && branches.length === 0)) return true;
     
-    const userBranch = currentUser?.branch?.trim();
+    const userBranch = currentUser.branch?.trim();
     // If user has no branch assigned, they can see everything (or we can restrict, but let's be permissive for now)
     if (!userBranch || userBranch.toLowerCase() === 'undefined' || userBranch.toLowerCase() === 'null') return true;
 
@@ -1746,7 +1745,7 @@ export default function App() {
   };
 
   const fetchPayoutSummaries = async () => {
-    const { res, data } = await safeFetch(`${apiBaseUrl}/api/settlements/summary`);
+    const { res, data } = await safeFetch(`${apiBaseUrl}/api/payouts/summary`);
     if (res.ok && Array.isArray(data)) {
       setPayoutSummaries(data);
     }
@@ -1754,7 +1753,7 @@ export default function App() {
 
   const handleProcessPayout = async (affiliate_id: string, patient_ids: string[]) => {
     try {
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/settlements/process`, {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/payouts/process`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ staff_id: affiliate_id, affiliate_id: affiliate_id, patient_ids })
@@ -1777,7 +1776,7 @@ export default function App() {
     try {
       // Update all selected referrals concurrently
       const promises = ids.map(id => 
-        safeFetch(`${apiBaseUrl}/api/patient-records/${id}`, {
+        safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: newStatus })
@@ -1797,15 +1796,15 @@ export default function App() {
   const fetchReferrals = async () => {
     if (!currentUser) return;
     
-    let url = (currentUser?.role === 'admin' || currentUser?.role === 'manager' || currentUser?.role === 'receptionist') 
-      ? `${apiBaseUrl}/api/patient-records?requesterRole=${currentUser?.role}&requesterBranch=${currentUser?.branch}` 
-      : `${apiBaseUrl}/api/patient-records?staffId=${currentUser?.id}`;
+    let url = (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') 
+      ? `${apiBaseUrl}/api/referrals?requesterRole=${currentUser.role}&requesterBranch=${currentUser.branch}` 
+      : `${apiBaseUrl}/api/referrals?staffId=${currentUser.id}`;
     
-    if (currentUser?.role === 'receptionist') {
+    if (currentUser.role === 'receptionist') {
       url += '&upcoming=true';
     }
     
-    if (branchFilter !== 'all' && (currentUser?.role === 'admin' || currentUser?.role === 'manager' || currentUser?.role === 'receptionist')) {
+    if (branchFilter !== 'all' && (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist')) {
       url += `&branch=${branchFilter}`;
     }
 
@@ -1814,7 +1813,7 @@ export default function App() {
   };
 
   const fetchWarmLeads = async () => {
-    if (!currentUser || (currentUser?.role !== 'admin' && currentUser?.role !== 'manager')) return;
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'manager')) return;
     try {
       const { data } = await supabase
         .from('warm_leads')
@@ -1852,10 +1851,10 @@ export default function App() {
       fetchStaff(),
       fetchWarmLeads()
     ];
-    if (currentUser?.role === 'admin' || currentUser?.role === 'manager' || currentUser?.role === 'receptionist') {
+    if (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') {
       promises.push(fetchBranches());
     }
-    if (currentUser?.role === 'admin' || currentUser?.role === 'manager') {
+    if (currentUser.role === 'admin' || currentUser.role === 'manager') {
       promises.push(fetchSettings(), fetchBranchChangeRequests());
     }
     await Promise.all(promises);
@@ -1951,7 +1950,7 @@ export default function App() {
         branch: data.selectedBranch || (isPublicBooking ? data.referringStaff?.branch : currentUser?.branch)
       };
 
-      const url = `${apiBaseUrl}/api/patient-records`;
+      const url = `${apiBaseUrl}/api/referrals`;
       const method = 'POST';
 
       const { res, data: resultData } = await safeFetch(url, {
@@ -2009,12 +2008,12 @@ export default function App() {
       const payload = { 
         status,
         ...additionalData,
-        verified_by: (currentUser?.role === 'receptionist' || currentUser?.role === 'manager' || currentUser?.role === 'admin') ? currentUser?.id : undefined
+        verified_by: (currentUser?.role === 'receptionist' || currentUser?.role === 'manager' || currentUser?.role === 'admin') ? currentUser.id : undefined
       };
       
       console.log('Updating status:', { id, payload });
       
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/patient-records/${id}`, {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -2039,10 +2038,10 @@ export default function App() {
     try {
       const payload = { 
         status: newStatus,
-        verified_by: (currentUser?.role === 'receptionist' || currentUser?.role === 'manager' || currentUser?.role === 'admin') ? currentUser?.id : undefined
+        verified_by: (currentUser?.role === 'receptionist' || currentUser?.role === 'manager' || currentUser?.role === 'admin') ? currentUser.id : undefined
       };
       
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/patient-records/${id}`, {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -2051,7 +2050,7 @@ export default function App() {
       if (res.ok) {
         // Auto-transition: arrived → in_session immediately
         if (newStatus === 'arrived') {
-          await safeFetch(`${apiBaseUrl}/api/patient-records/${id}`, {
+          await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'in_session' })
@@ -2076,7 +2075,7 @@ export default function App() {
       'Delete Referral',
       'Are you sure you want to delete this referral? This action cannot be undone.',
       async () => {
-        const { res, data } = await safeFetch(`${apiBaseUrl}/api/patient-records/${id}`, {
+        const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
           method: 'DELETE'
         });
         if (res.ok) {
@@ -2092,7 +2091,7 @@ export default function App() {
   const handleUpdateProfile = async (profileData: Partial<Staff>) => {
     if (!currentUser) return;
     try {
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser?.id}/profile`, {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser.id}/profile`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profileData)
@@ -2141,7 +2140,7 @@ export default function App() {
     setIsUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${currentUser?.id}-${Date.now()}.${fileExt}`;
+      const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
       // We'll try 'clinic-assets' first, then 'CLINIC-ASSETS' if it fails
@@ -2283,9 +2282,9 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          staff_id: currentUser?.id,
-          staff_name: currentUser?.name,
-          staff_email: currentUser?.email,
+          staff_id: currentUser.id,
+          staff_name: currentUser.name,
+          staff_email: currentUser.email,
           message: feedbackMessage
         })
       });
@@ -2586,23 +2585,6 @@ export default function App() {
     );
   }
 
-  // Intercept ambassador that hasn't finished setup
-  if (currentUser?.role === 'ambassador' && currentUser?.is_first_login) {
-    return (
-      <AuthUI 
-        onAuthSuccess={handleAuthSuccess}
-        clinicProfile={clinicProfile}
-        apiBaseUrl={apiBaseUrl}
-        branches={branches}
-        isSupabaseConfigured={isSupabaseConfigured}
-        Logo={Logo}
-        safeFetch={safeFetch}
-        supabase={supabase}
-        forceAmbassadorSetup={currentUser}
-      />
-    );
-  }
-
   if (showWelcome && currentUser) {
     return (
       <div className="min-h-screen w-full overflow-x-hidden bg-white flex items-center justify-center p-0 sm:p-4 font-sans">
@@ -2655,7 +2637,7 @@ export default function App() {
     );
   }
   
-  if (currentUser?.is_approved === 0 && currentUser?.role !== 'admin') {
+  if (currentUser.is_approved === 0 && currentUser.role !== 'admin') {
     console.log('Current User State (Pending Screen):', currentUser);
     return (
       <div className="min-h-screen w-full overflow-x-hidden bg-white flex items-center justify-center p-4 font-sans relative overflow-hidden">
@@ -2670,7 +2652,7 @@ export default function App() {
           <p className="text-[#1580c2] text-[10px] font-black uppercase tracking-[0.3em] mb-8">Empowering Healthcare</p>
           <h1 className="text-2xl font-black text-[#1580c2] tracking-tight mb-4">Account Pending Approval</h1>
           <p className="text-[#1580c2]/60 text-sm leading-relaxed mb-8 font-medium">
-            Hi <span className="text-[#1580c2] font-bold">{currentUser?.name}</span>, your account has been created successfully. 
+            Hi <span className="text-[#1580c2] font-bold">{currentUser.name}</span>, your account has been created successfully. 
             However, an administrator needs to approve your profile before you can access the portal features.
           </p>
           <div className="p-4 bg-white rounded-2xl border border-[#1580c2]/10 mb-8">
@@ -2680,7 +2662,7 @@ export default function App() {
           <div className="grid grid-cols-2 gap-4">
             <button 
               onClick={async () => {
-                const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser?.id}`);
+                const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser.id}`);
                 if (res.ok && data) {
                   if (data.is_approved) {
                     setCurrentUser(data);
@@ -2874,8 +2856,6 @@ export default function App() {
             handleLogout={handleLogout}
             markAllAsRead={markAllAsRead}
             markNotificationAsRead={markNotificationAsRead}
-            apiBaseUrl={apiBaseUrl}
-            safeFetch={safeFetch}
           />
         )}
 
@@ -2928,7 +2908,7 @@ export default function App() {
                 <UserCircle size={18} />
                 <span className="text-sm font-bold">My Profile</span>
               </button>
-              {rolesConfig[currentUser?.role || 'staff']?.canManageCommunication && (
+              {rolesConfig[currentUser.role]?.canManageCommunication && (
                 <button 
                   onClick={() => setActiveTab('communication')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'communication' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
@@ -2937,7 +2917,7 @@ export default function App() {
                   <span className="text-sm font-bold">Communication</span>
                 </button>
               )}
-              {rolesConfig[currentUser?.role || 'staff']?.canViewAnalytics && (
+              {rolesConfig[currentUser.role]?.canViewAnalytics && (
                 <button 
                   onClick={() => setActiveTab('admin')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'admin' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
@@ -2946,7 +2926,7 @@ export default function App() {
                   <span className="text-sm font-bold">Admin Panel</span>
                 </button>
               )}
-              {(currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
+              {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
                 <button 
                   onClick={() => setActiveTab('affiliates')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'affiliates' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
@@ -2955,7 +2935,7 @@ export default function App() {
                   <span className="text-sm font-bold">Affiliates</span>
                 </button>
               )}
-              {(currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
+              {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
                 <button 
                   onClick={() => setActiveTab('warm-leads')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'warm-leads' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
@@ -2964,7 +2944,7 @@ export default function App() {
                   <span className="text-sm font-bold">Warm Leads</span>
                 </button>
               )}
-              {rolesConfig[currentUser?.role || 'staff']?.canViewAnalytics && (
+              {rolesConfig[currentUser.role]?.canViewAnalytics && (
                 <button 
                   onClick={() => setActiveTab('payouts')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'payouts' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
@@ -2981,14 +2961,14 @@ export default function App() {
                   {currentUser?.name?.charAt(0) || '?'}
                 </div>
                 <div className="overflow-hidden">
-                  <p className="text-sm font-bold truncate text-[#1580c2]">{currentUser?.name}</p>
+                  <p className="text-sm font-bold truncate text-[#1580c2]">{currentUser.name}</p>
                   <div className="flex items-center gap-1">
                     <Coins size={10} className="text-[#1580c2]/60" />
-                    <span className="text-[10px] font-black text-[#1580c2]/60 uppercase tracking-wider">{currentUser?.aracoins || 0} AraCoins</span>
+                    <span className="text-[10px] font-black text-[#1580c2]/60 uppercase tracking-wider">{currentUser.aracoins || 0} AraCoins</span>
                   </div>
                 </div>
               </div>
-              {rolesConfig[currentUser?.role || 'staff']?.canManageSettings && (
+              {rolesConfig[currentUser.role]?.canManageSettings && (
                 <button 
                   onClick={() => setActiveTab('setup')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'setup' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
@@ -3038,7 +3018,7 @@ export default function App() {
         {/* Main Content — desktop only, MobileUI handles mobile */}
         <MobilePullToRefreshWrapper isMobile={isMobile} onRefresh={handleRefresh}>
           {!isMobile && <main className="ml-64 bg-white p-4 lg:p-8 relative overflow-hidden">
-          {currentUser?.is_approved === 0 && currentUser?.role !== 'admin' && activeTab !== 'profile' ? (
+          {currentUser.is_approved === 0 && currentUser.role !== 'admin' && activeTab !== 'profile' ? (
             (() => {
               console.log('Current User State (Main Content Pending):', currentUser);
               return (
@@ -3099,11 +3079,11 @@ export default function App() {
                   <h2 className={`text-3xl sm:text-3xl font-black tracking-tighter capitalize text-[#1580c2]`}>
                     {activeTab === 'guide' ? 'User Guide' : activeTab === 'profile' ? 'My Profile' : activeTab}
                   </h2>
-                  {!isMobile && <p className={`text-[#1580c2]/60 text-sm font-medium`}>Welcome back, {currentUser?.name}</p>}
+                  {!isMobile && <p className={`text-[#1580c2]/60 text-sm font-medium`}>Welcome back, {currentUser.name}</p>}
                 </div>
                 
                 <div className="flex items-center gap-4">
-                  {activeTab === 'dashboard' && currentUser?.role !== 'admin' && !isMobile && (
+                  {activeTab === 'dashboard' && currentUser.role !== 'admin' && !isMobile && (
                     <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-[#1580c2]/10 shadow-sm">
                       <Clock size={16} className="text-[#1580c2]/60" />
                       <span className="text-xs font-bold text-[#1580c2]/60">
@@ -3119,10 +3099,10 @@ export default function App() {
                       className={`flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all active:scale-95 bg-white hover:bg-[#1580c2]/5 border-[#1580c2]/10 shadow-sm border`}
                     >
                       <div className="w-8 h-8 rounded-xl bg-[#1580c2] text-white flex items-center justify-center text-xs font-black shadow-lg shadow-[#1580c2]/20 overflow-hidden relative">
-                        {currentUser?.profile_picture ? (
+                        {currentUser.profile_picture ? (
                           <img 
-                            src={currentUser?.profile_picture} 
-                            alt={currentUser?.name} 
+                            src={currentUser.profile_picture} 
+                            alt={currentUser.name} 
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
                           />
@@ -3134,8 +3114,8 @@ export default function App() {
                         )}
                       </div>
                       <div className="text-left">
-                        <p className={`text-xs font-black tracking-tight text-[#1580c2]`}>{currentUser?.name}</p>
-                        <p className={`text-[9px] font-bold uppercase tracking-widest text-[#1580c2]/40`}>{currentUser?.role}</p>
+                        <p className={`text-xs font-black tracking-tight text-[#1580c2]`}>{currentUser.name}</p>
+                        <p className={`text-[9px] font-bold uppercase tracking-widest text-[#1580c2]/40`}>{currentUser.role}</p>
                       </div>
                     </button>
                   )}
@@ -3155,18 +3135,7 @@ export default function App() {
               </header>
 
         <AnimatePresence mode="wait">
-          {activeTab === 'dashboard' && currentUser?.role === 'ambassador' && (
-            <AmbassadorDashboard
-              currentUser={currentUser}
-              referrals={referrals}
-              clinicProfile={clinicProfile}
-              apiBaseUrl={apiBaseUrl}
-              safeFetch={safeFetch}
-              currentUserStats={currentUserStats}
-            />
-          )}
-
-          {activeTab === 'dashboard' && currentUser?.role !== 'ambassador' && (
+          {activeTab === 'dashboard' && (
             <DashboardUI 
               currentUser={currentUser}
               referrals={referrals}
@@ -3360,7 +3329,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'warm-leads' && (currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
+          {activeTab === 'warm-leads' && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -3514,7 +3483,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
+          {activeTab === 'admin' && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
             <AdminUI 
               currentUser={currentUser}
               referrals={referrals}
@@ -3536,7 +3505,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'affiliates' && (currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
+          {activeTab === 'affiliates' && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
             <AffiliateManagement
               currentUser={currentUser}
               staffPerformance={staffPerformance}
@@ -3550,7 +3519,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'communication' && currentUser?.role && rolesConfig[currentUser.role]?.canManageCommunication && (
+          {activeTab === 'communication' && rolesConfig[currentUser.role]?.canManageCommunication && (
             <motion.div 
               key="communication"
               initial={{ opacity: 0, y: 10 }}
@@ -3740,7 +3709,7 @@ export default function App() {
 )}
 ```"
 
-          {activeTab === 'receptionist' && (currentUser?.role === 'receptionist' || currentUser?.role === 'manager' || currentUser?.role === 'admin') && (
+          {activeTab === 'receptionist' && (currentUser.role === 'receptionist' || currentUser.role === 'manager' || currentUser.role === 'admin') && (
             <motion.div 
               key="receptionist"
               initial={{ opacity: 0, y: 10 }}
@@ -3749,7 +3718,7 @@ export default function App() {
             >
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Walk-in Form (Receptionist Only) */}
-                {currentUser?.role === 'receptionist' && (
+                {currentUser.role === 'receptionist' && (
                   <div className="lg:col-span-1">
                     <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
                       <div className="flex items-center gap-2 mb-6">
@@ -3828,12 +3797,12 @@ export default function App() {
                 )}
 
                 {/* Check-in / Payout List */}
-                <div className={currentUser?.role === 'receptionist' ? 'lg:col-span-2' : 'lg:col-span-3'}>
+                <div className={currentUser.role === 'receptionist' ? 'lg:col-span-2' : 'lg:col-span-3'}>
                   <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
                     <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <h3 className="font-semibold">{currentUser?.role === 'receptionist' ? `Patient Arrivals (${branchFilter === 'all' ? 'All Branches' : branchFilter})` : 'Pending Payouts'}</h3>
+                      <h3 className="font-semibold">{currentUser.role === 'receptionist' ? `Patient Arrivals (${branchFilter === 'all' ? 'All Branches' : branchFilter})` : 'Pending Payouts'}</h3>
                       <div className="flex flex-col sm:flex-row gap-2">
-                        {(currentUser?.role === 'admin' || currentUser?.role === 'manager' || currentUser?.role === 'receptionist') && (
+                        {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
                           <select 
                             value={branchFilter}
                             onChange={(e) => setBranchFilter(e.target.value)}
@@ -3874,7 +3843,7 @@ export default function App() {
                       {referrals
                         .filter(r => r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()))
                         .filter(r => statusFilter === 'all' ? true : r.status?.toLowerCase() === statusFilter.toLowerCase())
-                        .filter(r => currentUser?.role === 'receptionist' ? ['arrived','in_session','completed'].includes(r.status?.toLowerCase()) : true)
+                        .filter(r => currentUser.role === 'receptionist' ? ['arrived','in_session','completed'].includes(r.status?.toLowerCase()) : true)
                         .map((ref) => (
                         <div key={ref.id} className="p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors">
                           <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
@@ -3886,13 +3855,13 @@ export default function App() {
                               <p className="text-xs font-medium text-zinc-500">{ref.service_name}</p>
                               <p className="text-[10px] text-zinc-500">Service</p>
                             </div>
-                            { (currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
+                            { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                               <div className="flex flex-col">
                                 <p className="text-xs font-bold text-zinc-900">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</p>
                                 <p className="text-[10px] text-zinc-500">Commission</p>
                               </div>
                             )}
-                            { (currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
+                            { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                               <div>
                                 <p className="text-xs font-medium text-zinc-900">
                                   {staffList.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || <span className="text-zinc-400 italic">Direct Walk-in</span>}
@@ -3955,7 +3924,7 @@ export default function App() {
                   <h2 className="text-3xl font-black tracking-tighter text-zinc-900">Task Management</h2>
                   <p className="text-zinc-500 text-sm font-medium">Track and manage clinic operations</p>
                 </div>
-                { (currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
+                { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                   <button 
                     onClick={() => {
                       setEditingTask(null);
@@ -4022,7 +3991,7 @@ export default function App() {
                           <option value="completed">Completed</option>
                         </select>
 
-                        { (currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
+                        { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                           <div className="flex items-center gap-2 pl-3 border-l border-zinc-100">
                             <button 
                               onClick={() => {
@@ -4060,7 +4029,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'setup' && currentUser?.role === 'admin' && (
+          {activeTab === 'setup' && currentUser.role === 'admin' && (
             <motion.div 
               key="setup"
               initial={{ opacity: 0, y: 10 }}
@@ -5480,7 +5449,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                                   <p className="text-sm font-bold text-zinc-900">{ref.patient_name}</p>
                                   <p className="text-[10px] text-zinc-500 uppercase font-medium">{ref.service_name} • {ref.date}</p>
                                 </div>
-                                { (currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
+                                { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                                   <button 
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -5724,7 +5693,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                     <div className="bg-zinc-50 p-6 rounded-3xl border border-zinc-100 flex flex-col items-center text-center">
                       <div className="p-3 bg-white rounded-2xl shadow-sm mb-4">
                         {(() => {
-                          const linkCode = currentUser?.id || currentUser?.referral_code || currentUser?.promo_code;
+                          const linkCode = currentUser.id || currentUser.referral_code || currentUser.promo_code;
                           return linkCode ? (
                           <QRCodeCanvas 
                             value={`${window.location.origin}/?ref=${linkCode}`}

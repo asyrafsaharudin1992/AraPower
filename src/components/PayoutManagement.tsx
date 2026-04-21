@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { Search, CheckCircle2, Download, DollarSign, RefreshCw , AlertTriangle } from 'lucide-react';
 
 interface PayoutManagementProps {
@@ -21,73 +21,13 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
   branches,
   handleBulkStatusUpdate,
 }) => {
- const [activeTab, setActiveTab] = useState<'approval' | 'payout' | 'history' | 'charity'>('approval');
+ const [activeTab, setActiveTab] = useState<'approval' | 'payout' | 'history'>('approval');
   const [searchQuery, setSearchQuery] = useState('');
   const [affiliateFilter, setAffiliateFilter] = useState('all');
   
   const [selectedForApproval, setSelectedForApproval] = useState<string[]>([]);
   const [selectedForPayout, setSelectedForPayout] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [donationRequests, setDonationRequests] = useState<any[]>([]);
-
-  // Modals state
-  const [isMarkAsDonatedModalOpen, setIsMarkAsDonatedModalOpen] = useState(false);
-  const [selectedDonationRequest, setSelectedDonationRequest] = useState<any>(null);
-  const [adminReference, setAdminReference] = useState('');
-  const [adminNotes, setAdminNotes] = useState('');
-  const [donationDate, setDonationDate] = useState(new Date().toISOString().split('T')[0]);
-
-  // Fetch donation requests when tab is opened
-  React.useEffect(() => {
-    if (activeTab === 'charity') {
-      fetchDonationRequests();
-    }
-  }, [activeTab]);
-
-  const fetchDonationRequests = async () => {
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const response = await fetch(`${API_URL}/api/donation-requests/pending`);
-      if (response.ok) {
-        const data = await response.json();
-        setDonationRequests(data || []);
-      }
-    } catch (e) {
-      console.error('Error fetching donation requests', e);
-    }
-  };
-
-  const handleMarkAsDonated = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedDonationRequest) return;
-    setIsProcessing(true);
-    
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const response = await fetch(`${API_URL}/api/donation-requests/${selectedDonationRequest.id}/complete`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          admin_reference: adminReference, 
-          admin_notes: adminNotes 
-        })
-      });
-      
-      if (response.ok) {
-        fetchDonationRequests();
-        setIsMarkAsDonatedModalOpen(false);
-        setAdminReference('');
-        setAdminNotes('');
-      } else {
-        alert("Failed to mark as completed");
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Error marking as completed");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   if (!rolesConfig[currentUser.role]?.canViewAnalytics) return null;
 
@@ -213,12 +153,6 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
             className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'history' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-900'}`}
           >
             3. History ({paidCases.length})
-          </button>
-          <button 
-            onClick={() => setActiveTab('charity')}
-            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'charity' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-900'}`}
-          >
-            4. Charity
           </button>
         </div>
 
@@ -398,7 +332,7 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
                     </td>
                     <td className="p-4 text-sm text-zinc-600">{ref.patient_name}</td>
                     <td className="p-4 text-sm text-zinc-600">{ref.service_name}</td>
-                    <td className="p-4 text-sm font-black text-emerald-600 text-right">{clinicProfile?.currency || 'RM'}{(ref.commission_amount || 0).toFixed(2)}</td>
+                    <td className="p-4 text-sm font-black text-emerald-600 text-right">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
                   </tr>
                 );
               })}
@@ -437,137 +371,13 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
                       <CheckCircle2 size={12} /> Paid
                     </span>
                   </td>
-                  <td className="p-4 text-sm font-black text-emerald-600 text-right">{clinicProfile?.currency || 'RM'}{(ref.commission_amount || 0).toFixed(2)}</td>
+                  <td className="p-4 text-sm font-black text-emerald-600 text-right">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-
-      {/* Tab 4: Charity Requests */}
-      {activeTab === 'charity' && (
-        <div className="space-y-4">
-          {donationRequests.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-black/5 shadow-sm p-12 text-center text-zinc-500">
-              <p className="text-sm font-bold">No pending requests.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {donationRequests.map((req) => {
-                let parsedCharities = [];
-                try {
-                  parsedCharities = typeof req.charities === 'string' ? JSON.parse(req.charities) : req.charities;
-                } catch (e) { }
-
-                // The backend API is supposed to return total previously donated by joining stuff, currently it might not. Wait, the prompt says "Donated amount requires calculating the sum of previously completed requests for this ambassador." We don't have completed requests in state.
-                // We'll calculate it using `req.charity_pot` which represents the total historical pot, and `req.total_amount` which is the pending. Assuming what we can. 
-                // Or wait, "Donated: RM[Z]" -> The user says "Donated amount requires calculating the sum of previously completed requests" but we only fetched pending. We'd have to calculate or just display a placeholder or fetch completed.
-                // Actually `req.charity_pot` is the total accumulated pot. `Donated` = `Total pot` - `Pending` (roughly) unless they have remaining balance.
-                
-                return (
-                  <div key={req.id} className="bg-white rounded-3xl border border-black/5 shadow-sm p-6 space-y-4">
-                    <div className="border-b border-zinc-100 pb-4">
-                      <h3 className="font-black text-lg text-zinc-900">Ambassador: {req.ambassador_name || 'Unknown'}</h3>
-                      <p className="text-sm text-zinc-500 font-medium">
-                        Charity Pot: RM{req.charity_pot || 0} | Pending Request: RM{req.total_amount} 
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-[#1580c2] mb-2">Requested Charities</p>
-                      <div className="space-y-2">
-                        {(parsedCharities || []).map((c: any, i: number) => (
-                          <div key={i} className="flex justify-between items-center text-sm font-medium text-zinc-700 bg-zinc-50 p-2 rounded-lg">
-                            <span>{c.name || 'Charity'}</span>
-                            <span className="font-black">RM{c.amount_per_referral}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex justify-between items-center mt-3 pt-3 border-t border-zinc-100 font-black text-zinc-900">
-                        <span>Total</span>
-                        <span>RM{req.total_amount}</span>
-                      </div>
-                    </div>
-
-                    <button 
-                      onClick={() => {
-                        setSelectedDonationRequest(req);
-                        setIsMarkAsDonatedModalOpen(true);
-                      }}
-                      className="w-full bg-[#1580c2] hover:bg-[#1268a8] text-white py-3 rounded-xl text-sm font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-                    >
-                      <CheckCircle2 size={16} /> Mark as Donated
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Mark As Donated Modal */}
-      {isMarkAsDonatedModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1580c2]/60 backdrop-blur-sm">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-black text-zinc-900 mb-4">Mark as Donated</h3>
-            
-            <form onSubmit={handleMarkAsDonated} className="space-y-4">
-              <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-1">Reference No.</label>
-                <input 
-                  type="text" 
-                  required
-                  value={adminReference}
-                  onChange={(e) => setAdminReference(e.target.value)}
-                  className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1580c2] text-sm font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-1">Date</label>
-                <input 
-                  type="date" 
-                  required
-                  value={donationDate}
-                  onChange={(e) => setDonationDate(e.target.value)}
-                  className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1580c2] text-sm font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-1">Notes</label>
-                <textarea 
-                  rows={3}
-                  value={adminNotes}
-                  onChange={(e) => setAdminNotes(e.target.value)}
-                  className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1580c2] text-sm font-medium"
-                ></textarea>
-              </div>
-
-              <div className="flex gap-2 pt-4">
-                <button 
-                  type="button"
-                  onClick={() => setIsMarkAsDonatedModalOpen(false)}
-                  className="flex-1 py-3 bg-zinc-100 text-zinc-600 rounded-xl font-bold text-sm hover:bg-zinc-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  disabled={isProcessing}
-                  className="flex-1 py-3 bg-[#1580c2] text-white rounded-xl font-bold text-sm hover:bg-[#1268a8] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {isProcessing ? <RefreshCw size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                  Confirm
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
-
     </motion.div>
   );
 };

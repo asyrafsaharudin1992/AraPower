@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'; // Added useMemo
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Search, RefreshCw, Download, ChevronRight, MessageCircle, Phone, Trash2, Lock } from 'lucide-react';
 
 interface ReferralBoardProps {
