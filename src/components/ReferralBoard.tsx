@@ -216,7 +216,7 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                 {/* Top row: name + status */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                   <div>
-                    <p style={{ fontSize: '14px', fontWeight: 700, color: blue, margin: '0 0 2px 0' }}>{ref.patient_name}</p>
+                    <p style={{ fontSize: '14px', fontWeight: 700, color: blue, margin: '0 0 2px 0' }}>{ref.patient_name || 'Hidden (P&C)'}</p>
                     <p style={{ fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.55, margin: 0 }}>{ref.service_name}</p>
                   </div>
                   <span className={getStatusColor(ref.status)}
@@ -289,8 +289,8 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                     <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.55 }}>{formatDate(ref.date)}</td>
                     <td style={{ padding: '14px 16px' }}>
-                      <p style={{ fontSize: '13px', fontWeight: 700, color: blue, margin: '0 0 2px 0' }}>{ref.patient_name}</p>
-                      <p style={{ fontSize: '11px', fontWeight: 500, color: blue, opacity: 0.5, margin: 0 }}>{ref.patient_phone}</p>
+                      <p style={{ fontSize: '13px', fontWeight: 700, color: blue, margin: '0 0 2px 0' }}>{ref.patient_name || 'Hidden (P&C)'}</p>
+                      <p style={{ fontSize: '11px', fontWeight: 500, color: blue, opacity: 0.5, margin: 0 }}>{ref.patient_phone || 'Hidden (P&C)'}</p>
                     </td>
                     <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.75 }}>{ref.service_name}</td>
                     <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.75 }}>{ref.branch || '—'}</td>

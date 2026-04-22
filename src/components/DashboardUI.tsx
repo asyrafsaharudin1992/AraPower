@@ -9,7 +9,8 @@ import {
   MessageCircle, 
   Trophy, 
   TrendingUp, 
-  Trash2 
+  Trash2,
+  Lock
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 

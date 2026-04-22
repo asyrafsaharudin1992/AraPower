@@ -1798,7 +1798,7 @@ export default function App() {
     
     let url = (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') 
       ? `${apiBaseUrl}/api/referrals?requesterRole=${currentUser.role}&requesterBranch=${currentUser.branch}` 
-      : `${apiBaseUrl}/api/referrals?staffId=${currentUser.id}`;
+      : `${apiBaseUrl}/api/referrals?staffId=${currentUser.id}&requesterRole=${currentUser.role}`;
     
     if (currentUser.role === 'receptionist') {
       url += '&upcoming=true';
