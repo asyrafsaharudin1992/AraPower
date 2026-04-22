@@ -37,17 +37,17 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
 
   const filteredCompleted = completedCases.filter(r => 
     (affiliateFilter === 'all' || String(r.staff_id) === affiliateFilter) &&
-    (r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) || r.staff_name?.toLowerCase().includes(searchQuery.toLowerCase()))
+    ((r.patient_name || '').toLowerCase().includes(searchQuery.toLowerCase()) || r.staff_name?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const filteredApproved = approvedCases.filter(r => 
     (affiliateFilter === 'all' || String(r.staff_id) === affiliateFilter) &&
-    (r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) || r.staff_name?.toLowerCase().includes(searchQuery.toLowerCase()))
+    ((r.patient_name || '').toLowerCase().includes(searchQuery.toLowerCase()) || r.staff_name?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const filteredPaid = paidCases.filter(r => 
     (affiliateFilter === 'all' || String(r.staff_id) === affiliateFilter) &&
-    (r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) || r.staff_name?.toLowerCase().includes(searchQuery.toLowerCase()))
+    ((r.patient_name || '').toLowerCase().includes(searchQuery.toLowerCase()) || r.staff_name?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleApproveSelected = async () => {
@@ -225,7 +225,7 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
                     />
                   </td>
                   <td className="p-4 font-bold text-sm text-zinc-900">{ref.staff_name}</td>
-                  <td className="p-4 text-sm text-zinc-600">{ref.patient_name}</td>
+                  <td className="p-4 text-sm text-zinc-600">{ref.patient_name || 'Hidden (P&C)'}</td>
                   <td className="p-4 text-sm text-zinc-600">{ref.service_name}</td>
                   <td className="p-4 text-sm font-black text-emerald-600 text-right">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
                 </tr>
@@ -330,7 +330,7 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
                         <p className="text-[10px] text-amber-600 font-bold mt-0.5">⚠ IC number missing</p>
                       )}
                     </td>
-                    <td className="p-4 text-sm text-zinc-600">{ref.patient_name}</td>
+                    <td className="p-4 text-sm text-zinc-600">{ref.patient_name || 'Hidden (P&C)'}</td>
                     <td className="p-4 text-sm text-zinc-600">{ref.service_name}</td>
                     <td className="p-4 text-sm font-black text-emerald-600 text-right">{clinicProfile.currency}{ref.commission_amount.toFixed(2)}</td>
                   </tr>
@@ -364,7 +364,7 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
               {filteredPaid.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(ref => (
                 <tr key={ref.id} className="hover:bg-zinc-50/50 transition-colors">
                   <td className="p-4 font-bold text-sm text-zinc-900">{ref.staff_name}</td>
-                  <td className="p-4 text-sm text-zinc-600">{ref.patient_name}</td>
+                  <td className="p-4 text-sm text-zinc-600">{ref.patient_name || 'Hidden (P&C)'}</td>
                   <td className="p-4 text-sm text-zinc-600">{ref.service_name}</td>
                   <td className="p-4">
                     <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 w-fit">

@@ -484,7 +484,12 @@ async function sendReferralNotification(staff: any, referral: any) {
   const appUrl = process.env.APP_URL || 'https://arapower.hsohealthcare.com';
   const firstName = staff.name?.split(' ')[0] || 'there';
   const serviceName = referral.service_name || 'a service';
-  const patientName = referral.patient_name || 'A patient';
+  
+  // Strict P&C Enforcement for Emails
+  const patientName = staff.role === 'affiliate' 
+    ? 'Hidden (Privacy & Confidentiality)' 
+    : (referral.patient_name || 'A patient');
+    
   const appointmentDate = referral.appointment_date
     ? new Date(referral.appointment_date).toLocaleDateString('ms-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     : null;
@@ -2441,7 +2446,7 @@ app.get("/api/referrals", async (req, res) => {
     const formattedReferrals = referrals.map((r: any) => {
       const staff = staffMap[r.staff_id || r.created_by];
       const service = servicesMap[r.service_id];
-      return {
+      const result = {
         ...r,
         date: r.created_at,              // map created_at → date for frontend compatibility
         staff_id: r.staff_id || r.created_by,
@@ -2449,6 +2454,17 @@ app.get("/api/referrals", async (req, res) => {
         promo_code: staff?.referral_code || staff?.promo_code,
         service_name: r.service_name || service?.name  // prefer saved name, fallback to current
       };
+
+      // Strict Patient Confidentiality (P&C) Enforcement
+      // Redact patient data if the requester is an affiliate.
+      if (requesterRole === 'affiliate') {
+        result.patient_name = null;
+        result.patient_phone = null;
+        result.patient_ic = null;
+        result.patient_type = null;
+      }
+
+      return result;
     });
     
     res.json(formattedReferrals);

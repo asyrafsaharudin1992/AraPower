@@ -286,10 +286,10 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                     <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 700, color: blue, flexShrink: 0 }}>
-                      {referral.patient_name.charAt(0)}
+                      {referral.patient_name ? referral.patient_name.charAt(0) : <Lock size={16} />}
                     </div>
                     <div>
-                      <p style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff', margin: '0 0 2px 0' }}>{referral.patient_name}</p>
+                      <p style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff', margin: '0 0 2px 0' }}>{referral.patient_name || 'Hidden (P&C)'}</p>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 500, color: '#ffffff', opacity: 0.65 }}>
                         <span>{referral.service_name || 'General'}</span>
                         <span>·</span>

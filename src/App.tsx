@@ -2512,21 +2512,35 @@ export default function App() {
   };
 
   const exportToCSV = () => {
-    const headers = currentUser?.role === 'admin' 
-      ? ['Date', 'Patient Name', 'Patient Type', 'Service', 'Staff Name', 'Incentive ($)', 'Status']
-      : ['Date', 'Patient Name', 'Patient Type', 'Service', 'Incentive ($)', 'Status'];
+    let headers;
+    if (currentUser?.role === 'admin') {
+      headers = ['Date', 'Patient Name', 'Patient Type', 'Service', 'Staff Name', 'Incentive ($)', 'Status'];
+    } else if (currentUser?.role === 'affiliate') {
+      headers = ['Date', 'Service', 'Incentive ($)', 'Status'];
+    } else {
+      headers = ['Date', 'Patient Name', 'Patient Type', 'Service', 'Incentive ($)', 'Status'];
+    }
 
     const csvRows = referrals.map(ref => {
       const staffMember = staffList.find(s => String(s.id) === String(ref.staff_id));
-      const row = [
-        ref.date,
-        `"${ref.patient_name}"`,
-        ref.patient_type || 'new',
-        `"${ref.service_name}"`,
-        ...(currentUser?.role === 'admin' ? [`"${staffMember?.name || ref.staff_name || 'Direct Walk-in'}"`] : []),
-        (ref.commission_amount || 0).toFixed(2),
-        ref.status
-      ];
+      
+      const row = [];
+      row.push(ref.date);
+      
+      if (currentUser?.role !== 'affiliate') {
+        row.push(`"${ref.patient_name || 'Hidden (P&C)'}"`);
+        row.push(ref.patient_type || 'new');
+      }
+
+      row.push(`"${ref.service_name}"`);
+
+      if (currentUser?.role === 'admin') {
+        row.push(`"${staffMember?.name || ref.staff_name || 'Direct Walk-in'}"`);
+      }
+
+      row.push((ref.commission_amount || 0).toFixed(2));
+      row.push(ref.status);
+      
       return row.join(',');
     });
 
@@ -3841,15 +3855,15 @@ export default function App() {
                     </div>
                     <div className="divide-y divide-zinc-50">
                       {referrals
-                        .filter(r => r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .filter(r => (r.patient_name || '').toLowerCase().includes(searchQuery.toLowerCase()))
                         .filter(r => statusFilter === 'all' ? true : r.status?.toLowerCase() === statusFilter.toLowerCase())
                         .filter(r => currentUser.role === 'receptionist' ? ['arrived','in_session','completed'].includes(r.status?.toLowerCase()) : true)
                         .map((ref) => (
                         <div key={ref.id} className="p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors">
                           <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                             <div>
-                              <p className="text-sm font-semibold">{ref.patient_name}</p>
-                              <p className="text-[10px] text-zinc-500">{ref.patient_phone}</p>
+                              <p className="text-sm font-semibold">{ref.patient_name || 'Hidden (P&C)'}</p>
+                              <p className="text-[10px] text-zinc-500">{ref.patient_phone || 'Hidden (P&C)'}</p>
                             </div>
                             <div>
                               <p className="text-xs font-medium text-zinc-500">{ref.service_name}</p>
@@ -5446,7 +5460,7 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                             <div key={ref.id} className="flex items-center justify-between p-4 bg-zinc-50 rounded-2xl border border-zinc-100 group">
                               <div className="flex items-center gap-3">
                                 <div>
-                                  <p className="text-sm font-bold text-zinc-900">{ref.patient_name}</p>
+                                  <p className="text-sm font-bold text-zinc-900">{ref.patient_name || 'Hidden (P&C)'}</p>
                                   <p className="text-[10px] text-zinc-500 uppercase font-medium">{ref.service_name} • {ref.date}</p>
                                 </div>
                                 { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
