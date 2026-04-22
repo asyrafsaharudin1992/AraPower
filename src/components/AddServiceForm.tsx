@@ -362,7 +362,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
     setPosterImages(prev => [url, ...prev.filter(u => u !== url)]);
   };
 
-  const handleAutoFill = async () => {
+    const handleAutoFill = async () => {
     if (!targetUrl) return;
     setIsAutoFilling(true);
     try {
@@ -376,11 +376,29 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSuccess, onCancel, in
         throw new Error(data?.message || data?.error || 'Failed to auto-fill from website');
       }
 
+      // 1. Basic Details
       if (data.name) setName(data.name);
       if (data.description) setDescription(data.description);
       if (data.price) setBasePrice(String(data.price));
-      if (data.image) setPosterUrl(data.image);
+
+      // 2. Image Import Logic
       
+      // IMPORT 1: Exhibition Image (Main Display)
+      // We prioritize 'image_url', falling back to 'image' for backwards compatibility
+      if (data.image_url) {
+        setPosterUrl(data.image_url);
+      } else if (data.image) {
+        setPosterUrl(data.image);
+      }
+
+      // IMPORT 2: Downloadable Posters (Gallery Array)
+      // Checks if the API returns a 'poster_images' array or 'image_poster' array
+      if (data.poster_images && Array.isArray(data.poster_images)) {
+        setPosterImages(data.poster_images);
+      } else if (data.image_poster && Array.isArray(data.image_poster)) {
+        setPosterImages(data.image_poster);
+      }
+
       alert('✨ Magic Import successful!');
     } catch (error: any) {
       console.error('Auto-fill error:', error);
