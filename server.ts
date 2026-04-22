@@ -2085,11 +2085,11 @@ app.post("/api/staff/:id/approve", async (req, res) => {
 
 app.patch("/api/staff/:id/profile", async (req, res) => {
   const { id } = req.params;
-  const { nickname, profile_picture, bank_name, bank_account_number, id_type, id_number } = req.body;
+  const { name, nickname, profile_picture, bank_name, bank_account_number, id_type, id_number } = req.body;
   
   const { data, error } = await supabase
     .from('staff')
-    .update({ nickname, profile_picture, bank_name, bank_account_number, id_type, id_number })
+    .update({ name, nickname, profile_picture, bank_name, bank_account_number, id_type, id_number })
     .eq('id', id)
     .select()
     .single();

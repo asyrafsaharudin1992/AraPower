@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
-  RefreshCw, DollarSign, Palette, Sun, Moon, BookOpen, ChevronRight, Lock, MessageSquare
+  RefreshCw, DollarSign, Palette, Sun, Moon, BookOpen, ChevronRight, Lock, MessageSquare, AlertTriangle
 } from 'lucide-react';
 
 export interface ProfileUIProps {
@@ -22,6 +22,7 @@ export interface ProfileUIProps {
   handleSendFeedback: (e: any) => void;
   isSendingFeedback: boolean;
   handleLogout: () => void;
+  onDeleteAccount: () => Promise<void>;
 }
 
 const MALAYSIAN_BANKS = [
@@ -132,6 +133,7 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
   THEMES, selectedTheme, setSelectedTheme, windowWidth, setDarkMode,
   reduceTranslucency, setReduceTranslucency, setActiveTab, setShowPasswordModal,
   feedbackMessage, setFeedbackMessage, handleSendFeedback, isSendingFeedback, handleLogout,
+  onDeleteAccount,
 }) => {
   if (!currentUser) return null;
 
@@ -175,6 +177,7 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
             e.preventDefault();
             const fd = new FormData(e.currentTarget);
             handleUpdateProfile({
+              name: fd.get('name') as string,
               nickname: fd.get('nickname') as string,
               bank_name: fd.get('bank_name') as string,
               bank_account_number: fd.get('bank_account_number') as string,
@@ -185,10 +188,17 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
           className="space-y-6"
           style={{ position: 'relative', zIndex: 1 }}
         >
-          {/* Nickname */}
-          <div>
-            {fieldLabel('Nickname')}
-            <input name="nickname" type="text" defaultValue={currentUser.nickname || ''} placeholder="Your preferred name" style={inputOnBlue} />
+          {/* Identity Info */}
+          <div className="grid grid-cols-1 gap-6">
+            <div>
+              {fieldLabel('Full Name (as per MyKad)')}
+              <input name="name" type="text" defaultValue={currentUser.name || ''} placeholder="Your legal full name" style={inputOnBlue} required />
+            </div>
+            
+            <div>
+              {fieldLabel('Nickname')}
+              <input name="nickname" type="text" defaultValue={currentUser.nickname || ''} placeholder="Your preferred name" style={inputOnBlue} />
+            </div>
           </div>
 
           {/* Bank Details */}
@@ -336,10 +346,26 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
               Save Profile Changes
             </button>
             <button type="button" onClick={handleLogout}
-              style={{ width: '100%', height: '52px', borderRadius: '40px', background: 'transparent', border: '2px solid rgba(252,165,165,0.5)', color: '#fca5a5', fontSize: '14px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: P, transition: 'background 0.15s, border-color 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; e.currentTarget.style.borderColor = 'rgba(252,165,165,0.8)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(252,165,165,0.5)'; }}>
+              style={{ width: '100%', height: '52px', borderRadius: '40px', background: 'transparent', border: '2px solid rgba(255,255,255,0.3)', color: '#ffffff', fontSize: '14px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: P, transition: 'background 0.15s, border-color 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; }}>
               Sign Out
+            </button>
+          </div>
+
+          {/* Danger Zone */}
+          <div style={{ paddingTop: '32px', borderTop: '1px solid rgba(252,165,165,0.2)', marginTop: '32px' }}>
+            {sectionLabel(<AlertTriangle size={14} color="#fca5a5" />, 'Danger Zone')}
+            <button type="button" 
+              onClick={() => {
+                if (window.confirm('Are you absolutely sure? This action cannot be undone and you will lose all pending commissions.')) {
+                  onDeleteAccount();
+                }
+              }}
+              style={{ width: '100%', height: '52px', borderRadius: '40px', background: 'rgba(239,68,68,0.1)', border: '2px solid rgba(239,68,68,0.5)', color: '#fca5a5', fontSize: '14px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: P, transition: 'background 0.15s, border-color 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.8)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; }}>
+              Delete Account
             </button>
           </div>
         </form>

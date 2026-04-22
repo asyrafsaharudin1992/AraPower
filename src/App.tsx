@@ -2112,6 +2112,30 @@ export default function App() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!currentUser) return;
+    try {
+      // 1. Delete user record from staff table via Supabase RPC or direct delete
+      // Since currentUser.id is the primary key and the auth_id is linked, we delete by id
+      const { error: dbError } = await supabase.from('staff').delete().eq('id', currentUser.id);
+      
+      if (dbError) throw dbError;
+
+      // 2. Sign out of Supabase auth
+      await supabase.auth.signOut();
+
+      // 3. Reset local state and storage
+      localStorage.removeItem('currentUser');
+      setCurrentUser(null);
+      
+      // 4. Show success message
+      toast.success('Account successfully deleted');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      toast.error('Failed to delete account. Please contact support.');
+    }
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !currentUser) return;
@@ -2868,6 +2892,7 @@ export default function App() {
             handleSendFeedback={handleSendFeedback}
             isSendingFeedback={isSendingFeedback}
             handleLogout={handleLogout}
+            onDeleteAccount={handleDeleteAccount}
             markAllAsRead={markAllAsRead}
             markNotificationAsRead={markNotificationAsRead}
           />
@@ -3340,6 +3365,7 @@ export default function App() {
               handleSendFeedback={handleSendFeedback}
               isSendingFeedback={isSendingFeedback}
               handleLogout={handleLogout}
+              onDeleteAccount={handleDeleteAccount}
             />
           )}
 

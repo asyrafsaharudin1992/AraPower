@@ -105,6 +105,7 @@ export interface MobileUIProps {
   // Notifications
   markAllAsRead: () => void;
   markNotificationAsRead: (id: number) => void;
+  onDeleteAccount: () => Promise<void>;
 }
 
 export const MobileUI: React.FC<MobileUIProps> = ({
@@ -162,6 +163,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
   handleSendFeedback,
   isSendingFeedback,
   handleLogout,
+  onDeleteAccount,
   markAllAsRead,
   markNotificationAsRead,
 }) => {
@@ -428,6 +430,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                     handleSendFeedback={handleSendFeedback}
                     isSendingFeedback={isSendingFeedback}
                     handleLogout={handleLogout}
+                    onDeleteAccount={onDeleteAccount}
                   />
                 </React.Suspense>
               )}
