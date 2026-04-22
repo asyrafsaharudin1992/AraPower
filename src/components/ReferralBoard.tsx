@@ -18,6 +18,17 @@ interface ReferralBoardProps {
   staffList: any[];
 }
 
+const getWhatsAppUrl = (phone: string | null | undefined) => {
+  if (!phone) return '#';
+  // Remove all non-numeric characters
+  const cleaned = phone.replace(/\D/g, '');
+  // Ensure it starts with 60 for Malaysia
+  const formatted = cleaned.startsWith('0') 
+    ? '6' + cleaned 
+    : (cleaned.startsWith('60') ? cleaned : '60' + cleaned);
+  return `https://wa.me/${formatted}`;
+};
+
 export const ReferralBoard: React.FC<ReferralBoardProps> = ({
   currentUser,
   referrals,
@@ -290,7 +301,20 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                     <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.55 }}>{formatDate(ref.date)}</td>
                     <td style={{ padding: '14px 16px' }}>
                       <p style={{ fontSize: '13px', fontWeight: 700, color: blue, margin: '0 0 2px 0' }}>{ref.patient_name || 'Hidden (P&C)'}</p>
-                      <p style={{ fontSize: '11px', fontWeight: 500, color: blue, opacity: 0.5, margin: 0 }}>{ref.patient_phone || 'Hidden (P&C)'}</p>
+                      <div className="flex items-center gap-2">
+                        <p style={{ fontSize: '11px', fontWeight: 500, color: blue, opacity: 0.5, margin: 0 }}>{ref.patient_phone || 'Hidden (P&C)'}</p>
+                        {ref.patient_phone && (
+                          <a 
+                            href={getWhatsAppUrl(ref.patient_phone)}
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-50 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-colors flex-shrink-0"
+                            title="WhatsApp Patient"
+                          >
+                            <MessageCircle size={12} />
+                          </a>
+                        )}
+                      </div>
                     </td>
                     <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.75 }}>{ref.service_name}</td>
                     <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.75 }}>{ref.branch || '—'}</td>

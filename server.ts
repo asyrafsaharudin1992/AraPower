@@ -2673,8 +2673,13 @@ app.post("/api/referrals", async (req, res) => {
         insertData.staff_name = staffData.name;
       }
     }
-  } else if (created_by) {
-    insertData.created_by = created_by;
+  } else {
+    // SECURITY GUARD: Direct walk-ins MUST NOT receive commission incentives
+    insertData.commission_amount = 0;
+    
+    if (created_by) {
+      insertData.created_by = created_by;
+    }
   }
 
   const { data: referral, error: insertError } = await supabase
@@ -2730,6 +2735,18 @@ app.patch("/api/referrals/:id", async (req, res) => {
   // Ensure status is formatted correctly if it's being updated
   if (updates.status) {
     updates.status = updates.status.toLowerCase();
+  }
+
+  // SECURITY GUARD: If clearing affiliate/staff_id, commission must drop to 0
+  if ('staff_id' in updates && !updates.staff_id) {
+    updates.commission_amount = 0;
+  } else if (updates.commission_amount > 0 && !updates.staff_id) {
+    // If they are trying to set commission > 0 but not providing a new staff_id,
+    // verify the existing record actually has a staff_id.
+    const { data: existing } = await supabase.from('referrals').select('staff_id').eq('id', id).maybeSingle();
+    if (!existing || !existing.staff_id) {
+      updates.commission_amount = 0;
+    }
   }
 
   const { data, error } = await supabase

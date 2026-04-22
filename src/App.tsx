@@ -756,6 +756,17 @@ const MobilePullToRefreshWrapper = ({ isMobile, onRefresh, children }: { isMobil
   return <>{children}</>;
 };
 
+const getWhatsAppUrl = (phone: string | null | undefined) => {
+  if (!phone) return '#';
+  // Remove all non-numeric characters
+  const cleaned = phone.replace(/\D/g, '');
+  // Ensure it starts with 60 for Malaysia
+  const formatted = cleaned.startsWith('0') 
+    ? '6' + cleaned 
+    : (cleaned.startsWith('60') ? cleaned : '60' + cleaned);
+  return `https://wa.me/${formatted}`;
+};
+
 export default function App() {
   // Flag to prevent login flow during password recovery
   const isPasswordRecovery = useRef(false);
@@ -1926,19 +1937,22 @@ export default function App() {
         ? (urlParams.get('ref') || localStorage.getItem('araclinic_ref_code')) 
         : null;
 
+      const resolvedStaffId = isPublicBooking 
+        ? (directAffiliateId || null) 
+        : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id);
+
       // 2. BUILD THE BULLETPROOF PAYLOAD
       const payload: any = {
-        // FORCE staff_id directly from the URL 'ref'
-        staff_id: isPublicBooking 
-          ? (directAffiliateId || null) 
-          : (activeTab === 'receptionist' ? walkInStaff?.id : currentUser?.id),
+        // FORCE staff_id directly from the URL 'ref' or current user context
+        staff_id: resolvedStaffId || null,
           
         // Also send the referral code string just in case
         referral_code: directAffiliateId || null,
         
         service_id: data.selectedService,
         service_name: serviceData?.name || '',
-        commission_amount: serviceData?.commission_rate || 0,
+        // ONLY assign commission if an affiliate is officially logged
+        commission_amount: resolvedStaffId ? (serviceData?.commission_rate || 0) : 0,
         patient_name: data.patientName,
         patient_phone: data.patientPhone,
         patient_ic: data.patientIC,
@@ -3889,7 +3903,20 @@ export default function App() {
                           <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                             <div>
                               <p className="text-sm font-semibold">{ref.patient_name || 'Hidden (P&C)'}</p>
-                              <p className="text-[10px] text-zinc-500">{ref.patient_phone || 'Hidden (P&C)'}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-[10px] text-zinc-500">{ref.patient_phone || 'Hidden (P&C)'}</p>
+                                {ref.patient_phone && (
+                                  <a 
+                                    href={getWhatsAppUrl(ref.patient_phone)}
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-50 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-colors flex-shrink-0"
+                                    title="WhatsApp Patient"
+                                  >
+                                    <MessageCircle size={12} />
+                                  </a>
+                                )}
+                              </div>
                             </div>
                             <div>
                               <p className="text-xs font-medium text-zinc-500">{ref.service_name}</p>
