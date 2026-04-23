@@ -227,7 +227,7 @@ export const PromotionDetailModal = ({
                     className="w-full py-4 bg-violet-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all shadow-lg shadow-violet-500/30"
                   >
                     <Share2 size={18} />
-                    Share App
+                    Share Service
                   </button>
                 </div>
 
