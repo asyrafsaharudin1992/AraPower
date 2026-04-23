@@ -50,7 +50,12 @@ export const AdminUI: React.FC<AdminUIProps> = ({
         .from('booking_analytics')
         .select('event_type');
         
-      if (!error && data) {
+      if (error) {
+        console.error("Supabase Analytics Error:", error);
+        // Optional: you can remove the toast if it's too noisy, but it helps diagnose RLS
+      }
+        
+      if (data) {
         const clicks = data.filter(e => e.event_type === 'clicked_tempah').length;
         const completed = data.filter(e => e.event_type === 'completed_booking').length;
         
