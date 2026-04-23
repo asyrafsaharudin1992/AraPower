@@ -1822,8 +1822,21 @@ export default function App() {
       url += `&branch=${branchFilter}`;
     }
 
-    const { res, data } = await safeFetch(url);
-    if (res.ok && Array.isArray(data)) setReferrals(data);
+    // CACHE BUSTER: Add a timestamp to prevent the browser from caching the master list
+    const cacheBusterUrl = url.includes('?') ? `${url}&t=${new Date().getTime()}` : `${url}?t=${new Date().getTime()}`;
+    
+    const { res, data } = await safeFetch(cacheBusterUrl);
+    
+    if (res.ok && Array.isArray(data)) {
+      // STRICT FRONTEND FAILSAFE: Never trust the backend API blindly
+      if (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') {
+        setReferrals(data);
+      } else {
+        // Affiliates MUST be forcefully filtered to their own ID only
+        const strictlyFiltered = data.filter((ref: any) => String(ref.staff_id) === String(currentUser.id));
+        setReferrals(strictlyFiltered);
+      }
+    }
   };
 
   const fetchWarmLeads = async () => {

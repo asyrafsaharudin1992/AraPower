@@ -2337,12 +2337,20 @@ app.get("/api/referrals", async (req, res) => {
   try {
     const { staffId, branch, requesterRole, requesterBranch } = req.query;
     
+    // SECURITY ENFORCEMENT: If not an admin/manager/receptionist, they MUST supply staffId and we forcefully filter by it
+    const isStaffView = requesterRole !== 'admin' && requesterRole !== 'manager' && requesterRole !== 'receptionist';
+    
+    if (isStaffView && (!staffId || staffId === 'undefined' || staffId === 'null')) {
+      return res.status(403).json({ error: "Unauthorized: Affiliates must filter by their own ID" });
+    }
+
     // Fetch referrals first without joins to avoid relationship errors
     let query = supabase
       .from('referrals')
       .select('*')
       .order('created_at', { ascending: false });
 
+    // Explicitly apply staff_id filtering
     if (staffId && staffId !== 'undefined' && staffId !== 'null') {
       query = query.eq('staff_id', staffId);
     }
@@ -2370,6 +2378,11 @@ app.get("/api/referrals", async (req, res) => {
         .order('created_at', { ascending: false });
         
       if (staffId && staffId !== 'undefined' && staffId !== 'null') {
+        // Explicitly apply to fallback
+        fallbackQuery = fallbackQuery.eq('staff_id', staffId);
+        // Also fallback to created_by if staff_id is the issue, though we prefer staff_id matching
+        // In the original it was just fallbackQuery.eq('created_by', staffId); 
+        // We ensure staff_id is enforced if they query staffId
         fallbackQuery = fallbackQuery.eq('created_by', staffId);
       }
         
@@ -2396,7 +2409,9 @@ app.get("/api/referrals", async (req, res) => {
         .order('created_at', { ascending: false });
         
       if (staffId && staffId !== 'undefined' && staffId !== 'null') {
-        // Try created_by directly since staff_id might have failed
+        // Explicitly apply to fallback
+        fallbackQuery = fallbackQuery.eq('staff_id', staffId);
+        // Also fallback to created_by if staff_id is the issue
         fallbackQuery = fallbackQuery.eq('created_by', staffId);
       }
       
