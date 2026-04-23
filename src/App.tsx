@@ -14,6 +14,7 @@ import { ReferralBoard } from './components/ReferralBoard';
 import { MobileUI, MobileTab } from './components/MobileUI';
 import { PromotionsUI } from './components/PromotionsUI';
 import { ProfileUI } from './components/ProfileUI';
+import { GuideUI } from './components/GuideUI';
 import AddServiceForm from './components/AddServiceForm';
 import { Service, Promotion, Staff, Referral, AppSettings, ClinicProfile } from './types';
 import { 
@@ -947,6 +948,7 @@ export default function App() {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
+  const [showPasswords, setShowPasswords] = useState({ current: false, new: false, confirm: false });
   const [passwordError, setPasswordError] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isPublicBooking, setIsPublicBooking] = useState(false);
@@ -1016,8 +1018,10 @@ export default function App() {
       const contentType = response.headers.get("content-type");
       if (response.ok && contentType && contentType.includes("application/json")) {
         const data = await response.json();
-        setNotifications(data);
-        setUnreadNotificationsCount(data.filter((n: any) => !n.is_read).length);
+        // Filter out referral notifications at the client level based on type if needed
+        const filteredData = data.filter((n: any) => n.type !== 'referral');
+        setNotifications(filteredData);
+        setUnreadNotificationsCount(filteredData.filter((n: any) => !n.is_read).length);
       } else {
         console.warn('Notifications API did not return JSON. Status:', response.status);
       }
@@ -1035,6 +1039,18 @@ export default function App() {
       }
     } catch (error) {
       console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const deleteNotification = async (id: number) => {
+    try {
+      const response = await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+        fetchNotifications(); // Refresh 
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
     }
   };
 
@@ -1391,7 +1407,7 @@ export default function App() {
     } catch (error: any) {
       console.error('Error in fetchStaffByEmail:', error);
       if (await handleAuthError(error)) return;
-      setAuthError(error.message || 'Failed to load user profile.');
+      showNotification('error', error.message || 'Failed to load user profile.');
       
       const isNetworkError = error.message && error.message.includes('Network error');
       
@@ -2925,6 +2941,7 @@ export default function App() {
             onDeleteAccount={handleDeleteAccount}
             markAllAsRead={markAllAsRead}
             markNotificationAsRead={markNotificationAsRead}
+            deleteNotification={deleteNotification}
           />
         )}
 
@@ -3304,15 +3321,24 @@ export default function App() {
                           {notif.message}
                         </p>
                         
-                        {!notif.is_read && (
+                        <div className="flex gap-2">
+                          {!notif.is_read && (
+                            <button 
+                              onClick={() => markNotificationAsRead(notif.id)}
+                              className="text-[10px] font-black uppercase tracking-widest text-zinc-900 hover:text-zinc-900 flex items-center gap-1.5 group"
+                            >
+                              <CheckCircle2 size={14} className="group-hover:scale-110 transition-transform" />
+                              Mark as read
+                            </button>
+                          )}
                           <button 
-                            onClick={() => markNotificationAsRead(notif.id)}
-                            className="text-[10px] font-black uppercase tracking-widest text-zinc-900 hover:text-zinc-900 flex items-center gap-1.5 group"
+                            onClick={() => deleteNotification(notif.id)}
+                            className="text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 flex items-center gap-1.5 group"
                           >
-                            <CheckCircle2 size={14} className="group-hover:scale-110 transition-transform" />
-                            Mark as read
+                            <Trash2 size={14} className="group-hover:scale-110 transition-transform" />
+                            Delete
                           </button>
-                        )}
+                        </div>
                       </div>
                     </div>
                   </motion.div>
@@ -3396,6 +3422,14 @@ export default function App() {
               isSendingFeedback={isSendingFeedback}
               handleLogout={handleLogout}
               onDeleteAccount={handleDeleteAccount}
+            />
+          )}
+
+          {activeTab === 'guide' && (
+            <GuideUI 
+              currentUser={currentUser}
+              clinicProfile={clinicProfile}
+              setActiveTab={setActiveTab as any}
             />
           )}
 
@@ -5394,6 +5428,9 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
             </motion.div>
           )}
         </AnimatePresence>
+      </>
+    )}
+      </main>}
 
         {/* Staff Detail Modal */}
         <AnimatePresence>
@@ -5687,38 +5724,65 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
                     
                     <div className="space-y-2">
                       <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Current Password</label>
-                      <input 
-                        type="password"
-                        value={passwordForm.current}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-[#1580c2] focus:border-[#1580c2]/20 transition-all text-sm font-medium"
-                        placeholder="••••••••"
-                        required
-                      />
+                      <div className="relative">
+                        <input 
+                          type={showPasswords.current ? "text" : "password"}
+                          value={passwordForm.current}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
+                          className="w-full px-6 py-4 pr-12 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-[#1580c2] focus:border-[#1580c2]/20 transition-all text-sm font-medium"
+                          placeholder="••••••••"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswords({ ...showPasswords, current: !showPasswords.current })}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
+                        >
+                          {showPasswords.current ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
                       <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">New Password</label>
-                      <input 
-                        type="password"
-                        value={passwordForm.new}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-[#1580c2] focus:border-[#1580c2]/20 transition-all text-sm font-medium"
-                        placeholder="Min. 6 characters"
-                        required
-                      />
+                      <div className="relative">
+                        <input 
+                          type={showPasswords.new ? "text" : "password"}
+                          value={passwordForm.new}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
+                          className="w-full px-6 py-4 pr-12 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-[#1580c2] focus:border-[#1580c2]/20 transition-all text-sm font-medium"
+                          placeholder="Min. 6 characters"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswords({ ...showPasswords, new: !showPasswords.new })}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
+                        >
+                          {showPasswords.new ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
                       <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Confirm New Password</label>
-                      <input 
-                        type="password"
-                        value={passwordForm.confirm}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
-                        className="w-full px-6 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-[#1580c2] focus:border-[#1580c2]/20 transition-all text-sm font-medium"
-                        placeholder="••••••••"
-                        required
-                      />
+                      <div className="relative">
+                        <input 
+                          type={showPasswords.confirm ? "text" : "password"}
+                          value={passwordForm.confirm}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
+                          className="w-full px-6 py-4 pr-12 rounded-2xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-4 focus:ring-[#1580c2] focus:border-[#1580c2]/20 transition-all text-sm font-medium"
+                          placeholder="••••••••"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswords({ ...showPasswords, confirm: !showPasswords.confirm })}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
+                        >
+                          {showPasswords.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
                     </div>
 
                     <button 
@@ -6115,9 +6179,6 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
             </motion.div>
           )}
         </AnimatePresence>
-      </>
-    )}
-      </main>}
       </MobilePullToRefreshWrapper>
     </div>
   );

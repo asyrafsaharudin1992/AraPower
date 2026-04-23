@@ -36,12 +36,12 @@ export const GuideUI: React.FC<GuideUIProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className={`p-6 rounded-3xl border ${currentUser.role === 'affiliate' ? 'bg-violet-500 border-violet-500' : 'bg-white border-black/5'}`}>
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'affiliate' ? 'bg-violet-500 text-white' : 'bg-zinc-50 text-zinc-500'}`}>
+        <div className={`p-6 rounded-3xl border transition-all ${currentUser.role === 'affiliate' ? 'border-2 border-violet-500 bg-violet-50/50 shadow-md shadow-violet-500/10' : 'bg-white border-black/5'}`}>
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'affiliate' ? 'bg-violet-500 text-white shadow-md shadow-violet-500/20' : 'bg-zinc-50 text-zinc-500'}`}>
             <Users size={24} />
           </div>
-          <h4 className="font-bold mb-2">For Staff Members</h4>
-          <ul className="space-y-3 text-xs text-zinc-500 font-medium">
+          <h4 className={`font-bold mb-2 ${currentUser.role === 'affiliate' ? 'text-violet-950' : 'text-zinc-900'}`}>For Staff Members</h4>
+          <ul className={`space-y-3 text-xs font-medium ${currentUser.role === 'affiliate' ? 'text-violet-900/70' : 'text-zinc-500'}`}>
             <li className="flex gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
               <span>Share your unique QR code or referral link with patients.</span>
@@ -61,12 +61,12 @@ export const GuideUI: React.FC<GuideUIProps> = ({
           </ul>
         </div>
 
-        <div className={`p-6 rounded-3xl border ${currentUser.role === 'receptionist' ? 'bg-violet-500 border-violet-500' : 'bg-white border-black/5'}`}>
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'receptionist' ? 'bg-violet-500 text-white' : 'bg-zinc-50 text-zinc-500'}`}>
+        <div className={`p-6 rounded-3xl border transition-all ${currentUser.role === 'receptionist' ? 'border-2 border-violet-500 bg-violet-50/50 shadow-md shadow-violet-500/10' : 'bg-white border-black/5'}`}>
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${currentUser.role === 'receptionist' ? 'bg-violet-500 text-white shadow-md shadow-violet-500/20' : 'bg-zinc-50 text-zinc-500'}`}>
             <CheckCircle2 size={24} />
           </div>
-          <h4 className="font-bold mb-2">For Receptionists</h4>
-          <ul className="space-y-3 text-xs text-zinc-500 font-medium">
+          <h4 className={`font-bold mb-2 ${currentUser.role === 'receptionist' ? 'text-violet-950' : 'text-zinc-900'}`}>For Receptionists</h4>
+          <ul className={`space-y-3 text-xs font-medium ${currentUser.role === 'receptionist' ? 'text-violet-900/70' : 'text-zinc-500'}`}>
             <li className="flex gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
               <span>Use the "Arrived" tab to find patients arriving today.</span>
@@ -86,12 +86,12 @@ export const GuideUI: React.FC<GuideUIProps> = ({
           </ul>
         </div>
 
-        <div className={`p-6 rounded-3xl border ${ (currentUser.role === 'admin' || currentUser.role === 'manager') ? 'bg-violet-500 border-violet-500' : 'bg-white border-black/5'}`}>
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${ (currentUser.role === 'admin' || currentUser.role === 'manager') ? 'bg-violet-500 text-white' : 'bg-zinc-50 text-zinc-500'}`}>
+        <div className={`p-6 rounded-3xl border transition-all ${ (currentUser.role === 'admin' || currentUser.role === 'manager') ? 'border-2 border-violet-500 bg-violet-50/50 shadow-md shadow-violet-500/10' : 'bg-white border-black/5'}`}>
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${ (currentUser.role === 'admin' || currentUser.role === 'manager') ? 'bg-violet-500 text-white shadow-md shadow-violet-500/20' : 'bg-zinc-50 text-zinc-500'}`}>
             <ShieldCheck size={24} />
           </div>
-          <h4 className="font-bold mb-2">For Administrators</h4>
-          <ul className="space-y-3 text-xs text-zinc-500 font-medium">
+          <h4 className={`font-bold mb-2 ${ (currentUser.role === 'admin' || currentUser.role === 'manager') ? 'text-violet-950' : 'text-zinc-900'}`}>For Administrators</h4>
+          <ul className={`space-y-3 text-xs font-medium ${ (currentUser.role === 'admin' || currentUser.role === 'manager') ? 'text-violet-900/70' : 'text-zinc-500'}`}>
             <li className="flex gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1.5 shrink-0" />
               <span>Approve new staff registrations in the "Setup &gt; Staff" tab.</span>

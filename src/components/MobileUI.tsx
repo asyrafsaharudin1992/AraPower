@@ -105,6 +105,7 @@ export interface MobileUIProps {
   // Notifications
   markAllAsRead: () => void;
   markNotificationAsRead: (id: number) => void;
+  deleteNotification: (id: number) => void;
   onDeleteAccount: () => Promise<void>;
 }
 
@@ -166,6 +167,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
   onDeleteAccount,
   markAllAsRead,
   markNotificationAsRead,
+  deleteNotification,
 }) => {
   return (
     <div className="pb-44 min-h-screen bg-white relative">
@@ -491,13 +493,20 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                               </span>
                             </div>
                             <p className="text-sm leading-relaxed mb-4 text-zinc-500">{notif.message}</p>
-                            {!notif.is_read && (
-                              <button onClick={() => markNotificationAsRead(notif.id)}
-                                className="text-[10px] font-black uppercase tracking-widest text-zinc-900 flex items-center gap-1.5 group">
-                                <CheckCircle2 size={14} className="group-hover:scale-110 transition-transform" />
-                                Mark as read
+                            <div className="flex gap-2">
+                              {!notif.is_read && (
+                                <button onClick={() => markNotificationAsRead(notif.id)}
+                                  className="text-[10px] font-black uppercase tracking-widest text-zinc-900 flex items-center gap-1.5 group">
+                                  <CheckCircle2 size={14} className="group-hover:scale-110 transition-transform" />
+                                  Mark as read
+                                </button>
+                              )}
+                              <button onClick={() => deleteNotification(notif.id)}
+                                className="text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 flex items-center gap-1.5 group">
+                                <Trash2 size={14} className="group-hover:scale-110 transition-transform" />
+                                Delete
                               </button>
-                            )}
+                            </div>
                           </div>
                         </div>
                       </motion.div>
