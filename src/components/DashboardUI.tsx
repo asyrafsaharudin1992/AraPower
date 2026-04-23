@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   ClipboardList, 
@@ -10,7 +10,10 @@ import {
   Trophy, 
   TrendingUp, 
   Trash2,
-  Lock
+  Lock,
+  MousePointerClick,
+  CheckCircle,
+  TrendingDown
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -22,6 +25,7 @@ import {
   Area 
 } from 'recharts';
 import { CategoryScrollRow } from './CategoryScrollRow';
+import { supabase } from '../supabase';
 
 export interface DashboardUIProps {
   currentUser: any;
@@ -75,6 +79,37 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
 }) => {
   const P = "'Poppins', sans-serif";
   const blue = '#1580c2';
+
+  const [analytics, setAnalytics] = useState({ clicks: 0, completed: 0, dropOffRate: 0 });
+  const [debugMsg, setDebugMsg] = useState("");
+
+  useEffect(() => {
+    if (currentUser.role !== 'admin' && currentUser.role !== 'manager') return;
+
+    const fetchAnalytics = async () => {
+      const { data, error } = await supabase
+        .from('booking_analytics')
+        .select('event_type');
+        
+      if (error) {
+        console.error("Supabase Analytics Error:", error);
+        setDebugMsg(`Error: ${error.message}`);
+      } else if (data) {
+        setDebugMsg(`Loaded ${data.length} rows from Supabase.`);
+        const clicks = data.filter(e => e.event_type === 'clicked_tempah').length;
+        const completed = data.filter(e => e.event_type === 'completed_booking').length;
+        
+        // Calculate drop-off rate safely to avoid dividing by zero
+        const dropOffRate = clicks > 0 ? Math.round(((clicks - completed) / clicks) * 100) : 0;
+        
+        setAnalytics({ clicks, completed, dropOffRate });
+      } else {
+        setDebugMsg(`No data and no error returned.`);
+      }
+    };
+    
+    fetchAnalytics();
+  }, [currentUser.role]);
 
   return (
     <motion.div
@@ -144,6 +179,50 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
               ))}
             </>
           )}
+        </div>
+      )}
+
+      {/* Booking Conversion Funnel (Admin/Manager) */}
+      {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
+        <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+          <div className="mb-6 flex justify-between items-center">
+            <div>
+              <h3 className="text-xl font-black tracking-tighter text-zinc-900">Booking Conversion Funnel</h3>
+              <p className="text-sm text-zinc-500 font-medium">Monitor form abandonment and success rates</p>
+              {debugMsg && <p className="text-xs text-rose-500 font-bold mt-1">Debug: {debugMsg}</p>}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-zinc-50 rounded-3xl p-6 border border-zinc-100 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1" style={{ color: blue }}>Intent to Book</p>
+                <p className="text-3xl font-black tracking-tight text-zinc-900">{analytics.clicks}</p>
+              </div>
+              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+                <MousePointerClick className="text-zinc-400" size={24} />
+              </div>
+            </div>
+            <div className="bg-zinc-50 rounded-3xl p-6 border border-zinc-100 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1" style={{ color: blue }}>Successful Bookings</p>
+                <p className="text-3xl font-black tracking-tight text-zinc-900">{analytics.completed}</p>
+              </div>
+              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+                <CheckCircle className="text-emerald-500" size={24} />
+              </div>
+            </div>
+            <div className="bg-zinc-50 rounded-3xl p-6 border border-zinc-100 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1" style={{ color: blue }}>Abandonment Rate</p>
+                <p className={`text-3xl font-black tracking-tight ${analytics.dropOffRate > 50 ? 'text-rose-500' : analytics.dropOffRate < 30 ? 'text-emerald-500' : 'text-zinc-900'}`}>
+                  {analytics.dropOffRate}%
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+                <TrendingDown className={analytics.dropOffRate > 50 ? 'text-rose-500' : analytics.dropOffRate < 30 ? 'text-emerald-500' : 'text-zinc-400'} size={24} />
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

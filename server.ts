@@ -851,7 +851,10 @@ app.get("/api/branch-change-requests", async (req, res) => {
     .select(selectColumns)
     .order('created_at', { ascending: false });
   
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    if (error.code === 'PGRST205') return res.json([]); // Table doesn't exist yet
+    return res.status(500).json({ error: error.message });
+  }
   if (!requests || requests.length === 0) return res.json([]);
 
   const staffIds = [...new Set(requests.map(r => r.staff_id).filter(Boolean))];
@@ -1385,7 +1388,10 @@ app.get("/api/tasks", async (req, res) => {
     .select(selectColumns)
     .order('due_date', { ascending: true });
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    if (error.code === 'PGRST205') return res.json([]); // Table doesn't exist yet
+    return res.status(500).json({ error: error.message });
+  }
   if (!tasks || tasks.length === 0) return res.json([]);
   
   if (tasks && tasks.length > 0) {
