@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Zap, Download, ArrowLeft, Share2 } from 'lucide-react';
+import { X, Zap, Download, ArrowLeft, Share2, Copy } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getServiceStatus } from './ModernPromotionCard';
 import { handleDownloadPoster } from '../utils';
@@ -19,7 +19,7 @@ export const PromotionDetailModal = ({
   clinicProfile: any, 
   darkMode: boolean, 
   currentUser: any | null 
-}) => {
+}) => { 
   if (!item) return null;
 
   const linkCode = currentUser?.id || currentUser?.referral_code || currentUser?.promo_code;
@@ -57,28 +57,47 @@ export const PromotionDetailModal = ({
     (url) => url !== item.image_url
   );
 
-  const handleShareLink = async () => {
+  const handleNativeShare = async () => {
     const shareLink = generateAffiliateLink();
     if (!shareLink) {
       toast.error('Link not ready yet');
       return;
     }
-    try {
-      if (navigator.share) {
+    
+    // If the device supports native sharing, open the menu with the text
+    if (navigator.share) {
+      try {
         await navigator.share({
           title: item.name,
           text: `Check out this promotion: ${item.name}`,
           url: shareLink,
         });
-        return;
+      } catch (error: any) {
+        if (error?.name !== 'AbortError') {
+          console.error('Share failed:', error);
+          toast.error('Unable to share');
+        }
       }
+    } else {
+      // Fallback for desktop/unsupported browsers
+      handleCopyOnly();
+    }
+  };
+
+  const handleCopyOnly = async () => {
+    const shareLink = generateAffiliateLink();
+    if (!shareLink) {
+      toast.error('Link not ready yet');
+      return;
+    }
+    
+    // Directly copy ONLY the URL, no extra text
+    try {
       await navigator.clipboard.writeText(shareLink);
       toast.success('Link copied');
-    } catch (error: any) {
-      if (error?.name !== 'AbortError') {
-        console.error('Share failed:', error);
-        toast.error('Unable to share link');
-      }
+    } catch (error) {
+      console.error('Copy failed:', error);
+      toast.error('Unable to copy link');
     }
   };
 
@@ -176,8 +195,8 @@ export const PromotionDetailModal = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  {/* ACTION BUTTON: Always open preview first, no auto-downloading */}
+                <div className="grid grid-cols-3 gap-3">
+                  {/* Preview/Download Button */}
                   <button
                     onClick={() => {
                       if (downloadablePosters.length === 0) {
@@ -187,18 +206,28 @@ export const PromotionDetailModal = ({
                       setShowPosterGallery(true);
                     }}
                     disabled={downloadablePosters.length === 0}
-                    className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+                    className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-2xl font-black text-[10px] uppercase tracking-widest flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all disabled:opacity-50"
                   >
-                    <Download size={16} />
-                    {downloadablePosters.length === 0 ? 'No Poster' : `View Poster${downloadablePosters.length > 1 ? 's' : ''}`}
+                    <Download size={18} />
+                    {downloadablePosters.length === 0 ? 'No Poster' : 'Posters'}
                   </button>
 
+                  {/* Direct Copy Button */}
                   <button
-                    onClick={handleShareLink}
-                    className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-full font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    onClick={handleCopyOnly}
+                    className="w-full py-4 bg-zinc-100 text-zinc-900 rounded-2xl font-black text-[10px] uppercase tracking-widest flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all"
                   >
-                    <Share2 size={16} />
-                    Share Link
+                    <Copy size={18} />
+                    Copy Link
+                  </button>
+
+                  {/* Native Share Button */}
+                  <button
+                    onClick={handleNativeShare}
+                    className="w-full py-4 bg-violet-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all shadow-lg shadow-violet-500/30"
+                  >
+                    <Share2 size={18} />
+                    Share App
                   </button>
                 </div>
 
