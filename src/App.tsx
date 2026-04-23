@@ -1363,35 +1363,40 @@ export default function App() {
   const fetchStaffByEmail = async (email: string, user?: any) => {
     try {
       const authIdQuery = user?.id ? `&auth_id=${user.id}` : '';
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${email}${authIdQuery}`);
+      // CACHE BUSTER: Attach the exact millisecond to force the browser to skip its cache
+      const cacheBuster = `&t=${new Date().getTime()}`;
+      
+      const { res, data } = await safeFetch(
+        `${apiBaseUrl}/api/staff/email?email=${encodeURIComponent(email)}${authIdQuery}${cacheBuster}`,
+        { 
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        }
+      );
       
       if (!res.ok) {
         throw new Error(data?.error || `Server error: ${res.status}`);
       }
       
       if (data) {
-        // Preserve is_approved from previous state if API response doesn't include it
-        // This prevents the pending screen flashing during re-fetches
-        const enriched = {
-          ...data,
-          is_approved: data.is_approved !== undefined ? data.is_approved : 1
-        };
-        localStorage.setItem('currentUser', JSON.stringify(enriched));
-        setCurrentUser(enriched);
-        return enriched;
+        localStorage.setItem('currentUser', JSON.stringify(data));
+        setCurrentUser(data);
+        return data;
       } else {
         throw new Error('User profile not found.');
       }
     } catch (error: any) {
       console.error('Error in fetchStaffByEmail:', error);
       if (await handleAuthError(error)) return;
-      toast.error(error.message || 'Failed to load user profile.');
+      setAuthError(error.message || 'Failed to load user profile.');
       
       const isNetworkError = error.message && error.message.includes('Network error');
       
       if (!isNetworkError) {
-        // If we fail to load the profile (and it's not a transient network error), 
-        // we should probably sign them out so they aren't stuck in a weird state
+        // If we fail to load the profile, sign them out so they aren't stuck in a weird state
         supabase.auth.signOut().catch(e => console.warn('Error during auto-signOut:', e));
         
         // Manually clear Supabase auth tokens from local storage just in case signOut failed
@@ -1402,9 +1407,7 @@ export default function App() {
         });
         
         localStorage.removeItem('currentUser');
-        setCurrentUser(null);
       }
-      throw error;
     } finally {
       setIsAuthChecking(false);
     }
