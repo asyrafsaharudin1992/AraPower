@@ -796,7 +796,8 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                   )}
                   {appointmentDate && allPossibleSlots.length === 0 && !isLoadingSlots && (
                     <p className="mt-2 text-[11px] text-rose-400 font-semibold flex items-center gap-1">
-                      <span>✕</span> Tarikh ini tidak tersedia. Sila pilih tarikh lain.
+                      <span>✕</span> Tarikh ini tidak tersedia. Sila
+ pilih tarikh lain.
                     </p>
                   )}
                 </div>
