@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ShieldCheck, Search, Trash2, Users, DollarSign, Zap, MessageCircle } from 'lucide-react';
+import { ShieldCheck, Search, Trash2, Users, DollarSign, Zap, MessageCircle, Info, Save, X } from 'lucide-react';
+import { supabase } from '../supabase';
+import { toast } from 'react-hot-toast';
 
 export interface AdminUIProps {
   currentUser: any;
@@ -41,6 +43,55 @@ export const AdminUI: React.FC<AdminUIProps> = ({
   handleUpdateWarmLeadStatus,
   handleAdminResetPassword
 }) => {
+  const [announcementMsg, setAnnouncementMsg] = useState("");
+  const [announcementActive, setAnnouncementActive] = useState(false);
+
+  useEffect(() => {
+    const fetchAnnouncement = async () => {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('*')
+        .eq('id', 1)
+        .single();
+      
+      if (!error && data) {
+        setAnnouncementMsg(data.message || "");
+        setAnnouncementActive(data.is_active || false);
+      }
+    };
+    fetchAnnouncement();
+  }, []);
+
+  const saveAnnouncement = async () => {
+    const loadingToast = toast.loading('Saving announcement...');
+    const { error } = await supabase
+      .from('announcements')
+      .update({ message: announcementMsg, is_active: announcementActive })
+      .eq('id', 1);
+      
+    if (error) {
+       toast.error(`Error: ${error.message}`, { id: loadingToast });
+    } else {
+       toast.success('Announcement published', { id: loadingToast });
+    }
+  };
+
+  const clearAnnouncement = async () => {
+    const loadingToast = toast.loading('Clearing announcement...');
+    const { error } = await supabase
+      .from('announcements')
+      .update({ message: '', is_active: false })
+      .eq('id', 1);
+      
+    if (error) {
+       toast.error(`Error: ${error.message}`, { id: loadingToast });
+    } else {
+       setAnnouncementMsg("");
+       setAnnouncementActive(false);
+       toast.success('Announcement cleared', { id: loadingToast });
+    }
+  };
+
   return (
     <motion.div 
       key="admin"
@@ -52,6 +103,68 @@ export const AdminUI: React.FC<AdminUIProps> = ({
         <div>
           <h2 className="text-3xl font-black text-zinc-900 tracking-tight">Admin Panel</h2>
           <p className="text-zinc-500 text-sm">Manage clinic operations and staff.</p>
+        </div>
+      </div>
+
+      {/* Global Announcement Section */}
+      <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-xl font-black tracking-tighter text-zinc-900">Global Announcement</h3>
+            <p className="text-sm text-zinc-500 font-medium">Broadcast a message to all staff dashboards</p>
+          </div>
+          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-sm">
+            <Info size={24} />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <textarea
+            value={announcementMsg}
+            onChange={(e) => setAnnouncementMsg(e.target.value)}
+            placeholder="Type your announcement here..."
+            className="w-full px-4 py-3 rounded-2xl border border-zinc-200 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 transition-all font-medium text-14px resize-none h-24"
+          ></textarea>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <div className="relative">
+                <input 
+                  type="checkbox" 
+                  className="sr-only" 
+                  checked={announcementActive}
+                  onChange={(e) => setAnnouncementActive(e.target.checked)}
+                />
+                <div className={`w-12 h-6 rounded-full transition-colors ${announcementActive ? 'bg-emerald-500' : 'bg-zinc-200 group-hover:bg-zinc-300'}`}></div>
+                <motion.div 
+                  className="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-sm"
+                  animate={{ x: announcementActive ? 24 : 0 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                />
+              </div>
+              <div>
+                <span className="font-bold text-sm text-zinc-900">Display globally</span>
+                <p className="text-xs text-zinc-500">Show banner on all staff dashboards</p>
+              </div>
+            </label>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <button 
+                onClick={clearAnnouncement}
+                className="flex-1 sm:flex-none px-6 py-2.5 rounded-full font-bold text-sm bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors flex items-center justify-center gap-2"
+              >
+                <X size={16} />
+                Clear
+              </button>
+              <button 
+                onClick={saveAnnouncement}
+                className="flex-1 sm:flex-none px-6 py-2.5 rounded-full font-bold text-sm bg-brand-primary text-white hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-brand-primary/25"
+              >
+                <Save size={16} />
+                Save Let's Broadcast
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
