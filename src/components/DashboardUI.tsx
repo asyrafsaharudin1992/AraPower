@@ -13,6 +13,7 @@ import {
   Lock,
   MousePointerClick,
   CheckCircle,
+  AlertTriangle,
   TrendingDown,
   Info
 } from 'lucide-react';
@@ -136,20 +137,20 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
       className="space-y-8"
       style={{ fontFamily: P }}
     >
-      {/* ── Global Announcement Banner ── */}
-      {announcement?.is_active && announcement?.message && (
-        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 mb-6 shadow-sm flex items-start sm:items-center gap-3">
-          <div className="p-2 bg-blue-100 dark:bg-blue-800/50 text-blue-600 dark:text-blue-400 rounded-lg shrink-0">
-            <Info size={20} />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-bold text-blue-800 dark:text-blue-300">Announcement</h3>
-            <p className="text-xs text-blue-700 dark:text-blue-400/80 mt-1 whitespace-pre-wrap leading-relaxed">
-              {announcement.message}
-            </p>
-          </div>
-        </div>
-      )}
+     {/* ── Global Announcement Banner ── */}
+{announcement?.is_active && announcement?.message && (
+  <div className="bg-red-500 dark:bg-red-600 border border-red-600 dark:border-red-700 rounded-2xl p-4 mb-6 shadow-sm flex items-start sm:items-center gap-3">
+    <div className="p-2 bg-white/20 text-yellow-300 rounded-lg shrink-0">
+      <AlertTriangle size={20} />
+    </div>
+    <div className="flex-1">
+      <h3 className="text-sm font-bold text-white">Announcement</h3>
+      <p className="text-xs text-white/90 mt-1 whitespace-pre-wrap leading-relaxed">
+        {announcement.message}
+      </p>
+    </div>
+  </div>
+)}
 
       {/* ── Admin / Manager / Receptionist stat cards ── */}
       {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
