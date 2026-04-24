@@ -1133,7 +1133,7 @@ export default function App() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [apiBaseUrl, setApiBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin : '');
+  const [apiBaseUrl, setApiBaseUrl] = useState('');
   const isSupabaseConfigured = !isPlaceholder;
 
   const [payoutSummaries, setPayoutSummaries] = useState<any[]>([]);

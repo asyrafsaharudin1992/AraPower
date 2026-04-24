@@ -103,12 +103,19 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
     };
 
     Object.values(aggregatedPayouts).forEach(({ staff, amount }) => {
+      // Clean account number and ID number to be strictly numeric (no dashes/spaces)
+      const rawAccount = staff.bank_account_number || staff.account_number || '';
+      const cleanAccount = String(rawAccount).replace(/\D/g, '');
+      
+      const rawIdNumber = staff.id_number || '';
+      const cleanIdNumber = String(rawIdNumber).replace(/\D/g, '');
+
       const row = [
         escapeCsv(staff.name || 'Unknown'),
         escapeCsv(staff.bank_name || ''),
-        escapeCsv(staff.bank_account_number || staff.account_number || ''),
-        escapeCsv(staff.id_type || 'NEW NRIC'),
-        escapeCsv(staff.id_number || ''),
+        escapeCsv(cleanAccount),
+        escapeCsv('NRIC'), // Always set ID Type to NRIC
+        escapeCsv(cleanIdNumber),
         amount.toFixed(2),
         'INCENTIVE',
         'REFERRAL INCENTIVE',

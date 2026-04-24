@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Calendar, Zap, UserCircle, Plus,
-  Mail, CheckCircle2, ArrowLeft, ShieldAlert
+  Mail, CheckCircle2, ArrowLeft, ShieldAlert, Trash2
 } from 'lucide-react';
 
 // Tab content components — passed via props from App
