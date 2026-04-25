@@ -5,5 +5,17 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#10b981"
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "https://zruldewztsrvwghrcroc.supabase.co/storage/v1/object/public/posters/AraPower%20Logo.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://zruldewztsrvwghrcroc.supabase.co/storage/v1/object/public/posters/AraPower%20Logo.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
 }
