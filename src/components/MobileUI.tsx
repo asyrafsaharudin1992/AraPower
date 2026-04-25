@@ -2,7 +2,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Calendar, Zap, UserCircle, Plus,
-  Mail, CheckCircle2, ArrowLeft, ShieldAlert, Trash2
+  Mail, CheckCircle2, ArrowLeft, ShieldAlert, Trash2,
+  ShieldCheck
 } from 'lucide-react';
 
 // Tab content components — passed via props from App
@@ -12,6 +13,7 @@ import { PromotionsUI } from './PromotionsUI';
 // Lazy-loaded heavier components
 const DashboardUI = React.lazy(() => import('./DashboardUI').then(m => ({ default: m.DashboardUI })));
 const ProfileUI = React.lazy(() => import('./ProfileUI').then(m => ({ default: m.ProfileUI })));
+const MobileAdminUI = React.lazy(() => import('./MobileAdminUI').then(m => ({ default: m.MobileAdminUI })));
 
 export type MobileTab =
   | 'dashboard'
@@ -55,6 +57,7 @@ export interface MobileUIProps {
   adminStats: any;
   receptionistStats: any;
   activeStaffList: any[];
+  staffPerformance: any[];
   currentUserStats: any;
   progressToNext: number;
   nextTier: any;
@@ -64,6 +67,11 @@ export interface MobileUIProps {
   getStatusLabel: (status: string) => string;
   checkBranchAccess: (service: any) => boolean;
   getServiceStatus: (service: any) => string;
+
+  // Admin handlers
+  handleApproveStaff: (staffId: string, isApproved: boolean) => void;
+  handleRejectStaff: (staffId: string) => void;
+  handleDeleteStaff: (staffId: string) => void;
 
   // Referral handlers
   fetchReferrals: () => void;
@@ -128,6 +136,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
   adminStats,
   receptionistStats,
   activeStaffList,
+  staffPerformance,
   currentUserStats,
   progressToNext,
   nextTier,
@@ -136,6 +145,9 @@ export const MobileUI: React.FC<MobileUIProps> = ({
   checkBranchAccess,
   getServiceStatus,
   fetchReferrals,
+  handleApproveStaff,
+  handleRejectStaff,
+  handleDeleteStaff,
   handleUpdateStatus,
   handleClinicStatusUpdate,
   handleDeleteReferral,
@@ -169,6 +181,13 @@ export const MobileUI: React.FC<MobileUIProps> = ({
   markNotificationAsRead,
   deleteNotification,
 }) => {
+  React.useEffect(() => {
+    const isAdmin = currentUser.role === 'admin' || currentUser.role === 'manager';
+    if (isAdmin && (activeTab === 'referrals' || activeTab === 'promotions')) {
+      setActiveTab('dashboard');
+    }
+  }, [activeTab, currentUser.role, setActiveTab]);
+
   return (
     <div className="pb-44 min-h-screen bg-white relative">
 
@@ -187,21 +206,40 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                 <LayoutDashboard size={22} />
               </div>
             </button>
-            <button onClick={() => setActiveTab('referrals')}
-              className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'referrals' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
-              <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-burnt-peach/10' : ''}`}>
-                <Calendar size={22} />
-              </div>
-            </button>
+            {currentUser.role !== 'admin' && currentUser.role !== 'manager' && (
+              <button onClick={() => setActiveTab('referrals')}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'referrals' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
+                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-burnt-peach/10' : ''}`}>
+                  <Calendar size={22} />
+                </div>
+              </button>
+            )}
           </div>
 
+          {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
+            <div className="flex-shrink-0 -mt-8">
+              <button 
+                onClick={() => setActiveTab('admin')}
+                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
+                  activeTab === 'admin' 
+                    ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/30 scale-110 border-4 border-white' 
+                    : 'bg-white text-[#1580c2]/40 border-2 border-[#1580c2]/10 shadow-sm'
+                }`}
+              >
+                <ShieldCheck size={28} />
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-1 justify-around items-center">
-            <button onClick={() => setActiveTab('promotions')}
-              className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'promotions' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
-              <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'promotions' ? 'bg-burnt-peach/10' : ''}`}>
-                <Zap size={22} />
-              </div>
-            </button>
+            {currentUser.role !== 'admin' && currentUser.role !== 'manager' && (
+              <button onClick={() => setActiveTab('promotions')}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'promotions' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
+                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'promotions' ? 'bg-burnt-peach/10' : ''}`}>
+                  <Zap size={22} />
+                </div>
+              </button>
+            )}
             <button onClick={() => setActiveTab('profile')}
               className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'profile' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
               <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'profile' ? 'bg-burnt-peach/10' : ''}`}>
@@ -370,7 +408,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                 </React.Suspense>
               )}
 
-              {activeTab === 'referrals' && (
+              {activeTab === 'referrals' && currentUser.role !== 'admin' && currentUser.role !== 'manager' && (
                 <ReferralBoard
                   currentUser={currentUser}
                   referrals={referrals}
@@ -388,7 +426,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                 />
               )}
 
-              {activeTab === 'promotions' && (
+              {activeTab === 'promotions' && currentUser.role !== 'admin' && currentUser.role !== 'manager' && (
                 <PromotionsUI
                   currentUser={currentUser}
                   clinicProfile={clinicProfile}
@@ -410,6 +448,24 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                   isPromoModalOpen={isPromoModalOpen}
                   setIsPromoModalOpen={setIsPromoModalOpen}
                 />
+              )}
+
+              {activeTab === 'admin' && (
+                <React.Suspense fallback={null}>
+                  <MobileAdminUI
+                     currentUser={currentUser}
+                     referrals={referrals}
+                     clinicProfile={clinicProfile}
+                     staffPerformance={staffPerformance}
+                     activeStaffList={activeStaffList}
+                     staffList={staffList}
+                     handleApproveStaff={handleApproveStaff}
+                     handleRejectStaff={handleRejectStaff}
+                     handleDeleteStaff={handleDeleteStaff}
+                     setSelectedStaffDetail={setSelectedStaffDetail}
+                     setShowStaffModal={setShowStaffModal}
+                  />
+                </React.Suspense>
               )}
 
               {activeTab === 'profile' && (

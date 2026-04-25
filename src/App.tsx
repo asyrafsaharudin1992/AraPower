@@ -2854,6 +2854,7 @@ export default function App() {
             adminStats={adminStats}
             receptionistStats={receptionistStats}
             activeStaffList={activeStaffList}
+            staffPerformance={staffPerformance}
             currentUserStats={currentUserStats}
             progressToNext={progressToNext}
             nextTier={nextTier}
@@ -2862,6 +2863,9 @@ export default function App() {
             checkBranchAccess={checkBranchAccess}
             getServiceStatus={getServiceStatus}
             fetchReferrals={fetchReferrals}
+            handleApproveStaff={handleApproveStaff}
+            handleRejectStaff={handleRejectStaff}
+            handleDeleteStaff={handleDeleteStaff}
             handleUpdateStatus={handleUpdateStatus}
             handleClinicStatusUpdate={handleClinicStatusUpdate}
             handleDeleteReferral={handleDeleteReferral}
