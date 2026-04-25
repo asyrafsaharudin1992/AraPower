@@ -179,6 +179,7 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
             handleUpdateProfile({
               name: fd.get('name') as string,
               nickname: fd.get('nickname') as string,
+              phone: fd.get('phone') as string || '',
               bank_name: fd.get('bank_name') as string,
               bank_account_number: fd.get('bank_account_number') as string,
               id_type: 'MyKad',
@@ -198,6 +199,26 @@ export const ProfileUI: React.FC<ProfileUIProps> = ({
             <div>
               {fieldLabel('Nickname')}
               <input name="nickname" type="text" defaultValue={currentUser.nickname || ''} placeholder="Your preferred name" style={inputOnBlue} />
+            </div>
+
+            <div>
+              {fieldLabel('Phone Number')}
+              <input
+                name="phone"
+                type="tel"
+                inputMode="numeric"
+                defaultValue={currentUser.phone || ''}
+                placeholder="e.g. 0123456789"
+                style={inputOnBlue}
+                maxLength={15}
+                onChange={(e) => {
+                  // Strip everything except digits and leading +
+                  e.target.value = e.target.value.replace(/[^0-9+]/g, '');
+                }}
+              />
+              <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '6px', fontFamily: "'Poppins', sans-serif" }}>
+                Malaysian number e.g. 0123456789 or +60123456789
+              </p>
             </div>
           </div>
 

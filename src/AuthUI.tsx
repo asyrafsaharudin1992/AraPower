@@ -14,6 +14,8 @@ import {
   Coins,
   TrendingUp,
   ChevronRight,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -652,12 +654,20 @@ export default function AuthUI({
                       Forgot Password?
                     </button>
                   </div>
-                  <div className="flex items-center gap-3"
+                  <div className="flex items-center gap-3 transition-all"
                     style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px' }}>
                     <Lock size={18} style={{ color: '#1580c2', opacity: 0.4, flexShrink: 0 }} />
                     <input type={showPassword ? 'text' : 'password'} required value={authPassword} onChange={(e) => setAuthPassword(e.target.value)}
                       style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif" }}
                       placeholder="Enter your password" />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="p-1 hover:bg-zinc-100 rounded-md transition-colors"
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      {showPassword ? <EyeOff size={16} color="#1580c2" /> : <Eye size={16} color="#1580c2" />}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -703,11 +713,19 @@ export default function AuthUI({
 
                 <div className="space-y-2">
                   <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#1580c2', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Password</label>
-                  <div className="flex items-center gap-3" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px' }}>
+                  <div className="flex items-center gap-3 transition-all" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '14px 16px' }}>
                     <Lock size={18} style={{ color: '#1580c2', opacity: 0.4, flexShrink: 0 }} />
                     <input type={showPassword ? 'text' : 'password'} required minLength={6} value={authPassword} onChange={(e) => setAuthPassword(e.target.value)}
                       placeholder="Min. 6 characters"
                       style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 500, color: '#1580c2', fontFamily: "'Poppins', sans-serif" }} />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="p-1 hover:bg-zinc-100 rounded-md transition-colors"
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      {showPassword ? <EyeOff size={16} color="#1580c2" /> : <Eye size={16} color="#1580c2" />}
+                    </button>
                   </div>
                 </div>
                 <div className="pt-2">

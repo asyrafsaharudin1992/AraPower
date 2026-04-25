@@ -123,6 +123,17 @@ export interface AppSettings {
   workingHours: { start: string; end: string };
 }
 
+export interface Communication {
+  id: string;
+  channel: 'in-app' | 'email' | 'whatsapp';
+  sender_id: string;
+  recipient_count: number;
+  subject?: string;
+  message: string;
+  created_at: string;
+  recipients: any[];
+}
+
 export interface ClinicProfile {
   name: string;
   address: string;

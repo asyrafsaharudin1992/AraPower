@@ -96,6 +96,7 @@ import {
   Area
 } from 'recharts';
 import { supabase, isPlaceholder } from './supabase';
+import { CommunicationUI } from './components/CommunicationUI';
 import PublicBookingUI from './components/PublicBookingUI';
 
 // Interfaces moved to types.ts
@@ -960,50 +961,6 @@ export default function App() {
 
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
-  const [notificationForm, setNotificationForm] = useState({
-    user_ids: [] as string[],
-    title: '',
-    message: '',
-    type: 'announcement'
-  });
-
-  const sendNotification = async () => {
-    if (!notificationForm.title || !notificationForm.message) {
-      showNotification('error', 'Please fill in all fields');
-      return;
-    }
-    
-    setIsSavingSetup(true);
-    try {
-      const response = await fetch('/api/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...notificationForm,
-          user_ids: notificationForm.user_ids.length === 0 ? [] : notificationForm.user_ids.map(id => id === 'all' ? null : id)
-        })
-      });
-
-      if (response.ok) {
-        showNotification('success', 'Notification sent successfully');
-        setNotificationForm({ user_ids: [], title: '', message: '', type: 'announcement' });
-      } else {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-           const errorData = await response.json();
-           showNotification('error', `Error: ${errorData.error}`);
-        } else {
-           const errorText = await response.text();
-           showNotification('error', `Server error (${response.status})`);
-           console.error('Non-JSON error response:', errorText);
-        }
-      }
-    } catch (error) {
-      showNotification('error', 'Failed to send notification');
-    } finally {
-      setIsSavingSetup(false);
-    }
-  };
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -1225,7 +1182,6 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [taskDueDate, setTaskDueDate] = useState<Date | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState('');
-  const [feedbackList, setFeedbackList] = useState<any[]>([]);
   const [isSendingFeedback, setIsSendingFeedback] = useState(false);
   const [referralSettings, setReferralSettings] = useState({
     types: ['Staff', 'Patient', 'Public'],
@@ -1656,12 +1612,8 @@ export default function App() {
   }, [activeTab, currentUser?.role]);
 
   useEffect(() => {
-    if (activeTab === 'communication' && rolesConfig[currentUser?.role || '']?.canManageCommunication) {
-      safeFetch(`${apiBaseUrl}/api/feedback`).then(({ res, data }) => {
-        if (res.ok && data) setFeedbackList(data);
-      });
-    }
-  }, [activeTab, currentUser]);
+    fetchStaff();
+  }, [apiBaseUrl]);
 
   const fetchStaff = async () => {
     const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff`);
@@ -1827,7 +1779,7 @@ export default function App() {
     if (!currentUser) return;
     
     let url = (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') 
-      ? `${apiBaseUrl}/api/referrals?requesterRole=${currentUser.role}&requesterBranch=${currentUser.branch}` 
+      ? `${apiBaseUrl}/api/referrals?requesterRole=${currentUser.role}&requesterBranch=${currentUser.branch || 'all'}` 
       : `${apiBaseUrl}/api/referrals?staffId=${currentUser.id}&requesterRole=${currentUser.role}`;
     
     if (currentUser.role === 'receptionist') {
@@ -3624,180 +3576,13 @@ export default function App() {
           )}
 
           {activeTab === 'communication' && rolesConfig[currentUser.role]?.canManageCommunication && (
-            <motion.div 
-              key="communication"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-8"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-3xl font-black text-zinc-900 tracking-tight">Communication</h2>
-                  <p className="text-zinc-500 text-sm">Send notifications and announcements to staff members.</p>
-                </div>
-                <div className="w-12 h-12 bg-[#1580c2] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500">
-                  <MessageSquare size={24} />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm space-y-6">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 block">Notification Title</label>
-                        <input 
-                          type="text"
-                          value={notificationForm.title}
-                          onChange={(e) => setNotificationForm({...notificationForm, title: e.target.value})}
-                          placeholder="Enter a descriptive title..."
-                          className="w-full px-5 py-4 bg-zinc-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-[#1580c2] transition-all"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 block">Message Content</label>
-                        <textarea 
-                          value={notificationForm.message}
-                          onChange={(e) => setNotificationForm({...notificationForm, message: e.target.value})}
-                          placeholder="Type your message here..."
-                          rows={6}
-                          className="w-full px-5 py-4 bg-zinc-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-[#1580c2] transition-all resize-none"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 block">Notification Type</label>
-                          <select 
-                            value={notificationForm.type}
-                            onChange={(e) => setNotificationForm({...notificationForm, type: e.target.value as any})}
-                            className="w-full px-5 py-4 bg-zinc-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-[#1580c2] transition-all"
-                          >
-                            <option value="announcement">Announcement</option>
-                            <option value="alert">Alert</option>
-                            <option value="update">Update</option>
-                            <option value="reminder">Reminder</option>
-                          </select>
-                        </div>
-                        <div className="flex items-end">
-                          <button 
-                            onClick={sendNotification}
-                            disabled={isSavingSetup || !notificationForm.title || !notificationForm.message}
-                            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-violet-500 to-rose-500 text-zinc-900 rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg shadow-violet-500 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
-                          >
-                            {isSavingSetup ? (
-                              <RefreshCw size={18} className="animate-spin" />
-                            ) : (
-                              <Send size={18} />
-                            )}
-                            Send Notification
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-zinc-50 p-8 rounded-[2.5rem] border border-zinc-100">
-                    <div className="flex items-center gap-3 mb-4">
-                      <Info size={18} className="text-zinc-900" />
-                      <h4 className="font-bold text-zinc-900">Communication Tips</h4>
-                    </div>
-                    <ul className="space-y-3 text-sm text-zinc-500">
-                      <li className="flex gap-2">
-                        <span className="text-zinc-900 font-bold">•</span>
-                        Use clear and concise titles to grab attention.
-                      </li>
-                      <li className="flex gap-2">
-                        <span className="text-zinc-900 font-bold">•</span>
-                        Announcements are sent to all staff by default if no specific users are selected.
-                      </li>
-                      <li className="flex gap-2">
-                        <span className="text-zinc-900 font-bold">•</span>
-                        Staff will receive these in their notification inbox in real-time.
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Feedback Section */}
-                  <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm space-y-6">
-                    <h3 className="text-xl font-black text-zinc-900">Staff Feedback</h3>
-                    {feedbackList.length === 0 ? (
-                      <p className="text-zinc-500 text-sm">No feedback received yet.</p>
-                    ) : (
-                      <div className="space-y-4">
-                        {feedbackList.map((f) => (
-                          <div key={f.id} className="p-4 bg-zinc-50 rounded-2xl border border-black/5">
-                            <p className="text-sm font-bold text-zinc-900">{f.staff_name} ({f.staff_email})</p>
-                            <p className="text-sm text-zinc-600 mt-1">{f.message}</p>
-                            <p className="text-[10px] text-zinc-400 mt-2">{new Date(f.created_at).toLocaleString()}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
-                    <div className="flex items-center justify-between mb-6">
-                      <h3 className="font-black text-zinc-900 tracking-tight">Recipients</h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                          {notificationForm.user_ids.length === 0 ? 'All Staff' : `${notificationForm.user_ids.length} Selected`}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                      <label className="flex items-center gap-3 p-3 rounded-2xl hover:bg-zinc-50 transition-colors cursor-pointer border border-transparent hover:border-zinc-100">
-                        <input 
-                          type="checkbox"
-                          checked={notificationForm.user_ids.length === activeStaffList.length && activeStaffList.length > 0}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setNotificationForm({ ...notificationForm, user_ids: activeStaffList.map(s => String(s.id ?? '')) });
-                            } else {
-                              setNotificationForm({ ...notificationForm, user_ids: [] });
-                            }
-                          }}
-                          className="w-5 h-5 rounded-lg border-zinc-200 text-zinc-900 focus:ring-[#1580c2]"
-                        />
-                        <span className="text-sm font-bold text-zinc-900">Select All Staff</span>
-                      </label>
-
-                      <div className="h-px bg-zinc-50 my-2" />
-
-                      {activeStaffList.map(staff => (
-                        <label key={staff.id} className="flex items-center gap-3 p-3 rounded-2xl hover:bg-zinc-50 transition-colors cursor-pointer border border-transparent hover:border-zinc-100">
-                          <input 
-                            type="checkbox"
-                            checked={notificationForm.user_ids.includes(String(staff.id ?? ''))}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setNotificationForm({ ...notificationForm, user_ids: [...notificationForm.user_ids, String(staff.id ?? '')] });
-                              } else {
-                                setNotificationForm({ ...notificationForm, user_ids: notificationForm.user_ids.filter(id => id !== String(staff.id ?? '')) });
-                              }
-                            }}
-                            className="w-5 h-5 rounded-lg border-zinc-200 text-zinc-900 focus:ring-[#1580c2]"
-                          />
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-zinc-50 flex items-center justify-center text-[10px] font-bold text-zinc-500">
-                              {staff.name.charAt(0)}
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-zinc-900 leading-tight">{staff.name}</p>
-                              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">{staff.role}</p>
-                            </div>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+            <CommunicationUI 
+              currentUser={currentUser}
+              activeStaffList={activeStaffList}
+              apiBaseUrl={apiBaseUrl}
+              safeFetch={safeFetch}
+              TIERS={TIERS}
+            />
           )}
 
           {activeTab === 'payouts' && (
@@ -3811,7 +3596,6 @@ export default function App() {
     handleBulkStatusUpdate={handleBulkStatusUpdate}
   />
 )}
-```"
 
           {activeTab === 'receptionist' && (currentUser.role === 'receptionist' || currentUser.role === 'manager' || currentUser.role === 'admin') && (
             <motion.div 

@@ -120,7 +120,19 @@ CREATE TABLE IF NOT EXISTS feedback (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 10. Enable Row Level Security (RLS) for all tables
+-- 10. Create Communications Log table
+CREATE TABLE IF NOT EXISTS communications_log (
+  id BIGSERIAL PRIMARY KEY,
+  channel TEXT NOT NULL, -- 'in-app', 'email', 'whatsapp'
+  sender_id BIGINT REFERENCES staff(id),
+  recipient_count INTEGER DEFAULT 0,
+  subject TEXT,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  recipients JSONB DEFAULT '[]'::jsonb
+);
+
+-- 11. Enable Row Level Security (RLS) for all tables
 ALTER TABLE IF EXISTS services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS referrals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS staff ENABLE ROW LEVEL SECURITY;
@@ -130,8 +142,9 @@ ALTER TABLE IF EXISTS tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS branch_change_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS communications_log ENABLE ROW LEVEL SECURITY;
 
--- 11. Create permissive policies for the backend app
+-- 12. Create permissive policies for the backend app
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'services' AND policyname = 'Enable all for app') THEN
@@ -160,5 +173,8 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'feedback' AND policyname = 'Enable all for app') THEN
         CREATE POLICY "Enable all for app" ON feedback FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'communications_log' AND policyname = 'Enable all for app') THEN
+        CREATE POLICY "Enable all for app" ON communications_log FOR ALL USING (true) WITH CHECK (true);
     END IF;
 END $$;

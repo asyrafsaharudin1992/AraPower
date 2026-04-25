@@ -946,6 +946,173 @@ app.get("/api/health", async (req, res) => {
   });
 });
 
+// Communication Hub APIs
+app.get("/api/communications/history", async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not initialized' });
+    const { data, error } = await supabase
+      .from('communications_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    
+    if (error) {
+      if (error.code === 'PGRST116' || error.message.includes('relation "communications_log" does not exist')) {
+        return res.json([]);
+      }
+      return res.status(500).json({ error: error.message });
+    }
+    res.json(data || []);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/communications/log", async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not initialized' });
+    const { channel, sender_id, recipient_count, subject, message, recipients } = req.body;
+    
+    const { data, error } = await supabase
+      .from('communications_log')
+      .insert([{
+        channel,
+        sender_id,
+        recipient_count,
+        subject: subject || null,
+        message,
+        recipients: recipients || [],
+        created_at: new Date().toISOString()
+      }])
+      .select()
+      .single();
+    
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/communications/email", async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not initialized' });
+    const { user_ids, subject, message, sender_id } = req.body;
+    
+    if (!user_ids || user_ids.length === 0) {
+      return res.status(400).json({ error: 'No recipients selected' });
+    }
+
+    const { data: recipients, error: fetchError } = await supabase
+      .from('staff')
+      .select('id, name, email')
+      .in('id', user_ids);
+    
+    if (fetchError) return res.status(500).json({ error: fetchError.message });
+    
+    const validRecipients = recipients?.filter(r => r.email) || [];
+    
+    if (validRecipients.length === 0) {
+      return res.status(400).json({ error: 'No valid emails found for selected recipients' });
+    }
+
+    if (!resend) {
+      return res.status(500).json({ error: 'Email service (Resend) not configured' });
+    }
+
+    let sent = 0;
+    let failed = 0;
+
+    // Send emails
+    for (const recipient of validRecipients) {
+      try {
+        await resend.emails.send({
+          from: 'Klinik Ara 24 Jam <noreply@hsohealthcare.com>',
+          to: recipient.email,
+          subject: subject,
+          html: buildEmailTemplate(recipient.name, message, subject)
+        });
+        sent++;
+      } catch (err) {
+        console.error(`Failed to send email to ${recipient.email}:`, err);
+        failed++;
+      }
+    }
+
+    // Log to communications_log
+    await supabase
+      .from('communications_log')
+      .insert([{
+        channel: 'email',
+        subject,
+        message,
+        recipient_count: sent,
+        recipient_ids: JSON.stringify(validRecipients.map(r => r.id)),
+      }]);
+
+    res.json({ success: true, sent, failed });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+function buildEmailTemplate(name: string, message: string, subject: string) {
+  const appUrl = process.env.APP_URL || 'https://arapower.hsohealthcare.com';
+  const firstName = name?.split(' ')[0] || 'there';
+  
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="UTF-8"></head>
+    <body style="margin:0;padding:0;background:#f8fafc;font-family:'Helvetica Neue',Arial,sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:40px 0;">
+        <tr><td align="center">
+          <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.07);max-width:600px;width:100%;">
+            
+            <!-- Header -->
+            <tr>
+              <td style="background:#1580c2;padding:40px;text-align:center;">
+                <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-0.5px;">AraPower</h1>
+                <p style="margin:6px 0 0;color:rgba(255,255,255,0.7);font-size:13px;">Communication Hub</p>
+              </td>
+            </tr>
+
+            <!-- Content Area -->
+            <tr>
+              <td style="padding:50px 40px;">
+                <h2 style="margin:0 0 20px;color:#0f172a;font-size:22px;font-weight:700;">Hello ${firstName},</h2>
+                <div style="color:#475569;font-size:16px;line-height:1.7;white-space: pre-wrap;">${message}</div>
+                
+                <div style="margin-top:40px;padding-top:30px;border-top:1px solid #f1f5f9;">
+                  <p style="margin:0;color:#94a3b8;font-size:14px;font-style:italic;">This is an official announcement from AraPower Admin.</p>
+                </div>
+              </td>
+            </tr>
+
+            <!-- CTA Footer -->
+            <tr>
+              <td style="padding:0 40px 40px;text-align:center;">
+                <a href="${appUrl}" style="display:inline-block;background:#1580c2;color:#ffffff;padding:16px 32px;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 10px 15px -3px rgba(21,128,194,0.3);">Open Dashboard</a>
+              </td>
+            </tr>
+
+            <!-- Bottom Navigation -->
+            <tr>
+              <td style="background:#f8fafc;padding:30px 40px;text-align:center;border-top:1px solid #f1f5f9;">
+                <p style="margin:0;color:#64748b;font-size:12px;line-height:20px;">
+                  &copy; 2026 <strong>Klinik Ara 24 Jam</strong>. All rights reserved.<br>
+                  <a href="https://arapower.hsohealthcare.com" style="color:#1580c2;text-decoration:none;">arapower.hsohealthcare.com</a>
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
 app.get('/api/public/slots', async (req, res) => {
   const { branch, date } = req.query;
   if (!branch || !date) return res.status(400).json({ error: 'Missing parameters' });
@@ -2091,11 +2258,11 @@ app.post("/api/staff/:id/approve", async (req, res) => {
 
 app.patch("/api/staff/:id/profile", async (req, res) => {
   const { id } = req.params;
-  const { name, nickname, profile_picture, bank_name, bank_account_number, id_type, id_number } = req.body;
+  const { name, nickname, phone, profile_picture, bank_name, bank_account_number, id_type, id_number } = req.body;
   
   const { data, error } = await supabase
     .from('staff')
-    .update({ name, nickname, profile_picture, bank_name, bank_account_number, id_type, id_number })
+    .update({ name, nickname, phone, profile_picture, bank_name, bank_account_number, id_type, id_number })
     .eq('id', id)
     .select()
     .single();
@@ -2832,6 +2999,25 @@ async function startServer() {
         END IF;
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='payment_status') THEN
           ALTER TABLE referrals ADD COLUMN payment_status TEXT;
+        END IF;
+        
+        -- Create communications_log table if missing
+        IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='communications_log') THEN
+          CREATE TABLE communications_log (
+            id BIGSERIAL PRIMARY KEY,
+            channel TEXT NOT NULL,
+            sender_id BIGINT,
+            recipient_count INTEGER DEFAULT 0,
+            subject TEXT,
+            message TEXT NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            recipients JSONB DEFAULT '[]'::jsonb
+          );
+          ALTER TABLE communications_log ENABLE ROW LEVEL SECURITY;
+          -- Check if policy exists before creating
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'communications_log' AND policyname = 'Enable all for app') THEN
+            CREATE POLICY "Enable all for app" ON communications_log FOR ALL USING (true) WITH CHECK (true);
+          END IF;
         END IF;
       END $$;
     `;
