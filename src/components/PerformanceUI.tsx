@@ -51,26 +51,37 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
   const toNext      = nextTier ? nextTier.min - completedRefs : 0;
   const progress    = nextTier ? Math.min(((completedRefs - currentTier.min) / (nextTier.min - currentTier.min)) * 100, 100) : 100;
 
-  const motivation  = getMotivation(stats.clicks, stats.referrals, stats.rate);
+  const isAdmin = currentUser.role === 'admin' || currentUser.role === 'manager';
+  const motivation = isAdmin 
+    ? { text: "Clinic Performance Overview", sub: "Monitoring growth and conversion across all channels.", emoji: '📊' }
+    : getMotivation(stats.clicks, stats.referrals, stats.rate);
+  
   const grade       = getGrade(stats.rate);
   const unlockedCount = BADGES.filter(b => b.unlock(stats.referrals, stats.clicks, stats.rate)).length;
 
   useEffect(() => {
     const load = async () => {
+      const isAdminUser = currentUser.role === 'admin' || currentUser.role === 'manager';
       const effectiveCode = currentUser.referral_code || String(currentUser.id || '');
-      if (!effectiveCode) return;
+      if (!isAdminUser && !effectiveCode) return;
       
       setIsLoading(true);
       try {
-        let result = await supabase
-          .from('booking_analytics').select('*')
-          .or(`referral_code.eq."${currentUser.referral_code || '___none___'}",referral_code.eq."${currentUser.id}"`);
+        const tableName = 'booking_analytics';
+        let query = supabase.from(tableName).select('*');
+        if (!isAdmin) {
+          query = query.or(`referral_code.eq."${currentUser.referral_code || '___none___'}",referral_code.eq."${currentUser.id}"`);
+        }
+        
+        let result = await query;
 
-        // If plural fails, try singular
-        if ((result.error && (result.error.message.includes('not found') || result.error.message.includes('relation'))) || (!result.error && !result.data)) {
-           const singularResult = await supabase
-             .from('booking_analytic').select('*')
-             .or(`referral_code.eq."${currentUser.referral_code || '___none___'}",referral_code.eq."${currentUser.id}"`);
+        // If table not found, try singular "booking_analytic"
+        if (result.error && (result.error.message.includes('not found') || result.error.message.includes('relation'))) {
+           let singularQuery = supabase.from('booking_analytic').select('*');
+           if (!isAdmin) {
+             singularQuery = singularQuery.or(`referral_code.eq."${currentUser.referral_code || '___none___'}",referral_code.eq."${currentUser.id}"`);
+           }
+           const singularResult = await singularQuery;
            if (!singularResult.error) result = singularResult;
         }
 
@@ -106,7 +117,7 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
       finally { setIsLoading(false); }
     };
     load();
-  }, [currentUser.referral_code, referrals]);
+  }, [currentUser.referral_code, currentUser.role, referrals]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
@@ -124,50 +135,52 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
         </div>
       </div>
 
-      {/* ── TIER PROGRESS ───────────────────────────────── */}
-      <div style={{ background: currentTier.bg, border: `0.5px solid ${currentTier.border}`, borderRadius: '16px', padding: '10px 14px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: currentTier.textColor }}>
-            {currentTier.name} · {currentTier.bonus} bonus
-          </span>
-          {nextTier
-            ? <span style={{ fontSize: 11, color: currentTier.textColor }}>{toNext} more to {nextTier.name} 👑</span>
-            : <span style={{ fontSize: 11, fontWeight: 700, color: currentTier.textColor }}>Maximum tier! 👑</span>
-          }
-        </div>
-        <div style={{ height: 5, background: currentTier.border, borderRadius: 99, overflow: 'hidden' }}>
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.9, ease: 'easeOut', delay: 0.2 }}
-            style={{ height: '100%', background: currentTier.bar, borderRadius: 99 }}
-          />
-        </div>
-        {nextTier && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
-            <span style={{ fontSize: 9, color: currentTier.textColor, opacity: 0.6 }}>{currentTier.name} ({currentTier.min})</span>
-            <span style={{ fontSize: 9, color: currentTier.textColor, opacity: 0.6 }}>{nextTier.name} ({nextTier.min})</span>
+      {/* ── TIER PROGRESS (Hidden for Admins) ────────────────── */}
+      {!isAdmin && (
+        <div style={{ background: currentTier.bg, border: `0.5px solid ${currentTier.border}`, borderRadius: '16px', padding: '10px 14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: currentTier.textColor }}>
+              {currentTier.name} · {currentTier.bonus} bonus
+            </span>
+            {nextTier
+              ? <span style={{ fontSize: 11, color: currentTier.textColor }}>{toNext} more to {nextTier.name} 👑</span>
+              : <span style={{ fontSize: 11, fontWeight: 700, color: currentTier.textColor }}>Maximum tier! 👑</span>
+            }
           </div>
-        )}
-      </div>
+          <div style={{ height: 5, background: currentTier.border, borderRadius: 99, overflow: 'hidden' }}>
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.9, ease: 'easeOut', delay: 0.2 }}
+              style={{ height: '100%', background: currentTier.bar, borderRadius: 99 }}
+            />
+          </div>
+          {nextTier && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+              <span style={{ fontSize: 9, color: currentTier.textColor, opacity: 0.6 }}>{currentTier.name} ({currentTier.min})</span>
+              <span style={{ fontSize: 9, color: currentTier.textColor, opacity: 0.6 }}>{nextTier.name} ({nextTier.min})</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── STAT CARDS ──────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div className="bg-white rounded-2xl border border-black/5 p-3">
-          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '0 0 4px', letterSpacing: '0.05em' }}>CLICKS</p>
+          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '0 0 4px', letterSpacing: '0.05em' }}>{isAdmin ? 'TOTAL CLICKS' : 'CLICKS'}</p>
           <motion.p
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
             style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', margin: 0, lineHeight: 1 }}
           >{stats.clicks}</motion.p>
-          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '4px 0 0' }}>all links</p>
+          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '4px 0 0' }}>{isAdmin ? 'all affiliate links' : 'your links'}</p>
         </div>
         <div className="bg-white rounded-2xl border border-black/5 p-3">
-          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '0 0 4px', letterSpacing: '0.05em' }}>REFERRALS</p>
+          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '0 0 4px', letterSpacing: '0.05em' }}>{isAdmin ? 'TOTAL REFERRALS' : 'REFERRALS'}</p>
           <motion.p
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
             style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', margin: 0, lineHeight: 1 }}
           >{stats.referrals}</motion.p>
-          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '4px 0 0' }}>{completedRefs} incentives earned</p>
+          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '4px 0 0' }}>{isAdmin ? 'all completed visits' : `${completedRefs} incentives earned`}</p>
         </div>
       </div>
 
@@ -185,35 +198,37 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
         </div>
       </div>
 
-      {/* ── BADGES — horizontal scroll ───────────────────── */}
-      <div className="bg-white rounded-2xl border border-black/5 p-3">
-        <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '0 0 8px', letterSpacing: '0.05em' }}>
-          ACHIEVEMENTS · {unlockedCount} of {BADGES.length}
-        </p>
-        <div className="hide-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 0 }}>
-          {BADGES.map(badge => {
-            const unlocked = badge.unlock(stats.referrals, stats.clicks, stats.rate);
-            return (
-              <div
-                key={badge.id}
-                style={{
-                  flexShrink: 0, minWidth: 58, textAlign: 'center',
-                  padding: '6px 8px', borderRadius: 10,
-                  background: unlocked ? '#fffbeb' : 'var(--color-background-secondary)',
-                  border: `0.5px solid ${unlocked ? '#fde68a' : 'var(--color-border-tertiary)'}`,
-                  opacity: unlocked ? 1 : 0.4,
-                  filter: unlocked ? 'none' : 'grayscale(1)',
-                }}
-              >
-                <div style={{ fontSize: 16, lineHeight: '1.4' }}>{badge.emoji}</div>
-                <div style={{ fontSize: 9, color: unlocked ? '#b45309' : 'var(--color-text-tertiary)', marginTop: 2, fontWeight: unlocked ? 500 : 400 }}>
-                  {badge.label}
+      {/* ── BADGES — horizontal scroll (Hidden for Admins) ── */}
+      {!isAdmin && (
+        <div className="bg-white rounded-2xl border border-black/5 p-3">
+          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '0 0 8px', letterSpacing: '0.05em' }}>
+            ACHIEVEMENTS · {unlockedCount} of {BADGES.length}
+          </p>
+          <div className="hide-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 0 }}>
+            {BADGES.map(badge => {
+              const unlocked = badge.unlock(stats.referrals, stats.clicks, stats.rate);
+              return (
+                <div
+                  key={badge.id}
+                  style={{
+                    flexShrink: 0, minWidth: 58, textAlign: 'center',
+                    padding: '6px 8px', borderRadius: 10,
+                    background: unlocked ? '#fffbeb' : 'var(--color-background-secondary)',
+                    border: `0.5px solid ${unlocked ? '#fde68a' : 'var(--color-border-tertiary)'}`,
+                    opacity: unlocked ? 1 : 0.4,
+                    filter: unlocked ? 'none' : 'grayscale(1)',
+                  }}
+                >
+                  <div style={{ fontSize: 16, lineHeight: '1.4' }}>{badge.emoji}</div>
+                  <div style={{ fontSize: 9, color: unlocked ? '#b45309' : 'var(--color-text-tertiary)', marginTop: 2, fontWeight: unlocked ? 500 : 400 }}>
+                    {badge.label}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── CAMPAIGNS ────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-black/5 p-3">
@@ -264,15 +279,17 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
             <p style={{ fontSize: 11, color: 'var(--color-text-tertiary)', margin: '0 0 12px', maxWidth: 220, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
               Share your referral link to start tracking performance.
             </p>
-            <button
-              onClick={() => {
-                const link = `${window.location.origin}?ref=${currentUser.referral_code || currentUser.id}`;
-                navigator.clipboard.writeText(link).catch(() => {});
-              }}
-              style={{ background: '#1580c2', color: '#fff', border: 'none', borderRadius: 99, padding: '8px 20px', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
-            >
-              <Share2 size={13} /> Share your first link
-            </button>
+            {!isAdmin && (
+              <button
+                onClick={() => {
+                  const link = `${window.location.origin}?ref=${currentUser.referral_code || currentUser.id}`;
+                  navigator.clipboard.writeText(link).catch(() => {});
+                }}
+                style={{ background: '#1580c2', color: '#fff', border: 'none', borderRadius: 99, padding: '8px 20px', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
+              >
+                <Share2 size={13} /> Share your first link
+              </button>
+            )}
           </div>
         )}
       </div>
