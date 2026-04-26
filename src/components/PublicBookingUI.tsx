@@ -216,6 +216,8 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
         const shouldSkip = alreadyTrackedWithService || (alreadyTrackedNoService && !serviceName);
 
         if (!shouldSkip) {
+          // Set flag IMMEDIATELY before fetch to prevent double-fire on useEffect re-runs
+          sessionStorage.setItem(sessionKey, serviceName ? 'with_service' : 'no_service');
           console.log('[TRACK] Firing:', { ref: urlRef, service: serviceName });
           safeFetch(`${apiBaseUrl}/api/analytics/track`, {
             method: 'POST',
@@ -228,12 +230,16 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
             }),
           }).then(({ res, data }) => {
             if (res.ok) {
-              sessionStorage.setItem(sessionKey, serviceName ? 'with_service' : 'no_service');
               console.log('[TRACK] Recorded successfully:', data);
             } else {
+              // Roll back the flag so it can retry
+              sessionStorage.removeItem(sessionKey);
               console.warn('[TRACK] Server error:', res.status, data);
             }
-          }).catch(err => console.error('[TRACK] Request failed:', err));
+          }).catch(err => {
+            sessionStorage.removeItem(sessionKey);
+            console.error('[TRACK] Request failed:', err);
+          });
         }
       }
     }
@@ -669,22 +675,6 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.15 }}
                     onClick={() => {
-                      const params = new URLSearchParams(window.location.search);
-                      const currentRefCode = params.get('ref') || null;
-                      const currentCampaignId = params.get('campaignId') || params.get('cid');
-                      // Read service name from URL directly — most reliable at click time
-                      const rawSvcName = params.get('serviceName') || params.get('sName');
-                      const svcFromUrl = rawSvcName ? decodeURIComponent(rawSvcName.replace(/\+/g, ' ')) : null;
-                      const srv = services.find(s => String(s.id) === String(selectedService));
-                      const serviceName = svcFromUrl || srv?.name || urlServiceName || null;
-
-                      supabase.from('booking_analytics').insert([{ 
-                        event_type: 'clicked_tempah',
-                        referral_code: currentRefCode,
-                        service_name: serviceName,
-                        campaign_id: currentCampaignId
-                      }]).then();
-                      
                       setPublicBookingStep('form');
                     }}
                 className="relative w-full rounded-3xl overflow-hidden active:scale-[0.98] transition-transform"
