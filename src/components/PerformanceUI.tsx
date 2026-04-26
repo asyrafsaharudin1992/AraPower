@@ -1,14 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { 
-  MousePointerClick, 
-  Users, 
-  TrendingUp, 
-  Megaphone,
-  BarChart3,
-  ArrowUpRight,
-  Target
-} from 'lucide-react';
+import { MousePointerClick, Users, TrendingUp, Megaphone, Share2, Trophy } from 'lucide-react';
 import { supabase } from '../supabase';
 
 interface PerformanceUIProps {
@@ -16,213 +8,262 @@ interface PerformanceUIProps {
   referrals: any[];
 }
 
+const TIERS = [
+  { name: 'Bronze', min: 0,  max: 5,  next: 'Silver', bonus: '×1.0', textColor: '#b45309', bg: '#fffbeb', border: '#fde68a', bar: '#f59e0b' },
+  { name: 'Silver', min: 6,  max: 10, next: 'Gold',   bonus: '×1.2', textColor: '#475569', bg: '#f8f9fb', border: '#e2e8f0', bar: '#94a3b8' },
+  { name: 'Gold',   min: 11, max: 999,next: null,      bonus: '×1.5', textColor: '#b45309', bg: '#fffbeb', border: '#fde68a', bar: '#f59e0b' },
+];
+
+const getGrade = (rate: number) => {
+  if (rate >= 15) return { label: 'Excellent',     textColor: '#166534', bg: '#f0fdf4', border: '#bbf7d0', bar: '#22c55e' };
+  if (rate >= 5)  return { label: 'Good form',     textColor: '#3b6d11', bg: '#eaf3de', border: '#c0dd97', bar: '#639922' };
+  return              { label: 'Keep sharing',   textColor: '#854f0b', bg: '#fffbeb', border: '#fde68a', bar: '#ef9f27' };
+};
+
+const getMotivation = (clicks: number, refs: number, rate: number) => {
+  if (refs === 0 && clicks === 0) return { text: "Let's get your first click!", sub: "Share your link today.", emoji: '🚀' };
+  if (refs === 0)                 return { text: `${clicks} people checked your link!`, sub: "Turn those clicks into bookings.", emoji: '👀' };
+  if (rate >= 15)                 return { text: "You're on fire!",      sub: "Your network trusts you.", emoji: '🔥' };
+  if (rate >= 5)                  return { text: "Solid performance!",   sub: "Push for the next tier.", emoji: '💪' };
+  return                                 { text: "Good start!",          sub: "Keep sharing — you're building momentum.", emoji: '⭐' };
+};
+
+const BADGES = [
+  { id: 'first_click', emoji: '👆', label: 'First click',  unlock: (_r: number, c: number) => c >= 1 },
+  { id: 'first_ref',   emoji: '🎯', label: 'First ref',    unlock: (r: number) => r >= 1 },
+  { id: 'five_refs',   emoji: '🔥', label: '5 refs',       unlock: (r: number) => r >= 5 },
+  { id: 'ten_refs',    emoji: '⚡', label: '10 refs',      unlock: (r: number) => r >= 10 },
+  { id: 'sharp',       emoji: '🎯', label: 'Sharp shooter', unlock: (r: number, c: number, rate: number) => rate >= 15 },
+  { id: 'gold',        emoji: '👑', label: 'Gold tier',    unlock: (r: number) => r >= 11 },
+];
+
 export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, referrals }) => {
-  const [performanceStats, setPerformanceStats] = useState({ clicks: 0, referrals: 0, conversionRate: 0 });
-  const [linkStats, setLinkStats] = useState<any[]>([]);
+  const [stats, setStats] = useState({ clicks: 0, referrals: 0, rate: 0 });
+  const [campaigns, setCampaigns] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const completedRefs = referrals.filter(r =>
+    ['completed', 'payment_approved', 'payment_made'].includes(r.status?.toLowerCase())
+  ).length;
+
+  const currentTier = TIERS.find(t => completedRefs >= t.min && completedRefs <= t.max) || TIERS[0];
+  const nextTier    = TIERS.find(t => t.name === currentTier.next);
+  const toNext      = nextTier ? nextTier.min - completedRefs : 0;
+  const progress    = nextTier ? Math.min(((completedRefs - currentTier.min) / (nextTier.min - currentTier.min)) * 100, 100) : 100;
+
+  const motivation  = getMotivation(stats.clicks, stats.referrals, stats.rate);
+  const grade       = getGrade(stats.rate);
+  const unlockedCount = BADGES.filter(b => b.unlock(stats.referrals, stats.clicks, stats.rate)).length;
+
   useEffect(() => {
-    const fetchPerformanceData = async () => {
+    const load = async () => {
       if (!currentUser.referral_code) return;
       setIsLoading(true);
       try {
         const { data, error } = await supabase
-          .from('booking_analytics')
-          .select('*')
+          .from('booking_analytics').select('*')
           .eq('referral_code', currentUser.referral_code);
 
         if (!error && data) {
-          const clicks = data.filter(e => e.event_type === 'clicked_tempah').length;
-          const successfulRefs = referrals.filter(r => r.status === 'payment_made').length;
-          const rate = clicks > 0 ? (successfulRefs / clicks) * 100 : 0;
-          
-          setPerformanceStats({
-            clicks,
-            referrals: successfulRefs,
-            conversionRate: rate
-          });
+          const clicks       = data.filter(e => e.event_type === 'clicked_tempah').length;
+          const successRefs  = referrals.filter(r => r.status === 'payment_made').length;
+          const rate         = clicks > 0 ? (successRefs / clicks) * 100 : 0;
+          setStats({ clicks, referrals: successRefs, rate });
 
-          // Grouping logic for breakdown
-          const serviceGroup: Record<string, any> = {};
-          
+          const map: Record<string, any> = {};
           referrals.forEach(ref => {
-            const name = ref.service_name || 'General Referral';
-            if (!serviceGroup[name]) {
-              serviceGroup[name] = { serviceName: name, clicks: 0, referrals: 0 };
-            }
-            if (ref.status === 'payment_made') {
-              serviceGroup[name].referrals++;
+            const n = ref.service_name || 'General Referral';
+            if (!map[n]) map[n] = { name: n, clicks: 0, refs: 0 };
+            if (ref.status === 'payment_made') map[n].refs++;
+          });
+          data.forEach(ev => {
+            if (ev.event_type === 'clicked_tempah') {
+              const n = ev.service_name || 'General Link';
+              if (!map[n]) map[n] = { name: n, clicks: 0, refs: 0 };
+              map[n].clicks++;
             }
           });
-
-          data.forEach(event => {
-            if (event.event_type === 'clicked_tempah') {
-              const name = event.service_name || 'General Link';
-              if (!serviceGroup[name]) {
-                serviceGroup[name] = { serviceName: name, clicks: 0, referrals: 0 };
-              }
-              serviceGroup[name].clicks++;
-            }
-          });
-
-          const finalStats = Object.values(serviceGroup)
-            .map(s => ({
-              ...s,
-              conversionRate: s.clicks > 0 ? (s.referrals / s.clicks) * 100 : 0
-            }))
-            .sort((a, b) => b.clicks - a.clicks);
-          
-          setLinkStats(finalStats);
+          setCampaigns(
+            Object.values(map)
+              .map(s => ({ ...s, rate: s.clicks > 0 ? (s.refs / s.clicks) * 100 : 0 }))
+              .sort((a, b) => b.clicks - a.clicks)
+          );
         }
-      } catch (err) {
-        console.error("Performance Loading Error:", err);
-      } finally {
-        setIsLoading(false);
-      }
+      } catch (e) { console.error(e); }
+      finally { setIsLoading(false); }
     };
-
-    fetchPerformanceData();
+    load();
   }, [currentUser.referral_code, referrals]);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-8"
-    >
-      {/* Header Info */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+      <style>{`.hide-scrollbar::-webkit-scrollbar{display:none}.hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
+
+      {/* ── MOTIVATIONAL HEADER ─────────────────────────── */}
+      <div style={{ background: '#1580c2', borderRadius: '20px', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h2 className="text-2xl font-black tracking-tight text-zinc-900">Performance Analytics</h2>
-          <p className="text-sm text-zinc-500 font-medium">Track your reach and conversion across all campaigns</p>
+          <p style={{ fontSize: '14px', fontWeight: 700, color: '#fff', margin: 0 }}>{motivation.text}</p>
+          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.65)', margin: '2px 0 0', fontFamily: 'inherit' }}>{motivation.sub}</p>
         </div>
-        {isLoading && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full border border-blue-100">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Syncing Live Data</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {isLoading && <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.6)', animation: 'pulse 1.5s ease-in-out infinite' }} />}
+          <span style={{ fontSize: 24, lineHeight: 1 }}>{motivation.emoji}</span>
+        </div>
+      </div>
+
+      {/* ── TIER PROGRESS ───────────────────────────────── */}
+      <div style={{ background: currentTier.bg, border: `0.5px solid ${currentTier.border}`, borderRadius: '16px', padding: '10px 14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: currentTier.textColor }}>
+            {currentTier.name} · {currentTier.bonus} bonus
+          </span>
+          {nextTier
+            ? <span style={{ fontSize: 11, color: currentTier.textColor }}>{toNext} more to {nextTier.name} 👑</span>
+            : <span style={{ fontSize: 11, fontWeight: 700, color: currentTier.textColor }}>Maximum tier! 👑</span>
+          }
+        </div>
+        <div style={{ height: 5, background: currentTier.border, borderRadius: 99, overflow: 'hidden' }}>
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.9, ease: 'easeOut', delay: 0.2 }}
+            style={{ height: '100%', background: currentTier.bar, borderRadius: 99 }}
+          />
+        </div>
+        {nextTier && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+            <span style={{ fontSize: 9, color: currentTier.textColor, opacity: 0.6 }}>{currentTier.name} ({currentTier.min})</span>
+            <span style={{ fontSize: 9, color: currentTier.textColor, opacity: 0.6 }}>{nextTier.name} ({nextTier.min})</span>
           </div>
         )}
       </div>
 
-      {/* Main Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-            <MousePointerClick size={80} />
-          </div>
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-              <MousePointerClick size={24} />
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Total Clicks</p>
-          </div>
-          <p className="text-5xl font-black text-zinc-900 mb-2">{performanceStats.clicks}</p>
-          <div className="flex items-center gap-2 text-blue-600 font-bold text-xs">
-            <ArrowUpRight size={14} />
-            <span>Across all links</span>
-          </div>
+      {/* ── STAT CARDS ──────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div className="bg-white rounded-2xl border border-black/5 p-3">
+          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '0 0 4px', letterSpacing: '0.05em' }}>CLICKS</p>
+          <motion.p
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
+            style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', margin: 0, lineHeight: 1 }}
+          >{stats.clicks}</motion.p>
+          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '4px 0 0' }}>all links</p>
         </div>
-
-        <div className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-            <Users size={80} />
-          </div>
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
-              <Users size={24} />
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Successful Referrals</p>
-          </div>
-          <p className="text-5xl font-black text-zinc-900 mb-2">{performanceStats.referrals}</p>
-          <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs">
-            <Target size={14} />
-            <span>Target achieved</span>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-black/5 shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-            <TrendingUp size={80} />
-          </div>
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 bg-violet-50 rounded-2xl flex items-center justify-center text-violet-600">
-              <TrendingUp size={24} />
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Avg. Conversion</p>
-          </div>
-          <p className="text-5xl font-black text-zinc-900 mb-2">{performanceStats.conversionRate.toFixed(1)}%</p>
-          <div className="flex items-center gap-2 text-violet-600 font-bold text-xs">
-            <BarChart3 size={14} />
-            <span>Efficiency score</span>
-          </div>
+        <div className="bg-white rounded-2xl border border-black/5 p-3">
+          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '0 0 4px', letterSpacing: '0.05em' }}>REFERRALS</p>
+          <motion.p
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
+            style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', margin: 0, lineHeight: 1 }}
+          >{stats.referrals}</motion.p>
+          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '4px 0 0' }}>{completedRefs} total completed</p>
         </div>
       </div>
 
-      {/* Breakdown List */}
-      <div className="bg-white p-8 rounded-[3rem] border border-black/5 shadow-sm">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h3 className="text-xl font-black tracking-tighter text-zinc-900">Campaign Breakdown</h3>
-            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Performance per Service</p>
-          </div>
-          <div className="px-4 py-2 bg-zinc-50 rounded-2xl border border-zinc-100 flex items-center gap-2">
-            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Real-time Sync</span>
+      {/* Conversion — full width */}
+      <div style={{ background: grade.bg, border: `0.5px solid ${grade.border}`, borderRadius: '16px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <p style={{ fontSize: 10, color: grade.textColor, margin: '0 0 2px', letterSpacing: '0.05em' }}>CONVERSION</p>
+          <motion.p
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+            style={{ fontSize: 28, fontWeight: 700, color: grade.textColor, margin: 0, lineHeight: 1 }}
+          >{stats.rate.toFixed(1)}%</motion.p>
+        </div>
+        <div style={{ background: grade.border, borderRadius: 99, padding: '4px 12px' }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: grade.textColor }}>{grade.label}</span>
+        </div>
+      </div>
+
+      {/* ── BADGES — horizontal scroll ───────────────────── */}
+      <div className="bg-white rounded-2xl border border-black/5 p-3">
+        <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '0 0 8px', letterSpacing: '0.05em' }}>
+          ACHIEVEMENTS · {unlockedCount} of {BADGES.length}
+        </p>
+        <div className="hide-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 0 }}>
+          {BADGES.map(badge => {
+            const unlocked = badge.unlock(stats.referrals, stats.clicks, stats.rate);
+            return (
+              <div
+                key={badge.id}
+                style={{
+                  flexShrink: 0, minWidth: 58, textAlign: 'center',
+                  padding: '6px 8px', borderRadius: 10,
+                  background: unlocked ? '#fffbeb' : 'var(--color-background-secondary)',
+                  border: `0.5px solid ${unlocked ? '#fde68a' : 'var(--color-border-tertiary)'}`,
+                  opacity: unlocked ? 1 : 0.4,
+                  filter: unlocked ? 'none' : 'grayscale(1)',
+                }}
+              >
+                <div style={{ fontSize: 16, lineHeight: '1.4' }}>{badge.emoji}</div>
+                <div style={{ fontSize: 9, color: unlocked ? '#b45309' : 'var(--color-text-tertiary)', marginTop: 2, fontWeight: unlocked ? 500 : 400 }}>
+                  {badge.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── CAMPAIGNS ────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-black/5 p-3">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: 0, letterSpacing: '0.05em' }}>CAMPAIGNS</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <span style={{ fontSize: 9, color: 'var(--color-text-tertiary)', letterSpacing: '0.05em' }}>LIVE</span>
           </div>
         </div>
 
-        <div className="space-y-4">
-          {linkStats.length > 0 ? (
-            linkStats.map((link, idx) => (
-              <div key={idx} className="group flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-zinc-50 rounded-[2rem] border border-transparent hover:border-blue-500/20 hover:bg-white hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-300">
-                <div className="flex items-center gap-5 mb-4 sm:mb-0">
-                  <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-blue-600 font-black text-lg shadow-sm ring-1 ring-zinc-100 group-hover:scale-110 transition-transform">
-                    {idx + 1}
+        {campaigns.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {campaigns.map((c, i) => {
+              const g = getGrade(c.rate);
+              return (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.06 }}
+                  style={{ background: 'var(--color-background-secondary)', borderRadius: 12, padding: '10px 12px' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-text-primary)' }}>{c.name}</span>
+                    <span style={{ fontSize: 10, fontWeight: 500, color: g.textColor }}>{c.rate.toFixed(1)}% · {g.label}</span>
                   </div>
-                  <div>
-                    <span className="text-base font-black text-zinc-900 block mb-1 group-hover:text-blue-600 transition-colors">{link.serviceName}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1">
-                        <MousePointerClick size={10} /> {link.clicks} Clicks
-                      </span>
-                      <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1">
-                        <Users size={10} /> {link.referrals} Goals
-                      </span>
-                    </div>
+                  <div style={{ height: 3, background: 'var(--color-border-tertiary)', borderRadius: 99, overflow: 'hidden', marginBottom: 4 }}>
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(c.rate * 5, 100)}%` }}
+                      transition={{ duration: 0.8, ease: 'easeOut', delay: i * 0.1 + 0.3 }}
+                      style={{ height: '100%', background: g.bar, borderRadius: 99 }}
+                    />
                   </div>
-                </div>
-                
-                <div className="flex items-center gap-8">
-                  <div className="text-right">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-1">Conversion</p>
-                    <div className="flex items-center gap-3">
-                      <div className="w-24 h-1.5 bg-zinc-200 rounded-full overflow-hidden hidden sm:block">
-                        <div 
-                          className="h-full bg-blue-500 rounded-full" 
-                          style={{ width: `${Math.min(link.conversionRate * 5, 100)}%` }} 
-                        />
-                      </div>
-                      <span className={`text-lg font-black ${link.conversionRate > 5 ? 'text-emerald-600' : 'text-zinc-900'}`}>
-                        {link.conversionRate.toFixed(1)}%
-                      </span>
-                    </div>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <span style={{ fontSize: 10, color: 'var(--color-text-tertiary)' }}>{c.clicks} clicks</span>
+                    <span style={{ fontSize: 10, color: 'var(--color-text-tertiary)' }}>{c.refs} referrals</span>
                   </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center py-20 bg-zinc-50 rounded-[3rem] border border-zinc-200 border-dashed">
-              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm ring-1 ring-zinc-100">
-                <Megaphone size={32} className="text-zinc-300" />
-              </div>
-              <h4 className="text-lg font-black text-zinc-900 mb-2">No campaign data recorded</h4>
-              <p className="text-xs font-medium text-zinc-500 max-w-[280px] mx-auto leading-relaxed">
-                You haven't shared any specific campaigns yet. Head to the Awareness Campaigns tab to start sharing your referral links!
-              </p>
-            </div>
-          )}
-        </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '24px 16px', background: 'var(--color-background-secondary)', borderRadius: 12 }}>
+            <Megaphone size={28} style={{ color: '#1580c2', opacity: 0.3, margin: '0 auto 8px' }} />
+            <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-text-primary)', margin: '0 0 4px' }}>No campaign data yet</p>
+            <p style={{ fontSize: 11, color: 'var(--color-text-tertiary)', margin: '0 0 12px', maxWidth: 220, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
+              Share your referral link to start tracking performance.
+            </p>
+            <button
+              onClick={() => {
+                const link = `${window.location.origin}?ref=${currentUser.referral_code || currentUser.id}`;
+                navigator.clipboard.writeText(link).catch(() => {});
+              }}
+              style={{ background: '#1580c2', color: '#fff', border: 'none', borderRadius: 99, padding: '8px 20px', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
+            >
+              <Share2 size={13} /> Share your first link
+            </button>
+          </div>
+        )}
       </div>
+
     </motion.div>
   );
 };
