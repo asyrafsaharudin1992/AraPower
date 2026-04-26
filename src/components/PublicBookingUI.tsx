@@ -672,8 +672,11 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                       const params = new URLSearchParams(window.location.search);
                       const currentRefCode = params.get('ref') || null;
                       const currentCampaignId = params.get('campaignId') || params.get('cid');
+                      // Read service name from URL directly — most reliable at click time
+                      const rawSvcName = params.get('serviceName') || params.get('sName');
+                      const svcFromUrl = rawSvcName ? decodeURIComponent(rawSvcName.replace(/\+/g, ' ')) : null;
                       const srv = services.find(s => String(s.id) === String(selectedService));
-                      const serviceName = srv?.name || urlServiceName || 'General Link';
+                      const serviceName = svcFromUrl || srv?.name || urlServiceName || null;
 
                       supabase.from('booking_analytics').insert([{ 
                         event_type: 'clicked_tempah',
