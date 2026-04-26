@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { 
   User, 
@@ -168,6 +168,7 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
   const [referringStaff, setReferringStaff] = useState<Staff | null>(null);
   const [providedRefCode, setProvidedRefCode] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const hasTrackedClickRef = useRef(false); // Prevent double analytics fire
   const [realAvailableSlots, setRealAvailableSlots] = useState<string[]>([]);
   const [allPossibleSlots, setAllPossibleSlots] = useState<string[]>([]); // ADD THIS
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
@@ -202,45 +203,36 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
         .catch(err => console.error('Failed to lookup affiliate:', err))
         .finally(() => setIsLookingUpAffiliate(false));
 
-      // Track click — only when ref comes from URL
-      // Re-track if this session previously tracked without a service name (NULL) but now has one
-      if (urlRef) {
+      // Track click — useRef prevents double-fire even if useEffect re-runs multiple times
+      if (urlRef && !hasTrackedClickRef.current) {
         const rawServiceName = params.get('serviceName') || params.get('sName');
         const serviceName = rawServiceName ? decodeURIComponent(rawServiceName.replace(/\+/g, ' ')) : null;
         const campaignId = params.get('campaignId') || params.get('cid') || null;
-        const sessionKey = `tracked_${urlRef}`;
-        const alreadyTrackedWithService = sessionStorage.getItem(sessionKey) === 'with_service';
-        const alreadyTrackedNoService = sessionStorage.getItem(sessionKey) === 'no_service';
 
-        // Skip only if already tracked with a service name, or tracked without and still no service
-        const shouldSkip = alreadyTrackedWithService || (alreadyTrackedNoService && !serviceName);
+        // Block immediately — ref is synchronous, prevents any subsequent effect run
+        hasTrackedClickRef.current = true;
 
-        if (!shouldSkip) {
-          // Set flag IMMEDIATELY before fetch to prevent double-fire on useEffect re-runs
-          sessionStorage.setItem(sessionKey, serviceName ? 'with_service' : 'no_service');
-          console.log('[TRACK] Firing:', { ref: urlRef, service: serviceName });
-          safeFetch(`${apiBaseUrl}/api/analytics/track`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              event_type: 'clicked_tempah',
-              referral_code: urlRef,
-              service_name: serviceName,
-              campaign_id: campaignId
-            }),
-          }).then(({ res, data }) => {
-            if (res.ok) {
-              console.log('[TRACK] Recorded successfully:', data);
-            } else {
-              // Roll back the flag so it can retry
-              sessionStorage.removeItem(sessionKey);
-              console.warn('[TRACK] Server error:', res.status, data);
-            }
-          }).catch(err => {
-            sessionStorage.removeItem(sessionKey);
-            console.error('[TRACK] Request failed:', err);
-          });
-        }
+        console.log('[TRACK] Firing:', { ref: urlRef, service: serviceName });
+        safeFetch(`${apiBaseUrl}/api/analytics/track`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_type: 'clicked_tempah',
+            referral_code: urlRef,
+            service_name: serviceName,
+            campaign_id: campaignId
+          }),
+        }).then(({ res, data }) => {
+          if (res.ok) {
+            console.log('[TRACK] Recorded successfully:', data);
+          } else {
+            hasTrackedClickRef.current = false; // allow retry on error
+            console.warn('[TRACK] Server error:', res.status, data);
+          }
+        }).catch(err => {
+          hasTrackedClickRef.current = false;
+          console.error('[TRACK] Request failed:', err);
+        });
       }
     }
 
