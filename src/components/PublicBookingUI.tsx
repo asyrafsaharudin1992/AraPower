@@ -203,17 +203,29 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
         .finally(() => setIsLookingUpAffiliate(false));
 
       // Track click — only when ref comes from URL (not localStorage repeat visit)
-      if (urlRef) {
+      // Use a session storage flag to prevent multiple tracking calls in the same session for the same ref
+      const hasTracked = sessionStorage.getItem(`tracked_${urlRef}`);
+      if (urlRef && !hasTracked) {
+        console.log('[TRACK] detected new urlRef in session:', urlRef);
         const serviceName = params.get('serviceName') || params.get('sName') || null;
-        safeFetch(`${apiBaseUrl}/api/analytics/track`, {
+        const campaignId = params.get('campaignId') || params.get('cid') || null;
+        const trackUrl = `${apiBaseUrl}/api/analytics/track`;
+
+        safeFetch(trackUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             event_type: 'clicked_tempah',
             referral_code: urlRef,
             service_name: serviceName ? decodeURIComponent(serviceName) : null,
+            campaign_id: campaignId
           }),
-        }).catch(err => console.error('Analytics track failed:', err));
+        }).then(({ res, data }) => {
+          if (res.ok) {
+             sessionStorage.setItem(`tracked_${urlRef}`, 'true');
+             console.log('[TRACK] success for:', urlRef);
+          }
+        }).catch(err => console.error('[TRACK] failed:', err));
       }
     }
 

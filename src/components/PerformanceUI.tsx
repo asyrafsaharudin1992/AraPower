@@ -57,12 +57,14 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
 
   useEffect(() => {
     const load = async () => {
-      if (!currentUser.referral_code) return;
+      const effectiveCode = currentUser.referral_code || String(currentUser.id || '');
+      if (!effectiveCode) return;
+      
       setIsLoading(true);
       try {
         const { data, error } = await supabase
           .from('booking_analytics').select('*')
-          .eq('referral_code', currentUser.referral_code);
+          .or(`referral_code.eq."${currentUser.referral_code || '___none___'}",referral_code.eq."${currentUser.id}"`);
 
         if (!error && data) {
           const clicks       = data.filter(e => e.event_type === 'clicked_tempah').length;

@@ -2332,30 +2332,54 @@ app.delete("/api/staff/:id/permanent", async (req, res) => {
   }
 });
 
+app.get("/api/test-db", async (req, res) => {
+  try {
+    const { data: analytics, error: analyticsError } = await supabase.from('booking_analytics').select('count', { count: 'exact', head: true });
+    if (analyticsError) throw analyticsError;
+    
+    res.json({
+      status: 'success',
+      booking_analytics_count: analytics,
+      tables: ['booking_analytics', 'referrals', 'staff', 'branches', 'services']
+    });
+  } catch (err: any) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
 // ── Analytics: track affiliate link clicks ─────────────────
 app.post("/api/analytics/track", async (req, res) => {
+  console.log('[analytics/track] request body:', req.body);
   try {
-    const { event_type, referral_code, service_name } = req.body;
+    const { event_type, referral_code, service_name, campaign_id } = req.body;
     if (!event_type || !referral_code) {
+      console.warn('[analytics/track] missing required fields');
       return res.status(400).json({ error: "event_type and referral_code required" });
     }
-    const { error } = await supabase
+    
+    console.log(`[analytics/track] inserting: event=${event_type}, ref=${referral_code}, service=${service_name}, campaign=${campaign_id}`);
+    
+    const { data, error } = await supabase
       .from('booking_analytics')
       .insert({ 
         event_type, 
         referral_code, 
         service_name: service_name || null,
+        campaign_id: campaign_id || null,
         created_at: new Date().toISOString()
-      });
+      })
+      .select();
     
     if (error) {
-      console.warn('Analytics track error (logged but non-blocking):', error.message);
-      // We return success anyway to not block the frontend booking flow if analytics fail
+      console.error('[analytics/track] Supabase insert error:', error);
+      // We return success anyway to not block the frontend booking flow
       return res.json({ success: true, warning: error.message });
     }
+    
+    console.log('[analytics/track] successfully recorded:', data);
     res.json({ success: true });
   } catch (err: any) {
-    console.error('Analytics track exception:', err);
+    console.error('[analytics/track] exception:', err);
     res.json({ success: true, error: 'Internal tracking error' }); // Non-blocking
   }
 });
@@ -3026,13 +3050,19 @@ async function startServer() {
             event_type TEXT NOT NULL,
             referral_code TEXT NOT NULL,
             service_name TEXT,
-            created_at TIMESTAMPTZ DEFAULT NOW()
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            campaign_id TEXT
           );
           -- Add RLS but keep it simple for the tracking feature
           ALTER TABLE booking_analytics ENABLE ROW LEVEL SECURITY;
-          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'booking_analytics' AND policyname = 'Enable all for app') THEN
-            DO 'BEGIN CREATE POLICY "Enable all for app" ON booking_analytics FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN OTHERS THEN NULL; END';
-          END IF;
+          -- Drop existing if any and recreate to be sure
+          DROP POLICY IF EXISTS "Enable all for app" ON booking_analytics;
+          CREATE POLICY "Enable all for app" ON booking_analytics FOR ALL USING (true) WITH CHECK (true);
+        END IF;
+
+        -- Ensure campaign_id exists if table already existed without it
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='booking_analytics' AND column_name='campaign_id') THEN
+          ALTER TABLE booking_analytics ADD COLUMN campaign_id TEXT;
         END IF;
 
         -- Create communications_log table if missing
