@@ -95,16 +95,22 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
           setStats({ clicks, referrals: successRefs, rate });
 
           const map: Record<string, any> = {};
+
+          const getNormalizedKey = (name: string) => name.trim().toLowerCase();
+
           referrals.forEach(ref => {
-            const n = ref.service_name || 'General Referral';
-            if (!map[n]) map[n] = { name: n, clicks: 0, refs: 0 };
-            if (ref.status?.toLowerCase() === 'completed') map[n].refs++;
+            const rawName = ref.service_name || 'General Link';
+            const key = getNormalizedKey(rawName);
+            if (!map[key]) map[key] = { name: rawName.trim(), clicks: 0, refs: 0 };
+            if (ref.status?.toLowerCase() === 'completed') map[key].refs++;
           });
+          
           data.forEach(ev => {
             if (ev.event_type === 'clicked_tempah') {
-              const n = ev.service_name || 'General Link';
-              if (!map[n]) map[n] = { name: n, clicks: 0, refs: 0 };
-              map[n].clicks++;
+              const rawName = ev.service_name || 'General Link';
+              const key = getNormalizedKey(rawName);
+              if (!map[key]) map[key] = { name: rawName.trim(), clicks: 0, refs: 0 };
+              map[key].clicks++;
             }
           });
           setCampaigns(
