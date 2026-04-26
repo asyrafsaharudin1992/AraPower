@@ -33,6 +33,7 @@ import {
   Area 
 } from 'recharts';
 import { CategoryScrollRow } from './CategoryScrollRow';
+import { AwarenessCarousel } from './AwarenessCarousel';
 import { supabase } from '../supabase';
 import { toast } from 'react-hot-toast';
 
@@ -449,6 +450,9 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
           </div>
         </div>
       )}
+
+      {/* ── Awareness Campaigns Carousel ── */}
+      <AwarenessCarousel />
 
       {/* ── Available Services ── */}
       <div className="space-y-4">

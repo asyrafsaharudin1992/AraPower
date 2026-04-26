@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ShieldCheck, Search, Trash2, Users, DollarSign, Zap, MessageCircle, Info, Save, X } from 'lucide-react';
+import { ShieldCheck, Search, Trash2, Users, DollarSign, Zap, MessageCircle, Info, Save, X, Plus, Image as ImageIcon, Send, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'react-hot-toast';
 
@@ -46,7 +46,19 @@ export const AdminUI: React.FC<AdminUIProps> = ({
   const [announcementMsg, setAnnouncementMsg] = useState("");
   const [announcementActive, setAnnouncementActive] = useState(false);
 
+  // Awareness Campaigns State
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [newCampaign, setNewCampaign] = useState({
+    title: '',
+    description: '',
+    caption: '',
+    image_url: ''
+  });
+  const [refreshing, setRefreshing] = useState(false);
+
   useEffect(() => {
+    fetchCampaigns();
     const fetchAnnouncement = async () => {
       const { data, error } = await supabase
         .from('announcements')
@@ -61,6 +73,109 @@ export const AdminUI: React.FC<AdminUIProps> = ({
     };
     fetchAnnouncement();
   }, []);
+
+  const fetchCampaigns = async () => {
+    setRefreshing(true);
+    const { data, error } = await supabase
+      .from('awareness_campaigns')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (!error && data) {
+      setCampaigns(data);
+    }
+    setRefreshing(false);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const loadingToast = toast.loading('Uploading poster...');
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { data, error: uploadError } = await supabase.storage
+        .from('posters')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('posters')
+        .getPublicUrl(filePath);
+
+      setNewCampaign(prev => ({ ...prev, image_url: publicUrl }));
+      toast.success('Poster uploaded successfully!', { id: loadingToast });
+    } catch (error: any) {
+      toast.error(`Upload failed: ${error.message}`, { id: loadingToast });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleCreateCampaign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCampaign.image_url) {
+      toast.error('Please upload a poster first');
+      return;
+    }
+
+    const loadingToast = toast.loading('Creating campaign...');
+    const { error } = await supabase
+      .from('awareness_campaigns')
+      .insert([
+        { 
+          title: newCampaign.title,
+          description: newCampaign.description,
+          caption: newCampaign.caption,
+          image_url: newCampaign.image_url,
+          is_active: true
+        }
+      ]);
+
+    if (error) {
+      toast.error(`Error: ${error.message}`, { id: loadingToast });
+    } else {
+      toast.success('Campaign created successfully!', { id: loadingToast });
+      setNewCampaign({ title: '', description: '', caption: '', image_url: '' });
+      fetchCampaigns();
+    }
+  };
+
+  const toggleCampaignActive = async (id: string, currentStatus: boolean) => {
+    const { error } = await supabase
+      .from('awareness_campaigns')
+      .update({ is_active: !currentStatus })
+      .eq('id', id);
+
+    if (error) {
+      toast.error(`Update failed: ${error.message}`);
+    } else {
+      setCampaigns(campaigns.map(c => c.id === id ? { ...c, is_active: !currentStatus } : c));
+      toast.success(`Campaign ${!currentStatus ? 'activated' : 'deactivated'}`);
+    }
+  };
+
+  const deleteCampaign = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this campaign?')) return;
+
+    const { error } = await supabase
+      .from('awareness_campaigns')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      toast.error(`Delete failed: ${error.message}`);
+    } else {
+      setCampaigns(campaigns.filter(c => c.id !== id));
+      toast.success('Campaign deleted');
+    }
+  };
 
   const saveAnnouncement = async () => {
     const loadingToast = toast.loading('Saving announcement...');
@@ -327,6 +442,181 @@ export const AdminUI: React.FC<AdminUIProps> = ({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Awareness Management Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Create Campaign Form */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-violet-50 text-violet-600 rounded-xl flex items-center justify-center">
+                <Plus size={20} />
+              </div>
+              <h3 className="text-xl font-black tracking-tighter text-zinc-900">New Campaign</h3>
+            </div>
+
+            <form onSubmit={handleCreateCampaign} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Title</label>
+                <input 
+                  type="text"
+                  required
+                  value={newCampaign.title}
+                  onChange={e => setNewCampaign({...newCampaign, title: e.target.value})}
+                  placeholder="e.g. Breast Cancer Awareness"
+                  className="w-full px-4 py-3 rounded-2xl border border-zinc-200 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all font-medium text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Description (Internal)</label>
+                <textarea 
+                  required
+                  value={newCampaign.description}
+                  onChange={e => setNewCampaign({...newCampaign, description: e.target.value})}
+                  placeholder="Details for staff members..."
+                  className="w-full px-4 py-3 rounded-2xl border border-zinc-200 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all font-medium text-sm h-24 resize-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Social Media Caption</label>
+                <textarea 
+                  required
+                  value={newCampaign.caption}
+                  onChange={e => setNewCampaign({...newCampaign, caption: e.target.value})}
+                  placeholder="What users will copy/share..."
+                  className="w-full px-4 py-3 rounded-2xl border border-zinc-200 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all font-medium text-sm h-32 resize-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Campaign Poster</label>
+                <div className="relative group">
+                  <input 
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    disabled={isUploading}
+                  />
+                  <div className={`w-full aspect-video rounded-3xl border-2 border-dashed transition-all flex flex-col items-center justify-center p-4 gap-2 ${
+                    newCampaign.image_url 
+                      ? 'border-emerald-200 bg-emerald-50' 
+                      : 'border-zinc-200 bg-zinc-50 group-hover:border-violet-300 group-hover:bg-violet-50'
+                  }`}>
+                    {newCampaign.image_url ? (
+                      <img src={newCampaign.image_url} alt="Preview" className="w-full h-full object-contain rounded-xl" />
+                    ) : (
+                      <>
+                        <ImageIcon className="text-zinc-400 group-hover:text-violet-500 transition-colors" size={32} />
+                        <span className="text-xs font-bold text-zinc-500 group-hover:text-violet-600">
+                          {isUploading ? 'Uploading...' : 'Click or drop poster here'}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  {newCampaign.image_url && (
+                    <button 
+                      type="button"
+                      onClick={() => setNewCampaign({...newCampaign, image_url: ''})}
+                      className="absolute -top-2 -right-2 w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center text-rose-500 z-20"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <button 
+                type="submit"
+                disabled={isUploading}
+                className="w-full py-4 rounded-2xl bg-zinc-900 text-white font-black uppercase tracking-widest text-[10px] hover:bg-zinc-800 transition-colors shadow-lg shadow-zinc-200 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Send size={16} />
+                Launch Campaign
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Existing Campaigns List */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-black/5 shadow-sm h-full flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                  <Zap size={20} />
+                </div>
+                <h3 className="text-xl font-black tracking-tighter text-zinc-900">Active Campaigns</h3>
+              </div>
+              <button 
+                onClick={fetchCampaigns}
+                className={`p-2 text-zinc-400 hover:text-zinc-600 transition-all ${refreshing ? 'animate-spin' : ''}`}
+              >
+                <RefreshCw size={20} />
+              </button>
+            </div>
+
+            {campaigns.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-20 text-zinc-400">
+                <div className="w-16 h-16 bg-zinc-50 rounded-3xl flex items-center justify-center mb-4">
+                  <ImageIcon size={32} className="opacity-20" />
+                </div>
+                <p className="font-bold text-sm">No awareness campaigns Yet.</p>
+                <p className="text-xs">Create your first campaign to boost engagement.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {campaigns.map(campaign => (
+                  <div 
+                    key={campaign.id} 
+                    className={`group relative bg-zinc-50 rounded-[2rem] border border-zinc-100 overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1 ${!campaign.is_active ? 'opacity-75 grayscale-[0.5]' : ''}`}
+                  >
+                    <div className="aspect-video relative overflow-hidden">
+                      <img src={campaign.image_url} alt={campaign.title} className="w-full h-full object-cover" />
+                      <div className="absolute top-4 right-4 flex gap-2">
+                        <button 
+                          onClick={() => toggleCampaignActive(campaign.id, campaign.is_active)}
+                          className={`w-10 h-10 rounded-xl shadow-lg flex items-center justify-center transition-all ${
+                            campaign.is_active ? 'bg-white text-emerald-500' : 'bg-zinc-900 text-white'
+                          }`}
+                          title={campaign.is_active ? 'Deactivate' : 'Activate'}
+                        >
+                          {campaign.is_active ? <Eye size={18} /> : <EyeOff size={18} />}
+                        </button>
+                        <button 
+                          onClick={() => deleteCampaign(campaign.id)}
+                          className="w-10 h-10 bg-white text-rose-500 rounded-xl shadow-lg flex items-center justify-center hover:bg-rose-50 transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                      {!campaign.is_active && (
+                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                          <span className="px-4 py-2 bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg">Inactive</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-6">
+                      <h4 className="font-black text-zinc-900 mb-1">{campaign.title}</h4>
+                      <p className="text-xs text-zinc-500 font-medium mb-4 line-clamp-2">{campaign.description}</p>
+                      
+                      <div className="bg-white/50 border border-zinc-200 rounded-2xl p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <MessageCircle size={14} className="text-[#1580c2]" />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-[#1580c2]">Caption</span>
+                        </div>
+                        <p className="text-[10px] font-medium text-zinc-600 line-clamp-3 leading-relaxed italic">"{campaign.caption}"</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
     </motion.div>
