@@ -2334,69 +2334,68 @@ app.delete("/api/staff/:id/permanent", async (req, res) => {
 
 app.get("/api/test-db", async (req, res) => {
   try {
-    const { data: analytics, error: analyticsError } = await supabase.from('booking_analytics').select('count', { count: 'exact', head: true });
-    if (analyticsError) throw analyticsError;
+    // 1. Check if Supabase is actually connected
+    const isMock = (supabase.constructor.name === 'MockSupabase');
+    
+    // 2. Fetch list of tables to verify naming (singular vs plural)
+    const { data: tables, error: tablesError } = await supabase.rpc('get_tables');
+    // If RPC fails, we'll try a direct query
+    
+    const { data: analyticsRow, error: analyticsError } = await supabase.from('booking_analytics').select('*').limit(1);
+    const { data: analyticsSingularRow, error: analyticsSingularError } = await supabase.from('booking_analytic').select('*').limit(1);
     
     res.json({
       status: 'success',
-      booking_analytics_count: analytics,
-      tables: ['booking_analytics', 'referrals', 'staff', 'branches', 'services']
+      supabase_type: isMock ? 'MOCK' : 'REAL',
+      booking_analytics: analyticsError ? { error: analyticsError.message } : { status: 'found', count: analyticsRow?.length },
+      booking_analytic: analyticsSingularError ? { error: analyticsSingularError.message } : { status: 'found', count: analyticsSingularRow?.length },
+      env: {
+        has_url: !!process.env.VITE_SUPABASE_URL,
+        has_key: !!process.env.VITE_SUPABASE_ANON_KEY || !!process.env.SUPABASE_SERVICE_ROLE_KEY
+      }
     });
   } catch (err: any) {
     res.status(500).json({ status: 'error', message: err.message });
   }
 });
 
-// ── Analytics: track affiliate link clicks ─────────────────
+// Update track endpoint to try both singular and plural if one fails with 404
 app.post("/api/analytics/track", async (req, res) => {
-  console.log('[analytics/track] request body:', req.body);
+  const { event_type, referral_code, service_name, campaign_id } = req.body;
+  console.log(`[analytics/track] Incoming: type=${event_type}, ref=${referral_code}, service=${service_name}`);
+  
+  if (!event_type || !referral_code) {
+    return res.status(400).json({ error: "missing event_type or referral_code" });
+  }
+
+  const payload = { 
+    event_type, 
+    referral_code, 
+    service_name: service_name || null,
+    campaign_id: campaign_id || null,
+    created_at: new Date().toISOString()
+  };
+
   try {
-    const { event_type, referral_code, service_name, campaign_id } = req.body;
-    if (!event_type || !referral_code) {
-      console.warn('[analytics/track] missing required fields');
-      return res.status(400).json({ error: "event_type and referral_code required" });
+    // Try plural first
+    let result = await supabase.from('booking_analytics').insert(payload).select();
+    
+    // If table not found, try singular
+    if (result.error && (result.error.message.includes('relation') || result.error.message.includes('not found'))) {
+      console.log('[analytics/track] plural table not found, trying singular "booking_analytic"');
+      result = await supabase.from('booking_analytic').insert(payload).select();
     }
-    
-    console.log(`[analytics/track] inserting: event=${event_type}, ref=${referral_code}, service=${service_name}, campaign=${campaign_id}`);
-    
-    // Try first with all columns
-    let result = await supabase
-      .from('booking_analytics')
-      .insert({ 
-        event_type, 
-        referral_code, 
-        service_name: service_name || null,
-        campaign_id: campaign_id || null,
-        created_at: new Date().toISOString()
-      })
-      .select();
-    
-    // Fallback: If it failed, maybe service_name/campaign_id columns are missing in DB
-    if (result.error && (result.error.message.includes('column') || result.error.code === '42703')) {
-      console.warn('[analytics/track] Missing columns in DB, retrying with basic set...');
-      result = await supabase
-        .from('booking_analytics')
-        .insert({ 
-          event_type, 
-          referral_code, 
-          created_at: new Date().toISOString()
-        })
-        .select();
+
+    if (result.error) {
+      console.error('[analytics/track] Supabase error:', result.error);
+      return res.status(500).json({ error: result.error.message });
     }
-    
-    const { data, error } = result;
-    
-    if (error) {
-      console.error('[analytics/track] Supabase insert error:', error);
-      // We return success anyway to not block the frontend booking flow
-      return res.json({ success: true, warning: error.message });
-    }
-    
-    console.log('[analytics/track] successfully recorded:', data);
-    res.json({ success: true });
+
+    console.log('[analytics/track] Success:', result.data);
+    res.json({ success: true, data: result.data });
   } catch (err: any) {
-    console.error('[analytics/track] exception:', err);
-    res.json({ success: true, error: 'Internal tracking error' }); // Non-blocking
+    console.error('[analytics/track] Exception:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -3062,29 +3061,47 @@ async function startServer() {
         -- Create booking_analytics table if missing
         IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='booking_analytics') THEN
           CREATE TABLE booking_analytics (
-            id BIGSERIAL PRIMARY KEY,
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             event_type TEXT NOT NULL,
             referral_code TEXT NOT NULL,
             service_name TEXT,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            campaign_id TEXT
+            campaign_id TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
           );
-          -- Add RLS but keep it simple for the tracking feature
-          ALTER TABLE booking_analytics ENABLE ROW LEVEL SECURITY;
-          -- Drop existing if any and recreate to be sure
-          DROP POLICY IF EXISTS "Enable all for app" ON booking_analytics;
-          CREATE POLICY "Enable all for app" ON booking_analytics FOR ALL USING (true) WITH CHECK (true);
         END IF;
 
-        -- Ensure service_name exists
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='booking_analytics' AND column_name='service_name') THEN
-          ALTER TABLE booking_analytics ADD COLUMN service_name TEXT;
+        -- Create booking_analytic table (singular) if missing
+        IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='booking_analytic') THEN
+          CREATE TABLE booking_analytic (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            event_type TEXT NOT NULL,
+            referral_code TEXT NOT NULL,
+            service_name TEXT,
+            campaign_id TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+          );
         END IF;
 
-        -- Ensure campaign_id exists if table already existed without it
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='booking_analytics' AND column_name='campaign_id') THEN
-          ALTER TABLE booking_analytics ADD COLUMN campaign_id TEXT;
-        END IF;
+        -- Ensure columns exist in both (idempotent)
+        BEGIN
+          ALTER TABLE booking_analytics ADD COLUMN IF NOT EXISTS service_name TEXT;
+          ALTER TABLE booking_analytics ADD COLUMN IF NOT EXISTS campaign_id TEXT;
+          ALTER TABLE booking_analytic ADD COLUMN IF NOT EXISTS service_name TEXT;
+          ALTER TABLE booking_analytic ADD COLUMN IF NOT EXISTS campaign_id TEXT;
+        EXCEPTION WHEN OTHERS THEN 
+          NULL;
+        END;
+
+        -- Enable RLS and add open policies for both
+        ALTER TABLE booking_analytics ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE booking_analytic ENABLE ROW LEVEL SECURITY;
+
+        DROP POLICY IF EXISTS "Enable all for app" ON booking_analytics;
+        CREATE POLICY "Enable all for app" ON booking_analytics FOR ALL USING (true) WITH CHECK (true);
+        
+        DROP POLICY IF EXISTS "Enable all for app" ON booking_analytic;
+        CREATE POLICY "Enable all for app" ON booking_analytic FOR ALL USING (true) WITH CHECK (true);
+
 
         -- Create communications_log table if missing
         IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='communications_log') THEN

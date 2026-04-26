@@ -62,9 +62,20 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
       
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
+        let result = await supabase
           .from('booking_analytics').select('*')
           .or(`referral_code.eq."${currentUser.referral_code || '___none___'}",referral_code.eq."${currentUser.id}"`);
+
+        // If plural fails, try singular
+        if ((result.error && (result.error.message.includes('not found') || result.error.message.includes('relation'))) || (!result.error && !result.data)) {
+           const singularResult = await supabase
+             .from('booking_analytic').select('*')
+             .or(`referral_code.eq."${currentUser.referral_code || '___none___'}",referral_code.eq."${currentUser.id}"`);
+           if (!singularResult.error) result = singularResult;
+        }
+
+        const data = result.data;
+        const error = result.error;
 
         if (!error && data) {
           const clicks       = data.filter(e => e.event_type === 'clicked_tempah').length;
