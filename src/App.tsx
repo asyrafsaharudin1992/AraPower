@@ -2835,70 +2835,72 @@ export default function App() {
 
         {/* Mobile UI — dedicated component for easy updates */}
         {isMobile && (
-          <MobileUI
-            currentUser={currentUser}
-            clinicProfile={clinicProfile}
-            darkMode={darkMode}
-            reduceTranslucency={reduceTranslucency}
-            activeTab={activeTab as MobileTab}
-            setActiveTab={(tab) => setActiveTab(tab as any)}
-            setShowReferralModal={setShowReferralModal}
-            referrals={referrals}
-            branches={branches}
-            services={services}
-            promotions={promotions}
-            serviceCategories={serviceCategories}
-            staffList={staffList}
-            notifications={notifications}
-            unreadNotificationsCount={unreadNotificationsCount}
-            adminStats={adminStats}
-            receptionistStats={receptionistStats}
-            activeStaffList={activeStaffList}
-            staffPerformance={staffPerformance}
-            currentUserStats={currentUserStats}
-            progressToNext={progressToNext}
-            nextTier={nextTier}
-            getStatusColor={getStatusColor}
-            getStatusLabel={getStatusLabel}
-            checkBranchAccess={checkBranchAccess}
-            getServiceStatus={getServiceStatus}
-            fetchReferrals={fetchReferrals}
-            handleApproveStaff={handleApproveStaff}
-            handleRejectStaff={handleRejectStaff}
-            handleDeleteStaff={handleDeleteStaff}
-            handleUpdateStatus={handleUpdateStatus}
-            handleClinicStatusUpdate={handleClinicStatusUpdate}
-            handleDeleteReferral={handleDeleteReferral}
-            handleDeleteService={handleDeleteService}
-            setSelectedPromo={setSelectedPromo}
-            setIsPromoModalOpen={setIsPromoModalOpen}
-            setSelectedStaffDetail={setSelectedStaffDetail}
-            setShowStaffModal={setShowStaffModal}
-            promoSubTab={promoSubTab}
-            setPromoSubTab={setPromoSubTab}
-            editingService={editingService}
-            setEditingService={setEditingService}
-            fetchServices={fetchServices}
-            selectedPromo={selectedPromo}
-            isPromoModalOpen={isPromoModalOpen}
-            handleUpdateProfile={handleUpdateProfile}
-            THEMES={THEMES}
-            selectedTheme={selectedTheme}
-            setSelectedTheme={setSelectedTheme}
-            windowWidth={windowWidth}
-            setDarkMode={setDarkMode}
-            setReduceTranslucency={setReduceTranslucency}
-            setShowPasswordModal={setShowPasswordModal}
-            feedbackMessage={feedbackMessage}
-            setFeedbackMessage={setFeedbackMessage}
-            handleSendFeedback={handleSendFeedback}
-            isSendingFeedback={isSendingFeedback}
-            handleLogout={handleLogout}
-            onDeleteAccount={handleDeleteAccount}
-            markAllAsRead={markAllAsRead}
-            markNotificationAsRead={markNotificationAsRead}
-            deleteNotification={deleteNotification}
-          />
+          <MobilePullToRefreshWrapper isMobile={true} onRefresh={handleRefresh}>
+            <MobileUI
+              currentUser={currentUser}
+              clinicProfile={clinicProfile}
+              darkMode={darkMode}
+              reduceTranslucency={reduceTranslucency}
+              activeTab={activeTab as MobileTab}
+              setActiveTab={(tab) => setActiveTab(tab as any)}
+              setShowReferralModal={setShowReferralModal}
+              referrals={referrals}
+              branches={branches}
+              services={services}
+              promotions={promotions}
+              serviceCategories={serviceCategories}
+              staffList={staffList}
+              notifications={notifications}
+              unreadNotificationsCount={unreadNotificationsCount}
+              adminStats={adminStats}
+              receptionistStats={receptionistStats}
+              activeStaffList={activeStaffList}
+              staffPerformance={staffPerformance}
+              currentUserStats={currentUserStats}
+              progressToNext={progressToNext}
+              nextTier={nextTier}
+              getStatusColor={getStatusColor}
+              getStatusLabel={getStatusLabel}
+              checkBranchAccess={checkBranchAccess}
+              getServiceStatus={getServiceStatus}
+              fetchReferrals={fetchReferrals}
+              handleApproveStaff={handleApproveStaff}
+              handleRejectStaff={handleRejectStaff}
+              handleDeleteStaff={handleDeleteStaff}
+              handleUpdateStatus={handleUpdateStatus}
+              handleClinicStatusUpdate={handleClinicStatusUpdate}
+              handleDeleteReferral={handleDeleteReferral}
+              handleDeleteService={handleDeleteService}
+              setSelectedPromo={setSelectedPromo}
+              setIsPromoModalOpen={setIsPromoModalOpen}
+              setSelectedStaffDetail={setSelectedStaffDetail}
+              setShowStaffModal={setShowStaffModal}
+              promoSubTab={promoSubTab}
+              setPromoSubTab={setPromoSubTab}
+              editingService={editingService}
+              setEditingService={setEditingService}
+              fetchServices={fetchServices}
+              selectedPromo={selectedPromo}
+              isPromoModalOpen={isPromoModalOpen}
+              handleUpdateProfile={handleUpdateProfile}
+              THEMES={THEMES}
+              selectedTheme={selectedTheme}
+              setSelectedTheme={setSelectedTheme}
+              windowWidth={windowWidth}
+              setDarkMode={setDarkMode}
+              setReduceTranslucency={setReduceTranslucency}
+              setShowPasswordModal={setShowPasswordModal}
+              feedbackMessage={feedbackMessage}
+              setFeedbackMessage={setFeedbackMessage}
+              handleSendFeedback={handleSendFeedback}
+              isSendingFeedback={isSendingFeedback}
+              handleLogout={handleLogout}
+              onDeleteAccount={handleDeleteAccount}
+              markAllAsRead={markAllAsRead}
+              markNotificationAsRead={markNotificationAsRead}
+              deleteNotification={deleteNotification}
+            />
+          </MobilePullToRefreshWrapper>
         )}
 
                 {/* Desktop Sidebar (Admin Only) */}
@@ -3058,8 +3060,7 @@ export default function App() {
         )}
         
         {/* Main Content — desktop only, MobileUI handles mobile */}
-        <MobilePullToRefreshWrapper isMobile={isMobile} onRefresh={handleRefresh}>
-          {!isMobile && <main className="ml-64 bg-white p-4 lg:p-8 relative overflow-hidden">
+        {!isMobile && <main className="ml-64 bg-white p-4 lg:p-8 relative overflow-hidden">
           {currentUser.is_approved === 0 && currentUser.role !== 'admin' && activeTab !== 'profile' ? (
             (() => {
               console.log('Current User State (Main Content Pending):', currentUser);
@@ -5967,7 +5968,6 @@ CREATE POLICY "Allow staff to insert requests" ON public.branch_change_requests 
             </motion.div>
           )}
         </AnimatePresence>
-      </MobilePullToRefreshWrapper>
     </div>
   );
   }

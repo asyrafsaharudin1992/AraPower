@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   ClipboardList, 
   DollarSign, 
@@ -15,7 +15,13 @@ import {
   CheckCircle,
   AlertTriangle,
   TrendingDown,
-  Info
+  Info,
+  X,
+  User,
+  Phone,
+  Banknote,
+  Navigation,
+  Star
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -28,6 +34,15 @@ import {
 } from 'recharts';
 import { CategoryScrollRow } from './CategoryScrollRow';
 import { supabase } from '../supabase';
+import { toast } from 'react-hot-toast';
+
+const MALAYSIAN_BANKS = [
+  "Affin Bank Berhad","alliance Bank Malaysia Berhad","AmBank (M) Berhad","BNP Paribas Malaysia Berhad",
+  "CIMB Bank Berhad","Citibank Berhad","HSBC Bank Malaysia Berhad","Hong Leong Bank Berhad",
+  "Malayan Banking Berhad (Maybank)","OCBC Bank (Malaysia) Berhad","Public Bank Berhad",
+  "RHB Bank Berhad","Standard Chartered Bank Malaysia Berhad","United Overseas Bank (Malaysia) Bhd.",
+  "Bank Islam Malaysia Berhad","Bank Muamalat Malaysia Berhad"
+];
 
 export interface DashboardUIProps {
   currentUser: any;
@@ -53,6 +68,7 @@ export interface DashboardUIProps {
   getStatusLabel: (status: string) => string;
   setSelectedStaffDetail: (staff: any) => void;
   setShowStaffModal: (show: boolean) => void;
+  handleUpdateProfile?: (data: any) => void;
 }
 
 export const DashboardUI: React.FC<DashboardUIProps> = ({
@@ -72,6 +88,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
   setActiveTab,
   handleDeleteReferral,
   handleUpdateStatus,
+  handleUpdateProfile,
   setSelectedPromo,
   setIsPromoModalOpen,
   getStatusColor,
@@ -85,6 +102,60 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
   const [analytics, setAnalytics] = useState({ clicks: 0, completed: 0, dropOffRate: 0 });
   const [debugMsg, setDebugMsg] = useState("");
   const [announcement, setAnnouncement] = useState<{message: string, is_active: boolean} | null>(null);
+  
+  // Profile Completion logic
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: currentUser?.name || '',
+    phone: currentUser?.phone || '',
+    bank_name: currentUser?.bank_name || '',
+    bank_account_number: currentUser?.bank_account_number || ''
+  });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+
+  const calculateCompletion = () => {
+    let completedFields = 0;
+    const fields = ['name', 'phone', 'bank_name', 'bank_account_number'];
+    fields.forEach(field => {
+      if (currentUser[field] && currentUser[field].toString().trim() !== '') {
+        completedFields++;
+      }
+    });
+    return (completedFields / fields.length) * 100;
+  };
+
+  const completionPercentage = calculateCompletion();
+
+  const handleProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingProfile(true);
+    try {
+      const { error } = await supabase
+        .from('staff')
+        .update({
+          name: profileForm.name,
+          phone: profileForm.phone,
+          bank_name: profileForm.bank_name,
+          bank_account_number: profileForm.bank_account_number
+        })
+        .eq('id', currentUser.id);
+
+      if (error) throw error;
+
+      toast.success('Profile completed! You are now ready for payouts.');
+      setShowProfileModal(false);
+      
+      // Refresh user state
+      if (handleUpdateProfile) {
+        handleUpdateProfile(profileForm);
+      }
+    } catch (error: any) {
+      console.error('Update Error:', error);
+      toast.error('Failed to update profile: ' + error.message);
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
 
   useEffect(() => {
     // Announcements
@@ -151,6 +222,64 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
     </div>
   </div>
 )}
+
+      {/* ── Profile Completion Widget ── */}
+      {completionPercentage < 100 && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-[3rem] p-8 text-white shadow-xl relative overflow-hidden"
+        >
+          {/* Decorative backdrop */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-xl" />
+          
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-4 max-w-xl">
+              <div className="flex items-center gap-2">
+                <div className="bg-white/20 p-2 rounded-xl">
+                  <Star className="text-yellow-300 fill-yellow-300" size={20} />
+                </div>
+                <span className="text-xs font-black uppercase tracking-widest text-white/80">Profile Mastery</span>
+              </div>
+              <div>
+                <h3 className="text-2xl font-black tracking-tighter leading-tight">Action Required: Complete your profile to ensure smooth commission payouts.</h3>
+                <p className="text-white/70 text-sm font-medium mt-2">Almost there! Adding your bank details unlocks higher referral limits and instant withdrawals.</p>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between items-end">
+                  <span className="text-xs font-black uppercase tracking-widest text-white/60">Current Progress</span>
+                  <span className="text-lg font-black">{Math.round(completionPercentage)}%</span>
+                </div>
+                <div className="h-4 bg-black/20 rounded-full overflow-hidden border border-white/10 backdrop-blur-sm">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${completionPercentage}%` }}
+                    transition={{ duration: 1.5, ease: "circOut" }}
+                    className="h-full bg-gradient-to-r from-yellow-300 to-yellow-500 rounded-full shadow-[0_0_15px_rgba(253,224,71,0.5)]"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => {
+                setProfileForm({
+                  name: currentUser?.name || '',
+                  phone: currentUser?.phone || '',
+                  bank_name: currentUser?.bank_name || '',
+                  bank_account_number: currentUser?.bank_account_number || ''
+                });
+                setShowProfileModal(true);
+              }}
+              className="bg-white text-violet-600 px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg hover:shadow-xl hover:bg-zinc-50 active:scale-95 transition-all whitespace-nowrap"
+            >
+              Complete Profile Now
+            </button>
+          </div>
+        </motion.div>
+      )}
 
       {/* ── Admin / Manager / Receptionist stat cards ── */}
       {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
@@ -437,6 +566,133 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
 
         </div>
       </div>
+
+      <AnimatePresence>
+        {showProfileModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowProfileModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-[3rem] shadow-2xl overflow-hidden"
+              style={{ fontFamily: P }}
+            >
+              <div className="bg-gradient-to-br from-violet-600 to-fuchsia-600 p-8 text-white relative">
+                <button 
+                  onClick={() => setShowProfileModal(false)}
+                  className="absolute top-6 right-6 p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
+                >
+                  <X size={20} />
+                </button>
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="bg-white/20 p-3 rounded-2xl">
+                    <User size={32} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black tracking-tight">Complete Profile</h3>
+                    <p className="text-white/70 text-sm font-medium">Verify your details for smooth payouts</p>
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleProfileSubmit} className="p-8 space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[#1580c2]/40 ml-1">Full Name</label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1580c2]/40" size={18} />
+                      <input
+                        type="text"
+                        required
+                        value={profileForm.name}
+                        onChange={e => setProfileForm({ ...profileForm, name: e.target.value })}
+                        className="w-full bg-[#1580c2]/5 border-none rounded-2xl py-4 pl-12 pr-6 text-sm font-bold text-zinc-900 focus:ring-2 focus:ring-[#1580c2]/50 outline-none transition-all placeholder:text-zinc-300"
+                        placeholder="Legal Full Name"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[#1580c2]/40 ml-1">Phone Number</label>
+                    <div className="relative">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1580c2]/40" size={18} />
+                      <input
+                        type="tel"
+                        required
+                        value={profileForm.phone}
+                        onChange={e => setProfileForm({ ...profileForm, phone: e.target.value })}
+                        className="w-full bg-[#1580c2]/5 border-none rounded-2xl py-4 pl-12 pr-6 text-sm font-bold text-zinc-900 focus:ring-2 focus:ring-[#1580c2]/50 outline-none transition-all placeholder:text-zinc-300"
+                        placeholder="e.g. 0123456789"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-[#1580c2]/40 ml-1">Bank Name</label>
+                      <div className="relative">
+                        <Banknote className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1580c2]/40" size={18} />
+                        <select
+                          required
+                          value={profileForm.bank_name}
+                          onChange={e => setProfileForm({ ...profileForm, bank_name: e.target.value })}
+                          className="w-full bg-[#1580c2]/5 border-none rounded-2xl py-4 pl-12 pr-6 text-sm font-bold text-zinc-900 focus:ring-2 focus:ring-[#1580c2]/50 outline-none transition-all appearance-none"
+                        >
+                          <option value="">Select Bank</option>
+                          {MALAYSIAN_BANKS.map(bank => (
+                            <option key={bank} value={bank}>{bank}</option>
+                          ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#1580c2]/40">
+                          <Navigation size={14} className="rotate-90" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-[#1580c2]/40 ml-1">Account Number</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required
+                          value={profileForm.bank_account_number}
+                          onChange={e => setProfileForm({ ...profileForm, bank_account_number: e.target.value })}
+                          className="w-full bg-[#1580c2]/5 border-none rounded-2xl py-4 px-6 text-sm font-bold text-zinc-900 focus:ring-2 focus:ring-[#1580c2]/50 outline-none transition-all placeholder:text-zinc-300"
+                          placeholder="Bank Account No."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowProfileModal(false)}
+                    className="flex-1 px-8 py-4 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all active:scale-95"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingProfile}
+                    className="flex-2 px-8 py-4 bg-violet-600 hover:bg-violet-700 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-violet-200 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
+                  >
+                    {isUpdatingProfile ? 'Updating...' : 'Save & Unlock Payouts'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

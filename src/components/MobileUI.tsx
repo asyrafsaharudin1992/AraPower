@@ -398,6 +398,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                     handleDeleteReferral={handleDeleteReferral}
                     handleUpdateStatus={handleUpdateStatus}
                     handleClinicStatusUpdate={handleClinicStatusUpdate}
+                    handleUpdateProfile={handleUpdateProfile}
                     setSelectedPromo={setSelectedPromo}
                     setIsPromoModalOpen={setIsPromoModalOpen}
                     getStatusColor={getStatusColor}
