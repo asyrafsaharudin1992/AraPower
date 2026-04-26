@@ -206,10 +206,12 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
       // Use a session storage flag to prevent multiple tracking calls in the same session for the same ref
       const hasTracked = sessionStorage.getItem(`tracked_${urlRef}`);
       if (urlRef && !hasTracked) {
-        console.log('[TRACK] detected new urlRef in session:', urlRef);
-        const serviceName = params.get('serviceName') || params.get('sName') || null;
+        const rawServiceName = params.get('serviceName') || params.get('sName');
+        const serviceName = rawServiceName ? decodeURIComponent(rawServiceName.replace(/\+/g, ' ')) : null;
         const campaignId = params.get('campaignId') || params.get('cid') || null;
         const trackUrl = `${apiBaseUrl}/api/analytics/track`;
+
+        console.log('[TRACK] Initial visit detected:', { ref: urlRef, service: serviceName, campaign: campaignId });
 
         safeFetch(trackUrl, {
           method: 'POST',
@@ -217,15 +219,17 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
           body: JSON.stringify({
             event_type: 'clicked_tempah',
             referral_code: urlRef,
-            service_name: serviceName ? decodeURIComponent(serviceName) : null,
+            service_name: serviceName,
             campaign_id: campaignId
           }),
         }).then(({ res, data }) => {
           if (res.ok) {
              sessionStorage.setItem(`tracked_${urlRef}`, 'true');
-             console.log('[TRACK] success for:', urlRef);
+             console.log('[TRACK] Recorded successfully:', data);
+          } else {
+             console.warn('[TRACK] Server responded with error:', res.status, data);
           }
-        }).catch(err => console.error('[TRACK] failed:', err));
+        }).catch(err => console.error('[TRACK] Request failed:', err));
       }
     }
 

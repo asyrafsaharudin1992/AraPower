@@ -2334,21 +2334,19 @@ app.delete("/api/staff/:id/permanent", async (req, res) => {
 
 app.get("/api/test-db", async (req, res) => {
   try {
-    // 1. Check if Supabase is actually connected
     const isMock = (supabase.constructor.name === 'MockSupabase');
     
-    // 2. Fetch list of tables to verify naming (singular vs plural)
-    const { data: tables, error: tablesError } = await supabase.rpc('get_tables');
-    // If RPC fails, we'll try a direct query
+    // Try to get columns for booking_analytics
+    const { data: cols, error: colsError } = await supabase.from('booking_analytics').select('*').limit(0);
+    const existingCols = !colsError && cols ? Object.keys(cols) : [];
     
-    const { data: analyticsRow, error: analyticsError } = await supabase.from('booking_analytics').select('*').limit(1);
-    const { data: analyticsSingularRow, error: analyticsSingularError } = await supabase.from('booking_analytic').select('*').limit(1);
+    const { data: tables, error: tablesError } = await supabase.rpc('get_tables');
     
     res.json({
       status: 'success',
       supabase_type: isMock ? 'MOCK' : 'REAL',
-      booking_analytics: analyticsError ? { error: analyticsError.message } : { status: 'found', count: analyticsRow?.length },
-      booking_analytic: analyticsSingularError ? { error: analyticsSingularError.message } : { status: 'found', count: analyticsSingularRow?.length },
+      booking_analytics_columns: existingCols,
+      booking_analytics_error: colsError?.message,
       env: {
         has_url: !!process.env.VITE_SUPABASE_URL,
         has_key: !!process.env.VITE_SUPABASE_ANON_KEY || !!process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -2377,21 +2375,33 @@ app.post("/api/analytics/track", async (req, res) => {
   };
 
   try {
-    // Try plural first
-    let result = await supabase.from('booking_analytics').insert(payload).select();
+    // Determine which table to use
+    let tableName = 'booking_analytics';
+    const checkPlural = await supabase.from('booking_analytics').select('id').limit(1);
+    if (checkPlural.error && (checkPlural.error.message.includes('relation') || checkPlural.error.message.includes('not found'))) {
+      tableName = 'booking_analytic';
+    }
+
+    // Try full payload first
+    let result = await supabase.from(tableName).insert(payload).select();
     
-    // If table not found, try singular
-    if (result.error && (result.error.message.includes('relation') || result.error.message.includes('not found'))) {
-      console.log('[analytics/track] plural table not found, trying singular "booking_analytic"');
-      result = await supabase.from('booking_analytic').insert(payload).select();
+    // Fallback: If column missing (error 42703 or message contains 'column'), retry with basic payload
+    if (result.error && (result.error.code === '42703' || result.error.message.toLowerCase().includes('column'))) {
+      console.warn(`[analytics/track] Missing columns in ${tableName}, retrying with basic payload...`);
+      const basicPayload = {
+        event_type: payload.event_type,
+        referral_code: payload.referral_code,
+        created_at: payload.created_at
+      };
+      result = await supabase.from(tableName).insert(basicPayload).select();
     }
 
     if (result.error) {
-      console.error('[analytics/track] Supabase error:', result.error);
+      console.error('[analytics/track] Supabase final error:', result.error);
       return res.status(500).json({ error: result.error.message });
     }
 
-    console.log('[analytics/track] Success:', result.data);
+    console.log('[analytics/track] Success recorded in:', tableName, result.data);
     res.json({ success: true, data: result.data });
   } catch (err: any) {
     console.error('[analytics/track] Exception:', err);
