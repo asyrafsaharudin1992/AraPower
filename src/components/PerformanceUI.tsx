@@ -43,7 +43,7 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
   const [isLoading, setIsLoading] = useState(false);
 
   const completedRefs = referrals.filter(r =>
-    ['completed', 'payment_approved', 'payment_made'].includes(r.status?.toLowerCase())
+    ['completed'].includes(r.status?.toLowerCase())
   ).length;
 
   const currentTier = TIERS.find(t => completedRefs >= t.min && completedRefs <= t.max) || TIERS[0];
@@ -79,7 +79,7 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
 
         if (!error && data) {
           const clicks       = data.filter(e => e.event_type === 'clicked_tempah').length;
-          const successRefs  = referrals.filter(r => r.status === 'payment_made').length;
+          const successRefs  = referrals.filter(r => r.status?.toLowerCase() === 'completed').length;
           const rate         = clicks > 0 ? (successRefs / clicks) * 100 : 0;
           setStats({ clicks, referrals: successRefs, rate });
 
@@ -87,7 +87,7 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
           referrals.forEach(ref => {
             const n = ref.service_name || 'General Referral';
             if (!map[n]) map[n] = { name: n, clicks: 0, refs: 0 };
-            if (ref.status === 'payment_made') map[n].refs++;
+            if (ref.status?.toLowerCase() === 'completed') map[n].refs++;
           });
           data.forEach(ev => {
             if (ev.event_type === 'clicked_tempah') {

@@ -100,7 +100,6 @@ import { supabase, isPlaceholder } from './supabase';
 import { CommunicationUI } from './components/CommunicationUI';
 import PublicBookingUI from './components/PublicBookingUI';
 import { formatMyDate, formatMyDateOnly } from './utils';
-import { formatMyDate, formatMyDateOnly } from './utils';
 
 // Interfaces moved to types.ts
 
