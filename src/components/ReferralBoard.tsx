@@ -78,11 +78,17 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
     if (s === 'pending') {
       actions.push({ label: 'Mark Arrived', status: 'arrived', colour: 'text-blue-600' });
     }
+    if (s === 'arrived') {
+      actions.push({ label: 'Start Session', status: 'in_session', colour: 'text-brand-primary' });
+    }
     if (s === 'in_session') {
       actions.push({ label: 'Mark Completed', status: 'completed', colour: 'text-green-600' });
     }
     if (s === 'completed' && (isAdmin || isManager)) {
       actions.push({ label: 'Approve Payment', status: 'payment_approved', colour: 'text-purple-600' });
+    }
+    if (s === 'payment_approved' && (isAdmin || isManager)) {
+      actions.push({ label: 'Payment Made', status: 'payment_made', colour: 'text-emerald-700' });
     }
     if (['pending', 'arrived', 'in_session'].includes(s) && (isAdmin || isManager)) {
       actions.push({ label: 'Reject', status: 'rejected', colour: 'text-red-600' });

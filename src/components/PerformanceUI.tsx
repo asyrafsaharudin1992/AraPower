@@ -43,7 +43,7 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
   const [isLoading, setIsLoading] = useState(false);
 
   const completedRefs = referrals.filter(r =>
-    ['completed'].includes(r.status?.toLowerCase())
+    ['payment_made'].includes(r.status?.toLowerCase())
   ).length;
 
   const currentTier = TIERS.find(t => completedRefs >= t.min && completedRefs <= t.max) || TIERS[0];
@@ -167,7 +167,7 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
             style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', margin: 0, lineHeight: 1 }}
           >{stats.referrals}</motion.p>
-          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '4px 0 0' }}>{completedRefs} total completed</p>
+          <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '4px 0 0' }}>{completedRefs} incentives earned</p>
         </div>
       </div>
 
