@@ -194,13 +194,27 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
       localStorage.setItem('araclinic_ref_code', effectiveRef);
       setProvidedRefCode(effectiveRef);
       setIsLookingUpAffiliate(true);
-      
+
       safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${effectiveRef}`)
         .then(({ res, data }) => {
           if (res.ok && data) setReferringStaff(data);
         })
         .catch(err => console.error('Failed to lookup affiliate:', err))
         .finally(() => setIsLookingUpAffiliate(false));
+
+      // Track click — only when ref comes from URL (not localStorage repeat visit)
+      if (urlRef) {
+        const serviceName = params.get('serviceName') || params.get('sName') || null;
+        safeFetch(`${apiBaseUrl}/api/analytics/track`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_type: 'clicked_tempah',
+            referral_code: urlRef,
+            service_name: serviceName ? decodeURIComponent(serviceName) : null,
+          }),
+        }).catch(err => console.error('Analytics track failed:', err));
+      }
     }
 
     const serviceFromUrl = params.get('serviceName') || params.get('sName');

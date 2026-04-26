@@ -15,6 +15,14 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
+// Global Error Handlers to prevent server crashes
+process.on('uncaughtException', (err) => {
+  console.error('CRITICAL: Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 if (!fs.existsSync(path.join(__dirname, '.env')) && !process.env.VITE_SUPABASE_URL) {
   console.warn('WARNING: .env file not found and environment variables are missing.');
 }
@@ -1642,7 +1650,8 @@ app.get("/api/staff/email", async (req, res) => {
     let query = dbClient.from('staff').select(selectColumns);
     
     if (auth_id && staffColumns.has('auth_id')) {
-      query = query.or(`auth_id.eq.${auth_id},email.eq.${email}`);
+      // Quote the parameters in the .or string to handle special characters (like emails with @)
+      query = query.or(`auth_id.eq."${auth_id}",email.eq."${email}"`);
     } else {
       query = query.eq('email', email as string);
     }
@@ -2323,6 +2332,34 @@ app.delete("/api/staff/:id/permanent", async (req, res) => {
   }
 });
 
+// ── Analytics: track affiliate link clicks ─────────────────
+app.post("/api/analytics/track", async (req, res) => {
+  try {
+    const { event_type, referral_code, service_name } = req.body;
+    if (!event_type || !referral_code) {
+      return res.status(400).json({ error: "event_type and referral_code required" });
+    }
+    const { error } = await supabase
+      .from('booking_analytics')
+      .insert({ 
+        event_type, 
+        referral_code, 
+        service_name: service_name || null,
+        created_at: new Date().toISOString()
+      });
+    
+    if (error) {
+      console.warn('Analytics track error (logged but non-blocking):', error.message);
+      // We return success anyway to not block the frontend booking flow if analytics fail
+      return res.json({ success: true, warning: error.message });
+    }
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Analytics track exception:', err);
+    res.json({ success: true, error: 'Internal tracking error' }); // Non-blocking
+  }
+});
+
 app.get("/api/services", async (req, res) => {
   const baseColumns = Array.from(serviceColumns).length > 0 
     ? Array.from(serviceColumns) 
@@ -2982,6 +3019,22 @@ async function startServer() {
           ALTER TABLE referrals ADD COLUMN payment_status TEXT;
         END IF;
         
+        -- Create booking_analytics table if missing
+        IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='booking_analytics') THEN
+          CREATE TABLE booking_analytics (
+            id BIGSERIAL PRIMARY KEY,
+            event_type TEXT NOT NULL,
+            referral_code TEXT NOT NULL,
+            service_name TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+          );
+          -- Add RLS but keep it simple for the tracking feature
+          ALTER TABLE booking_analytics ENABLE ROW LEVEL SECURITY;
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'booking_analytics' AND policyname = 'Enable all for app') THEN
+            DO 'BEGIN CREATE POLICY "Enable all for app" ON booking_analytics FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN OTHERS THEN NULL; END';
+          END IF;
+        END IF;
+
         -- Create communications_log table if missing
         IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='communications_log') THEN
           CREATE TABLE communications_log (
