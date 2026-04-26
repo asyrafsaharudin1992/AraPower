@@ -43,7 +43,7 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
   const [isLoading, setIsLoading] = useState(false);
 
   const completedRefs = referrals.filter(r =>
-    ['payment_made'].includes(r.status?.toLowerCase())
+    r.status?.toLowerCase() === 'payment_made'
   ).length;
 
   const currentTier = TIERS.find(t => completedRefs >= t.min && completedRefs <= t.max) || TIERS[0];
