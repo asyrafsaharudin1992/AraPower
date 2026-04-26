@@ -2359,7 +2359,8 @@ app.post("/api/analytics/track", async (req, res) => {
     
     console.log(`[analytics/track] inserting: event=${event_type}, ref=${referral_code}, service=${service_name}, campaign=${campaign_id}`);
     
-    const { data, error } = await supabase
+    // Try first with all columns
+    let result = await supabase
       .from('booking_analytics')
       .insert({ 
         event_type, 
@@ -2369,6 +2370,21 @@ app.post("/api/analytics/track", async (req, res) => {
         created_at: new Date().toISOString()
       })
       .select();
+    
+    // Fallback: If it failed, maybe service_name/campaign_id columns are missing in DB
+    if (result.error && (result.error.message.includes('column') || result.error.code === '42703')) {
+      console.warn('[analytics/track] Missing columns in DB, retrying with basic set...');
+      result = await supabase
+        .from('booking_analytics')
+        .insert({ 
+          event_type, 
+          referral_code, 
+          created_at: new Date().toISOString()
+        })
+        .select();
+    }
+    
+    const { data, error } = result;
     
     if (error) {
       console.error('[analytics/track] Supabase insert error:', error);
@@ -3058,6 +3074,11 @@ async function startServer() {
           -- Drop existing if any and recreate to be sure
           DROP POLICY IF EXISTS "Enable all for app" ON booking_analytics;
           CREATE POLICY "Enable all for app" ON booking_analytics FOR ALL USING (true) WITH CHECK (true);
+        END IF;
+
+        -- Ensure service_name exists
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='booking_analytics' AND column_name='service_name') THEN
+          ALTER TABLE booking_analytics ADD COLUMN service_name TEXT;
         END IF;
 
         -- Ensure campaign_id exists if table already existed without it
