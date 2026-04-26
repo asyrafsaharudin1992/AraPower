@@ -54,3 +54,94 @@ export const handleDownloadPoster = async (url: string, fileName: string) => {
   window.open(url, '_blank', 'noopener,noreferrer');
 };
 
+// ── Malaysia Timezone Utilities (UTC+8) ───────────────────────────────────
+const MY_TIMEZONE = 'Asia/Kuala_Lumpur';
+
+/**
+ * Format a date/timestamp to Malaysia local time
+ * e.g. "26 Apr 2026, 8:45 PM"
+ */
+export const formatMyDate = (date: string | Date | null | undefined): string => {
+  if (!date) return '—';
+  try {
+    return new Date(date).toLocaleString('en-MY', {
+      timeZone: MY_TIMEZONE,
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch { return '—'; }
+};
+
+/**
+ * Date only — no time
+ * e.g. "26 Apr 2026"
+ */
+export const formatMyDateOnly = (date: string | Date | null | undefined): string => {
+  if (!date) return '—';
+  try {
+    return new Date(date).toLocaleString('en-MY', {
+      timeZone: MY_TIMEZONE,
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch { return '—'; }
+};
+
+/**
+ * Time only
+ * e.g. "8:45 PM"
+ */
+export const formatMyTime = (date: string | Date | null | undefined): string => {
+  if (!date) return '—';
+  try {
+    return new Date(date).toLocaleString('en-MY', {
+      timeZone: MY_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch { return '—'; }
+};
+
+/**
+ * Relative time — "2 hours ago", "just now", "3 days ago"
+ * Always calculated relative to Malaysia local time
+ */
+export const formatMyTimeAgo = (date: string | Date | null | undefined): string => {
+  if (!date) return '—';
+  try {
+    const diff = Date.now() - new Date(date).getTime();
+    const mins  = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days  = Math.floor(diff / 86400000);
+    if (mins < 1)   return 'just now';
+    if (mins < 60)  return `${mins}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7)   return `${days}d ago`;
+    return formatMyDateOnly(date);
+  } catch { return '—'; }
+};
+
+/**
+ * Short format for tables
+ * e.g. "26/04/26, 8:45 PM"
+ */
+export const formatMyShort = (date: string | Date | null | undefined): string => {
+  if (!date) return '—';
+  try {
+    return new Date(date).toLocaleString('en-MY', {
+      timeZone: MY_TIMEZONE,
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch { return '—'; }
+};

@@ -1,3 +1,4 @@
+import { formatMyDate } from '../utils';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -563,7 +564,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                                 {notif.title}
                               </h4>
                               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                                {new Date(notif.created_at).toLocaleDateString()}
+                                {formatMyDate(notif.created_at)}
                               </span>
                             </div>
                             <p className="text-sm leading-relaxed mb-4 text-zinc-500">{notif.message}</p>

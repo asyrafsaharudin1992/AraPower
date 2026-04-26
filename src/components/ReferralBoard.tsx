@@ -49,10 +49,14 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
   // Safe local date formatter — avoids UTC midnight timezone shift
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '—';
-    const d = dateStr.split('T')[0]; // strip time if present
-    if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return dateStr;
-    const [y, m, day] = d.split('-');
-    return `${day}/${m}/${y}`;
+    try {
+      return new Date(dateStr).toLocaleDateString('en-MY', {
+        timeZone: 'Asia/Kuala_Lumpur',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+    } catch { return '—'; }
   };
   const [referralBranchFilter, setReferralBranchFilter] = useState('all');
   const [referralStatusFilter, setReferralStatusFilter] = useState('all');

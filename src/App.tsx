@@ -99,6 +99,8 @@ import {
 import { supabase, isPlaceholder } from './supabase';
 import { CommunicationUI } from './components/CommunicationUI';
 import PublicBookingUI from './components/PublicBookingUI';
+import { formatMyDate, formatMyDateOnly } from './utils';
+import { formatMyDate, formatMyDateOnly } from './utils';
 
 // Interfaces moved to types.ts
 
@@ -3297,7 +3299,7 @@ export default function App() {
                             {notif.title}
                           </h4>
                           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                            {new Date(notif.created_at).toLocaleDateString()}
+                            {formatMyDate(notif.created_at)}
                           </span>
                         </div>
                         <p className={`text-sm leading-relaxed mb-4 ${
@@ -3495,7 +3497,7 @@ export default function App() {
                           .map((lead) => (
                           <tr key={lead.id} className="hover:bg-zinc-50/50 transition-colors">
                             <td className="p-4 text-xs text-zinc-600">
-                              {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : 'N/A'}
+                              {formatMyDateOnly(lead.created_at)}
                             </td>
                             <td className="p-4">
                               <span className="text-sm font-bold text-zinc-900">{lead.patient_name}</span>
@@ -3894,7 +3896,7 @@ export default function App() {
                           <div className="flex flex-wrap items-center gap-4">
                             <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
                               <Calendar size={12} className="text-zinc-900" />
-                              Due: {new Date(task.due_date).toLocaleDateString()}
+                              Due: {formatMyDateOnly(task.due_date)}
                             </div>
                             <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
                               <User size={12} className="text-zinc-900" />
