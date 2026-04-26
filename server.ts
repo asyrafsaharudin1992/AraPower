@@ -2385,15 +2385,16 @@ app.post("/api/analytics/track", async (req, res) => {
     // Try full payload first
     let result = await supabase.from(tableName).insert(payload).select();
     
-    // Fallback: If column missing (error 42703 or message contains 'column'), retry with basic payload
+    // Fallback: campaign_id column may not exist — retry without it, keep service_name
     if (result.error && (result.error.code === '42703' || result.error.message.toLowerCase().includes('column'))) {
-      console.warn(`[analytics/track] Missing columns in ${tableName}, retrying with basic payload...`);
-      const basicPayload = {
+      console.warn(`[analytics/track] Column error, retrying without campaign_id...`);
+      const fallbackPayload = {
         event_type: payload.event_type,
         referral_code: payload.referral_code,
+        service_name: payload.service_name,
         created_at: payload.created_at
       };
-      result = await supabase.from(tableName).insert(basicPayload).select();
+      result = await supabase.from(tableName).insert(fallbackPayload).select();
     }
 
     if (result.error) {
