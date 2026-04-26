@@ -3,12 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Calendar, Zap, UserCircle, Plus,
   Mail, CheckCircle2, ArrowLeft, ShieldAlert, Trash2,
-  ShieldCheck
+  ShieldCheck, BarChart3
 } from 'lucide-react';
 
 // Tab content components — passed via props from App
 import { ReferralBoard } from './ReferralBoard';
 import { PromotionsUI } from './PromotionsUI';
+import { PerformanceUI } from './PerformanceUI';
 
 // Lazy-loaded heavier components
 const DashboardUI = React.lazy(() => import('./DashboardUI').then(m => ({ default: m.DashboardUI })));
@@ -17,6 +18,7 @@ const MobileAdminUI = React.lazy(() => import('./MobileAdminUI').then(m => ({ de
 
 export type MobileTab =
   | 'dashboard'
+  | 'performance'
   | 'referrals'
   | 'promotions'
   | 'profile'
@@ -197,25 +199,35 @@ export const MobileUI: React.FC<MobileUIProps> = ({
 
       {/* ── BOTTOM NAV ─────────────────────────────────────────── */}
       <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
-        <nav className={`max-w-md mx-auto ${reduceTranslucency ? 'bg-white' : 'bg-white/80 backdrop-blur-2xl'} border border-[#1580c2]/10 px-4 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto`}>
+        <nav className={`max-w-md mx-auto ${reduceTranslucency ? 'bg-white' : 'bg-white/80 backdrop-blur-2xl'} border border-[#1580c2]/10 px-6 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto`}>
+          
+          {/* Dashboard */}
+          <button onClick={() => setActiveTab('dashboard')}
+            className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'dashboard' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
+            <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-burnt-peach/10' : ''}`}>
+              <LayoutDashboard size={22} />
+            </div>
+          </button>
 
-          <div className="flex flex-1 justify-around items-center">
-            <button onClick={() => setActiveTab('dashboard')}
-              className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'dashboard' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
-              <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-burnt-peach/10' : ''}`}>
-                <LayoutDashboard size={22} />
+          {/* Performance */}
+          <button onClick={() => setActiveTab('performance')}
+            className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'performance' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
+            <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'performance' ? 'bg-burnt-peach/10' : ''}`}>
+              <BarChart3 size={22} />
+            </div>
+          </button>
+
+          {/* Referrals (Staff only) */}
+          {currentUser.role !== 'admin' && currentUser.role !== 'manager' && (
+            <button onClick={() => setActiveTab('referrals')}
+              className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'referrals' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
+              <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-burnt-peach/10' : ''}`}>
+                <Calendar size={22} />
               </div>
             </button>
-            {currentUser.role !== 'admin' && currentUser.role !== 'manager' && (
-              <button onClick={() => setActiveTab('referrals')}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'referrals' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
-                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-burnt-peach/10' : ''}`}>
-                  <Calendar size={22} />
-                </div>
-              </button>
-            )}
-          </div>
+          )}
 
+          {/* Admin Floating Button (Admin only) */}
           {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
             <div className="flex-shrink-0 -mt-8">
               <button 
@@ -231,22 +243,23 @@ export const MobileUI: React.FC<MobileUIProps> = ({
             </div>
           )}
 
-          <div className="flex flex-1 justify-around items-center">
-            {currentUser.role !== 'admin' && currentUser.role !== 'manager' && (
-              <button onClick={() => setActiveTab('promotions')}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'promotions' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
-                <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'promotions' ? 'bg-burnt-peach/10' : ''}`}>
-                  <Zap size={22} />
-                </div>
-              </button>
-            )}
-            <button onClick={() => setActiveTab('profile')}
-              className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'profile' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
-              <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'profile' ? 'bg-burnt-peach/10' : ''}`}>
-                <UserCircle size={22} />
+          {/* Promotions (Staff only) */}
+          {currentUser.role !== 'admin' && currentUser.role !== 'manager' && (
+            <button onClick={() => setActiveTab('promotions')}
+              className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'promotions' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
+              <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'promotions' ? 'bg-burnt-peach/10' : ''}`}>
+                <Zap size={22} />
               </div>
             </button>
-          </div>
+          )}
+
+          {/* Profile */}
+          <button onClick={() => setActiveTab('profile')}
+            className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'profile' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
+            <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'profile' ? 'bg-burnt-peach/10' : ''}`}>
+              <UserCircle size={22} />
+            </div>
+          </button>
         </nav>
       </div>
 
@@ -377,6 +390,10 @@ export const MobileUI: React.FC<MobileUIProps> = ({
 
             {/* ── TAB CONTENT ──────────────────────────────────────── */}
             <AnimatePresence mode="wait">
+
+              {activeTab === 'performance' && (
+                <PerformanceUI currentUser={currentUser} referrals={referrals} />
+              )}
 
               {activeTab === 'dashboard' && (
                 <React.Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-burnt-peach" /></div>}>

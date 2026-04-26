@@ -21,7 +21,9 @@ import {
   Phone,
   Banknote,
   Navigation,
-  Star
+  Star,
+  Megaphone,
+  BarChart3
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -45,7 +47,8 @@ const MALAYSIAN_BANKS = [
   "Bank Islam Malaysia Berhad","Bank Muamalat Malaysia Berhad"
 ];
 
-export interface DashboardUIProps {
+
+interface DashboardUIProps {
   currentUser: any;
   referrals: any[];
   clinicProfile: any;
@@ -172,7 +175,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
       }
     };
     fetchAnnouncement();
-
+    
     if (currentUser.role !== 'admin' && currentUser.role !== 'manager') return;
 
     const fetchAnalytics = async () => {
@@ -198,7 +201,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
     };
     
     fetchAnalytics();
-  }, [currentUser.role]);
+  }, [currentUser.role, currentUser.referral_code, referrals]);
 
   return (
     <motion.div
@@ -452,9 +455,8 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
       )}
 
       {/* ── Awareness Campaigns Carousel ── */}
-      <AwarenessCarousel />
+      <AwarenessCarousel currentUser={currentUser} />
 
-      {/* ── Available Services ── */}
       <div className="space-y-4">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ fontSize: '17px', fontWeight: 700, color: blue, margin: 0 }}>Available Services</h3>

@@ -377,10 +377,15 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
     if (success) {
       const params = new URLSearchParams(window.location.search);
       const currentRefCode = params.get('ref') || null;
-      
+      const currentCampaignId = params.get('campaignId') || params.get('cid');
+      const srv = services.find(s => String(s.id) === String(selectedService) || s.name === selectedService);
+      const serviceName = srv?.name || urlServiceName || 'General Booking';
+
       supabase.from('booking_analytics').insert([{ 
         event_type: 'completed_booking',
-        referral_code: currentRefCode 
+        referral_code: currentRefCode,
+        service_name: serviceName,
+        campaign_id: currentCampaignId
       }]).then();
 
       localStorage.removeItem('araclinic_ref_code'); // CLEAR THE CACHE HERE
@@ -628,16 +633,22 @@ const PublicBookingUI: React.FC<PublicBookingUIProps> = ({
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.15 }}
-                onClick={() => {
-                  const params = new URLSearchParams(window.location.search);
-                  const currentRefCode = params.get('ref') || null;
-                  supabase.from('booking_analytics').insert([{ 
-                    event_type: 'clicked_tempah',
-                    referral_code: currentRefCode 
-                  }]).then();
-                  
-                  setPublicBookingStep('form');
-                }}
+                    onClick={() => {
+                      const params = new URLSearchParams(window.location.search);
+                      const currentRefCode = params.get('ref') || null;
+                      const currentCampaignId = params.get('campaignId') || params.get('cid');
+                      const srv = services.find(s => String(s.id) === String(selectedService));
+                      const serviceName = srv?.name || urlServiceName || 'General Link';
+
+                      supabase.from('booking_analytics').insert([{ 
+                        event_type: 'clicked_tempah',
+                        referral_code: currentRefCode,
+                        service_name: serviceName,
+                        campaign_id: currentCampaignId
+                      }]).then();
+                      
+                      setPublicBookingStep('form');
+                    }}
                 className="relative w-full rounded-3xl overflow-hidden active:scale-[0.98] transition-transform"
               >
                 {/* aspect-[3/2] forces the card to stay rectangular and crops the empty space */}

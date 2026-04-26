@@ -14,7 +14,11 @@ interface Campaign {
   created_at: string;
 }
 
-export const AwarenessCarousel: React.FC = () => {
+interface AwarenessCarouselProps {
+  currentUser?: any;
+}
+
+export const AwarenessCarousel: React.FC<AwarenessCarouselProps> = ({ currentUser }) => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,22 +48,28 @@ export const AwarenessCarousel: React.FC = () => {
     try {
       const loadingToast = toast.loading('Preparing to share...');
       
-      // 1. Fetch the image and convert to a File object
+      // 1. Generate referral link if staff info available
+      const baseUrl = window.location.origin;
+      const refCode = currentUser?.referral_code || '';
+      const personalizedLink = refCode ? `${baseUrl}/?ref=${refCode}&cid=${campaign.id}` : baseUrl;
+      const finalCaption = `${campaign.caption}\n\nBook here: ${personalizedLink}`;
+
+      // 2. Fetch the image and convert to a File object
       const response = await fetch(campaign.image_url);
       const blob = await response.blob();
       const file = new File([blob], 'campaign-poster.jpg', { type: blob.type });
 
-      // 2. Try native sharing (Mobile)
+      // 3. Try native sharing (Mobile)
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         toast.dismiss(loadingToast);
         await navigator.share({
           title: campaign.title,
-          text: campaign.caption,
+          text: finalCaption,
           files: [file]
         });
       } else {
-        // 3. Fallback (Desktop or unsupported browser)
-        await navigator.clipboard.writeText(campaign.caption);
+        // 4. Fallback (Desktop or unsupported browser)
+        await navigator.clipboard.writeText(finalCaption);
         toast.success('Caption copied! Image download starting...', { id: loadingToast });
         
         // Trigger manual image download
@@ -194,8 +204,12 @@ export const AwarenessCarousel: React.FC = () => {
                       </div>
                       <button 
                         onClick={() => {
-                          navigator.clipboard.writeText(selectedCampaign.caption);
-                          toast.success('Caption copied!');
+                          const baseUrl = window.location.origin;
+                          const refCode = currentUser?.referral_code || '';
+                          const personalizedLink = refCode ? `${baseUrl}/?ref=${refCode}&cid=${selectedCampaign.id}` : baseUrl;
+                          const finalCaption = `${selectedCampaign.caption}\n\nBook here: ${personalizedLink}`;
+                          navigator.clipboard.writeText(finalCaption);
+                          toast.success('Caption + Link copied!');
                         }}
                         className="p-1 px-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-zinc-200"
                       >

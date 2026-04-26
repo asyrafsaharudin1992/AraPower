@@ -8,6 +8,7 @@ import { PromotionsCarousel } from './components/PromotionsCarousel';
 import { AdminUI } from './components/AdminUI';
 import { AffiliateManagement } from './components/AffiliateManagement';
 import { DashboardUI } from './components/DashboardUI';
+import { PerformanceUI } from './components/PerformanceUI';
 import { CategoryScrollRow } from './components/CategoryScrollRow';
 import { PayoutManagement } from './components/PayoutManagement';
 import { ReferralBoard } from './components/ReferralBoard';
@@ -821,7 +822,7 @@ export default function App() {
       created_at: new Date().toISOString()
     }
   ]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'promotions' | 'payouts' | 'inbox' | 'communication' | 'warm-leads' | 'affiliates'>(() => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'performance' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'promotions' | 'payouts' | 'inbox' | 'communication' | 'warm-leads' | 'affiliates'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('lastActiveTab');
       if (saved) return saved as any;
@@ -1090,7 +1091,23 @@ export default function App() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [apiBaseUrl, setApiBaseUrl] = useState('');
+  const [apiBaseUrl, setApiBaseUrl] = useState(() => {
+    // In many development environments, using window.location.origin is more reliable than relative paths if the app is served via proxy.
+    // However, if we need to support specific backend URLs, we can use process.env.VITE_API_URL here.
+    return '';
+  });
+
+  // Explicitly check the backend health
+  useEffect(() => {
+    const initApiUrl = async () => {
+      // If we are in dev mode and need an absolute URL
+      if (import.meta.env.DEV && !apiBaseUrl) {
+        // Try to auto-detect if the backend is on the same host but different port if needed
+        // For AI Studio, it's usually same host same port (3000)
+      }
+    };
+    initApiUrl();
+  }, []);
   const isSupabaseConfigured = !isPlaceholder;
 
   const [payoutSummaries, setPayoutSummaries] = useState<any[]>([]);
@@ -2925,6 +2942,13 @@ export default function App() {
                 <span className="text-sm font-bold">Dashboard</span>
               </button>
               <button 
+                onClick={() => setActiveTab('performance')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'performance' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
+              >
+                <BarChart3 size={18} />
+                <span className="text-sm font-bold">Performance</span>
+              </button>
+              <button 
                 onClick={() => setActiveTab('referrals')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'referrals' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
               >
@@ -3178,6 +3202,10 @@ export default function App() {
               </header>
 
         <AnimatePresence mode="wait">
+          {activeTab === 'performance' && (
+            <PerformanceUI currentUser={currentUser} referrals={referrals} />
+          )}
+
           {activeTab === 'dashboard' && (
             <DashboardUI 
               currentUser={currentUser}
