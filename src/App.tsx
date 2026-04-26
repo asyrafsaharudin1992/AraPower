@@ -730,7 +730,13 @@ export const Logo = ({ className = "w-8 h-8", logoUrl }: { className?: string, l
 // Check if user has complete profile for payouts
 const isProfileComplete = (user: any): boolean => {
   if (!user) return false;
-  return !!(user.bank_name && user.bank_account_number && user.id_number);
+  return !!(
+    user.name && 
+    user.phone && 
+    user.bank_name && 
+    user.bank_account_number && 
+    user.id_number
+  );
 };
 
 const getShareUrl = (customDomain?: string) => {
@@ -888,6 +894,15 @@ export default function App() {
     };
     fetchLatestUser();
   }, []); // Run once on mount
+
+  // Centralized currentUser -> localStorage sync
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('currentUser');
+    }
+  }, [currentUser]);
 
   // Clinic & Roles State
   const [clinicProfile, setClinicProfile] = useState<ClinicProfile>({

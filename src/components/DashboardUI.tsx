@@ -113,13 +113,14 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
     name: currentUser?.name || '',
     phone: currentUser?.phone || '',
     bank_name: currentUser?.bank_name || '',
-    bank_account_number: currentUser?.bank_account_number || ''
+    bank_account_number: currentUser?.bank_account_number || '',
+    id_number: currentUser?.id_number || ''
   });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
   const calculateCompletion = () => {
     let completedFields = 0;
-    const fields = ['name', 'phone', 'bank_name', 'bank_account_number'];
+    const fields = ['name', 'phone', 'bank_name', 'bank_account_number', 'id_number'];
     fields.forEach(field => {
       if (currentUser[field] && currentUser[field].toString().trim() !== '') {
         completedFields++;
@@ -134,28 +135,22 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
     e.preventDefault();
     setIsUpdatingProfile(true);
     try {
-      const { error } = await supabase
-        .from('staff')
-        .update({
+      // Use the parent's update profile handler which handles API and state syncing
+      if (handleUpdateProfile) {
+        await handleUpdateProfile({
           name: profileForm.name,
           phone: profileForm.phone,
           bank_name: profileForm.bank_name,
-          bank_account_number: profileForm.bank_account_number
-        })
-        .eq('id', currentUser.id);
-
-      if (error) throw error;
-
-      toast.success('Profile completed! You are now ready for payouts.');
-      setShowProfileModal(false);
-      
-      // Refresh user state
-      if (handleUpdateProfile) {
-        handleUpdateProfile(profileForm);
+          bank_account_number: profileForm.bank_account_number,
+          id_number: (profileForm as any).id_number,
+          id_type: 'MyKad'
+        });
+        toast.success('Profile updated successfully!');
       }
+      setShowProfileModal(false);
     } catch (error: any) {
       console.error('Update Error:', error);
-      toast.error('Failed to update profile: ' + error.message);
+      toast.error('Failed to update profile');
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -273,7 +268,8 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                   name: currentUser?.name || '',
                   phone: currentUser?.phone || '',
                   bank_name: currentUser?.bank_name || '',
-                  bank_account_number: currentUser?.bank_account_number || ''
+                  bank_account_number: currentUser?.bank_account_number || '',
+                  id_number: currentUser?.id_number || ''
                 });
                 setShowProfileModal(true);
               }}
@@ -674,6 +670,22 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
                           placeholder="Bank Account No."
                         />
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[#1580c2]/40 ml-1">IC Number (MyKad)</label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1580c2]/40" size={18} />
+                      <input
+                        type="text"
+                        required
+                        maxLength={12}
+                        value={profileForm.id_number}
+                        onChange={e => setProfileForm({ ...profileForm, id_number: e.target.value.replace(/[^0-9]/g, '') })}
+                        className="w-full bg-[#1580c2]/5 border-none rounded-2xl py-4 pl-12 pr-6 text-sm font-bold text-zinc-900 focus:ring-2 focus:ring-[#1580c2]/50 outline-none transition-all placeholder:text-zinc-300"
+                        placeholder="e.g. 900101105050"
+                      />
                     </div>
                   </div>
                 </div>
