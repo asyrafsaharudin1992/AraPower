@@ -972,7 +972,7 @@ app.get("/api/communications/history", async (req, res) => {
     const { data, error } = await supabase
       .from('communications_log')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .limit(20);
     
     if (error) {
@@ -990,18 +990,21 @@ app.get("/api/communications/history", async (req, res) => {
 app.post("/api/communications/log", async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Supabase not initialized' });
-    const { channel, sender_id, recipient_count, subject, message, recipients } = req.body;
+    const { channel, recipient_count, subject, message, recipients } = req.body;
     
+    // Map recipients to recipient_ids JSON string since DB expects recipient_ids
+    const recipient_ids = Array.isArray(recipients) 
+      ? JSON.stringify(recipients.map((r: any) => r.id)) 
+      : '[]';
+
     const { data, error } = await supabase
       .from('communications_log')
       .insert([{
         channel,
-        sender_id,
         recipient_count,
         subject: subject || null,
         message,
-        recipients: recipients || [],
-        created_at: new Date().toISOString()
+        recipient_ids
       }])
       .select()
       .single();
@@ -1045,13 +1048,19 @@ app.post("/api/communications/email", async (req, res) => {
     // Send emails
     for (const recipient of validRecipients) {
       try {
-        await resend.emails.send({
+        const result = await resend.emails.send({
           from: 'Klinik Ara 24 Jam <noreply@hsohealthcare.com>',
           to: recipient.email,
           subject: subject,
           html: buildEmailTemplate(recipient.name, message, subject)
         });
-        sent++;
+        
+        if (result.error) {
+           console.error(`Failed to send email to ${recipient.email}:`, result.error);
+           failed++;
+        } else {
+           sent++;
+        }
       } catch (err) {
         console.error(`Failed to send email to ${recipient.email}:`, err);
         failed++;
@@ -1066,7 +1075,7 @@ app.post("/api/communications/email", async (req, res) => {
         subject,
         message,
         recipient_count: sent,
-        recipient_ids: JSON.stringify(validRecipients.map(r => r.id)),
+        recipient_ids: JSON.stringify(validRecipients.map(r => r.id))
       }]);
 
     res.json({ success: true, sent, failed });
@@ -3119,12 +3128,11 @@ async function startServer() {
           CREATE TABLE communications_log (
             id BIGSERIAL PRIMARY KEY,
             channel TEXT NOT NULL,
-            sender_id BIGINT,
             recipient_count INTEGER DEFAULT 0,
             subject TEXT,
             message TEXT NOT NULL,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            recipients JSONB DEFAULT '[]'::jsonb
+            sent_at TIMESTAMPTZ DEFAULT NOW(),
+            recipient_ids TEXT DEFAULT '[]'
           );
           ALTER TABLE communications_log ENABLE ROW LEVEL SECURITY;
           -- Check if policy exists before creating

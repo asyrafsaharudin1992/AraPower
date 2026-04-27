@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Staff, Communication } from '../types';
 import { toast } from 'react-hot-toast';
+import { formatMyDate } from '../utils';
 
 interface CommunicationUIProps {
   currentUser: Staff;
@@ -86,7 +87,7 @@ export const CommunicationUI: React.FC<CommunicationUIProps> = ({
   const getRecipients = () => {
     if (selectionType === 'all') return affiliates;
     if (selectionType === 'tier') return affiliates.filter(s => s.tier?.name === selectedTier);
-    if (selectionType === 'individual') return affiliates.filter(s => selectedIndividuals.includes(s.id));
+    if (selectionType === 'individual') return affiliates.filter(s => selectedIndividuals.includes(String(s.id)));
     return [];
   };
 
@@ -147,8 +148,7 @@ export const CommunicationUI: React.FC<CommunicationUIProps> = ({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            channel: 'in-app',
-            sender_id: currentUser.id,
+            channel: 'in_app',
             recipient_count: recipients.length,
             subject: title,
             message,
@@ -176,7 +176,7 @@ export const CommunicationUI: React.FC<CommunicationUIProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_ids: recipients.map(r => r.id),
+          user_ids: recipients.map(r => String(r.id)),
           subject,
           message,
           sender_id: currentUser.id
@@ -184,9 +184,17 @@ export const CommunicationUI: React.FC<CommunicationUIProps> = ({
       });
 
       if (res.ok) {
-        toast.success(`E-mel berjaya dihantar kepada ${data.sent} penerima`);
-        resetForm();
-        fetchHistory();
+        if (data.sent > 0 && data.failed === 0) {
+          toast.success(`E-mel berjaya dihantar kepada ${data.sent} penerima`);
+          resetForm();
+          fetchHistory();
+        } else if (data.sent > 0 && data.failed > 0) {
+          toast.success(`E-mel dihantar kepada ${data.sent} penerima, tetapi gagal untuk ${data.failed} penerima`);
+          resetForm();
+          fetchHistory();
+        } else if (data.sent === 0 && data.failed > 0) {
+          toast.error(`Gagal menghantar e-mel. Sila pastikan API Key Resend telah disahkan.`);
+        }
       } else {
         toast.error(data.error || 'Gagal menghantar e-mel');
       }
@@ -203,15 +211,6 @@ export const CommunicationUI: React.FC<CommunicationUIProps> = ({
     setTitle('');
   };
 
-  const openWhatsApp = (staff: Staff) => {
-    const phone = staff.phone?.replace(/\D/g, '');
-    if (!phone) return;
-    
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
-    setWhatsappSentCount(prev => prev + 1);
-  };
-
   const logWhatsAppCommunication = async () => {
     const recipients = whatsappQueue;
     await safeFetch(`${apiBaseUrl}/api/communications/log`, {
@@ -219,7 +218,6 @@ export const CommunicationUI: React.FC<CommunicationUIProps> = ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         channel: 'whatsapp',
-        sender_id: currentUser.id,
         recipient_count: recipients.length,
         message,
         recipients: recipients.map(r => ({ id: r.id, name: r.name, phone: r.phone }))
@@ -430,7 +428,7 @@ export const CommunicationUI: React.FC<CommunicationUIProps> = ({
                             </span>
                             <span className="text-[10px] text-zinc-300">•</span>
                             <span className="text-[10px] font-medium text-zinc-400">
-                              {new Date(h.created_at).toLocaleString()}
+                              {formatMyDate(h.created_at || h.sent_at)}
                             </span>
                           </div>
                         </div>
@@ -549,12 +547,12 @@ export const CommunicationUI: React.FC<CommunicationUIProps> = ({
                           <label key={staff.id} className="flex items-center gap-3 p-3 rounded-2xl hover:bg-zinc-50 transition-colors cursor-pointer group">
                              <input 
                                 type="checkbox"
-                                checked={selectedIndividuals.includes(staff.id)}
+                                checked={selectedIndividuals.includes(String(staff.id))}
                                 onChange={(e) => {
                                   if (e.target.checked) {
-                                    setSelectedIndividuals([...selectedIndividuals, staff.id]);
+                                    setSelectedIndividuals([...selectedIndividuals, String(staff.id)]);
                                   } else {
-                                    setSelectedIndividuals(selectedIndividuals.filter(id => id !== staff.id));
+                                    setSelectedIndividuals(selectedIndividuals.filter(id => id !== String(staff.id)));
                                   }
                                 }}
                                 className="w-5 h-5 rounded-lg border-zinc-200 text-[#1580c2] focus:ring-[#1580c2]"
@@ -638,18 +636,26 @@ export const CommunicationUI: React.FC<CommunicationUIProps> = ({
                         <p className="text-sm font-bold text-zinc-900">{staff.name}</p>
                         <p className="text-xs text-zinc-500">{staff.phone || 'Tiada nombor telefon'}</p>
                       </div>
-                      <button 
-                        onClick={() => openWhatsApp(staff)}
-                        disabled={!hasPhone}
-                        className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                          hasPhone 
-                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/10 hover:bg-emerald-600' 
-                            : 'bg-zinc-100 text-zinc-400'
-                        }`}
-                      >
-                        Buka WhatsApp
-                        <ChevronRight size={14} />
-                      </button>
+                      {hasPhone ? (
+                        <a 
+                          href={`https://wa.me/${staff.phone?.replace(/\D/g, '').startsWith('0') ? '60' + staff.phone?.replace(/\D/g, '').substring(1) : staff.phone?.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setWhatsappSentCount(prev => prev + 1)}
+                          className="flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all bg-emerald-500 text-white shadow-lg shadow-emerald-500/10 hover:bg-emerald-600"
+                        >
+                          Buka WhatsApp
+                          <ChevronRight size={14} />
+                        </a>
+                      ) : (
+                        <button 
+                          disabled
+                          className="flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all bg-zinc-100 text-zinc-400"
+                        >
+                          Buka WhatsApp
+                          <ChevronRight size={14} />
+                        </button>
+                      )}
                     </div>
                   );
                 })}

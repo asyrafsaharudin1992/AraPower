@@ -684,14 +684,14 @@ export const safeFetch = async (url: string, options?: RequestInit, retries = 3,
       return { res, data: { error: errorText || res.statusText || "Unknown error" } };
     }
   } catch (e: any) {
-    console.error(`Fetch error for ${url}:`, e);
-    
     // Retry on network errors
     if (retries > 0) {
-      console.warn(`Network error for ${url}. Retrying in ${backoff}ms...`);
+      console.warn(`Network error for ${url} (${e.message}). Retrying in ${backoff}ms...`);
       await new Promise(resolve => setTimeout(resolve, backoff));
       return safeFetch(url, options, retries - 1, backoff * 2);
     }
+
+    console.error(`Fetch error for ${url} after all retries:`, e);
     
     const isNetworkError = e.message === 'Failed to fetch' || e.name === 'TypeError';
     const errorMsg = isNetworkError 

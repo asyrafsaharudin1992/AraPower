@@ -116,6 +116,20 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
     bank_account_number: currentUser?.bank_account_number || '',
     id_number: currentUser?.id_number || ''
   });
+
+  useEffect(() => {
+    if (currentUser) {
+      setProfileForm(prev => ({
+        ...prev,
+        name: currentUser.name || prev.name,
+        phone: currentUser.phone || prev.phone,
+        bank_name: currentUser.bank_name || prev.bank_name,
+        bank_account_number: currentUser.bank_account_number || prev.bank_account_number,
+        id_number: currentUser.id_number || prev.id_number
+      }));
+    }
+  }, [currentUser]);
+
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
   const calculateCompletion = () => {

@@ -1,0 +1,56 @@
+869:        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser.id}`);
+885:          const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser.id}`);
+1110:  const [apiBaseUrl, setApiBaseUrl] = useState(() => {
+1120:      if (import.meta.env.DEV && !apiBaseUrl) {
+1230:  }, [apiBaseUrl]);
+1375:        `${apiBaseUrl}/api/staff/email?email=${encodeURIComponent(email)}${authIdQuery}${cacheBuster}`,
+1434:      apiBaseUrl,
+1463:      const { res, data } = await safeFetch(`${apiBaseUrl}/api/health`);
+1487:    const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks`, {
+1494:    const { res, data } = await safeFetch(`${apiBaseUrl}/api/settings`);
+1582:    const { res, data } = await safeFetch(`${apiBaseUrl}/api/special-offers`);
+1649:  }, [apiBaseUrl]);
+1652:    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff`);
+1718:      const { res, data } = await safeFetch(`${apiBaseUrl}/api/services`);
+1740:      const { res, data } = await safeFetch(`${apiBaseUrl}/api/branches`);
+1758:    const { res, data } = await safeFetch(`${apiBaseUrl}/api/branch-change-requests`);
+1763:    const { res, data } = await safeFetch(`${apiBaseUrl}/api/payouts/summary`);
+1771:      const { res, data } = await safeFetch(`${apiBaseUrl}/api/payouts/process`, {
+1794:        safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+1815:      ? `${apiBaseUrl}/api/referrals?requesterRole=${currentUser.role}&requesterBranch=${currentUser.branch || 'all'}` 
+1816:      : `${apiBaseUrl}/api/referrals?staffId=${currentUser.id}&requesterRole=${currentUser.role}`;
+1913:      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff?promoCode=${code}`);
+1984:      const url = `${apiBaseUrl}/api/referrals`;
+2047:      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+2075:      const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+2084:          await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+2109:        const { res, data } = await safeFetch(`${apiBaseUrl}/api/referrals/${id}`, {
+2125:      const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser.id}/profile`, {
+2266:      const url = serviceToSave.id ? `${apiBaseUrl}/api/services/${serviceToSave.id}` : `${apiBaseUrl}/api/services`;
+2294:        const { res, data } = await safeFetch(`${apiBaseUrl}/api/services/${id}`, { method: 'DELETE' });
+2310:      const url = editingStaff.id ? `${apiBaseUrl}/api/staff/${editingStaff.id}` : `${apiBaseUrl}/api/staff`;
+2336:      const { res, data } = await safeFetch(`${apiBaseUrl}/api/feedback`, {
+2371:      const { res, data } = await safeFetch(`${apiBaseUrl}/api/admin/reset-password`, {
+2396:        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}`, { method: 'DELETE' });
+2411:        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/restore`, { method: 'POST' });
+2426:        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/permanent`, { method: 'DELETE' });
+2441:        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}`, {
+2461:        const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/reset-password`, { method: 'POST' });
+2487:      const { res, data } = await safeFetch(`${apiBaseUrl}/api/auth/change-password`, {
+2524:    const { res } = await safeFetch(editingTask?.id ? `${apiBaseUrl}/api/tasks/${editingTask.id}` : `${apiBaseUrl}/api/tasks`, {
+2542:        const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks/${id}`, { method: 'DELETE' });
+2550:    const { res, data } = await safeFetch(`${apiBaseUrl}/api/tasks/${id}`, {
+2560:    const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${id}/approve`, {
+2621:        apiBaseUrl={apiBaseUrl}
+2647:        apiBaseUrl={apiBaseUrl}
+2734:                const { res, data } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser.id}`);
+3620:              apiBaseUrl={apiBaseUrl}
+3631:              apiBaseUrl={apiBaseUrl}
+4580:                          await safeFetch(`${apiBaseUrl}/api/settings`, {
+4609:                            const url = editingBranch?.id ? `${apiBaseUrl}/api/branches/${editingBranch.id}` : `${apiBaseUrl}/api/branches`;
+4813:                                        const { res, data } = await safeFetch(`${apiBaseUrl}/api/branches/${branch.name}/performance`);
+4830:                                            const { res } = await safeFetch(`${apiBaseUrl}/api/branches/${branch.id}`, { method: 'DELETE' });
+4974:                            const { res } = await safeFetch(`${apiBaseUrl}/api/settings`, {
+5035:                            await safeFetch(`${apiBaseUrl}/api/settings`, {
+5084:                              const { res, data } = await safeFetch(`${apiBaseUrl}/api/settings`, {
+5235:                            const { res } = await safeFetch(`${apiBaseUrl}/api/settings`, {

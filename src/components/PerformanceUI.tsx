@@ -90,7 +90,7 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
 
         if (!error && data) {
           const clicks       = data.filter(e => e.event_type === 'clicked_tempah').length;
-          const successRefs  = referrals.filter(r => r.status?.toLowerCase() === 'completed').length;
+          const successRefs  = referrals.filter(r => ['completed', 'payment_approved', 'payment_made'].includes(r.status?.toLowerCase())).length;
           const rate         = clicks > 0 ? (successRefs / clicks) * 100 : 0;
           setStats({ clicks, referrals: successRefs, rate });
 
@@ -102,7 +102,7 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({ currentUser, refer
             const rawName = ref.service_name || 'General Link';
             const key = getNormalizedKey(rawName);
             if (!map[key]) map[key] = { name: rawName.trim(), clicks: 0, refs: 0 };
-            if (ref.status?.toLowerCase() === 'completed') map[key].refs++;
+            if (['completed', 'payment_approved', 'payment_made'].includes(ref.status?.toLowerCase())) map[key].refs++;
           });
           
           data.forEach(ev => {
