@@ -1329,6 +1329,7 @@ export default function App() {
         // Don't log in if this is a password recovery session
         if (isPasswordRecovery.current) return;
         if (session?.user?.email) {
+          // Do not clear state here. Fetch and merge or keep existing.
           fetchStaffByEmail(session.user.email, session.user).catch(e => console.error('Error fetching staff on auth change:', e));
         }
       } else if (event === 'SIGNED_OUT') {
@@ -1365,6 +1366,7 @@ export default function App() {
     }
   }, [showWelcome]);
 
+  // Use useCallback if needed, though this is stable enough for the component tree.
   const fetchStaffByEmail = async (email: string, user?: any) => {
     try {
       const authIdQuery = user?.id ? `&auth_id=${user.id}` : '';
@@ -1386,11 +1388,18 @@ export default function App() {
         throw new Error(data?.error || `Server error: ${res.status}`);
       }
       
-      if (data) {
+      if (data && Object.keys(data).length > 0) {
         localStorage.setItem('currentUser', JSON.stringify(data));
         setCurrentUser(data);
         return data;
       } else {
+        console.warn('Backend returned empty user data.');
+        const cachedUserStr = localStorage.getItem('currentUser');
+        if (cachedUserStr) {
+          try {
+             return JSON.parse(cachedUserStr);
+          } catch (e) {}
+        }
         throw new Error('User profile not found.');
       }
     } catch (error: any) {
@@ -1401,17 +1410,8 @@ export default function App() {
       const isNetworkError = error.message && error.message.includes('Network error');
       
       if (!isNetworkError) {
-        // If we fail to load the profile, sign them out so they aren't stuck in a weird state
-        supabase.auth.signOut().catch(e => console.warn('Error during auto-signOut:', e));
-        
-        // Manually clear Supabase auth tokens from local storage just in case signOut failed
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-            localStorage.removeItem(key);
-          }
-        });
-        
-        localStorage.removeItem('currentUser');
+        // Do NOT auto sign-out on data fetch failure. It causes dropped state.
+        console.warn('Failed to load profile. Not signing out to preserve state.');
       }
     } finally {
       setIsAuthChecking(false);

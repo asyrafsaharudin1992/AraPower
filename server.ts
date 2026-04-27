@@ -1646,17 +1646,11 @@ app.get("/api/staff/email", async (req, res) => {
     const { email, auth_id } = req.query;
     if (!email) return res.status(400).json({ error: "Email is required" });
     
-    // Always include is_approved — missing it causes the pending approval screen to flash
-    const staffColsWithApproval = new Set(staffColumns);
-    staffColsWithApproval.add('is_approved');
-    const selectColumns = staffColsWithApproval.size > 4
-      ? Array.from(staffColsWithApproval).join(',')
-      : 'id, name, email, role, is_approved';
-
-    // Use service role key if available to bypass RLS (in case of broken policies like infinite recursion)
+    // Use select(*) to ensure we get all profile fields like bank_name, phone, etc.
+    // This prevents state drops on the frontend when columns are migrating.
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const dbClient = serviceRoleSupabase;
-    let query = dbClient.from('staff').select(selectColumns);
+    let query = dbClient.from('staff').select('*');
     
     if (auth_id && staffColumns.has('auth_id')) {
       // Quote the parameters in the .or string to handle special characters (like emails with @)
@@ -1682,14 +1676,16 @@ app.get("/api/staff/email", async (req, res) => {
         .from('staff')
         .update({ auth_id })
         .eq('id', staff.id)
-        .select()
+        .select('*')
         .single();
         
       if (updatedStaff) {
+        if (updatedStaff.password) delete updatedStaff.password;
         return res.json(updatedStaff);
       }
     }
       
+    if (staff && staff.password) delete staff.password;
     res.json(staff || null);
   } catch (err: any) {
     console.error('CRITICAL: Error in /api/staff/email:', err);
@@ -1937,20 +1933,19 @@ app.get("/api/staff", async (req, res) => {
   try {
     const { promoCode, id } = req.query;
     
-    const selectColumns = Array.from(staffColumns).length > 0 
-      ? Array.from(staffColumns).join(',') 
-      : 'id, name, email, role';
-
-    let query = supabase.from('staff').select(selectColumns);
+    // Always use * to prevent state drops on missing columns in the cache
+    let query = supabase.from('staff').select('*');
     
     if (id) {
       const { data, error } = await query.eq('id', id).single();
+      if (data && data.password) delete data.password;
       return res.json(data || null);
     }
     
     if (promoCode) {
       if (staffColumns.has('referral_code')) {
         const { data, error } = await query.eq('referral_code', promoCode).single();
+        if (data && data.password) delete data.password;
         return res.json(data || null);
       }
       return res.json(null);
@@ -1963,7 +1958,13 @@ app.get("/api/staff", async (req, res) => {
       Object.keys(data[0]).forEach(key => staffColumns.add(key));
     }
 
-    res.json(data);
+    // Never send passwords to frontend
+    const sanitizedData = data?.map(d => {
+      if (d.password) delete d.password;
+      return d;
+    });
+
+    res.json(sanitizedData);
   } catch (err: any) {
     console.error("Unhandled error in /api/staff:", err);
     res.status(500).json({ error: "Internal Server Error" });
