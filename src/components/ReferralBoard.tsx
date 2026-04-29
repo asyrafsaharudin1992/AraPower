@@ -47,18 +47,41 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
 }) => {
   const [referralSearch, setReferralSearch] = useState('');
 
-  // Safe local date formatter — avoids UTC midnight timezone shift
+  // Date formatter — human readable, Malaysia timezone
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '—';
     try {
       return new Date(dateStr).toLocaleDateString('en-MY', {
         timeZone: 'Asia/Kuala_Lumpur',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
+        day: 'numeric', month: 'short', year: 'numeric',
       });
     } catch { return '—'; }
   };
+
+  // Format time cleanly — removes seconds
+  const formatTime = (timeStr: string | null | undefined) => {
+    if (!timeStr) return null;
+    try {
+      const [h, m] = timeStr.split(':').map(Number);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const hour = h % 12 || 12;
+      return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
+    } catch { return timeStr; }
+  };
+
+  // Status colour — soft pill style
+  const getStatusPill = (status: string) => {
+    const s = status?.toLowerCase();
+    if (s === 'completed')        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (s === 'payment_approved') return 'bg-purple-50 text-purple-700 border-purple-200';
+    if (s === 'payment_made')     return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+    if (s === 'arrived')          return 'bg-blue-50 text-blue-700 border-blue-200';
+    if (s === 'in_session')       return 'bg-cyan-50 text-cyan-700 border-cyan-200';
+    if (s === 'rejected')         return 'bg-red-50 text-red-600 border-red-200';
+    return 'bg-amber-50 text-amber-700 border-amber-200'; // pending
+  };
+
+  const isAffiliate = currentUser?.role === 'affiliate';
   const [referralBranchFilter, setReferralBranchFilter] = useState('all');
   const [referralStatusFilter, setReferralStatusFilter] = useState('all');
   const [referralServiceFilter, setReferralServiceFilter] = useState('all'); // NEW STATE
@@ -167,88 +190,128 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
   };
   const selectStyle: React.CSSProperties = { ...inputStyle, cursor: 'pointer' };
 
-  return (
-    <ReferralHeader 
-      onSearchChange={setReferralSearch}
-      onExportClick={exportToCSV}
-      onFilterClick={() => setShowFilters(!showFilters)}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+  // Mobile search + filter bar (inline, no ReferralHeader wrapper)
+  const mobileToolbar = (
+    <div className="flex items-center gap-2 mb-3">
+      <div className="relative flex-1">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+        <input
+          type="text"
+          value={referralSearch}
+          onChange={e => setReferralSearch(e.target.value)}
+          placeholder="Search service or branch..."
+          className="w-full h-11 bg-zinc-100 border-0 rounded-2xl text-sm font-medium text-zinc-700 pl-9 pr-4 focus:outline-none focus:ring-2 focus:ring-[#1580c2]/20 placeholder-zinc-400"
+        />
+      </div>
+      <button onClick={() => setShowFilters(!showFilters)}
+        className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all ${showFilters ? 'bg-[#1580c2] text-white' : 'bg-zinc-100 text-zinc-500'}`}>
+        <SlidersHorizontal size={16} />
+      </button>
+      <button onClick={exportToCSV}
+        className="w-11 h-11 rounded-2xl bg-zinc-100 flex items-center justify-center flex-shrink-0 text-zinc-500 hover:bg-zinc-200 transition-all">
+        <Download size={16} />
+      </button>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <div>
+        {mobileToolbar}
         <AnimatePresence>
           {showFilters && (
-            <motion.div 
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden"
-            >
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '8px 0' }}>
-                <select value={referralBranchFilter} onChange={(e) => setReferralBranchFilter(e.target.value)} style={selectStyle}>
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-3">
+              <div className="flex flex-wrap gap-2 pb-2">
+                <select value={referralBranchFilter} onChange={e => setReferralBranchFilter(e.target.value)} className="flex-1 min-w-[120px] h-9 bg-white border border-zinc-200 rounded-xl px-3 text-xs font-medium text-zinc-700 focus:outline-none">
                   <option value="all">All Branches</option>
                   {branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
                 </select>
-                <select value={referralServiceFilter} onChange={(e) => setReferralServiceFilter(e.target.value)} style={selectStyle}>
-                  <option value="all">All Services</option>
-                  {uniqueServices.map(service => <option key={service} value={service}>{service}</option>)}
-                </select>
-                <select value={referralStatusFilter} onChange={(e) => setReferralStatusFilter(e.target.value)} style={selectStyle}>
+                <select value={referralStatusFilter} onChange={e => setReferralStatusFilter(e.target.value)} className="flex-1 min-w-[120px] h-9 bg-white border border-zinc-200 rounded-xl px-3 text-xs font-medium text-zinc-700 focus:outline-none">
                   <option value="all">All Statuses</option>
                   <option value="pending">Pending</option>
                   <option value="arrived">Arrived</option>
                   <option value="in_session">In Session</option>
                   <option value="completed">Completed</option>
                   <option value="payment_approved">Payment Approved</option>
-                  <option value="payment_made">Payment Made</option>
+                  <option value="payment_made">Paid</option>
                   <option value="rejected">Rejected</option>
                 </select>
-                <button onClick={fetchReferrals}
-                  style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, color: blue, background: 'white', border: '1px solid #e2e8f0', cursor: 'pointer', padding: '6px 10px', borderRadius: '10px' }}
-                >
-                  <RefreshCw size={12} /> Refresh
-                </button>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── Mobile View ── */}
-      {isMobile ? (
-        <div>
           {filteredReferrals.length === 0 ? (
-            <p style={{ padding: '48px', textAlign: 'center', fontSize: '14px', fontWeight: 500, color: blue, opacity: 0.45 }}>No referrals found.</p>
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <div className="w-16 h-16 rounded-full bg-[#1580c2]/8 flex items-center justify-center">
+                <Search size={24} className="text-[#1580c2]/30" />
+              </div>
+              <p className="text-sm font-bold text-zinc-400">No referrals found</p>
+              <p className="text-xs text-zinc-300">Try adjusting your filters</p>
+            </div>
           ) : (
-            filteredReferrals.map((ref) => (
-              <div key={ref.id}
-                style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', background: '#ffffff' }}
+            <div className="mt-2">
+            {filteredReferrals.map((ref, idx) => {
+              const staffName = staffList?.find(s => String(s.id) === String(ref.staff_id) || (s.referral_code && String(s.referral_code) === String(ref.staff_id)))?.name || ref.staff_name || 'Direct Walk-in';
+              const staffInitial = staffName[0]?.toUpperCase() || 'D';
+              const dateStr = formatDate(ref.appointment_date || ref.date);
+              const timeStr = formatTime(ref.booking_time);
+              return (
+              <motion.div
+                key={ref.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.04 }}
+                className={`py-4 active:bg-[#f8fafc] transition-colors ${idx !== filteredReferrals.length - 1 ? 'border-b border-[#1580c2]/5' : ''}`}
               >
-                {/* Top row: name + status */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                  <div>
-                    <p style={{ fontSize: '14px', fontWeight: 700, color: blue, margin: '0 0 2px 0' }}>{ref.patient_name || 'Hidden (P&C)'}</p>
-                    <p style={{ fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.55, margin: 0 }}>{ref.service_name}</p>
-                  </div>
-                  <span className={getStatusColor(ref.status)}
-                    style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', marginLeft: '8px' }}>
+                {/* Top: service tag + status pill */}
+                <div className="flex items-start justify-between gap-2">
+                  <span className="inline-block px-2.5 py-1 bg-[#1580c2]/8 text-[#1580c2] rounded-xl text-[11px] font-semibold truncate max-w-[65%]">
+                    {ref.service_name || 'General'}
+                  </span>
+                  <span className={`flex-shrink-0 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border ${getStatusPill(ref.status)}`}>
                     {getStatusLabel(ref.status)}
                   </span>
                 </div>
 
-                {/* Middle row: meta + incentive */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: blue }}>
-                      <span style={{ fontWeight: 600, opacity: 0.55 }}>Appt:</span>
-                      <span style={{ fontWeight: 500 }}>{formatDate(ref.appointment_date)}{ref.booking_time ? ` @ ${ref.booking_time}` : ''}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: blue }}>
-                      <span style={{ fontWeight: 600, opacity: 0.55 }}>Branch:</span>
-                      <span style={{ fontWeight: 500 }}>{ref.branch || '—'}</span>
-                    </div>
-                    <div style={{ fontSize: '11px', fontWeight: 500, color: blue, opacity: 0.4 }}>Submitted: {formatDate(ref.date)}</div>
+                {/* Patient name or privacy mask */}
+                {isAffiliate ? (
+                  <div className="flex items-center gap-2">
+                    <Lock size={11} className="text-zinc-300 flex-shrink-0" />
+                    <span className="text-zinc-300 tracking-[0.25em] text-sm font-medium">••••••••</span>
+                    <span className="text-[10px] text-zinc-300 font-medium">Private</span>
                   </div>
-                  <span style={{ fontSize: '15px', fontWeight: 700, color: blue }}>
-                    {clinicProfile?.currency || 'RM'} {ref.commission_amount?.toFixed(2) || '0.00'}
-                  </span>
+                ) : (
+                  <p className="text-[15px] font-black text-zinc-800 leading-tight">
+                    {ref.patient_name || 'Unknown Patient'}
+                  </p>
+                )}
+
+                {/* Date · Time · Branch */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2 text-xs text-zinc-500">
+                    <span>📅</span>
+                    <span className="font-semibold text-zinc-700">{dateStr}</span>
+                    {timeStr && <><span className="text-zinc-300">·</span><span className="font-semibold text-zinc-700">{timeStr}</span></>}
+                  </div>
+                  {ref.branch && (
+                    <div className="flex items-center gap-2 text-xs text-zinc-500">
+                      <span>🏥</span>
+                      <span className="font-medium">{ref.branch}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom: submitted date + incentive */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-zinc-400">Submitted</span>
+                    <span className="text-[11px] font-semibold text-zinc-500">{formatDate(ref.date)}</span>
+                  </div>
+                  <div className="text-right flex-shrink-0 flex items-baseline gap-0.5">
+                    <span className="text-[11px] font-medium text-[#1580c2]/60">{clinicProfile?.currency || 'RM'}</span>
+                    <span className="text-[17px] font-black text-[#1580c2] tracking-tight">{(ref.commission_amount || 0).toFixed(2)}</span>
+                  </div>
                 </div>
 
                 {/* Status action dropdown */}
@@ -256,13 +319,13 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                   const actions = getAvailableActions(ref);
                   if (actions.length === 0) return null;
                   return (
-                    <div style={{ marginTop: '12px' }}>
+                    <div style={{ marginTop: '8px' }}>
                       <select
                         defaultValue=""
                         onChange={(e) => {
                           if (e.target.value) { setPendingStatusUpdate({ id: ref.id, status: e.target.value }); e.target.value = ''; }
                         }}
-                        style={{ ...selectStyle, width: '100%' }}
+                        className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-bold text-zinc-700 focus:outline-none focus:border-[#1580c2] transition-colors"
                       >
                         <option value="" disabled>Update Status...</option>
                         {actions.map(a => <option key={a.status} value={a.status}>{a.label}</option>)}
@@ -270,12 +333,54 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                     </div>
                   );
                 })()}
-              </div>
-            ))
+              </motion.div>
+            );
+            })}
+            </div>
           )}
         </div>
-      ) : (
-        /* ── Desktop View ── */
+    );
+  }
+
+  // ── Desktop View ────────────────────────────────────────────────────────
+  return (
+    <>
+      <ReferralHeader
+        onSearchChange={setReferralSearch}
+        onExportClick={exportToCSV}
+        onFilterClick={() => setShowFilters(!showFilters)}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <AnimatePresence>
+            {showFilters && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '8px 0' }}>
+                  <select value={referralBranchFilter} onChange={(e) => setReferralBranchFilter(e.target.value)} style={selectStyle}>
+                    <option value="all">All Branches</option>
+                    {branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                  </select>
+                  <select value={referralServiceFilter} onChange={(e) => setReferralServiceFilter(e.target.value)} style={selectStyle}>
+                    <option value="all">All Services</option>
+                    {uniqueServices.map(service => <option key={service} value={service}>{service}</option>)}
+                  </select>
+                  <select value={referralStatusFilter} onChange={(e) => setReferralStatusFilter(e.target.value)} style={selectStyle}>
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="arrived">Arrived</option>
+                    <option value="in_session">In Session</option>
+                    <option value="completed">Completed</option>
+                    <option value="payment_approved">Payment Approved</option>
+                    <option value="payment_made">Payment Made</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                  <button onClick={fetchReferrals} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, color: blue, background: 'white', border: '1px solid #e2e8f0', cursor: 'pointer', padding: '6px 10px', borderRadius: '10px' }}>
+                    <RefreshCw size={12} /> Refresh
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {/* ── Desktop View ── */}
         <div className="bg-white rounded-2xl border border-[#1580c2]/10 shadow-sm overflow-x-auto">
           <table style={{ minWidth: '1000px', width: '100%', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left' }}>
             <thead>
@@ -310,9 +415,9 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                     >
                       <td style={{ padding: '16px 12px', fontSize: '12px', fontWeight: 500, color: '#1580c2', opacity: 0.6 }}>{formatDate(ref.date)}</td>
                       <td style={{ padding: '16px 12px' }}>
-                        <p style={{ fontSize: '14px', fontWeight: 700, color: '#0c4a6e', margin: '0 0 4px 0' }}>{ref.patient_name || 'Hidden (P&C)'}</p>
+                        <p style={{ fontSize: '14px', fontWeight: 700, color: '#0c4a6e', margin: '0 0 4px 0' }}>{isAffiliate ? '••••••••' : (ref.patient_name || 'Unknown')}</p>
                         <div className="flex items-center gap-2">
-                          <p style={{ fontSize: '12px', fontWeight: 500, color: '#1580c2', opacity: 0.5, margin: 0 }}>{ref.patient_phone || 'Hidden (P&C)'}</p>
+                          <p style={{ fontSize: '12px', fontWeight: 500, color: '#1580c2', opacity: 0.5, margin: 0 }}>{isAffiliate ? '••••••' : (ref.patient_phone || '—')}</p>
                           {ref.patient_phone && (
                             <a 
                               href={getWhatsAppUrl(ref.patient_phone)}
@@ -387,10 +492,7 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
               </tbody>
             </table>
         </div>
-      )}
-
       </div>
-
       {/* ── Confirm modal ── */}
       <AnimatePresence>
         {pendingStatusUpdate && (
@@ -424,7 +526,8 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
-    </ReferralHeader>
+      </ReferralHeader>
+    </>
   );
 };
 export default ReferralBoard;

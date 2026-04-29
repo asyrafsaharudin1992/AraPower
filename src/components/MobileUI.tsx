@@ -1,6 +1,6 @@
 import { formatMyDate } from '../utils';
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard, Calendar, Zap, UserCircle, Plus,
   Mail, CheckCircle2, ArrowLeft, ShieldAlert, Trash2,

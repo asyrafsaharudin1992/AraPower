@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Search, CheckCircle2, Download, DollarSign, RefreshCw , AlertTriangle } from 'lucide-react';
 
 interface PayoutManagementProps {

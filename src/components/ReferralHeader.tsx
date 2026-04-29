@@ -17,13 +17,22 @@ export const ReferralHeader: React.FC<ReferralHeaderProps> = ({
   return (
     <div className="w-full bg-[#f8fafc] pt-4">
       {/* Main Container */}
-      <div className="w-full mx-auto px-0 sm:px-4 lg:px-8">
+      <div className="w-full mx-auto px-4 lg:px-8">
         <div 
-          className="bg-white sm:rounded-t-[2.5rem] border-t border-x border-[#1580c2]/10 p-5 shadow-sm"
+          className="bg-white rounded-[2.5rem] border border-[#1580c2]/10 p-5 shadow-sm"
         >
           
           {/* Header Row (Title & Export) */}
-          <div className="flex justify-between items-center mb-4 px-2">
+          <div 
+            className="flex justify-between items-center mb-4 px-2"
+            style={{ 
+              paddingLeft: '14px',
+              marginLeft: '-30px',
+              marginRight: '-30px',
+              paddingRight: '29px',
+              marginTop: '0px'
+            }}
+          >
             <h1 className="text-xl md:text-2xl font-bold text-[#1580c2] tracking-tight">
               Referral History
             </h1>
