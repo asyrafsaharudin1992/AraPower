@@ -1108,8 +1108,7 @@ export default function App() {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState(() => {
-    // In many development environments, using window.location.origin is more reliable than relative paths if the app is served via proxy.
-    // However, if we need to support specific backend URLs, we can use process.env.VITE_API_URL here.
+    if (typeof window !== 'undefined') return window.location.origin;
     return '';
   });
 
@@ -1374,21 +1373,14 @@ export default function App() {
       const cacheBuster = `&t=${new Date().getTime()}`;
       
       const { res, data } = await safeFetch(
-        `${apiBaseUrl}/api/staff/email?email=${encodeURIComponent(email)}${authIdQuery}${cacheBuster}`,
-        { 
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          }
-        }
+        `${apiBaseUrl}/api/staff/email?email=${encodeURIComponent(email)}${authIdQuery}${cacheBuster}`
       );
       
       if (!res.ok) {
         throw new Error(data?.error || `Server error: ${res.status}`);
       }
       
-      if (data && Object.keys(data).length > 0) {
+      if (data && typeof data === 'object' && Object.keys(data).length > 0) {
         localStorage.setItem('currentUser', JSON.stringify(data));
         setCurrentUser(data);
         return data;
@@ -1397,7 +1389,9 @@ export default function App() {
         const cachedUserStr = localStorage.getItem('currentUser');
         if (cachedUserStr) {
           try {
-             return JSON.parse(cachedUserStr);
+             const cached = JSON.parse(cachedUserStr);
+             setCurrentUser(cached);
+             return cached;
           } catch (e) {}
         }
         throw new Error('User profile not found.');
@@ -3219,7 +3213,13 @@ export default function App() {
 
         <AnimatePresence mode="wait">
           {activeTab === 'performance' && (
-            <PerformanceUI currentUser={currentUser} referrals={referrals} />
+            <PerformanceUI 
+              currentUser={currentUser} 
+              referrals={referrals} 
+              branches={branches}
+              staffList={staffList}
+              services={services}
+            />
           )}
 
           {activeTab === 'dashboard' && (

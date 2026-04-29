@@ -27,7 +27,7 @@
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --color-eggshell: #F4F1DE;
+  --color-eggshell: #FFFFFF;
   --color-burnt-peach: #E07A5F;
   --color-muted-teal: #81B29A;
   --color-twilight-indigo: #3D405B;
@@ -36,7 +36,7 @@
   /* Mapping for existing components if needed, but we'll update components directly */
   --color-brand-primary: #3D405B;
   --color-brand-accent: #E07A5F;
-  --color-brand-bg: #F4F1DE;
+  --color-brand-bg: #FFFFFF;
   --color-brand-surface: #81B29A;
 }
 

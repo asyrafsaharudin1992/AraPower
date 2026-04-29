@@ -194,10 +194,6 @@ export const MobileUI: React.FC<MobileUIProps> = ({
   return (
     <div className="pb-44 min-h-screen bg-white relative">
 
-      {/* Background ambient gradients */}
-      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-muted-teal/10 to-transparent -z-10 pointer-events-none" />
-      <div className="absolute top-[10%] -right-[20%] w-[80%] h-[40%] bg-burnt-peach/5 rounded-full blur-[100px] -z-10 pointer-events-none" />
-
       {/* ── BOTTOM NAV ─────────────────────────────────────────── */}
       <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
         <nav className={`max-w-md mx-auto ${reduceTranslucency ? 'bg-white' : 'bg-white/80 backdrop-blur-2xl'} border border-[#1580c2]/10 px-6 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto`}>
