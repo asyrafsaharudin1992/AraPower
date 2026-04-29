@@ -335,8 +335,18 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
                           <span style={{ fontSize: 12, fontWeight: 600, color: '#0c4a6e' }}>{c.name}</span>
                           <span style={{ fontSize: 10, fontWeight: 700, color: g.textColor }}>{c.rate.toFixed(1)}%</span>
                         </div>
-                        <div style={{ height: 3, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
+                        <div style={{ height: 3, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden', marginBottom: 6 }}>
                           <div style={{ height: '100%', background: g.bar, width: `${Math.min(c.rate * 5, 100)}%` }} />
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1">
+                            <MousePointerClick size={10} className="text-[#1580c2] opacity-50" />
+                            <span className="text-[10px] font-medium text-[#1580c2]/60">{c.clicks} clicks</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <TrendingUp size={10} className="text-[#1580c2] opacity-50" />
+                            <span className="text-[10px] font-medium text-[#1580c2]/60">{c.refs} refs</span>
+                          </div>
                         </div>
                       </motion.div>
                     );
@@ -353,35 +363,43 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
       )}
 
       {isAdmin && adminSubTab === 'service' && (
-        <div className="bg-white rounded-2xl border border-black/5 p-4 space-y-4">
-          <p className="text-[10px] text-zinc-400 font-bold tracking-widest uppercase mb-2">COMPLETED VISITS BY SERVICE</p>
-          {adminStatsByService.length > 0 ? (
+        <div className="bg-white rounded-2xl border border-[#1580c2]/5 p-4 space-y-4 shadow-sm">
+          <p className="text-[10px] text-[#1580c2] opacity-60 font-bold tracking-widest uppercase mb-2">PERFORMANCE BY SERVICE</p>
+          {campaigns.length > 0 ? (
             <div className="space-y-3">
-              {adminStatsByService.map((s: any, i: number) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-white border border-[#1580c2]/10 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#1580c2]/10 flex items-center justify-center text-[#1580c2]">
-                      <Megaphone size={16} />
+              {campaigns.map((s: any, i: number) => {
+                const g = getGrade(s.rate);
+                return (
+                  <div key={i} className="flex flex-col p-3 bg-[#f8fafc] border border-[#1580c2]/5 rounded-xl">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[#1580c2]/10 flex items-center justify-center text-[#1580c2]">
+                          <Megaphone size={16} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-[#0c4a6e]">{s.name}</p>
+                          <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-tight">{s.refs} visits · {s.clicks} clicks</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-[#1580c2]">{s.rate.toFixed(1)}%</p>
+                        <p className="text-[9px] font-bold text-[#1580c2]/50 uppercase">{g.label}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-[#0c4a6e]">{s.name}</p>
-                      <p className="text-[10px] text-zinc-400">{s.count} visits</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-[#1580c2]">{((s.count / stats.referrals) * 100 || 0).toFixed(0)}%</p>
-                    <div className="w-20 h-1.5 bg-zinc-100 rounded-full mt-1 overflow-hidden">
-                      <div 
+                    <div className="w-full h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(s.rate * 4, 100)}%` }}
                         className="h-full bg-[#1580c2]" 
-                        style={{ width: `${(s.count / stats.referrals) * 100}%` }}
+                        style={{ backgroundColor: g.bar }}
                       />
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
-            <NoData message="No service data found" />
+            <NoData message="No service analytics yet" />
           )}
         </div>
       )}
