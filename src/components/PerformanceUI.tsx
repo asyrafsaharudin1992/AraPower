@@ -12,15 +12,15 @@ interface PerformanceUIProps {
 }
 
 const TIERS = [
-  { name: 'Bronze', min: 0,  max: 5,  next: 'Silver', bonus: '×1.0', textColor: '#b45309', bg: '#fffbeb', border: '#fde68a', bar: '#f59e0b' },
-  { name: 'Silver', min: 6,  max: 10, next: 'Gold',   bonus: '×1.2', textColor: '#475569', bg: '#f8f9fb', border: '#e2e8f0', bar: '#94a3b8' },
-  { name: 'Gold',   min: 11, max: 999,next: null,      bonus: '×1.5', textColor: '#b45309', bg: '#fffbeb', border: '#fde68a', bar: '#f59e0b' },
+  { name: 'Bronze', min: 0,  max: 5,  next: 'Silver', bonus: '×1.0', textColor: '#1580c2', bg: '#f0f9ff', border: '#bae6fd', bar: '#38bdf8' },
+  { name: 'Silver', min: 6,  max: 10, next: 'Gold',   bonus: '×1.2', textColor: '#0c4a6e', bg: '#e0f2fe', border: '#7dd3fc', bar: '#0284c7' },
+  { name: 'Gold',   min: 11, max: 999,next: null,      bonus: '×1.5', textColor: '#075985', bg: '#eff6ff', border: '#60a5fa', bar: '#1580c2' },
 ];
 
 const getGrade = (rate: number) => {
-  if (rate >= 15) return { label: 'Excellent',     textColor: '#166534', bg: '#f0fdf4', border: '#bbf7d0', bar: '#22c55e' };
-  if (rate >= 5)  return { label: 'Good form',     textColor: '#3b6d11', bg: '#eaf3de', border: '#c0dd97', bar: '#639922' };
-  return              { label: 'Keep sharing',   textColor: '#854f0b', bg: '#fffbeb', border: '#fde68a', bar: '#ef9f27' };
+  if (rate >= 15) return { label: 'Excellent',     textColor: '#0c4a6e', bg: '#f0f9ff', border: '#bae6fd', bar: '#1580c2' };
+  if (rate >= 5)  return { label: 'Good form',     textColor: '#1580c2', bg: '#f8fafc', border: '#e2e8f0', bar: '#38bdf8' };
+  return              { label: 'Keep sharing',   textColor: '#475569', bg: '#f1f5f9', border: '#cbd5e1', bar: '#94a3b8' };
 };
 
 const getMotivation = (clicks: number, refs: number, rate: number) => {
@@ -43,9 +43,9 @@ const BADGES = [
 const COMPLETED_STATUSES = ['completed', 'payment_approved', 'payment_made'];
 
 const NoData: React.FC<{ message: string }> = ({ message }) => (
-  <div className="text-center py-10 opacity-40">
-    <Share2 size={32} className="mx-auto mb-2" />
-    <p className="text-sm font-medium">{message}</p>
+  <div className="text-center py-10 opacity-60">
+    <Share2 size={32} className="mx-auto mb-2 text-[#1580c2]" />
+    <p className="text-sm font-medium text-[#1580c2]">{message}</p>
   </div>
 );
 
@@ -255,21 +255,21 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <div className="bg-white rounded-2xl border border-black/5 p-3">
-              <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '0 0 4px', letterSpacing: '0.05em' }}>{isAdmin ? 'TOTAL CLICKS' : 'CLICKS'}</p>
+            <div className="bg-white rounded-2xl border border-[#1580c2]/5 p-3 shadow-sm">
+              <p style={{ fontSize: 10, color: '#1580c2', opacity: 0.6, margin: '0 0 4px', letterSpacing: '0.05em' }}>{isAdmin ? 'TOTAL CLICKS' : 'CLICKS'}</p>
               <motion.p
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
-                style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', margin: 0, lineHeight: 1 }}
+                style={{ fontSize: 28, fontWeight: 700, color: '#0c4a6e', margin: 0, lineHeight: 1 }}
               >{stats.clicks}</motion.p>
-              <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '4px 0 0' }}>{isAdmin ? 'all affiliate links' : 'your links'}</p>
+              <p style={{ fontSize: 10, color: '#1580c2', opacity: 0.5, margin: '4px 0 0' }}>{isAdmin ? 'all affiliate links' : 'your links'}</p>
             </div>
-            <div className="bg-white rounded-2xl border border-black/5 p-3">
-              <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '0 0 4px', letterSpacing: '0.05em' }}>{isAdmin ? 'TOTAL REFERRALS' : 'REFERRALS'}</p>
+            <div className="bg-white rounded-2xl border border-[#1580c2]/5 p-3 shadow-sm">
+              <p style={{ fontSize: 10, color: '#1580c2', opacity: 0.6, margin: '0 0 4px', letterSpacing: '0.05em' }}>{isAdmin ? 'TOTAL REFERRALS' : 'REFERRALS'}</p>
               <motion.p
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
-                style={{ fontSize: 28, fontWeight: 700, color: 'var(--color-text-primary)', margin: 0, lineHeight: 1 }}
+                style={{ fontSize: 28, fontWeight: 700, color: '#0c4a6e', margin: 0, lineHeight: 1 }}
               >{stats.referrals}</motion.p>
-              <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: '4px 0 0' }}>{isAdmin ? 'all completed visits' : `${completedRefs} incentives earned`}</p>
+              <p style={{ fontSize: 10, color: '#1580c2', opacity: 0.5, margin: '4px 0 0' }}>{isAdmin ? 'all completed visits' : `${completedRefs} incentives earned`}</p>
             </div>
           </div>
 
@@ -291,32 +291,32 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
               <div className="flex items-center gap-3 mb-4">
                 <Trophy className="text-[#1580c2]" size={20} />
                 <div>
-                  <p className="text-sm font-bold text-zinc-900">Global Overview</p>
-                  <p className="text-xs text-zinc-500">Summary across all channels.</p>
+                  <p className="text-sm font-bold text-[#0c4a6e]">Global Overview</p>
+                  <p className="text-xs text-[#1580c2]/60">Summary across all channels.</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white p-3 rounded-xl border border-zinc-100 shadow-sm">
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Avg per Affiliate</p>
-                  <p className="text-2xl font-black text-zinc-900">
+                <div className="bg-white p-3 rounded-xl border border-[#1580c2]/5 shadow-sm">
+                  <p className="text-[10px] font-bold text-[#1580c2]/40 uppercase tracking-widest mb-1">Avg per Affiliate</p>
+                  <p className="text-2xl font-black text-[#0c4a6e]">
                     {(stats.referrals / (staffList.filter(s => s.role === 'affiliate').length || 1)).toFixed(1)}
                   </p>
                 </div>
-                <div className="bg-white p-3 rounded-xl border border-zinc-100 shadow-sm">
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Active Staff</p>
-                  <p className="text-2xl font-black text-zinc-900">{staffList.length}</p>
+                <div className="bg-white p-3 rounded-xl border border-[#1580c2]/5 shadow-sm">
+                  <p className="text-[10px] font-bold text-[#1580c2]/40 uppercase tracking-widest mb-1">Active Staff</p>
+                  <p className="text-2xl font-black text-[#0c4a6e]">{staffList.length}</p>
                 </div>
               </div>
             </div>
           )}
 
           {!isAdmin && (
-            <div className="bg-white rounded-2xl border border-black/5 p-3">
+            <div className="bg-white rounded-2xl border border-[#1580c2]/5 p-3 shadow-sm">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <p style={{ fontSize: 10, color: 'var(--color-text-tertiary)', margin: 0, letterSpacing: '0.05em' }}>CAMPAIGNS</p>
+                <p style={{ fontSize: 10, color: '#1580c2', opacity: 0.6, margin: 0, letterSpacing: '0.05em', fontWeight: 700 }}>CAMPAIGNS</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', animation: 'pulse 1.5s ease-in-out infinite' }} />
-                  <span style={{ fontSize: 9, color: 'var(--color-text-tertiary)', letterSpacing: '0.05em' }}>LIVE</span>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#38bdf8', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                  <span style={{ fontSize: 9, color: '#1580c2', opacity: 0.6, letterSpacing: '0.05em', fontWeight: 500 }}>LIVE</span>
                 </div>
               </div>
               
@@ -329,13 +329,13 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
                         key={i}
                         initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: i * 0.06 }}
-                        style={{ background: 'var(--color-background-secondary)', borderRadius: 12, padding: '10px 12px' }}
+                        style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: 12, padding: '10px 12px' }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                          <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-text-primary)' }}>{c.name}</span>
-                          <span style={{ fontSize: 10, fontWeight: 500, color: g.textColor }}>{c.rate.toFixed(1)}%</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: '#0c4a6e' }}>{c.name}</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: g.textColor }}>{c.rate.toFixed(1)}%</span>
                         </div>
-                        <div style={{ height: 3, background: 'var(--color-border-tertiary)', borderRadius: 99, overflow: 'hidden' }}>
+                        <div style={{ height: 3, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
                           <div style={{ height: '100%', background: g.bar, width: `${Math.min(c.rate * 5, 100)}%` }} />
                         </div>
                       </motion.div>
@@ -343,8 +343,8 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
                   })}
                 </div>
               ) : (
-                <div className="text-center py-4 bg-zinc-50 rounded-xl">
-                  <p className="text-[10px] text-zinc-400">No active campaigns</p>
+                <div className="text-center py-4 bg-[#f0f9ff] rounded-xl border border-[#bae6fd]">
+                  <p className="text-[10px] text-[#1580c2] font-medium">No active campaigns</p>
                 </div>
               )}
             </div>
@@ -358,19 +358,19 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
           {adminStatsByService.length > 0 ? (
             <div className="space-y-3">
               {adminStatsByService.map((s: any, i: number) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-zinc-50 rounded-xl">
+                <div key={i} className="flex items-center justify-between p-3 bg-white border border-[#1580c2]/10 rounded-xl">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-[#1580c2]/10 flex items-center justify-center text-[#1580c2]">
                       <Megaphone size={16} />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-zinc-900">{s.name}</p>
+                      <p className="text-sm font-bold text-[#0c4a6e]">{s.name}</p>
                       <p className="text-[10px] text-zinc-400">{s.count} visits</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-[#1580c2]">{((s.count / stats.referrals) * 100 || 0).toFixed(0)}%</p>
-                    <div className="w-20 h-1.5 bg-zinc-200 rounded-full mt-1 overflow-hidden">
+                    <div className="w-20 h-1.5 bg-zinc-100 rounded-full mt-1 overflow-hidden">
                       <div 
                         className="h-full bg-[#1580c2]" 
                         style={{ width: `${(s.count / stats.referrals) * 100}%` }}
@@ -392,13 +392,13 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
           {adminStatsByAffiliate.length > 0 ? (
             <div className="space-y-3">
               {adminStatsByAffiliate.map((s: any, i: number) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-zinc-50 rounded-xl">
+                <div key={i} className="flex items-center justify-between p-3 bg-white border border-[#1580c2]/10 rounded-xl">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center text-rose-600">
+                    <div className="w-8 h-8 rounded-lg bg-[#1580c2]/5 flex items-center justify-center text-[#1580c2]">
                       <Users size={16} />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-zinc-900">{s.name}</p>
+                      <p className="text-sm font-bold text-[#0c4a6e]">{s.name}</p>
                       <div className="flex items-center gap-2">
                         <p className="text-[10px] text-zinc-400 uppercase font-medium">{s.count} conversions</p>
                         {s.branch && (
@@ -411,8 +411,8 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
                     </div>
                   </div>
                   <div className="flex flex-col items-end">
-                    {i === 0 && <span className="text-[8px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md font-bold mb-1">TOP</span>}
-                    <p className="text-lg font-black text-zinc-900 leading-none">{s.count}</p>
+                    {i === 0 && <span className="text-[8px] bg-[#1580c2]/10 text-[#1580c2] px-1.5 py-0.5 rounded-md font-bold mb-1 uppercase">Top</span>}
+                    <p className="text-lg font-black text-[#1580c2] leading-none">{s.count}</p>
                   </div>
                 </div>
               ))}
@@ -431,14 +431,14 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
               {adminStatsByLocation.map((s: any, i: number) => (
                 <div key={i} className="relative">
                   <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-xs font-bold text-zinc-700">{s.name}</span>
+                    <span className="text-xs font-bold text-[#0c4a6e]">{s.name}</span>
                     <span className="text-xs font-black text-[#1580c2]">{s.count}</span>
                   </div>
-                  <div className="w-full h-3 bg-zinc-100 rounded-full overflow-hidden">
+                  <div className="w-full h-3 bg-zinc-50 rounded-full overflow-hidden border border-zinc-100">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${(s.count / stats.referrals) * 100}%` }}
-                      className="h-full bg-gradient-to-r from-[#1580c2] to-[#1580c2]/60 rounded-full"
+                      className="h-full bg-gradient-to-r from-[#1580c2] to-[#38bdf8] rounded-full"
                     />
                   </div>
                 </div>
