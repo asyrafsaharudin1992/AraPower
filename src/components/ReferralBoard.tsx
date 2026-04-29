@@ -276,76 +276,116 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
         </div>
       ) : (
         /* ── Desktop View ── */
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div className="bg-white rounded-2xl border border-[#1580c2]/10 shadow-sm">
+          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: '#ffffff', borderBottom: '2px solid #f1f5f9' }}>
-                {['Submitted','Patient','Service','Branch','Appt Date','Appt Time','Staff','Incentive','Status','Actions'].map(h => (
-                  <th key={h} style={{ padding: '12px 16px', fontSize: '10px', fontWeight: 600, color: blue, opacity: 0.55, textTransform: 'uppercase', letterSpacing: '0.12em', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredReferrals.length === 0 ? (
-                <tr>
-                  <td colSpan={10} style={{ padding: '48px', textAlign: 'center', fontSize: '14px', fontWeight: 500, color: blue, opacity: 0.4 }}>No referrals found.</td>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+                  {['Submitted','Patient','Service','Branch','Appt Date','Appt Time','Staff','Incentive','Status','Actions'].map(h => (
+                    <th key={h} style={{ 
+                      padding: '16px 12px', 
+                      fontSize: '11px', 
+                      fontWeight: 700, 
+                      color: blue, 
+                      opacity: 0.6, 
+                      textTransform: 'uppercase', 
+                      letterSpacing: '0.05em', 
+                      whiteSpace: 'nowrap',
+                      borderBottom: '1px solid #f1f5f9'
+                    }}>{h}</th>
+                  ))}
                 </tr>
-              ) : (
-                filteredReferrals.map((ref) => (
-                  <tr key={ref.id} style={{ borderTop: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.55 }}>{formatDate(ref.date)}</td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <p style={{ fontSize: '13px', fontWeight: 700, color: blue, margin: '0 0 2px 0' }}>{ref.patient_name || 'Hidden (P&C)'}</p>
-                      <div className="flex items-center gap-2">
-                        <p style={{ fontSize: '11px', fontWeight: 500, color: blue, opacity: 0.5, margin: 0 }}>{ref.patient_phone || 'Hidden (P&C)'}</p>
-                        {ref.patient_phone && (
-                          <a 
-                            href={getWhatsAppUrl(ref.patient_phone)}
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-50 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-colors flex-shrink-0"
-                            title="WhatsApp Patient"
-                          >
-                            <MessageCircle size={12} />
-                          </a>
-                        )}
-                      </div>
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.75 }}>{ref.service_name}</td>
-                    <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.75 }}>{ref.branch || '—'}</td>
-                    <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 600, color: blue }}>{formatDate(ref.appointment_date)}</td>
-                    <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.75 }}>{ref.booking_time || '—'}</td>
-                    <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 500, color: blue, opacity: 0.75 }}>
-                      {staffList?.find(s => String(s.id) === String(ref.staff_id) || (s.referral_code && String(s.referral_code) === String(ref.staff_id)))?.name || ref.staff_name || 'Direct Walk-in'}
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: blue }}>{clinicProfile?.currency || 'RM'} {ref.commission_amount?.toFixed(2) || '0.00'}</span>
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <span className={getStatusColor(ref.status)}
-                        style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                        {getStatusLabel(ref.status)}
-                      </span>
-                    </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                      {(() => {
-                        const actions = getAvailableActions(ref);
-                        if (actions.length === 0) return null;
-                        return (
-                          <select defaultValue=""
-                            onChange={(e) => { if (e.target.value) { setPendingStatusUpdate({ id: ref.id, status: e.target.value }); e.target.value = ''; } }}
-                            style={selectStyle}>
-                            <option value="" disabled>Action...</option>
-                            {actions.map(a => <option key={a.status} value={a.status}>{a.label}</option>)}
-                          </select>
-                        );
-                      })()}
-                    </td>
+              </thead>
+              <tbody>
+                {filteredReferrals.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} style={{ padding: '64px 20px', textAlign: 'center', fontSize: '14px', fontWeight: 500, color: blue, opacity: 0.4 }}>No referrals found in this view.</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredReferrals.map((ref) => (
+                    <motion.tr 
+                      key={ref.id} 
+                      whileHover={{ backgroundColor: '#f8fafc' }}
+                      transition={{ duration: 0.2 }}
+                      style={{ borderTop: '1px solid #f1f5f9' }}
+                    >
+                      <td style={{ padding: '16px 12px', fontSize: '12px', fontWeight: 500, color: '#1580c2', opacity: 0.6 }}>{formatDate(ref.date)}</td>
+                      <td style={{ padding: '16px 12px' }}>
+                        <p style={{ fontSize: '14px', fontWeight: 700, color: '#0c4a6e', margin: '0 0 4px 0' }}>{ref.patient_name || 'Hidden (P&C)'}</p>
+                        <div className="flex items-center gap-2">
+                          <p style={{ fontSize: '12px', fontWeight: 500, color: '#1580c2', opacity: 0.5, margin: 0 }}>{ref.patient_phone || 'Hidden (P&C)'}</p>
+                          {ref.patient_phone && (
+                            <a 
+                              href={getWhatsAppUrl(ref.patient_phone)}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-[#1580c2]/5 text-[#1580c2] hover:bg-[#1580c2] hover:text-white transition-all transform hover:scale-105"
+                              title="WhatsApp Patient"
+                            >
+                              <MessageCircle size={14} />
+                            </a>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 12px' }}>
+                        <span className="inline-block px-3 py-1 bg-[#1580c2]/5 text-[#1580c2] rounded-lg text-xs font-bold uppercase tracking-tight">
+                          {ref.service_name}
+                        </span>
+                      </td>
+                      <td style={{ padding: '16px 12px', fontSize: '12px', fontWeight: 600, color: '#1580c2' }}>{ref.branch || '—'}</td>
+                      <td style={{ padding: '16px 12px', fontSize: '13px', fontWeight: 700, color: '#0c4a6e' }}>{formatDate(ref.appointment_date)}</td>
+                      <td style={{ padding: '16px 12px', fontSize: '12px', fontWeight: 500, color: '#1580c2', opacity: 0.7 }}>{ref.booking_time || '—'}</td>
+                      <td style={{ padding: '16px 12px' }}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-[#1580c2]/10 flex items-center justify-center text-[#1580c2] font-bold text-[10px]">
+                            {(staffList?.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || 'D')[0]}
+                          </div>
+                          <p style={{ fontSize: '12px', fontWeight: 600, color: '#0c4a6e' }}>
+                            {staffList?.find(s => String(s.id) === String(ref.staff_id) || (s.referral_code && String(s.referral_code) === String(ref.staff_id)))?.name || ref.staff_name || 'Direct Walk-in'}
+                          </p>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 12px' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 800, color: '#1580c2' }}>{clinicProfile?.currency || 'RM'} {ref.commission_amount?.toFixed(2) || '0.00'}</span>
+                      </td>
+                      <td style={{ padding: '16px 12px' }}>
+                        <span className={`inline-block px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm ${getStatusColor(ref.status)}`}>
+                          {getStatusLabel(ref.status)}
+                        </span>
+                      </td>
+                      <td style={{ padding: '16px 12px', textAlign: 'right' }}>
+                        {(() => {
+                          const actions = getAvailableActions(ref);
+                          if (actions.length === 0) return null;
+                          return (
+                            <select defaultValue=""
+                              onChange={(e) => { if (e.target.value) { setPendingStatusUpdate({ id: ref.id, status: e.target.value }); e.target.value = ''; } }}
+                              style={{
+                                appearance: 'none',
+                                background: 'white',
+                                border: '2px solid #1580c2',
+                                borderRadius: '12px',
+                                padding: '6px 32px 6px 12px',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                color: '#1580c2',
+                                cursor: 'pointer',
+                                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%231580c2' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'%3E%3C/path%3E%3C/svg%3E")`,
+                                backgroundRepeat: 'no-repeat',
+                                backgroundPosition: 'right 8px center',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em'
+                              }}>
+                              <option value="" disabled>Actions</option>
+                              {actions.map(a => <option key={a.status} value={a.status}>{a.label}</option>)}
+                            </select>
+                          );
+                        })()}
+                      </td>
+                    </motion.tr>
+                  ))
+                )}
+              </tbody>
+            </table>
         </div>
       )}
 

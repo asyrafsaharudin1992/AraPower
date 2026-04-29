@@ -2825,14 +2825,14 @@ export default function App() {
 
  const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'pending': return 'bg-zinc-100 text-zinc-500 border border-zinc-200';
-      case 'arrived': return 'bg-blue-100 text-blue-700 border border-blue-200';
-      case 'in_session': return 'bg-indigo-100 text-indigo-700 border border-indigo-200';
-      case 'completed': return 'bg-teal-100 text-teal-700 border border-teal-200';
-      case 'payment_approved': return 'bg-orange-100 text-orange-700 border border-orange-200';
-      case 'payment_made': return 'bg-emerald-500 text-white shadow-sm border border-emerald-600';
-      case 'rejected': return 'bg-rose-500 text-white';
-      default: return 'bg-zinc-100 text-zinc-700';
+      case 'pending': return 'bg-zinc-50 text-[#1580c2]/60 border border-[#1580c2]/10';
+      case 'arrived': return 'bg-[#1580c2]/5 text-[#1580c2] border border-[#1580c2]/20';
+      case 'in_session': return 'bg-[#0c4a6e] text-white border border-[#0c4a6e]';
+      case 'completed': return 'bg-[#1580c2] text-white shadow-sm border border-[#1580c2]';
+      case 'payment_approved': return 'bg-white text-[#1580c2] border-2 border-[#1580c2]';
+      case 'payment_made': return 'bg-[#0c4a6e] text-white shadow-md border border-[#0c4a6e] font-black uppercase';
+      case 'rejected': return 'bg-zinc-400 text-white opacity-60';
+      default: return 'bg-white text-[#1580c2] border border-[#1580c2]/10';
     }
   };
 
@@ -3094,7 +3094,7 @@ export default function App() {
         )}
         
         {/* Main Content — desktop only, MobileUI handles mobile */}
-        {!isMobile && <main className="ml-64 bg-white p-4 lg:p-8 relative overflow-hidden">
+        {!isMobile && <main className="ml-64 bg-white p-4 lg:p-8 min-h-screen relative">
           {currentUser.is_approved === 0 && currentUser.role !== 'admin' && activeTab !== 'profile' ? (
             (() => {
               console.log('Current User State (Main Content Pending):', currentUser);

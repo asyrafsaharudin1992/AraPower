@@ -28,16 +28,16 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --color-eggshell: #FFFFFF;
-  --color-burnt-peach: #E07A5F;
-  --color-muted-teal: #81B29A;
-  --color-twilight-indigo: #3D405B;
-  --color-apricot-cream: #F2CC8F;
+  --color-burnt-peach: #1580c2;
+  --color-muted-teal: #38bdf8;
+  --color-twilight-indigo: #0c4a6e;
+  --color-apricot-cream: #f0f9ff;
   
-  /* Mapping for existing components if needed, but we'll update components directly */
-  --color-brand-primary: #3D405B;
-  --color-brand-accent: #E07A5F;
+  /* Mapping for existing components if needed */
+  --color-brand-primary: #1580c2;
+  --color-brand-accent: #38bdf8;
   --color-brand-bg: #FFFFFF;
-  --color-brand-surface: #81B29A;
+  --color-brand-surface: #f0f9ff;
 }
 
 @utility grid-rows-0 {

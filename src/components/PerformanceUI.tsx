@@ -58,6 +58,7 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
 }) => {
   const [stats, setStats] = useState({ clicks: 0, referrals: 0, rate: 0 });
   const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [clicksByAffiliate, setClicksByAffiliate] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [adminSubTab, setAdminSubTab] = useState<'overview' | 'service' | 'affiliate' | 'location'>('overview');
 
@@ -131,6 +132,17 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
               .map(s => ({ ...s, rate: s.clicks > 0 ? (s.refs / s.clicks) * 100 : 0 }))
               .sort((a, b) => b.clicks - a.clicks)
           );
+
+          if (isAdmin) {
+            const affClicks: Record<string, number> = {};
+            result.data.forEach(ev => {
+              if (ev.event_type === 'clicked_tempah' && ev.referral_code) {
+                const code = String(ev.referral_code);
+                affClicks[code] = (affClicks[code] || 0) + 1;
+              }
+            });
+            setClicksByAffiliate(affClicks);
+          }
         }
       } catch (e) { console.error(e); }
       finally { setIsLoading(false); }
@@ -152,27 +164,59 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
   const adminStatsByAffiliate = React.useMemo(() => {
     if (!isAdmin) return [];
     const map: Record<string, any> = {};
+    
+    // Process Conversions (Referrals)
     referrals.filter(r => COMPLETED_STATUSES.includes(r.status?.toLowerCase())).forEach(ref => {
-      const staffId = ref.staff_id || ref.affiliate_id;
+      const staffId = String(ref.staff_id || ref.affiliate_id || '');
       if (!staffId) return;
       if (!map[staffId]) {
         const staff = staffList.find(s => 
-          String(s.id) === String(staffId) || 
-          String(s.referral_code) === String(staffId) || 
-          String(s.email) === String(staffId)
+          String(s.id) === staffId || 
+          String(s.referral_code) === staffId || 
+          String(s.email) === staffId
         );
         map[staffId] = { 
-          name: staff?.name || (staffId.length > 20 ? `${staffId.substring(0, 8)}...` : staffId), 
+          id: staffId,
+          name: staff?.name || (staffId.length > 15 ? `${staffId.substring(0, 8)}...` : staffId), 
           fullName: staff?.name || staffId,
           email: staff?.email,
           branch: staff?.branch || ref.branch,
-          count: 0 
+          count: 0,
+          clicks: 0
         };
       }
       map[staffId].count++;
     });
-    return Object.values(map).sort((a: any, b: any) => b.count - a.count);
-  }, [referrals, staffList, isAdmin]);
+
+    // Add Clicks
+    Object.entries(clicksByAffiliate).forEach(([code, count]) => {
+      if (!map[code]) {
+        const staff = staffList.find(s => String(s.id) === code || String(s.referral_code) === code || String(s.email) === code);
+        map[code] = {
+          id: code,
+          name: staff?.name || (code.length > 15 ? `${code.substring(0, 8)}...` : code),
+          fullName: staff?.name || code,
+          email: staff?.email,
+          branch: staff?.branch,
+          count: 0,
+          clicks: count
+        };
+      } else {
+        map[code].clicks = count;
+      }
+    });
+
+    return Object.values(map)
+      .map((a: any) => ({
+        ...a,
+        rate: a.clicks > 0 ? (a.count / a.clicks) * 100 : 0
+      }))
+      .sort((a: any, b: any) => {
+        // Sort by conversions first, then clicks
+        if (b.count !== a.count) return b.count - a.count;
+        return b.clicks - a.clicks;
+      });
+  }, [referrals, staffList, isAdmin, clicksByAffiliate]);
 
   const adminStatsByLocation = React.useMemo(() => {
     if (!isAdmin) return [];
@@ -410,27 +454,41 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = ({
           {adminStatsByAffiliate.length > 0 ? (
             <div className="space-y-3">
               {adminStatsByAffiliate.map((s: any, i: number) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-white border border-[#1580c2]/10 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#1580c2]/5 flex items-center justify-center text-[#1580c2]">
-                      <Users size={16} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-[#0c4a6e]">{s.name}</p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-[10px] text-zinc-400 uppercase font-medium">{s.count} conversions</p>
-                        {s.branch && (
-                          <>
-                            <span className="text-zinc-200 text-[10px]">•</span>
-                            <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-tight">{s.branch}</p>
-                          </>
-                        )}
+                <div key={i} className="flex flex-col p-3 bg-white border border-[#1580c2]/10 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-[#1580c2]/5 flex items-center justify-center text-[#1580c2]">
+                        <Users size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-[#0c4a6e]">{s.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-tight">{s.branch || 'General'}</p>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex flex-col items-end">
+                      {i === 0 && s.count > 0 && <span className="text-[8px] bg-[#1580c2]/10 text-[#1580c2] px-1.5 py-0.5 rounded-md font-bold mb-1 uppercase">Top</span>}
+                      <p className="text-lg font-black text-[#1580c2] leading-none">{s.count}</p>
+                      <p className="text-[9px] font-bold text-zinc-400 uppercase">Visits</p>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end">
-                    {i === 0 && <span className="text-[8px] bg-[#1580c2]/10 text-[#1580c2] px-1.5 py-0.5 rounded-md font-bold mb-1 uppercase">Top</span>}
-                    <p className="text-lg font-black text-[#1580c2] leading-none">{s.count}</p>
+                  
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#1580c2]/5">
+                    <div className="flex items-center gap-2">
+                      <MousePointerClick size={12} className="text-[#1580c2] opacity-40" />
+                      <div>
+                        <p className="text-[10px] font-bold text-[#0c4a6e] leading-none">{s.clicks}</p>
+                        <p className="text-[8px] font-medium text-zinc-400 uppercase">Clicks</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <TrendingUp size={12} className="text-[#1580c2] opacity-40" />
+                      <div>
+                        <p className="text-[10px] font-bold text-[#0c4a6e] leading-none">{s.rate.toFixed(1)}%</p>
+                        <p className="text-[8px] font-medium text-zinc-400 uppercase">Conv Rate</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
