@@ -276,8 +276,8 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
         </div>
       ) : (
         /* ── Desktop View ── */
-        <div className="bg-white rounded-2xl border border-[#1580c2]/10 shadow-sm">
-          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left' }}>
+        <div className="bg-white rounded-2xl border border-[#1580c2]/10 shadow-sm overflow-x-auto">
+          <table style={{ minWidth: '1000px', width: '100%', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left' }}>
             <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
                   {['Submitted','Patient','Service','Branch','Appt Date','Appt Time','Staff','Incentive','Status','Actions'].map(h => (

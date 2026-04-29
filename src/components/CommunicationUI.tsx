@@ -428,7 +428,7 @@ export const CommunicationUI: React.FC<CommunicationUIProps> = ({
                             </span>
                             <span className="text-[10px] text-zinc-300">•</span>
                             <span className="text-[10px] font-medium text-zinc-400">
-                              {formatMyDate(h.created_at || h.sent_at)}
+                              {formatMyDate(h.created_at)}
                             </span>
                           </div>
                         </div>

@@ -452,14 +452,23 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div style={{ background: '#1580c2', borderRadius: '1.5rem', border: 'none', padding: '24px' }}>
               <p style={{ fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.15em', margin: '0 0 4px 0' }}>This Month</p>
-              <p style={{ fontSize: '28px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.5px', margin: '0 0 4px 0' }}>{currentUserStats?.monthlySuccessfulRefs || 0}</p>
-              <p style={{ fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65, margin: 0 }}>Successful</p>
+              <div className="flex items-end gap-2">
+                <p style={{ fontSize: '28px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.5px', margin: '0', lineHeight: 1 }}>{currentUserStats?.monthlySuccessfulRefs || 0}</p>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: '#ffffff', opacity: 0.65, margin: '0 0 2px 0' }}>Success</p>
+              </div>
             </div>
             <div style={{ background: '#1580c2', borderRadius: '1.5rem', border: 'none', padding: '24px' }}>
-              <p style={{ fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.15em', margin: '0 0 4px 0' }}>Total Earned</p>
-              <p style={{ fontSize: '28px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.5px', margin: '0 0 4px 0' }}>{clinicProfile.currency}{(currentUserStats?.earned || 0).toFixed(0)}</p>
-              <p style={{ fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65, margin: 0 }}>Lifetime</p>
+              <p style={{ fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.15em', margin: '0 0 4px 0' }}>Engagement</p>
+              <div className="flex items-end gap-2">
+                <p style={{ fontSize: '28px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.5px', margin: '0', lineHeight: 1 }}>{analytics.clicks}</p>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: '#ffffff', opacity: 0.65, margin: '0 0 2px 0' }}>Clicks</p>
+              </div>
             </div>
+          </div>
+          <div style={{ background: '#1580c2', borderRadius: '1.5rem', border: 'none', padding: '24px' }}>
+            <p style={{ fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.15em', margin: '0 0 4px 0' }}>Total Earned</p>
+            <p style={{ fontSize: '28px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.5px', margin: '0 0 4px 0' }}>{clinicProfile.currency}{(currentUserStats?.earned || 0).toFixed(0)}</p>
+            <p style={{ fontSize: '10px', fontWeight: 600, color: '#ffffff', opacity: 0.65, margin: 0 }}>Lifetime incentives</p>
           </div>
         </div>
       )}

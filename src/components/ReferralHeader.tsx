@@ -15,10 +15,12 @@ export const ReferralHeader: React.FC<ReferralHeaderProps> = ({
   children
 }) => {
   return (
-    <div className="w-full bg-white pt-4 min-h-screen">
-      {/* Main Card Container */}
-      <div className="max-w-full mx-auto px-4 lg:px-8">
-        <div className="bg-white backdrop-blur-2xl rounded-t-[2.5rem] border-t border-white/60 p-5 shadow-2xl shadow-[#3D405B]/5">
+    <div className="w-full bg-[#f8fafc] pt-4">
+      {/* Main Container */}
+      <div className="w-full mx-auto px-0 sm:px-4 lg:px-8">
+        <div 
+          className="bg-white sm:rounded-t-[2.5rem] border-t border-x border-[#1580c2]/10 p-5 shadow-sm"
+        >
           
           {/* Header Row (Title & Export) */}
           <div className="flex justify-between items-center mb-4 px-2">

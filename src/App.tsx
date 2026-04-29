@@ -988,26 +988,24 @@ export default function App() {
   const fetchNotifications = async () => {
     if (!currentUser?.id) return;
     try {
-      const response = await fetch(`/api/notifications/${currentUser.id}`);
-      const contentType = response.headers.get("content-type");
-      if (response.ok && contentType && contentType.includes("application/json")) {
-        const data = await response.json();
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/notifications/${currentUser.id}`);
+      if (res.ok && Array.isArray(data)) {
         // Filter out referral notifications at the client level based on type if needed
         const filteredData = data.filter((n: any) => n.type !== 'referral');
         setNotifications(filteredData);
         setUnreadNotificationsCount(filteredData.filter((n: any) => !n.is_read).length);
       } else {
-        console.warn('Notifications API did not return JSON. Status:', response.status);
+        console.warn('Notifications API did not return valid data:', data?.error || 'Unknown error');
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('Error in fetchNotifications:', error);
     }
   };
 
   const markNotificationAsRead = async (id: number) => {
     try {
-      const response = await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' });
-      if (response.ok) {
+      const { res } = await safeFetch(`${apiBaseUrl}/api/notifications/${id}/read`, { method: 'PATCH' });
+      if (res.ok) {
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
         setUnreadNotificationsCount(prev => Math.max(0, prev - 1));
       }
@@ -1018,10 +1016,14 @@ export default function App() {
 
   const deleteNotification = async (id: number) => {
     try {
-      const response = await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
-      if (response.ok) {
+      const { res } = await safeFetch(`${apiBaseUrl}/api/notifications/${id}`, { method: 'DELETE' });
+      if (res.ok) {
         setNotifications(prev => prev.filter(n => n.id !== id));
-        fetchNotifications(); // Refresh 
+        // Recalculate unread count
+        setUnreadNotificationsCount(prev => {
+          const removed = notifications.find(n => n.id === id);
+          return removed && !removed.is_read ? Math.max(0, prev - 1) : prev;
+        });
       }
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -3069,8 +3071,7 @@ export default function App() {
               console.log('Supabase Key Length:', import.meta.env.VITE_SUPABASE_ANON_KEY?.length);
               
               try {
-                const r = await fetch('/api/health');
-                const data = await r.json();
+                const { res, data } = await safeFetch(`${apiBaseUrl}/api/health`, { method: 'GET' });
                 console.log('Server Health Check:', data);
                 alert(`Diagnostic info logged to browser console (F12).\n\nServer DB Status: ${data.db}\nServer Config: ${JSON.stringify(data.config, null, 2)}`);
               } catch (err: any) {
