@@ -228,8 +228,14 @@ export const MobileUI: React.FC<MobileUIProps> = ({
 }) => {
   React.useEffect(() => {
     const isAdmin = currentUser.role === 'admin' || currentUser.role === 'manager';
+    const isReceptionist = currentUser.role === 'receptionist';
+    
     if (isAdmin && (activeTab === 'referrals' || activeTab === 'promotions')) {
       setActiveTab('dashboard');
+    }
+
+    if (isReceptionist && (activeTab === 'dashboard' || activeTab === 'performance')) {
+      setActiveTab('receptionist');
     }
   }, [activeTab, currentUser.role, setActiveTab]);
 
@@ -240,21 +246,24 @@ export const MobileUI: React.FC<MobileUIProps> = ({
       <div className="fixed bottom-6 left-0 right-0 px-4 z-50 pointer-events-none">
         <nav className={`max-w-md mx-auto ${reduceTranslucency ? 'bg-white' : 'bg-white/80 backdrop-blur-2xl'} border border-[#1580c2]/10 px-6 py-3 flex justify-between items-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] pointer-events-auto`}>
           
-          {/* Dashboard */}
-          <button onClick={() => setActiveTab('dashboard')}
-            className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'dashboard' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
-            <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-burnt-peach/10' : ''}`}>
-              <LayoutDashboard size={22} />
-            </div>
-          </button>
+          {currentUser.role !== 'receptionist' && (
+            <button onClick={() => setActiveTab('dashboard')}
+              className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'dashboard' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
+              <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-burnt-peach/10' : ''}`}>
+                <LayoutDashboard size={22} />
+              </div>
+            </button>
+          )}
 
           {/* Performance */}
-          <button onClick={() => setActiveTab('performance')}
-            className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'performance' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
-            <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'performance' ? 'bg-burnt-peach/10' : ''}`}>
-              <BarChart3 size={22} />
-            </div>
-          </button>
+          {currentUser.role !== 'receptionist' && (
+            <button onClick={() => setActiveTab('performance')}
+              className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'performance' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
+              <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'performance' ? 'bg-burnt-peach/10' : ''}`}>
+                <BarChart3 size={22} />
+              </div>
+            </button>
+          )}
 
           {/* Referrals (Staff only) */}
           {currentUser.role !== 'admin' && currentUser.role !== 'manager' && currentUser.role !== 'receptionist' && (

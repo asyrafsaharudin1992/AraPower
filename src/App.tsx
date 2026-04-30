@@ -843,7 +843,21 @@ export default function App() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('lastActiveTab', activeTab);
     }
-  }, [activeTab]);
+    
+    // Role-based tab restrictions
+    if (currentUser) {
+      const isReceptionist = currentUser.role === 'receptionist';
+      const isAdmin = currentUser.role === 'admin' || currentUser.role === 'manager';
+      
+      if (isReceptionist && (activeTab === 'dashboard' || activeTab === 'performance')) {
+        setActiveTab('receptionist');
+      }
+      
+      if (isAdmin && (activeTab === 'referrals' || activeTab === 'promotions')) {
+        setActiveTab('dashboard');
+      }
+    }
+  }, [activeTab, currentUser?.role]);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const isMobile = windowWidth < 1024;
   const [darkMode, setDarkMode] = useState(() => {
@@ -2962,20 +2976,24 @@ export default function App() {
             </div>
 
             <div className="flex-1 space-y-2">
-              <button 
-                onClick={() => setActiveTab('dashboard')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'dashboard' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
-              >
-                <LayoutDashboard size={18} />
-                <span className="text-sm font-bold">Dashboard</span>
-              </button>
-              <button 
-                onClick={() => setActiveTab('performance')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'performance' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
-              >
-                <BarChart3 size={18} />
-                <span className="text-sm font-bold">Performance</span>
-              </button>
+              {currentUser.role !== 'receptionist' && (
+                <button 
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'dashboard' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
+                >
+                  <LayoutDashboard size={18} />
+                  <span className="text-sm font-bold">Dashboard</span>
+                </button>
+              )}
+              {currentUser.role !== 'receptionist' && (
+                <button 
+                  onClick={() => setActiveTab('performance')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'performance' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
+                >
+                  <BarChart3 size={18} />
+                  <span className="text-sm font-bold">Performance</span>
+                </button>
+              )}
               <button 
                 onClick={() => setActiveTab('referrals')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'referrals' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
