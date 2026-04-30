@@ -227,13 +227,8 @@ export const MobileUI: React.FC<MobileUIProps> = ({
   getWhatsAppUrl
 }) => {
   React.useEffect(() => {
-    const isAdmin = currentUser.role === 'admin' || currentUser.role === 'manager';
     const isReceptionist = currentUser.role === 'receptionist';
     
-    if (isAdmin && (activeTab === 'referrals' || activeTab === 'promotions')) {
-      setActiveTab('dashboard');
-    }
-
     if (isReceptionist && (activeTab === 'dashboard' || activeTab === 'performance')) {
       setActiveTab('receptionist');
     }

@@ -847,14 +847,9 @@ export default function App() {
     // Role-based tab restrictions
     if (currentUser) {
       const isReceptionist = currentUser.role === 'receptionist';
-      const isAdmin = currentUser.role === 'admin' || currentUser.role === 'manager';
       
       if (isReceptionist && (activeTab === 'dashboard' || activeTab === 'performance')) {
         setActiveTab('receptionist');
-      }
-      
-      if (isAdmin && (activeTab === 'referrals' || activeTab === 'promotions')) {
-        setActiveTab('dashboard');
       }
     }
   }, [activeTab, currentUser?.role]);
