@@ -3321,7 +3321,14 @@ app.post("/api/network/recruit", async (req, res) => {
     eligible: true, 
     current, 
     cap, 
-    slots_remaining: cap - current 
+    slots_remaining: cap - current,
+    settings: {
+      override_percentage: findSett('override_percentage', 20),
+      override_case_limit: findSett('override_case_limit', 20),
+      downline_cap_base: capBase,
+      downline_cap_unlocked: capUnlocked,
+      downline_cap_unlock_threshold: threshold
+    }
   });
 });
 

@@ -187,7 +187,7 @@ const NetworkTab: React.FC<NetworkTabProps> = ({
           <div className="space-y-4">
             {downlines.map((dl) => {
               const caseCount = dl.upline_cases_count || 0;
-              const limit = 20; // Fixed per requirement
+              const limit = recruitStats?.settings?.override_case_limit || 20;
               const progress = Math.min((caseCount / limit) * 100, 100);
               const isActive = dl.is_active;
 
@@ -243,10 +243,10 @@ const NetworkTab: React.FC<NetworkTabProps> = ({
           <div className="space-y-2">
             <h4 className="text-xs font-black text-[#1580c2] uppercase tracking-widest">Network Rules</h4>
             <ul className="text-[10px] font-semibold text-zinc-500 space-y-1.5 list-disc pl-4">
-              <li>Earn 20% override from every referral completed by your downline.</li>
-              <li>Override is active for the first 20 cases of each downline.</li>
-              <li>Your initial downline capacity is 5 slots.</li>
-              <li>Complete 10 personal referrals to unlock 50 downline slots.</li>
+              <li>Earn {recruitStats?.settings?.override_percentage || 20}% override from every referral completed by your downline.</li>
+              <li>Override is active for the first {recruitStats?.settings?.override_case_limit || 20} cases of each downline.</li>
+              <li>Your initial downline capacity is {recruitStats?.settings?.downline_cap_base || 5} slots.</li>
+              <li>Complete {recruitStats?.settings?.downline_cap_unlock_threshold || 10} personal referrals to unlock {recruitStats?.settings?.downline_cap_unlocked || 50} downline slots.</li>
             </ul>
           </div>
         </div>
