@@ -14,6 +14,7 @@ import { CategoryScrollRow } from './components/CategoryScrollRow';
 import { PayoutManagement } from './components/PayoutManagement';
 import { ReferralBoard } from './components/ReferralBoard';
 import { ReceptionistUI } from './components/ReceptionistUI';
+import NetworkTab from './components/NetworkTab';
 import { MobileUI, MobileTab } from './components/MobileUI';
 import { PromotionsUI } from './components/PromotionsUI';
 import { ProfileUI } from './components/ProfileUI';
@@ -2953,6 +2954,8 @@ export default function App() {
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               getWhatsAppUrl={getWhatsAppUrl}
+              safeFetch={safeFetch}
+              apiBaseUrl={apiBaseUrl}
             />
           </MobilePullToRefreshWrapper>
         )}
@@ -3060,6 +3063,15 @@ export default function App() {
                 >
                   <Award size={18} />
                   <span className="text-sm font-bold">Affiliates</span>
+                </button>
+              )}
+              {currentUser.role === 'affiliate' && (
+                <button 
+                  onClick={() => setActiveTab('affiliates')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'affiliates' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
+                >
+                  <Users size={18} />
+                  <span className="text-sm font-bold">Network</span>
                 </button>
               )}
               {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
@@ -3448,6 +3460,15 @@ export default function App() {
               setSelectedPromo={setSelectedPromo}
               isPromoModalOpen={isPromoModalOpen}
               setIsPromoModalOpen={setIsPromoModalOpen}
+            />
+          )}
+
+          {activeTab === 'affiliates' && currentUser.role === 'affiliate' && (
+            <NetworkTab 
+              currentUser={currentUser}
+              apiBaseUrl={apiBaseUrl}
+              safeFetch={safeFetch}
+              clinicProfile={clinicProfile}
             />
           )}
 

@@ -210,7 +210,8 @@ let referralColumns: Set<string> = new Set([
   'patient_phone', 'patient_ic', 'patient_address', 'patient_type',
   'appointment_date', 'booking_time', 'fraud_flags', 'created_by',
   'branch', 'aracoins_perk', 'service_id', 'deposit_paid',
-  'staff_id', 'referral_code', 'commission_amount', 'service_name'
+  'staff_id', 'referral_code', 'commission_amount', 'service_name',
+  'visit_date', 'verified_by', 'rejection_reason', 'payment_status'
 ]);
 let serviceColumns: Set<string> = new Set([
   'id', 'name', 'category', 'type', 'description', 'base_price',
@@ -218,7 +219,7 @@ let serviceColumns: Set<string> = new Set([
   'branches', 'start_date', 'end_date', 'start_time', 'end_time',
   'duration_mins', 'created_at', 'target_url', 'commission_rate'
 ]);
-let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'created_at', 'is_approved']);
+let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'created_at', 'is_approved', 'upline_id', 'upline_cases_count', 'override_earned', 'referral_code']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
 let branchColumns: Set<string> = new Set(['id', 'name', 'location', 'whatsapp_number']);
 let settingsColumns: Set<string> = new Set(['key', 'value']);
@@ -3027,6 +3028,118 @@ app.patch("/api/referrals/:id", async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
+  // --- Override Logic Logic ---
+  if (updates.status === 'completed' && data.staff_id) {
+    try {
+      // 1. Fetch settings
+      const { data: setts } = await supabase.from('settings').select('key, value');
+      const findSett = (key: string, def: number) => Number(setts?.find(s => s.key === key)?.value || def);
+      const overridePercentage = findSett('override_percentage', 20);
+      const overrideCaseLimit = findSett('override_case_limit', 20);
+
+      // 2. Fetch affiliate & check upline
+      const { data: affiliate } = await supabase
+        .from('staff')
+        .select('id, name, upline_id, upline_cases_count')
+        .eq('id', data.staff_id)
+        .single();
+
+      if (affiliate?.upline_id && (affiliate.upline_cases_count || 0) < overrideCaseLimit) {
+        const { data: upline } = await supabase
+          .from('staff')
+          .select('id, name, email, override_earned')
+          .eq('id', affiliate.upline_id)
+          .single();
+
+        if (upline) {
+          const originalCommission = Number(data.commission_amount || 0);
+          const overrideAmount = originalCommission * (overridePercentage / 100);
+          const downlineAmount = originalCommission - overrideAmount;
+
+          // a) Update referral commission
+          await supabase
+            .from('referrals')
+            .update({ commission_amount: downlineAmount })
+            .eq('id', id);
+
+          // b) Insert override earning
+          await supabase
+            .from('override_earnings')
+            .insert({
+              upline_id: upline.id,
+              downline_id: affiliate.id,
+              referral_id: id,
+              amount: overrideAmount,
+              status: 'earned'
+            });
+
+          // c) Update staff counts
+          const newUplineCasesCount = (affiliate.upline_cases_count || 0) + 1;
+          await supabase
+            .from('staff')
+            .update({ upline_cases_count: newUplineCasesCount })
+            .eq('id', affiliate.id);
+
+          await supabase
+            .from('staff')
+            .update({ override_earned: (upline.override_earned || 0) + overrideAmount })
+            .eq('id', upline.id);
+
+          // d) Notifications
+          
+          // To Upline
+          const uplineMsg = `${affiliate.name} completed a referral. You earned RM${overrideAmount.toFixed(2)} override (case ${newUplineCasesCount} of ${overrideCaseLimit}).`;
+          await supabase.from('notifications').insert({
+            user_id: upline.id,
+            title: `Override earned from ${affiliate.name}`,
+            message: uplineMsg,
+            type: 'payout'
+          });
+
+          if (upline.email && resend) {
+            resend.emails.send({
+              from: 'AraPower <noreply@hsohealthcare.com>',
+              to: upline.email,
+              subject: 'You earned an override commission from your network',
+              html: `<p>${uplineMsg}</p>`
+            }).catch(e => console.error('Upline email failed', e));
+          }
+
+          // To Downline
+          const downlineMsg = `Your upline ${upline.name} earned RM${overrideAmount.toFixed(2)} from your referral. ${overrideCaseLimit - newUplineCasesCount} cases remaining in override period.`;
+          await supabase.from('notifications').insert({
+            user_id: affiliate.id,
+            title: 'Your upline earned from your referral',
+            message: downlineMsg,
+            type: 'referral'
+          });
+
+          // Limit reached notification
+          if (newUplineCasesCount === overrideCaseLimit) {
+            const totalEarned = (upline.override_earned || 0) + overrideAmount;
+            
+            await supabase.from('notifications').insert([
+              {
+                user_id: upline.id,
+                title: 'Override period ended',
+                message: `Your override period with ${affiliate.name} has ended. Total earned: RM${totalEarned.toFixed(2)}.`,
+                type: 'announcement'
+              },
+              {
+                user_id: affiliate.id,
+                title: 'Override period ended',
+                message: `You now keep 100% of your commission. Override period with ${upline.name} has ended.`,
+                type: 'announcement'
+              }
+            ]);
+          }
+        }
+      }
+    } catch (overErr) {
+      console.error('Error processing override logic:', overErr);
+    }
+  }
+
   return res.json({ message: "Referral updated successfully", data });
 });
 
@@ -3044,6 +3157,302 @@ app.delete("/api/referrals/:id", async (req, res) => {
   }
 
   return res.json({ message: "Referral deleted successfully" });
+});
+
+// --- Network Management Routes ---
+
+app.get("/api/network/settings", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  
+  const keys = [
+    'override_percentage',
+    'override_case_limit',
+    'downline_cap_base',
+    'downline_cap_unlocked',
+    'downline_cap_unlock_threshold',
+    'network_max_depth'
+  ];
+  
+  const { data, error } = await supabase
+    .from('settings')
+    .select('key, value')
+    .in('key', keys);
+    
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+  
+  const settings: any = {
+    override_percentage: 20,
+    override_case_limit: 20,
+    downline_cap_base: 5,
+    downline_cap_unlocked: 50,
+    downline_cap_unlock_threshold: 10,
+    network_max_depth: 1
+  };
+  
+  data?.forEach((s: any) => {
+    settings[s.key] = Number(s.value);
+  });
+  
+  res.json(settings);
+});
+
+app.post("/api/network/settings", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  
+  const settings = req.body;
+  const entries = Object.entries(settings).map(([key, value]) => ({
+    key,
+    value: String(value)
+  }));
+  
+  const { error } = await supabase
+    .from('settings')
+    .upsert(entries, { onConflict: 'key' });
+    
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+  
+  res.json({ success: true });
+});
+
+app.get("/api/network/downlines/:affiliateId", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  const { affiliateId } = req.params;
+  
+  // 1. Fetch settings for limit check
+  const { data: setts } = await supabase.from('settings').select('key, value').in('key', ['override_case_limit']);
+  const overrideCaseLimit = Number(setts?.find(s => s.key === 'override_case_limit')?.value || 20);
+
+  // 2. Fetch staff where upline_id = affiliateId
+  const { data: downlines, error } = await supabase
+    .from('staff')
+    .select(`
+      id, name, email, referral_code, created_at, upline_cases_count,
+      referrals:referrals(count)
+    `)
+    .eq('upline_id', affiliateId)
+    .eq('referrals.status', 'completed'); // This nested filter might not work directly for count in standard REST
+    
+  if (error) return res.status(500).json({ error: error.message });
+
+  // 3. Since Supabase REST nested count is tricky, we'll fetch them normally or use another approach
+  // Let's just fetch the downlines first
+  const { data: downlineList, error: listErr } = await supabase
+    .from('staff')
+    .select('id, name, email, referral_code, created_at, upline_cases_count')
+    .eq('upline_id', affiliateId);
+    
+  if (listErr) return res.status(500).json({ error: listErr.message });
+
+  // 4. Fetch counts and override earnings
+  const results = await Promise.all(downlineList.map(async (dl: any) => {
+    // Count completed referrals
+    const { count: referralCount } = await supabase
+      .from('referrals')
+      .select('*', { count: 'exact', head: true })
+      .eq('staff_id', dl.id)
+      .eq('status', 'completed');
+
+    // Sum override earnings
+    const { data: earnings } = await supabase
+      .from('override_earnings')
+      .select('amount')
+      .eq('upline_id', affiliateId)
+      .eq('downline_id', dl.id);
+
+    const totalOverride = earnings?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+
+    return {
+      ...dl,
+      referral_count: referralCount || 0,
+      total_override_earned: totalOverride,
+      is_active: (dl.upline_cases_count || 0) < overrideCaseLimit
+    };
+  }));
+
+  res.json(results);
+});
+
+app.post("/api/network/recruit", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  const { affiliate_id } = req.body;
+  
+  if (!affiliate_id) return res.status(400).json({ error: 'affiliate_id is required' });
+
+  // 1. Fetch affiliate's completed own referrals count
+  const { count: ownCases } = await supabase
+    .from('referrals')
+    .select('*', { count: 'exact', head: true })
+    .eq('staff_id', affiliate_id)
+    .eq('status', 'completed');
+
+  // 2. Fetch current downline count
+  const { count: downlineCount } = await supabase
+    .from('staff')
+    .select('*', { count: 'exact', head: true })
+    .eq('upline_id', affiliate_id);
+
+  // 3. Fetch settings
+  const { data: setts } = await supabase.from('settings').select('key, value');
+  const findSett = (key: string, def: number) => Number(setts?.find(s => s.key === key)?.value || def);
+  
+  const capBase = findSett('downline_cap_base', 5);
+  const capUnlocked = findSett('downline_cap_unlocked', 50);
+  const threshold = findSett('downline_cap_unlock_threshold', 10);
+
+  // 4. Calculate cap
+  const cap = (ownCases || 0) >= threshold ? capUnlocked : capBase;
+  const current = downlineCount || 0;
+
+  // 5. Eligibility check
+  if (current >= cap) {
+    return res.status(400).json({ 
+      error: 'Downline cap reached', 
+      cap, 
+      current,
+      eligible: false
+    });
+  }
+
+  res.json({ 
+    eligible: true, 
+    current, 
+    cap, 
+    slots_remaining: cap - current 
+  });
+});
+
+app.patch("/api/staff/:id/set-upline", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  const { id } = req.params;
+  const { recruiter_code } = req.body;
+
+  if (!recruiter_code) return res.status(400).json({ error: 'recruiter_code is required' });
+
+  // 1. Find recruiter
+  const { data: recruiter, error: rErr } = await supabase
+    .from('staff')
+    .select('id, name, role, email, referral_code, upline_id')
+    .ilike('referral_code', recruiter_code)
+    .maybeSingle();
+
+  if (!recruiter) return res.status(404).json({ error: 'Recruiter not found' });
+  if (recruiter.id == id) return res.status(400).json({ error: 'You cannot recruit yourself' });
+  if (!['affiliate', 'ambassador', 'admin', 'manager'].includes(recruiter.role)) {
+     return res.status(400).json({ error: 'Recruiter must be an affiliate or ambassador' });
+  }
+
+  // 2. Check recruiter's cap
+  // (Same logic as /api/network/recruit but on server side)
+  const { count: ownCases } = await supabase
+    .from('referrals')
+    .select('*', { count: 'exact', head: true })
+    .eq('staff_id', recruiter.id)
+    .eq('status', 'completed');
+
+  const { count: downlineCount } = await supabase
+    .from('staff')
+    .select('*', { count: 'exact', head: true })
+    .eq('upline_id', recruiter.id);
+
+  const { data: setts } = await supabase.from('settings').select('key, value');
+  const findSett = (key: string, def: number) => Number(setts?.find(s => s.key === key)?.value || def);
+  
+  const capBase = findSett('downline_cap_base', 5);
+  const capUnlocked = findSett('downline_cap_unlocked', 50);
+  const threshold = findSett('downline_cap_unlock_threshold', 10);
+  
+  const cap = (ownCases || 0) >= threshold ? capUnlocked : capBase;
+  if ((downlineCount || 0) >= cap) {
+    return res.status(400).json({ error: 'Recruiter downline cap reached' });
+  }
+
+  // 3. Update staff
+  const { data: updated, error: uErr } = await supabase
+    .from('staff')
+    .update({ upline_id: recruiter.id })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (uErr) return res.status(500).json({ error: uErr.message });
+
+  res.json({ success: true, upline: { id: recruiter.id, name: recruiter.name } });
+});
+
+app.get("/api/network/admin-overview", async (req, res) => {
+  if (!checkSupabase(res)) return;
+
+  // 1. Fetch settings for override_case_limit
+  const { data: setts } = await supabase.from('settings').select('key, value').in('key', ['override_case_limit']);
+  const limit = Number(setts?.find(s => s.key === 'override_case_limit')?.value || 20);
+
+  // 2. Fetch staff with upline relationships
+  const { data: relationships, error: rErr } = await supabase
+    .from('staff')
+    .select('id, name, upline_id, upline_cases_count')
+    .not('upline_id', 'is', null);
+
+  if (rErr) return res.status(500).json({ error: rErr.message });
+
+  // 3. Fetch earnings for totals
+  const { data: earnings, error: eErr } = await supabase
+    .from('override_earnings')
+    .select('amount, upline_id');
+
+  if (eErr) return res.status(500).json({ error: eErr.message });
+
+  // 4. Summarize
+  const total_relationships = (relationships || []).length;
+  const active = (relationships || []).filter(r => (r.upline_cases_count || 0) < limit).length;
+  const expired = total_relationships - active;
+  const total_override_paid = (earnings || []).reduce((sum, e) => sum + Number(e.amount), 0);
+
+  // 5. Group by upline for top recruiters
+  const recruiterStats: any = {};
+  (relationships || []).forEach(r => {
+    if (!recruiterStats[r.upline_id]) {
+      recruiterStats[r.upline_id] = { id: r.upline_id, downlines: 0, override: 0 };
+    }
+    recruiterStats[r.upline_id].downlines += 1;
+  });
+
+  (earnings || []).forEach(e => {
+    if (recruiterStats[e.upline_id]) {
+      recruiterStats[e.upline_id].override += Number(e.amount);
+    }
+  });
+
+  // Fetch names for top recruiters
+  const topRecruitersIds = Object.keys(recruiterStats)
+    .sort((a, b) => recruiterStats[b].downlines - recruiterStats[a].downlines)
+    .slice(0, 5);
+
+  const { data: recruiterNames } = await supabase
+    .from('staff')
+    .select('id, name')
+    .in('id', topRecruitersIds);
+
+  const top_recruiters = topRecruitersIds.map(id => {
+    const stats = recruiterStats[id];
+    const name = recruiterNames?.find(n => String(n.id) === String(id))?.name || 'Unknown';
+    return {
+      name,
+      downlines: stats.downlines,
+      override: stats.override
+    };
+  });
+
+  res.json({
+    total_relationships,
+    active,
+    expired,
+    total_override_paid,
+    top_recruiters
+  });
 });
 
 // Global Error Handler
@@ -3139,6 +3548,44 @@ async function startServer() {
           -- Check if policy exists before creating
           IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'communications_log' AND policyname = 'Enable all for app') THEN
             CREATE POLICY "Enable all for app" ON communications_log FOR ALL USING (true) WITH CHECK (true);
+          END IF;
+        END IF;
+
+        -- Add network-related columns to staff
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='staff' AND column_name='upline_id') THEN
+          ALTER TABLE staff ADD COLUMN upline_id BIGINT REFERENCES staff(id);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='staff' AND column_name='upline_cases_count') THEN
+          ALTER TABLE staff ADD COLUMN upline_cases_count INTEGER DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='staff' AND column_name='override_earned') THEN
+          ALTER TABLE staff ADD COLUMN override_earned NUMERIC DEFAULT 0;
+        END IF;
+
+        -- Add referral_code to staff if missing (some tables had promo_code instead)
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='staff' AND column_name='referral_code') THEN
+          ALTER TABLE staff ADD COLUMN referral_code TEXT UNIQUE;
+        END IF;
+
+        -- Add commission_amount to referrals if missing
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='referrals' AND column_name='commission_amount') THEN
+          ALTER TABLE referrals ADD COLUMN commission_amount NUMERIC DEFAULT 0;
+        END IF;
+
+        -- Create override_earnings table
+        IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='override_earnings') THEN
+          CREATE TABLE override_earnings (
+            id BIGSERIAL PRIMARY KEY,
+            upline_id BIGINT REFERENCES staff(id),
+            downline_id BIGINT REFERENCES staff(id),
+            referral_id BIGINT REFERENCES referrals(id),
+            amount NUMERIC NOT NULL,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMPTZ DEFAULT NOW()
+          );
+          ALTER TABLE override_earnings ENABLE ROW LEVEL SECURITY;
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'override_earnings' AND policyname = 'Enable all for app') THEN
+            CREATE POLICY "Enable all for app" ON override_earnings FOR ALL USING (true) WITH CHECK (true);
           END IF;
         END IF;
       END $$;

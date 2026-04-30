@@ -64,7 +64,7 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
   apiBaseUrl, safeFetch, TIERS, onTiersChange,
 }) => {
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'tiers' | 'analytics' | 'commission'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'tiers' | 'analytics' | 'commission' | 'network'>('overview');
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState('all');
 
@@ -81,6 +81,59 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
   // ── Commission state ───────────────────────────────────────────────────────
   const [defaultCommission, setDefaultCommission] = useState(5);
   const [isSavingCommission, setIsSavingCommission] = useState(false);
+
+  // ── Network state ────────────────────────────────────────────────────────
+  const [networkSettings, setNetworkSettings] = useState({
+    override_percentage: 20,
+    override_case_limit: 20,
+    downline_cap_base: 5,
+    downline_cap_unlocked: 50,
+    downline_cap_unlock_threshold: 10,
+    network_max_depth: 1
+  });
+  const [networkOverview, setNetworkOverview] = useState<any>(null);
+  const [isLoadingNetwork, setIsLoadingNetwork] = useState(false);
+  const [isSavingNetwork, setIsSavingNetwork] = useState(false);
+
+  React.useEffect(() => {
+    if (activeTab === 'network') {
+      fetchNetworkData();
+    }
+  }, [activeTab]);
+
+  const fetchNetworkData = async () => {
+    setIsLoadingNetwork(true);
+    try {
+      const [settingsRes, overviewRes] = await Promise.all([
+        safeFetch(`${apiBaseUrl}/api/network/settings`),
+        safeFetch(`${apiBaseUrl}/api/network/admin-overview`)
+      ]);
+
+      if (settingsRes.res.ok) setNetworkSettings(settingsRes.data);
+      if (overviewRes.res.ok) setNetworkOverview(overviewRes.data);
+    } catch (err) {
+      console.error('Failed to fetch network data', err);
+    } finally {
+      setIsLoadingNetwork(false);
+    }
+  };
+
+  const handleSaveNetworkSettings = async () => {
+    setIsSavingNetwork(true);
+    try {
+      const { res } = await safeFetch(`${apiBaseUrl}/api/network/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(networkSettings)
+      });
+      if (res.ok) toast.success('Network settings saved!');
+      else toast.error('Failed to save network settings');
+    } catch {
+      toast.error('Failed to save network settings');
+    } finally {
+      setIsSavingNetwork(false);
+    }
+  };
 
   // ── Derived data ───────────────────────────────────────────────────────────
   const affiliates = useMemo(() =>
@@ -185,6 +238,7 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
     { id: 'tiers',      label: 'Tiers',      icon: <Trophy size={14} /> },
     { id: 'analytics',  label: 'Analytics',  icon: <BarChart2 size={14} /> },
     { id: 'commission', label: 'Commission', icon: <DollarSign size={14} /> },
+    { id: 'network',    label: 'Network',    icon: <Zap size={14} /> },
   ] as const;
 
   return (
@@ -589,6 +643,140 @@ export const AffiliateManagement: React.FC<AffiliateManagementProps> = ({
               </div>
               <p className="text-[11px] text-zinc-400 mt-4">To edit per-service rates, go to <strong>Setup → Services</strong> and update the commission rate field for each service.</p>
             </div>
+          </motion.div>
+        )}
+
+        {/* ── NETWORK TAB ─────────────────────────────────────────────────── */}
+        {activeTab === 'network' && (
+          <motion.div key="network" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="space-y-6">
+            
+            {isLoadingNetwork && !networkOverview ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <RefreshCw size={24} className="text-[#1580c2] animate-spin" />
+                <p className="text-sm font-bold text-zinc-400">Loading network data...</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Network Settings */}
+                  <div className="bg-white rounded-2xl border border-black/5 shadow-sm p-6 space-y-5">
+                    <div>
+                      <h3 className="font-black text-zinc-900">Network Settings</h3>
+                      <p className="text-xs text-zinc-400 mt-0.5">Configure override and recruitment caps.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Override Percentage (%)</label>
+                        <input type="number" value={networkSettings.override_percentage}
+                          onChange={e => setNetworkSettings({...networkSettings, override_percentage: parseInt(e.target.value) || 0})}
+                          className="w-full px-4 py-2.5 rounded-xl border border-zinc-100 text-sm font-bold focus:outline-none focus:border-[#1580c2]" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Override Case Limit (per downline)</label>
+                        <input type="number" value={networkSettings.override_case_limit}
+                          onChange={e => setNetworkSettings({...networkSettings, override_case_limit: parseInt(e.target.value) || 0})}
+                          className="w-full px-4 py-2.5 rounded-xl border border-zinc-100 text-sm font-bold focus:outline-none focus:border-[#1580c2]" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Base Downline Cap</label>
+                          <input type="number" value={networkSettings.downline_cap_base}
+                            onChange={e => setNetworkSettings({...networkSettings, downline_cap_base: parseInt(e.target.value) || 0})}
+                            className="w-full px-4 py-2.5 rounded-xl border border-zinc-100 text-sm font-bold focus:outline-none focus:border-[#1580c2]" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Unlocked Cap</label>
+                          <input type="number" value={networkSettings.downline_cap_unlocked}
+                            onChange={e => setNetworkSettings({...networkSettings, downline_cap_unlocked: parseInt(e.target.value) || 0})}
+                            className="w-full px-4 py-2.5 rounded-xl border border-zinc-100 text-sm font-bold focus:outline-none focus:border-[#1580c2]" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Cases to Unlock Cap</label>
+                          <input type="number" value={networkSettings.downline_cap_unlock_threshold}
+                            onChange={e => setNetworkSettings({...networkSettings, downline_cap_unlock_threshold: parseInt(e.target.value) || 0})}
+                            className="w-full px-4 py-2.5 rounded-xl border border-zinc-100 text-sm font-bold focus:outline-none focus:border-[#1580c2]" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 block mb-2">Max Network Depth</label>
+                          <input type="number" value={networkSettings.network_max_depth}
+                            onChange={e => setNetworkSettings({...networkSettings, network_max_depth: parseInt(e.target.value) || 1})}
+                            className="w-full px-4 py-2.5 rounded-xl border border-zinc-100 text-sm font-bold focus:outline-none focus:border-[#1580c2]" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <button onClick={handleSaveNetworkSettings} disabled={isSavingNetwork}
+                      className="w-full py-4 bg-[#1580c2] text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-[#1268a8] transition-all shadow-lg shadow-[#1580c2]/20 disabled:opacity-50 flex items-center justify-center gap-2">
+                      {isSavingNetwork ? <><RefreshCw size={16} className="animate-spin" /> Saving...</> : <><Save size={16} /> Save Network Settings</>}
+                    </button>
+                  </div>
+
+                  {/* Network Overview */}
+                  <div className="bg-white rounded-2xl border border-black/5 shadow-sm p-6 space-y-6">
+                    <div>
+                      <h3 className="font-black text-zinc-900">Network Overview</h3>
+                      <p className="text-xs text-zinc-400 mt-0.5">Real-time status of the recruitment network.</p>
+                    </div>
+
+                    {networkOverview && (
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-zinc-50 rounded-2xl p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Total Relationships</p>
+                            <p className="text-2xl font-black text-zinc-900">{networkOverview.total_relationships}</p>
+                          </div>
+                          <div className="bg-emerald-50 rounded-2xl p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600/60 mb-1">Total Override Paid</p>
+                            <p className="text-2xl font-black text-emerald-600">RM {networkOverview.total_override_paid.toFixed(2)}</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-zinc-500 font-bold">Active Overrides</span>
+                            <span className="font-black text-zinc-900">{networkOverview.active}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-zinc-500 font-bold">Expired Overrides</span>
+                            <span className="font-black text-zinc-900">{networkOverview.expired}</span>
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-zinc-100">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-4">Top Recruiters</p>
+                          <div className="space-y-3">
+                            {networkOverview.top_recruiters?.map((r: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-6 h-6 rounded-lg bg-[#1580c2]/10 text-[#1580c2] text-[10px] font-black flex items-center justify-center">
+                                    {i + 1}
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-bold text-zinc-900">{r.name}</p>
+                                    <p className="text-[10px] text-zinc-400">{r.downlines} downlines</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-black text-[#1580c2]">RM {r.override.toFixed(2)}</p>
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Earned</p>
+                                </div>
+                              </div>
+                            ))}
+                            {(!networkOverview.top_recruiters || networkOverview.top_recruiters.length === 0) && (
+                              <p className="text-xs text-zinc-400 text-center py-4">No recruitment activity yet.</p>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </motion.div>
         )}
 

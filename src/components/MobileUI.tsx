@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard, Calendar, Zap, UserCircle, Plus,
   Mail, CheckCircle2, ArrowLeft, ShieldAlert, Trash2,
-  ShieldCheck, BarChart3
+  ShieldCheck, BarChart3, Users
 } from 'lucide-react';
 
 // Tab content components — passed via props from App
@@ -12,6 +12,7 @@ import { ReferralBoard } from './ReferralBoard';
 import { PromotionsUI } from './PromotionsUI';
 import { PerformanceUI } from './PerformanceUI';
 import { ReceptionistUI } from './ReceptionistUI';
+import NetworkTab from './NetworkTab';
 import BookingCalendar from './BookingCalendar';
 
 // Lazy-loaded heavier components
@@ -141,6 +142,8 @@ export interface MobileUIProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   getWhatsAppUrl: (phone: string) => string;
+  safeFetch: (url: string, options?: RequestInit) => Promise<{ res: Response; data: any }>;
+  apiBaseUrl: string;
 }
 
 export const MobileUI: React.FC<MobileUIProps> = ({
@@ -224,7 +227,9 @@ export const MobileUI: React.FC<MobileUIProps> = ({
   setStatusFilter,
   searchQuery,
   setSearchQuery,
-  getWhatsAppUrl
+  getWhatsAppUrl,
+  safeFetch,
+  apiBaseUrl
 }) => {
   React.useEffect(() => {
     const isReceptionist = currentUser.role === 'receptionist';
@@ -304,6 +309,16 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                 <ShieldCheck size={28} />
               </button>
             </div>
+          )}
+
+          {/* Network/Downlines (Affiliates only) */}
+          {currentUser.role === 'affiliate' && (
+            <button onClick={() => setActiveTab('affiliates')}
+              className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'affiliates' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
+              <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'affiliates' ? 'bg-burnt-peach/10' : ''}`}>
+                <Users size={22} />
+              </div>
+            </button>
           )}
 
           {/* Promotions (Staff only) */}
@@ -528,6 +543,15 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                   setSelectedPromo={setSelectedPromo}
                   isPromoModalOpen={isPromoModalOpen}
                   setIsPromoModalOpen={setIsPromoModalOpen}
+                />
+              )}
+
+              {activeTab === 'affiliates' && currentUser.role === 'affiliate' && (
+                <NetworkTab 
+                  currentUser={currentUser}
+                  apiBaseUrl={apiBaseUrl}
+                  safeFetch={safeFetch}
+                  clinicProfile={clinicProfile}
                 />
               )}
 

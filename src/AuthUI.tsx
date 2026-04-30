@@ -18,6 +18,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'react-hot-toast';
 
 
 // Normalise Malaysian phone → 60XXXXXXXXX
@@ -127,6 +128,9 @@ export default function AuthUI({
   const [authError, setAuthError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [recruiterCode, setRecruiterCode] = useState('');
+  const [recruiterName, setRecruiterName] = useState('');
+
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [isSendingForgotPassword, setIsSendingForgotPassword] = useState(false);
   const [forgotPasswordStatus, setForgotPasswordStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -233,6 +237,23 @@ export default function AuthUI({
       const { res: profileRes, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${signInData.user.email}`);
       if (!profileRes.ok) throw new Error(profileData?.error || 'Failed to load profile');
 
+      // Link recruiter if code exists
+      if (recruiterCode && profileData.id) {
+        try {
+          await safeFetch(`${apiBaseUrl}/api/staff/${profileData.id}/set-upline`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recruiter_code: recruiterCode })
+          });
+          // Clear it so it doesn't try to link again if tab re-renders or something
+          setRecruiterCode('');
+          setRecruiterName('');
+          toast.success(`Account linked to ${recruiterName || 'your recruiter'}`);
+        } catch (linkErr) {
+          console.error('Failed to link recruiter:', linkErr);
+        }
+      }
+
       // Block entry if account is pending admin approval
       if (!profileData.is_approved || profileData.is_approved === 0) {
         await supabase.auth.signOut();
@@ -298,6 +319,23 @@ export default function AuthUI({
   useEffect(() => {
     const hash = window.location.hash;
     const path = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('recruiter');
+
+    if (code) {
+      setRecruiterCode(code);
+      setAuthMode('register');
+      
+      // Fetch recruiter info
+      safeFetch(`${apiBaseUrl}/api/affiliate-lookup/${code}`)
+        .then(({ res, data }) => {
+          if (res.ok && data) {
+            setRecruiterName(data.name);
+          }
+        })
+        .catch(err => console.error('Recruiter lookup failed', err));
+    }
+
     if (path === '/update-password' || hash.includes('type=recovery')) {
       setShowResetPasswordModal(true);
       setAuthMode('login');
@@ -695,6 +733,24 @@ export default function AuthUI({
               onSubmit={handleRegisterSubmit}
               className="flex-1 flex flex-col"
             >
+              {recruiterCode && recruiterName && (
+                <div style={{
+                  background: 'linear-gradient(135deg, #1580c2, #0d5a8a)',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  marginBottom: '20px',
+                  color: 'white',
+                  fontFamily: "'Poppins', sans-serif"
+                }}>
+                  <p style={{ fontSize: '11px', opacity: 0.7, margin: '0 0 4px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                    You've been invited by
+                  </p>
+                  <p style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{recruiterName}</p>
+                  <p style={{ fontSize: '12px', opacity: 0.65, margin: '6px 0 0' }}>
+                    Registering will connect you as their downline affiliate.
+                  </p>
+                </div>
+              )}
               <div className="space-y-4 mb-6">
                 {[
                   { label: 'Full Name', type: 'text', value: authName, onChange: (e: any) => setAuthName(e.target.value), placeholder: 'Your full name', icon: User },
