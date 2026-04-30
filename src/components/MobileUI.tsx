@@ -11,6 +11,8 @@ import {
 import { ReferralBoard } from './ReferralBoard';
 import { PromotionsUI } from './PromotionsUI';
 import { PerformanceUI } from './PerformanceUI';
+import { ReceptionistUI } from './ReceptionistUI';
+import BookingCalendar from './BookingCalendar';
 
 // Lazy-loaded heavier components
 const DashboardUI = React.lazy(() => import('./DashboardUI').then(m => ({ default: m.DashboardUI })));
@@ -26,6 +28,7 @@ export type MobileTab =
   | 'inbox'
   | 'affiliates'
   | 'admin'
+  | 'calendar'
   | 'receptionist'
   | 'setup'
   | 'guide'
@@ -118,6 +121,26 @@ export interface MobileUIProps {
   markNotificationAsRead: (id: number) => void;
   deleteNotification: (id: number) => void;
   onDeleteAccount: () => Promise<void>;
+
+  // Receptionist Form Props
+  handleSubmitReferral: (e: React.FormEvent) => Promise<boolean>;
+  checkPromoCode: (code: string) => void;
+  walkInPromoCode: string;
+  walkInStaff: any;
+  patientName: string;
+  setPatientName: (name: string) => void;
+  patientType: 'new' | 'existing';
+  setPatientType: (type: 'new' | 'existing') => void;
+  selectedService: string;
+  setSelectedService: (id: string) => void;
+  isSubmitting: boolean;
+  branchFilter: string;
+  setBranchFilter: (branch: string) => void;
+  statusFilter: string;
+  setStatusFilter: (status: string) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  getWhatsAppUrl: (phone: string) => string;
 }
 
 export const MobileUI: React.FC<MobileUIProps> = ({
@@ -183,6 +206,25 @@ export const MobileUI: React.FC<MobileUIProps> = ({
   markAllAsRead,
   markNotificationAsRead,
   deleteNotification,
+  // New props
+  handleSubmitReferral,
+  checkPromoCode,
+  walkInPromoCode,
+  walkInStaff,
+  patientName,
+  setPatientName,
+  patientType,
+  setPatientType,
+  selectedService,
+  setSelectedService,
+  isSubmitting,
+  branchFilter,
+  setBranchFilter,
+  statusFilter,
+  setStatusFilter,
+  searchQuery,
+  setSearchQuery,
+  getWhatsAppUrl
 }) => {
   React.useEffect(() => {
     const isAdmin = currentUser.role === 'admin' || currentUser.role === 'manager';
@@ -215,11 +257,31 @@ export const MobileUI: React.FC<MobileUIProps> = ({
           </button>
 
           {/* Referrals (Staff only) */}
-          {currentUser.role !== 'admin' && currentUser.role !== 'manager' && (
+          {currentUser.role !== 'admin' && currentUser.role !== 'manager' && currentUser.role !== 'receptionist' && (
             <button onClick={() => setActiveTab('referrals')}
               className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'referrals' ? 'text-burnt-peach scale-110' : 'text-twilight-indigo/40 hover:text-twilight-indigo'}`}>
               <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'referrals' ? 'bg-burnt-peach/10' : ''}`}>
                 <Calendar size={22} />
+              </div>
+            </button>
+          )}
+
+          {/* Calendar (Staff/Admin/Manager) */}
+          {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
+            <button onClick={() => setActiveTab('calendar')}
+              className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'calendar' ? 'text-[#1580c2] scale-110' : 'text-[#1580c2]/40 hover:text-[#1580c2]'}`}>
+              <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'calendar' ? 'bg-[#1580c2]/10' : ''}`}>
+                <Calendar size={22} />
+              </div>
+            </button>
+          )}
+
+          {/* Receptionist Panel (Receptionist/Admin/Manager) */}
+          {(currentUser.role === 'receptionist' || currentUser.role === 'admin' || currentUser.role === 'manager') && (
+            <button onClick={() => setActiveTab('receptionist')}
+              className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'receptionist' ? 'text-[#1580c2] scale-110' : 'text-[#1580c2]/40 hover:text-[#1580c2]'}`}>
+              <div className={`p-2 rounded-2xl transition-colors ${activeTab === 'receptionist' ? 'bg-[#1580c2]/10' : ''}`}>
+                <LayoutDashboard size={22} />
               </div>
             </button>
           )}
@@ -506,6 +568,48 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                     onDeleteAccount={onDeleteAccount}
                   />
                 </React.Suspense>
+              )}
+
+              {activeTab === 'calendar' && (
+                <div className="bg-white rounded-[2.5rem] border border-black/5 shadow-sm overflow-hidden h-[70vh] flex flex-col">
+                  <BookingCalendar 
+                    currentUser={currentUser}
+                    referrals={referrals}
+                    staffList={staffList}
+                    clinicProfile={clinicProfile}
+                    branches={branches}
+                  />
+                </div>
+              )}
+
+              {activeTab === 'receptionist' && (
+                <ReceptionistUI 
+                  currentUser={currentUser}
+                  referrals={referrals}
+                  services={services}
+                  branches={branches}
+                  clinicProfile={clinicProfile}
+                  isMobile={true}
+                  handleSubmitReferral={handleSubmitReferral}
+                  checkPromoCode={checkPromoCode}
+                  walkInPromoCode={walkInPromoCode}
+                  walkInStaff={walkInStaff}
+                  patientName={patientName}
+                  setPatientName={setPatientName}
+                  patientType={patientType}
+                  setPatientType={setPatientType}
+                  selectedService={selectedService}
+                  setSelectedService={setSelectedService}
+                  isSubmitting={isSubmitting}
+                  branchFilter={branchFilter}
+                  setBranchFilter={setBranchFilter}
+                  statusFilter={statusFilter}
+                  setStatusFilter={setStatusFilter}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  handleClinicStatusUpdate={handleClinicStatusUpdate}
+                  getWhatsAppUrl={getWhatsAppUrl}
+                />
               )}
 
               {activeTab === 'inbox' && (

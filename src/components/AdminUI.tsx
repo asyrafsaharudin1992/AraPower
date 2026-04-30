@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ShieldCheck, Search, Trash2, Users, DollarSign, Zap, MessageCircle, Info, Save, X, Plus, Image as ImageIcon, Send, RefreshCw, Eye, EyeOff, Edit3, Settings, LayoutDashboard, Megaphone } from 'lucide-react';
+import { ShieldCheck, Search, Trash2, Users, DollarSign, Zap, MessageCircle, Info, Save, X, Plus, Image as ImageIcon, Send, RefreshCw, Eye, EyeOff, Edit3, Settings, LayoutDashboard, Megaphone, Calendar } from 'lucide-react';
 import { supabase } from '../supabase';
 import { toast } from 'react-hot-toast';
+import BookingCalendar from './BookingCalendar';
 
 export interface AdminUIProps {
   currentUser: any;
@@ -13,6 +14,7 @@ export interface AdminUIProps {
   staffList: any[];
   warmLeads: any[];
   services: any[];
+  branches: any[];
   adminSearch: string;
   setAdminSearch: (search: string) => void;
   handleApproveStaff: (staffId: string, isApproved: boolean) => void;
@@ -33,6 +35,7 @@ export const AdminUI: React.FC<AdminUIProps> = ({
   staffList,
   warmLeads,
   services,
+  branches,
   adminSearch,
   setAdminSearch,
   handleApproveStaff,
@@ -45,7 +48,7 @@ export const AdminUI: React.FC<AdminUIProps> = ({
 }) => {
   const [announcementMsg, setAnnouncementMsg] = useState("");
   const [announcementActive, setAnnouncementActive] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'staff' | 'awareness'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'staff' | 'awareness' | 'calendar'>('overview');
 
   // Awareness Campaigns State
   const [campaigns, setCampaigns] = useState<any[]>([]);
@@ -282,6 +285,17 @@ export const AdminUI: React.FC<AdminUIProps> = ({
         >
           <Megaphone size={14} />
           Awareness Campaigns
+        </button>
+        <button
+          onClick={() => setActiveTab('calendar')}
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            activeTab === 'calendar' 
+              ? 'bg-white text-[#1580c2] shadow-sm' 
+              : 'text-zinc-400 hover:text-zinc-600'
+          }`}
+        >
+          <Calendar size={14} />
+          Booking Calendar
         </button>
       </div>
 
@@ -710,6 +724,18 @@ export const AdminUI: React.FC<AdminUIProps> = ({
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'calendar' && (
+        <div className="bg-white rounded-[2.5rem] border border-black/5 shadow-sm overflow-hidden h-[800px] flex flex-col">
+          <BookingCalendar 
+            currentUser={currentUser}
+            referrals={referrals}
+            staffList={staffList}
+            clinicProfile={clinicProfile}
+            branches={branches}
+          />
         </div>
       )}
 

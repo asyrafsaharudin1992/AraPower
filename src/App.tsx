@@ -6,12 +6,14 @@ import Markdown from 'react-markdown';
 import AuthUI from './AuthUI';
 import { PromotionsCarousel } from './components/PromotionsCarousel';
 import { AdminUI } from './components/AdminUI';
+import BookingCalendar from './components/BookingCalendar';
 import { AffiliateManagement } from './components/AffiliateManagement';
 import { DashboardUI } from './components/DashboardUI';
 import { PerformanceUI } from './components/PerformanceUI';
 import { CategoryScrollRow } from './components/CategoryScrollRow';
 import { PayoutManagement } from './components/PayoutManagement';
 import { ReferralBoard } from './components/ReferralBoard';
+import { ReceptionistUI } from './components/ReceptionistUI';
 import { MobileUI, MobileTab } from './components/MobileUI';
 import { PromotionsUI } from './components/PromotionsUI';
 import { ProfileUI } from './components/ProfileUI';
@@ -829,7 +831,7 @@ export default function App() {
       created_at: new Date().toISOString()
     }
   ]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'performance' | 'admin' | 'receptionist' | 'setup' | 'guide' | 'profile' | 'tasks' | 'promotions' | 'payouts' | 'inbox' | 'communication' | 'warm-leads' | 'affiliates'>(() => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'referrals' | 'performance' | 'admin' | 'receptionist' | 'calendar' | 'setup' | 'guide' | 'profile' | 'tasks' | 'promotions' | 'payouts' | 'inbox' | 'communication' | 'warm-leads' | 'affiliates'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('lastActiveTab');
       if (saved) return saved as any;
@@ -1810,10 +1812,6 @@ export default function App() {
     let url = (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') 
       ? `${apiBaseUrl}/api/referrals?requesterRole=${currentUser.role}&requesterBranch=${currentUser.branch || 'all'}` 
       : `${apiBaseUrl}/api/referrals?staffId=${currentUser.id}&requesterRole=${currentUser.role}`;
-    
-    if (currentUser.role === 'receptionist') {
-      url += '&upcoming=true';
-    }
     
     if (branchFilter !== 'all' && (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist')) {
       url += `&branch=${branchFilter}`;
@@ -2928,6 +2926,24 @@ export default function App() {
               markAllAsRead={markAllAsRead}
               markNotificationAsRead={markNotificationAsRead}
               deleteNotification={deleteNotification}
+              handleSubmitReferral={handleSubmitReferral}
+              checkPromoCode={checkPromoCode}
+              walkInPromoCode={walkInPromoCode}
+              walkInStaff={walkInStaff}
+              patientName={patientName}
+              setPatientName={setPatientName}
+              patientType={patientType}
+              setPatientType={setPatientType}
+              selectedService={selectedService}
+              setSelectedService={setSelectedService}
+              isSubmitting={isSubmitting}
+              branchFilter={branchFilter}
+              setBranchFilter={setBranchFilter}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              getWhatsAppUrl={getWhatsAppUrl}
             />
           </MobilePullToRefreshWrapper>
         )}
@@ -2967,6 +2983,24 @@ export default function App() {
                 <ClipboardList size={18} />
                 <span className="text-sm font-bold">Referrals</span>
               </button>
+              {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
+                <button 
+                  onClick={() => setActiveTab('calendar')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'calendar' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
+                >
+                  <Calendar size={18} />
+                  <span className="text-sm font-bold">Booking Calendar</span>
+                </button>
+              )}
+              {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
+                <button 
+                  onClick={() => setActiveTab('receptionist')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'receptionist' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
+                >
+                  <Users size={18} />
+                  <span className="text-sm font-bold">Receptionist Panel</span>
+                </button>
+              )}
               <button 
                 onClick={() => setActiveTab('promotions')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'promotions' ? 'bg-[#1580c2] text-white shadow-lg shadow-[#1580c2]/20' : 'text-[#1580c2]/60 hover:bg-[#1580c2]/5'}`}
@@ -3599,6 +3633,7 @@ export default function App() {
               staffList={staffList}
               warmLeads={warmLeads}
               services={services}
+              branches={branches}
               adminSearch={adminSearch}
               setAdminSearch={setAdminSearch}
               handleApproveStaff={handleApproveStaff}
@@ -3647,223 +3682,48 @@ export default function App() {
   />
 )}
 
-          {activeTab === 'receptionist' && (currentUser.role === 'receptionist' || currentUser.role === 'manager' || currentUser.role === 'admin') && (
-            <motion.div 
-              key="receptionist"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-8"
-            >
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Walk-in Form (Receptionist Only) */}
-                {currentUser.role === 'receptionist' && (
-                  <div className="lg:col-span-1">
-                    <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
-                      <div className="flex items-center gap-2 mb-6">
-                        <PlusCircle className="text-zinc-900" size={20} />
-                        <h3 className="font-semibold">Log Walk-in Referral</h3>
-                      </div>
-                      <form onSubmit={handleSubmitReferral} className="space-y-4">
-                        <div>
-                          <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Referral Code</label>
-                          <input 
-                            type="text" 
-                            required
-                            value={walkInPromoCode}
-                            onChange={(e) => checkPromoCode(e.target.value.toUpperCase())}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#1580c2] focus:border-[#1580c2]/20 transition-all font-mono"
-                            placeholder="e.g. SMITH10"
-                          />
-                          {walkInStaff ? (
-                            <p className="mt-2 text-xs text-zinc-900 font-medium flex items-center gap-1">
-                              <CheckCircle2 size={12} /> Valid Referral Code
-                            </p>
-                          ) : walkInPromoCode.length >= 3 ? (
-                            <p className="mt-2 text-xs text-zinc-900 font-medium">✗ Invalid Referral Code</p>
-                          ) : null}
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Patient Name</label>
-                          <input 
-                            type="text" 
-                            required
-                            value={patientName}
-                            onChange={(e) => setPatientName(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#1580c2] focus:border-[#1580c2]/20 transition-all"
-                            placeholder="Enter patient name"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Patient Type</label>
-                          <select 
-                            required
-                            value={patientType}
-                            onChange={(e) => setPatientType(e.target.value as 'new' | 'existing')}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#1580c2] focus:border-[#1580c2]/20 transition-all appearance-none"
-                          >
-                            <option value="new">New Patient</option>
-                            <option value="existing">Existing Patient</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">Service</label>
-                          <select 
-                            required
-                            value={selectedService}
-                            onChange={(e) => setSelectedService(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl bg-zinc-50 border border-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#1580c2] focus:border-[#1580c2]/20 transition-all appearance-none"
-                          >
-                            <option value="">Select a service</option>
-                            {services.map(s => (
-                              <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                            {selectedService && !services.find(s => String(s.id) === String(selectedService)) && urlServiceName && (
-                              <option value={selectedService}>{urlServiceName}</option>
-                            )}
-                          </select>
-                        </div>
-                        <button 
-                          type="submit"
-                          disabled={isSubmitting || !walkInStaff}
-                          className="w-full bg-[#1580c2] text-white py-3 rounded-xl font-medium hover:bg-[#1580c2] transition-colors disabled:opacity-50"
-                        >
-                          {isSubmitting ? 'Logging...' : 'Log Referral'}
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                )}
-
-                {/* Check-in / Payout List */}
-                <div className={currentUser.role === 'receptionist' ? 'lg:col-span-2' : 'lg:col-span-3'}>
-                  <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
-                    <div className="p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <h3 className="font-semibold">{currentUser.role === 'receptionist' ? `Patient Arrivals (${branchFilter === 'all' ? 'All Branches' : branchFilter})` : 'Pending Payouts'}</h3>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        {(currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
-                          <select 
-                            value={branchFilter}
-                            onChange={(e) => setBranchFilter(e.target.value)}
-                            className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-[#1580c2]"
-                          >
-                            <option value="all">All Branches</option>
-                            {branches.map(b => (
-                              <option key={b.id} value={b.name}>{b.name}</option>
-                            ))}
-                          </select>
-                        )}
-                        <select 
-                          value={statusFilter}
-                          onChange={(e) => setStatusFilter(e.target.value)}
-                          className="px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-[#1580c2]"
-                        >
-                          <option value="all">All Statuses</option>
-                          <option value="pending">Pending</option>
-                          <option value="arrived">Arrived</option>
-                          <option value="in_session">In Session</option>
-                          <option value="completed">Completed</option>
-                          <option value="payment_approved">Payment Approved</option>
-                          <option value="payment_made">Payment Made</option>
-                          <option value="rejected">Rejected</option>
-                        </select>
-                        <div className="relative">
-                          <input 
-                            type="text"
-                            placeholder="Search patient name..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-4 pr-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-xs focus:outline-none focus:ring-2 focus:ring-[#1580c2]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="divide-y divide-zinc-50">
-                      {referrals
-                        .filter(r => (r.patient_name || '').toLowerCase().includes(searchQuery.toLowerCase()))
-                        .filter(r => statusFilter === 'all' ? true : r.status?.toLowerCase() === statusFilter.toLowerCase())
-                        .filter(r => currentUser.role === 'receptionist' ? ['arrived','in_session','completed'].includes(r.status?.toLowerCase()) : true)
-                        .map((ref) => (
-                        <div key={ref.id} className="p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors">
-                          <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
-                            <div>
-                              <p className="text-sm font-semibold">{ref.patient_name || 'Hidden (P&C)'}</p>
-                              <div className="flex items-center gap-2">
-                                <p className="text-[10px] text-zinc-500">{ref.patient_phone || 'Hidden (P&C)'}</p>
-                                {ref.patient_phone && (
-                                  <a 
-                                    href={getWhatsAppUrl(ref.patient_phone)}
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-50 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-colors flex-shrink-0"
-                                    title="WhatsApp Patient"
-                                  >
-                                    <MessageCircle size={12} />
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                            <div>
-                              <p className="text-xs font-medium text-zinc-500">{ref.service_name}</p>
-                              <p className="text-[10px] text-zinc-500">Service</p>
-                            </div>
-                            { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
-                              <div className="flex flex-col">
-                                <p className="text-xs font-bold text-zinc-900">{clinicProfile.currency}{(ref.commission_amount || 0).toFixed(2)}</p>
-                                <p className="text-[10px] text-zinc-500">Commission</p>
-                              </div>
-                            )}
-                            { (currentUser.role === 'admin' || currentUser.role === 'manager') && (
-                              <div>
-                                <p className="text-xs font-medium text-zinc-900">
-                                  {staffList.find(s => String(s.id) === String(ref.staff_id))?.name || ref.staff_name || <span className="text-zinc-400 italic">Direct Walk-in</span>}
-                                </p>
-                                <p className="text-[10px] text-zinc-500">Staff</p>
-                              </div>
-                            )}
-                            <div>
-                              <p className="text-xs font-medium text-zinc-500">{ref.appointment_date}</p>
-                              <p className="text-[10px] text-zinc-500">{ref.booking_time}</p>
-                            </div>
-                            <div>
-                              <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(ref.status)}`}>
-                                {getStatusLabel(ref.status)}
-                              </span>
-                              <p className="text-[10px] text-zinc-500 mt-1">Status</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 ml-4">
-                            <select 
-                              value={ref.status}
-                              onChange={(e) => {
-                                const newStatus = e.target.value;
-                                const additionalData = newStatus === 'completed' ? { visit_date: new Date().toISOString().split('T')[0] } : {};
-                                handleUpdateStatus(ref.id, newStatus as any, additionalData);
-                              }}
-                              className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#1580c2]"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="arrived">Arrived</option>
-                              <option value="in_session">In Session</option>
-                              <option value="completed">Completed</option>
-                              <option value="payment_approved">Payment Approved</option>
-                              <option value="payment_made">Payment Made</option>
-                              <option value="rejected">Rejected</option>
-                            </select>
-
-                          </div>
-                        </div>
-                      ))}
-                      {referrals.length === 0 && (
-                        <div className="p-12 text-center text-zinc-500">
-                          <p className="text-sm">No referrals found.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+          {activeTab === 'calendar' && (currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'receptionist') && (
+            <div className="bg-white rounded-[2.5rem] border border-black/5 shadow-sm overflow-hidden h-[850px] flex flex-col">
+              <BookingCalendar 
+                currentUser={currentUser}
+                referrals={referrals}
+                staffList={staffList}
+                clinicProfile={clinicProfile}
+                branches={branches}
+              />
+            </div>
           )}
+
+          {activeTab === 'receptionist' && (currentUser.role === 'receptionist' || currentUser.role === 'manager' || currentUser.role === 'admin') && (
+            <ReceptionistUI 
+              currentUser={currentUser}
+              referrals={referrals}
+              services={services}
+              branches={branches}
+              clinicProfile={clinicProfile}
+              isMobile={false}
+              handleSubmitReferral={handleSubmitReferral}
+              checkPromoCode={checkPromoCode}
+              walkInPromoCode={walkInPromoCode}
+              walkInStaff={walkInStaff}
+              patientName={patientName}
+              setPatientName={setPatientName}
+              patientType={patientType}
+              setPatientType={setPatientType}
+              selectedService={selectedService}
+              setSelectedService={setSelectedService}
+              isSubmitting={isSubmitting}
+              branchFilter={branchFilter}
+              setBranchFilter={setBranchFilter}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              handleClinicStatusUpdate={handleClinicStatusUpdate}
+              getWhatsAppUrl={getWhatsAppUrl}
+            />
+          )}
+
           {activeTab === 'tasks' && (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}

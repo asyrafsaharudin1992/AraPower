@@ -2614,7 +2614,7 @@ app.get("/api/referrals", async (req, res) => {
     
     if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
       query = query.eq('branch', branch);
-    } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
+    } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'all' && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
       query = query.eq('branch', requesterBranch);
     }
 
@@ -2643,7 +2643,7 @@ app.get("/api/referrals", async (req, res) => {
       }
       if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
         fallbackQuery = fallbackQuery.eq('branch', branch);
-      } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
+      } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'all' && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
         fallbackQuery = fallbackQuery.eq('branch', requesterBranch);
       }
       
@@ -2672,7 +2672,7 @@ app.get("/api/referrals", async (req, res) => {
       }
       if (branch && branch !== 'all' && branch !== 'undefined' && branch !== 'null') {
         fallbackQuery = fallbackQuery.eq('branch', branch);
-      } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
+      } else if (requesterRole === 'receptionist' && requesterBranch && requesterBranch !== 'all' && requesterBranch !== 'undefined' && requesterBranch !== 'null') {
         fallbackQuery = fallbackQuery.eq('branch', requesterBranch);
       }
       
