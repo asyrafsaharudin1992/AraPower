@@ -42,21 +42,12 @@ const NetworkTab: React.FC<NetworkTabProps> = ({
   const fetchNetworkData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Eligibility/Status
-      const recruitRes = await safeFetch(`${apiBaseUrl}/api/network/recruit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ affiliate_id: currentUser.id })
-      });
-
-      if (recruitRes.res.ok) {
-        setRecruitStats(recruitRes.data);
-      }
-
-      // 2. Fetch Downlines
-      const downlinesRes = await safeFetch(`${apiBaseUrl}/api/network/downlines/${currentUser.id}`);
-      if (downlinesRes.res.ok) {
-        setDownlines(downlinesRes.data);
+      // Use the new optimized dashboard endpoint that returns everything in one request
+      const response = await safeFetch(`${apiBaseUrl}/api/network/affiliate-dashboard/${currentUser.id}`);
+      
+      if (response.res.ok && response.data) {
+        setRecruitStats(response.data.recruitStats);
+        setDownlines(response.data.downlines);
       }
     } catch (err) {
       console.error('Failed to fetch network data:', err);

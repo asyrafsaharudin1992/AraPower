@@ -3462,6 +3462,81 @@ app.get("/api/network/admin-overview", async (req, res) => {
   });
 });
 
+app.get("/api/network/affiliate-dashboard/:id", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  const { id } = req.params;
+
+  try {
+    // 1. Fetch counts and settings in parallel
+    const [ownCasesRes, downlinesRes, settingsRes] = await Promise.all([
+      supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('staff_id', id).eq('status', 'completed'),
+      supabase.from('staff').select('id, name, email, referral_code, created_at, upline_cases_count').eq('upline_id', id),
+      supabase.from('settings').select('key, value')
+    ]);
+
+    const ownCases = ownCasesRes.count || 0;
+    const downlineList = downlinesRes.data || [];
+    const setts = settingsRes.data || [];
+
+    const findSett = (key: string, def: number) => Number(setts.find(s => s.key === key)?.value || def);
+    const capBase = findSett('downline_cap_base', 5);
+    const capUnlocked = findSett('downline_cap_unlocked', 50);
+    const threshold = findSett('downline_cap_unlock_threshold', 10);
+    const overrideCaseLimit = findSett('override_case_limit', 20);
+    const overridePercentage = findSett('override_percentage', 20);
+
+    const cap = ownCases >= threshold ? capUnlocked : capBase;
+    const current = downlineList.length;
+
+    // 2. Fetch all completed referral counts and override earnings for these downlines in bulk
+    const downlineIds = downlineList.map(dl => dl.id);
+    const referralCounts: any = {};
+    const overrideEarnings: any = {};
+
+    if (downlineIds.length > 0) {
+      const [refsRes, earningsRes] = await Promise.all([
+        supabase.from('referrals').select('staff_id').in('staff_id', downlineIds).eq('status', 'completed'),
+        supabase.from('override_earnings').select('downline_id, amount').eq('upline_id', id).in('downline_id', downlineIds)
+      ]);
+
+      refsRes.data?.forEach((r: any) => {
+        referralCounts[r.staff_id] = (referralCounts[r.staff_id] || 0) + 1;
+      });
+
+      earningsRes.data?.forEach((e: any) => {
+        overrideEarnings[e.downline_id] = (overrideEarnings[e.downline_id] || 0) + Number(e.amount);
+      });
+    }
+
+    const downlinesData = downlineList.map(dl => ({
+      ...dl,
+      referral_count: referralCounts[dl.id] || 0,
+      total_override_earned: overrideEarnings[dl.id] || 0,
+      is_active: (dl.upline_cases_count || 0) < overrideCaseLimit
+    }));
+
+    res.json({
+      recruitStats: {
+        eligible: current < cap,
+        current,
+        cap,
+        slots_remaining: cap - current,
+        settings: {
+          override_percentage: overridePercentage,
+          override_case_limit: overrideCaseLimit,
+          downline_cap_base: capBase,
+          downline_cap_unlocked: capUnlocked,
+          downline_cap_unlock_threshold: threshold
+        }
+      },
+      downlines: downlinesData
+    });
+  } catch (err: any) {
+    console.error('Affiliate dashboard error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Unhandled Error:', err);
