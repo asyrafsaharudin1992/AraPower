@@ -2150,13 +2150,16 @@ export default function App() {
   const handleDeleteAccount = async () => {
     if (!currentUser) return;
     try {
-      // 1. Delete user record from staff table via Supabase RPC or direct delete
-      // Since currentUser.id is the primary key and the auth_id is linked, we delete by id
-      const { error: dbError } = await supabase.from('staff').delete().eq('id', currentUser.id);
+      // 1. Call the backend permanent delete endpoint to handle DB cascading + Supabase Auth
+      const { res: deleteRes, data: deleteData } = await safeFetch(`${apiBaseUrl}/api/staff/${currentUser.id}/permanent`, {
+        method: 'DELETE'
+      });
       
-      if (dbError) throw dbError;
+      if (!deleteRes.ok) {
+        throw new Error(deleteData?.error || 'Failed to delete account in database');
+      }
 
-      // 2. Sign out of Supabase auth
+      // 2. Clear local auth session
       await supabase.auth.signOut();
 
       // 3. Reset local state and storage

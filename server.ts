@@ -2287,11 +2287,13 @@ app.post("/api/staff/:id/restore", async (req, res) => {
 });
 
 app.delete("/api/staff/:id/permanent", async (req, res) => {
+  if (!checkSupabase(res)) return;
   const { id } = req.params;
+  const dbClient = serviceRoleSupabase || supabase;
   
   try {
     // 1. Get the staff member's email before deleting
-    const { data: staffData, error: staffError } = await supabase
+    const { data: staffData, error: staffError } = await dbClient
       .from('staff')
       .select('email')
       .eq('id', id)
@@ -2301,8 +2303,17 @@ app.delete("/api/staff/:id/permanent", async (req, res) => {
       return res.status(404).json({ error: 'Staff member not found' });
     }
 
-    // 2. Delete from the staff table FIRST to remove any foreign key constraints
-    const { error } = await supabase.from('staff').delete().eq('id', id);
+    // 2. Clear FK constraints and delete from the staff table
+    // Delete referrals created by this staff (optional, or just reassign? Better to delete if they are just an affiliate and we allow delete)
+    await dbClient.from('referrals').delete().eq('staff_id', id);
+    // Delete override earnings
+    await dbClient.from('override_earnings').delete().eq('upline_id', id);
+    await dbClient.from('override_earnings').delete().eq('downline_id', id);
+    // Unlink downlines
+    await dbClient.from('staff').update({ upline_id: null }).eq('upline_id', id);
+    
+    // Now delete the staff record
+    const { error } = await dbClient.from('staff').delete().eq('id', id);
     if (error) throw error;
 
     // 3. Delete from Supabase Auth if service role key is available
