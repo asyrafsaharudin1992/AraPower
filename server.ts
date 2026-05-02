@@ -495,6 +495,157 @@ async function sendApprovalNotification(staff: any) {
   }
 }
 
+async function sendRegistrationConfirmationNotification(staff: any) {
+  if (!resend) {
+    console.log('RESEND_API_KEY not found. Skipping registration confirmation email.');
+    return;
+  }
+  if (!staff?.email) return;
+
+  const appUrl = process.env.APP_URL || 'https://arapower.hsohealthcare.com';
+  const firstName = staff.name?.split(' ')[0] || 'there';
+
+  try {
+    await resend.emails.send({
+      from: 'Klinik Ara 24 Jam <noreply@hsohealthcare.com>',
+      to: staff.email,
+      subject: '👋 Your AraPower application was received!',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"></head>
+        <body style="margin:0;padding:0;background:#f8fafc;font-family:'Helvetica Neue',Arial,sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:40px 0;">
+            <tr><td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.07);max-width:600px;width:100%;">
+                <tr>
+                  <td style="background:#1580c2;padding:36px 40px;text-align:center;">
+                    <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-0.5px;">AraPower</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:40px;text-align:center;">
+                    <h2 style="margin:0;color:#1580c2;font-size:24px;font-weight:800;">Application Received!</h2>
+                    <p style="margin:10px 0 0;color:#64748b;font-size:15px;line-height:1.6;">
+                      Hi ${firstName}, we have received your affiliate application. Our team will review your details shortly.
+                      You'll receive another email as soon as your account is approved.
+                    </p>
+                    <div style="text-align:center;margin-top:32px;">
+                      <a href="${appUrl}" style="display:inline-block;background:#1580c2;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:16px 40px;border-radius:40px;">
+                        Go to App →
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td></tr>
+          </table>
+        </body>
+        </html>
+      `
+    });
+    console.log('[sendRegistrationConfirmationNotification] Email sent to ' + staff.email);
+  } catch (err) {
+    console.error('[sendRegistrationConfirmationNotification] Failed to send email:', err);
+  }
+}
+
+async function sendNewMessageNotification(staff: any, messageText: string) {
+  if (!resend) return;
+  if (!staff?.email) return;
+
+  const appUrl = process.env.APP_URL || 'https://arapower.hsohealthcare.com';
+  const firstName = staff.name?.split(' ')[0] || 'there';
+
+  try {
+    await resend.emails.send({
+      from: 'Klinik Ara 24 Jam <noreply@hsohealthcare.com>',
+      to: staff.email,
+      subject: '💬 You have a new message from Admin',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"></head>
+        <body style="margin:0;padding:0;background:#f8fafc;font-family:'Helvetica Neue',Arial,sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:40px 0;">
+            <tr><td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.07);max-width:600px;width:100%;">
+                <tr>
+                  <td style="background:#1580c2;padding:36px 40px;text-align:center;">
+                    <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-0.5px;">AraPower</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:40px;">
+                    <h2 style="margin:0;color:#1580c2;font-size:24px;font-weight:800;">New Message Received</h2>
+                    <p style="margin:10px 0 20px;color:#64748b;font-size:15px;line-height:1.6;">
+                      Hi ${firstName}, you have received a new message from the administrator:
+                    </p>
+                    <div style="background:#f1f5f9;border-left:4px solid #1580c2;padding:16px;margin-bottom:30px;border-radius:0 8px 8px 0;">
+                      <p style="margin:0;color:#334155;font-size:15px;white-space:pre-wrap;">${messageText}</p>
+                    </div>
+                    <div style="text-align:center;">
+                      <a href="${appUrl}" style="display:inline-block;background:#1580c2;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:16px 40px;border-radius:40px;">
+                        Open App to Reply →
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td></tr>
+          </table>
+        </body>
+        </html>
+      `
+    });
+    console.log('[sendNewMessageNotification] Email sent to ' + staff.email);
+  } catch (err) {
+    console.error('[sendNewMessageNotification] Failed to send email:', err);
+  }
+}
+
+async function sendAccountDeletionNotification(email: string, firstName: string) {
+  if (!resend) return;
+
+  try {
+    await resend.emails.send({
+      from: 'Klinik Ara 24 Jam <noreply@hsohealthcare.com>',
+      to: email,
+      subject: '👋 Your AraPower account has been deleted',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"></head>
+        <body style="margin:0;padding:0;background:#f8fafc;font-family:'Helvetica Neue',Arial,sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:40px 0;">
+            <tr><td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.07);max-width:600px;width:100%;">
+                <tr>
+                  <td style="background:#ef4444;padding:36px 40px;text-align:center;">
+                    <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-0.5px;">AraPower</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:40px;text-align:center;">
+                    <h2 style="margin:0;color:#ef4444;font-size:24px;font-weight:800;">Account Deleted</h2>
+                    <p style="margin:10px 0 0;color:#64748b;font-size:15px;line-height:1.6;">
+                      Hi ${firstName}, your AraPower affiliate account has been permanently deleted as requested. 
+                      Thank you for your time with us!
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td></tr>
+          </table>
+        </body>
+        </html>
+      `
+    });
+    console.log('[sendAccountDeletionNotification] Email sent to ' + email);
+  } catch (err) {
+    console.error('[sendAccountDeletionNotification] Failed to send email:', err);
+  }
+}
 
 async function sendReferralNotification(staff: any, referral: any) {
   if (!resend || !staff?.email) return;
@@ -1433,6 +1584,9 @@ app.post("/api/auth/register", async (req, res) => {
     // Send notification to admins (don't await to avoid blocking response)
     sendAdminNotification(newStaff).catch(err => console.error('Background notification error:', err));
     
+    // Send confirmation email to affiliate (don't await to avoid blocking response)
+    sendRegistrationConfirmationNotification(newStaff).catch(err => console.error('Background confirmation email error:', err));
+    
     res.json(newStaff);
   } catch (error: any) {
     if (error.code === '23505') { // Unique constraint violation in Postgres
@@ -1816,9 +1970,11 @@ app.post("/api/notifications", async (req, res) => {
     // Support both single user_id (legacy) and user_ids array (bulk)
     const targetIds = user_ids || (user_id ? [user_id] : []);
 
+    let dbClient = serviceRoleSupabase || supabase;
+
     if (targetIds.length === 0) {
       // Global notification
-      const { data, error } = await supabase
+      const { data, error } = await dbClient
         .from('notifications')
         .insert({ 
           user_id: null, 
@@ -1834,6 +1990,11 @@ app.post("/api/notifications", async (req, res) => {
         console.error('[Notification Error] Global Insert:', error.message, error);
         return res.status(500).json({ error: error.message || 'Unknown database error', details: error });
       }
+      
+      // Async: If it's a global notification we would ideally get all users and email them, 
+      // but maybe don't email blast all users for global to prevent spamming? 
+      // I'll skip global emailing unless explicitly requested.
+      
       return res.json(data);
     } else {
       // Bulk or single targeted notification
@@ -1856,15 +2017,27 @@ app.post("/api/notifications", async (req, res) => {
         return res.status(400).json({ error: 'No valid recipients selected' });
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await dbClient
         .from('notifications')
-        .insert(inserts);
+        .insert(inserts)
+        .select();
 
       if (error) {
         console.error('[Notification Error] Bulk Insert:', error.message, error);
         return res.status(500).json({ error: error.message || 'Unknown database error', details: error });
       }
-      return res.json({ success: true, count: inserts.length });
+
+      // Background email alert to the specific targets
+      // Only if this was initiated directly by the admin giving a message to them, but we'll email for all non-automated.
+      dbClient.from('staff').select('id, name, email').in('id', targetIds).then(({ data: stData }: any) => {
+        if (stData) {
+          stData.forEach((st: any) => {
+            sendNewMessageNotification(st, message).catch((e: any) => console.log('Mail err:', e));
+          });
+        }
+      });
+
+      return res.json({ success: true, count: inserts.length, data });
     }
   } catch (err: any) {
     console.error('[Notification Error] Unexpected:', err);
@@ -2295,7 +2468,7 @@ app.delete("/api/staff/:id/permanent", async (req, res) => {
     // 1. Get the staff member's email before deleting
     const { data: staffData, error: staffError } = await dbClient
       .from('staff')
-      .select('email')
+      .select('email, name')
       .eq('id', id)
       .single();
 
@@ -2347,6 +2520,11 @@ app.delete("/api/staff/:id/permanent", async (req, res) => {
       }
     }
     
+    // Send account deletion email explicitly
+    sendAccountDeletionNotification(staffData.email, staffData.name?.split(' ')[0] || 'there').catch(err => {
+      console.error('[sendAccountDeletionNotification] error trigger in endpoint:', err);
+    });
+
     res.json({ success: true });
   } catch (error: any) {
     console.error('Permanent delete error:', error);
