@@ -3336,15 +3336,32 @@ app.patch("/api/staff/:id/set-upline", async (req, res) => {
   if (!checkSupabase(res)) return;
   const { id } = req.params;
   const { recruiter_code } = req.body;
+  const dbClient = serviceRoleSupabase || supabase;
 
   if (!recruiter_code) return res.status(400).json({ error: 'recruiter_code is required' });
 
   // 1. Find recruiter
-  const { data: recruiter, error: rErr } = await supabase
-    .from('staff')
-    .select('id, name, role, email, referral_code, upline_id')
-    .ilike('referral_code', recruiter_code)
-    .maybeSingle();
+  let recruiter = null;
+  const columns = 'id, name, role, email, referral_code, upline_id';
+  
+  // Try by ID first
+  if (!isNaN(Number(recruiter_code))) {
+    const { data: byId } = await dbClient.from('staff').select(columns).eq('id', recruiter_code).maybeSingle();
+    recruiter = byId;
+  }
+
+  // Try by referral_code
+  if (!recruiter) {
+    const { data: byRef } = await dbClient.from('staff').select(columns).ilike('referral_code', recruiter_code).maybeSingle();
+    recruiter = byRef;
+  }
+
+  // Try by promo_code as fallback if column exists
+  if (!recruiter) {
+    // Avoid crashing if promo_code column doesn't exist
+    const { data: byPromo } = await dbClient.from('staff').select(columns).ilike('promo_code', recruiter_code).maybeSingle().catch(() => ({ data: null }));
+    if(byPromo) recruiter = byPromo;
+  }
 
   if (!recruiter) return res.status(404).json({ error: 'Recruiter not found' });
   if (recruiter.id == id) return res.status(400).json({ error: 'You cannot recruit yourself' });
@@ -3354,18 +3371,18 @@ app.patch("/api/staff/:id/set-upline", async (req, res) => {
 
   // 2. Check recruiter's cap
   // (Same logic as /api/network/recruit but on server side)
-  const { count: ownCases } = await supabase
+  const { count: ownCases } = await dbClient
     .from('referrals')
     .select('*', { count: 'exact', head: true })
     .eq('staff_id', recruiter.id)
     .eq('status', 'completed');
 
-  const { count: downlineCount } = await supabase
+  const { count: downlineCount } = await dbClient
     .from('staff')
     .select('*', { count: 'exact', head: true })
     .eq('upline_id', recruiter.id);
 
-  const { data: setts } = await supabase.from('settings').select('key, value');
+  const { data: setts } = await dbClient.from('settings').select('key, value');
   const findSett = (key: string, def: number) => Number(setts?.find(s => s.key === key)?.value || def);
   
   const capBase = findSett('downline_cap_base', 5);
@@ -3378,7 +3395,7 @@ app.patch("/api/staff/:id/set-upline", async (req, res) => {
   }
 
   // 3. Update staff
-  const { data: updated, error: uErr } = await supabase
+  const { data: updated, error: uErr } = await dbClient
     .from('staff')
     .update({ upline_id: recruiter.id })
     .eq('id', id)

@@ -240,17 +240,23 @@ export default function AuthUI({
       // Link recruiter if code exists
       if (recruiterCode && profileData.id) {
         try {
-          await safeFetch(`${apiBaseUrl}/api/staff/${profileData.id}/set-upline`, {
+          const { res: linkRes, data: linkData } = await safeFetch(`${apiBaseUrl}/api/staff/${profileData.id}/set-upline`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ recruiter_code: recruiterCode })
           });
-          // Clear it so it doesn't try to link again if tab re-renders or something
-          setRecruiterCode('');
-          setRecruiterName('');
-          toast.success(`Account linked to ${recruiterName || 'your recruiter'}`);
+          
+          if (!linkRes.ok) {
+            console.error('Failed to link recruiter:', linkData?.error);
+            toast.error(`Could not link to recruiter: ${linkData?.error || 'Unknown error'}`);
+          } else {
+            setRecruiterCode('');
+            setRecruiterName('');
+            toast.success(`Account linked to ${recruiterName || 'your recruiter'}`);
+          }
         } catch (linkErr) {
-          console.error('Failed to link recruiter:', linkErr);
+          console.error('Failed to link recruiter network error:', linkErr);
+          toast.error('Network error while linking recruiter.');
         }
       }
 
