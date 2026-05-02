@@ -506,7 +506,7 @@ async function sendRegistrationConfirmationNotification(staff: any) {
   const firstName = staff.name?.split(' ')[0] || 'there';
 
   try {
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: 'Klinik Ara 24 Jam <noreply@hsohealthcare.com>',
       to: staff.email,
       subject: '👋 Your AraPower application was received!',
@@ -544,7 +544,11 @@ async function sendRegistrationConfirmationNotification(staff: any) {
         </html>
       `
     });
-    console.log('[sendRegistrationConfirmationNotification] Email sent to ' + staff.email);
+    if (result.error) {
+      console.error('[sendRegistrationConfirmationNotification] Provider Error:', result.error);
+    } else {
+      console.log('[sendRegistrationConfirmationNotification] Email sent to ' + staff.email);
+    }
   } catch (err) {
     console.error('[sendRegistrationConfirmationNotification] Failed to send email:', err);
   }
