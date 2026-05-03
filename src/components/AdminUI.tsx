@@ -81,13 +81,14 @@ export const AdminUI: React.FC<AdminUIProps> = ({
 
   const fetchCampaigns = async () => {
     setRefreshing(true);
-    const { data, error } = await supabase
-      .from('awareness_campaigns')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (!error && data) {
-      setCampaigns(data);
+    try {
+      const res = await fetch(`${window.location.origin}/api/marketing-awareness`);
+      if (res.ok) {
+        const data = await res.json();
+        setCampaigns(data);
+      }
+    } catch (e) {
+      console.error(e);
     }
     setRefreshing(false);
   };
@@ -131,54 +132,56 @@ export const AdminUI: React.FC<AdminUIProps> = ({
     }
 
     const loadingToast = toast.loading('Creating campaign...');
-    const { error } = await supabase
-      .from('awareness_campaigns')
-      .insert([
-        { 
+    try {
+      const res = await fetch(`${window.location.origin}/api/marketing-awareness`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
           title: newCampaign.title,
           description: newCampaign.description,
           caption: newCampaign.caption,
           image_url: newCampaign.image_url,
           is_active: true
-        }
-      ]);
+        })
+      });
 
-    if (error) {
-      toast.error(`Error: ${error.message}`, { id: loadingToast });
-    } else {
+      if (!res.ok) throw new Error('Create failed');
+      
       toast.success('Campaign created successfully!', { id: loadingToast });
       setNewCampaign({ title: '', description: '', caption: '', image_url: '' });
       fetchCampaigns();
+    } catch (error: any) {
+      toast.error(`Error: ${error.message || 'Error'}`, { id: loadingToast });
     }
   };
 
   const toggleCampaignActive = async (id: string, currentStatus: boolean) => {
-    const { error } = await supabase
-      .from('awareness_campaigns')
-      .update({ is_active: !currentStatus })
-      .eq('id', id);
-
-    if (error) {
-      toast.error(`Update failed: ${error.message}`);
-    } else {
+    try {
+      const res = await fetch(`${window.location.origin}/api/marketing-awareness/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      });
+      if (!res.ok) throw new Error('Update failed');
       setCampaigns(campaigns.map(c => c.id === id ? { ...c, is_active: !currentStatus } : c));
       toast.success(`Campaign ${!currentStatus ? 'activated' : 'deactivated'}`);
+    } catch (error: any) {
+      toast.error(`Update failed: ${error.message}`);
     }
   };
 
   const deleteCampaign = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this campaign?')) return;
 
-    const { error } = await supabase
-      .from('awareness_campaigns')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      toast.error(`Delete failed: ${error.message}`);
-    } else {
+    try {
+      const res = await fetch(`${window.location.origin}/api/marketing-awareness/${id}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error('Delete failed');
       setCampaigns(campaigns.filter(c => c.id !== id));
       toast.success('Campaign deleted');
+    } catch (error: any) {
+      toast.error(`Delete failed: ${error.message}`);
     }
   };
 
@@ -187,23 +190,26 @@ export const AdminUI: React.FC<AdminUIProps> = ({
     if (!editingCampaign) return;
 
     const loadingToast = toast.loading('Updating campaign...');
-    const { error } = await supabase
-      .from('awareness_campaigns')
-      .update({
-        title: editingCampaign.title,
-        description: editingCampaign.description,
-        caption: editingCampaign.caption,
-        image_url: editingCampaign.image_url,
-        is_active: editingCampaign.is_active
-      })
-      .eq('id', editingCampaign.id);
+    try {
+      const res = await fetch(`${window.location.origin}/api/marketing-awareness/${editingCampaign.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editingCampaign.title,
+          description: editingCampaign.description,
+          caption: editingCampaign.caption,
+          image_url: editingCampaign.image_url,
+          is_active: editingCampaign.is_active
+        })
+      });
 
-    if (error) {
-      toast.error(`Update failed: ${error.message}`, { id: loadingToast });
-    } else {
+      if (!res.ok) throw new Error('Update failed');
+      
       toast.success('Campaign updated successfully!', { id: loadingToast });
       setEditingCampaign(null);
       fetchCampaigns();
+    } catch (error: any) {
+      toast.error(`Update failed: ${error.message || 'Error'}`, { id: loadingToast });
     }
   };
 

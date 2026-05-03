@@ -23,6 +23,7 @@ import {
   Navigation,
   Star,
   Megaphone,
+  MessageSquareWarning,
   BarChart3
 } from 'lucide-react';
 import { 
@@ -251,7 +252,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
             <div className="space-y-4 max-w-xl">
               <div className="flex items-center gap-2">
                 <div className="bg-white/20 p-2 rounded-xl">
-                  <Star className="text-yellow-300 fill-yellow-300" size={20} />
+                  <MessageSquareWarning className="fill-yellow-300" size={20} />
                 </div>
                 <span className="text-xs font-black uppercase tracking-widest text-white/80">Profile Mastery</span>
               </div>

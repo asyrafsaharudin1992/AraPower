@@ -1625,6 +1625,68 @@ app.get("/api/settings", async (req, res) => {
   res.json(result);
 });
 
+// Awareness Campaigns endpoints (bypass Client-side AdBlockers)
+app.get("/api/marketing-awareness", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('awareness_campaigns')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      if (error.code === '42P01') return res.json([]);
+      return res.status(500).json({ error: error.message });
+    }
+    res.json(data || []);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/marketing-awareness", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  try {
+    const { data, error } = await supabase
+      .from('awareness_campaigns')
+      .insert(req.body)
+      .select()
+      .single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/api/marketing-awareness/:id", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  try {
+    const { data, error } = await supabase
+      .from('awareness_campaigns')
+      .update(req.body)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/marketing-awareness/:id", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  try {
+    const { error } = await supabase
+      .from('awareness_campaigns')
+      .delete()
+      .eq('id', req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/special-offers", async (req, res) => {
   console.log('GET /api/special-offers');
   try {

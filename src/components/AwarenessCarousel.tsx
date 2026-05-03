@@ -29,14 +29,15 @@ export const AwarenessCarousel: React.FC<AwarenessCarouselProps> = ({ currentUse
 
   const fetchActiveCampaigns = async () => {
     try {
-      const { data, error } = await supabase
-        .from('awareness_campaigns')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setCampaigns(data || []);
+      const res = await fetch(`${window.location.origin}/api/marketing-awareness`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const data = await res.json();
+      
+      const activeCampaigns = Array.isArray(data) 
+        ? data.filter((c: any) => c.is_active) 
+        : [];
+      
+      setCampaigns(activeCampaigns);
     } catch (error: any) {
       console.error('Error fetching campaigns:', error.message);
     } finally {
