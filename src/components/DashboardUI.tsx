@@ -241,7 +241,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-[3rem] p-8 text-white shadow-xl relative overflow-hidden"
+          className="bg-gradient-to-br from-[#112A46] to-[#0A192F] rounded-[3rem] p-8 text-white shadow-xl relative overflow-hidden"
         >
           {/* Decorative backdrop */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
