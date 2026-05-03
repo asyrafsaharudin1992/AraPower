@@ -934,7 +934,7 @@ export default function AuthUI({
                 Account Pending Approval
               </h3>
               <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.6, margin: '0 0 24px 0' }}>
-                Your account has been created and is currently under review by our admin team. You will receive an email notification once your account is approved.
+                Your account has been created and is currently under review by our admin team. You will receive an email notification once your account is approved. Please check your email inbox, spam, or junk folder for the application confirmation and approval emails.
               </p>
               <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 24px 0' }}>
                 Estimated time: 24–48 hours

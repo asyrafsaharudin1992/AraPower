@@ -2729,7 +2729,7 @@ export default function App() {
           <h1 className="text-2xl font-black text-[#1580c2] tracking-tight mb-4">Account Pending Approval</h1>
           <p className="text-[#1580c2]/60 text-sm leading-relaxed mb-8 font-medium">
             Hi <span className="text-[#1580c2] font-bold">{currentUser.name}</span>, your account has been created successfully. 
-            However, an administrator needs to approve your profile before you can access the portal features.
+            However, an administrator needs to approve your profile before you can access the portal features. Please check your email inbox, spam, or junk folder for the application confirmation and approval emails.
           </p>
           <div className="p-4 bg-white rounded-2xl border border-[#1580c2]/10 mb-8">
             <p className="text-[10px] font-black text-[#1580c2]/50 uppercase tracking-widest mb-1">Status</p>
@@ -3173,7 +3173,7 @@ export default function App() {
               <div className="space-y-3 max-w-md">
                 <h3 className="text-3xl font-black tracking-tighter text-[#1580c2]">Account Pending Approval</h3>
                 <p className="text-[#1580c2]/60 text-sm font-medium leading-relaxed">
-                  Welcome to {clinicProfile.name}! Your account has been successfully created and is currently being reviewed by our administration team.
+                  Welcome to {clinicProfile.name}! Your account has been successfully created and is currently being reviewed by our administration team. Please check your email inbox, spam, or junk folder for the application confirmation and approval emails.
                 </p>
               </div>
               <div className="bg-white p-8 rounded-[2.5rem] border border-[#1580c2]/10 shadow-sm max-w-sm w-full">

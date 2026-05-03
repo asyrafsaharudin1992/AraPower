@@ -357,7 +357,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
             <div className="space-y-3 max-w-md">
               <h3 className="text-3xl font-black tracking-tighter text-twilight-indigo">Account Pending Approval</h3>
               <p className="text-twilight-indigo/60 text-sm font-medium leading-relaxed">
-                Welcome to {clinicProfile.name}! Your account has been successfully created and is currently being reviewed by our administration team.
+                Welcome to {clinicProfile.name}! Your account has been successfully created and is currently being reviewed by our administration team. Please check your email inbox, spam, or junk folder for the application confirmation and approval emails.
               </p>
             </div>
             <div className="bg-white p-8 rounded-[2.5rem] border border-[#1580c2]/10 shadow-sm max-w-sm w-full">
