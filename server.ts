@@ -953,7 +953,88 @@ app.post("/api/import-service", async (req, res) => {
     // Extract Metadata
     const name = $('meta[property="og:title"]').attr('content') || $('title').text() || '';
     const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
-    const image = $('meta[property="og:image"]').attr('content') || '';
+    
+    // Improved Image Scraping
+    let image = $('meta[property="og:image"]').attr('content') || 
+                $('meta[property="twitter:image"]').attr('content') ||
+                $('meta[name="image"]').attr('content') || '';
+
+    // If no meta image, try to find a meaningful <img> tag
+    if (!image) {
+      const images: string[] = [];
+      $('img').each((i, el) => {
+        const src = $(el).attr('src');
+        if (src && !src.includes('logo') && !src.includes('icon') && !src.includes('avatar')) {
+          images.push(src);
+        }
+      });
+      if (images.length > 0) image = images[0];
+    }
+
+    // Resolve relative URLs
+    const resolveUrl = (targetUrl: string, baseUrl: string) => {
+      try {
+        return new URL(targetUrl, baseUrl).href;
+      } catch (e) {
+        return targetUrl;
+      }
+    };
+
+    if (image) {
+      image = resolveUrl(image, url);
+    }
+
+    // NEW: "Catch" the image by downloading and uploading to Supabase
+    let finalImageUrl = image;
+    if (image && image.startsWith('http')) {
+      try {
+        console.log('Attempting to catch image:', image);
+        const imgRes = await fetch(image, {
+          headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        if (imgRes.ok) {
+          const buffer = await imgRes.arrayBuffer();
+          const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+          const ext = contentType.split('/')[1] || 'jpg';
+          const fileName = `imported_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+          
+          const { data, error: uploadError } = await supabase.storage
+            .from('posters')
+            .upload(fileName, Buffer.from(buffer), { 
+              contentType,
+              cacheControl: '3600',
+              upsert: false 
+            });
+            
+          if (!uploadError && data) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('posters')
+              .getPublicUrl(data.path);
+            finalImageUrl = publicUrl;
+            console.log('Successfully caught image to Supabase:', finalImageUrl);
+          } else {
+            console.error('Failed to upload caught image:', uploadError);
+          }
+        }
+      } catch (e) {
+        console.error('Error catching image:', e);
+      }
+    }
+
+    // Collect more images for gallery (poster_images)
+    const galleryImages: string[] = [];
+    $('img').each((i, el) => {
+      const src = $(el).attr('src');
+      if (src && src.length > 10 && !src.includes('logo') && !src.includes('icon')) {
+        const absoluteUrl = resolveUrl(src, url);
+        if (!galleryImages.includes(absoluteUrl)) {
+          galleryImages.push(absoluteUrl);
+        }
+      }
+    });
+
+    // Limit gallery to 10 images
+    const poster_images = galleryImages.slice(0, 10);
 
     // Extract Price using Regex (RM\s*\d+)
     // We look for RM followed by digits, potentially with decimals
@@ -966,7 +1047,9 @@ app.post("/api/import-service", async (req, res) => {
     res.json({
       name: name.trim(),
       description: description.trim(),
-      image: image,
+      image: finalImageUrl,
+      image_url: finalImageUrl, 
+      poster_images: poster_images,
       price: price
     });
 
