@@ -659,7 +659,8 @@ async function sendReferralNotification(staff: any, referral: any) {
   const serviceName = referral.service_name || 'a service';
   
   // Strict P&C Enforcement for Emails
-  const patientName = staff.role === 'affiliate' 
+  const isAffiliate = staff.role === 'affiliate' || !staff.role; 
+  const patientName = isAffiliate 
     ? 'Hidden (Privacy & Confidentiality)' 
     : (referral.patient_name || 'A patient');
     
@@ -3298,31 +3299,38 @@ app.post("/api/referrals", async (req, res) => {
     return res.status(500).json({ error: insertError.message, details: insertError });
   }
 
-  // ── Notify affiliate: in-app + email ────────────────────────────────
+  // ── Notify staff: in-app + email ────────────────────────────────
   if (finalStaffId) {
     try {
-      // a) In-app notification
-      await supabase.from('notifications').insert({
-        user_id: finalStaffId,
-        title: 'New Referral Booked!',
-        message: referral.patient_name
-          ? referral.patient_name + ' just booked ' + (referral.service_name || 'a service') + ' through your link.'
-          : 'Someone just booked through your referral link.',
-        type: 'referral',
-        is_read: false
-      });
-
-      // b) Email notification — fetch staff email first
+      // 1. Fetch staff details first to check role
       const { data: staffForNotif } = await supabase
         .from('staff')
-        .select('id, name, email')
+        .select('id, name, email, role')
         .eq('id', finalStaffId)
         .single();
 
-      if (staffForNotif?.email) {
-        sendReferralNotification(staffForNotif, referral).catch(e =>
-          console.error('[referral POST] Email notify failed (non-blocking):', e)
-        );
+      if (staffForNotif) {
+        const isAffiliateMode = staffForNotif.role === 'affiliate' || !staffForNotif.role;
+        
+        // a) In-app notification
+        const inAppMessage = isAffiliateMode
+          ? 'Someone just booked ' + (referral.service_name || 'a service') + ' through your link.'
+          : (referral.patient_name || 'A patient') + ' just booked ' + (referral.service_name || 'a service') + ' through your link.';
+
+        await supabase.from('notifications').insert({
+          user_id: finalStaffId,
+          title: 'New Referral Booked!',
+          message: inAppMessage,
+          type: 'referral',
+          is_read: false
+        });
+
+        // b) Email notification
+        if (staffForNotif.email) {
+          sendReferralNotification(staffForNotif, referral).catch(e =>
+            console.error('[referral POST] Email notify failed (non-blocking):', e)
+          );
+        }
       }
     } catch (notifErr) {
       // Notification failure must never block the referral response
