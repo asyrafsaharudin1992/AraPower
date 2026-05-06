@@ -658,11 +658,13 @@ async function sendReferralNotification(staff: any, referral: any) {
   const firstName = staff.name?.split(' ')[0] || 'there';
   const serviceName = referral.service_name || 'a service';
   
-  // Strict P&C Enforcement for Emails
-  const isAffiliate = staff.role === 'affiliate' || !staff.role; 
-  const patientName = isAffiliate 
-    ? 'Hidden (Privacy & Confidentiality)' 
-    : (referral.patient_name || 'A patient');
+  // Strict P&C Enforcement for Emails: Only admin/manager/receptionist see names
+  const role = (staff.role || '').toString().trim().toLowerCase();
+  const isPrivileged = ['admin', 'manager', 'receptionist'].includes(role);
+  
+  const patientName = isPrivileged 
+    ? (referral.patient_name || 'A patient') 
+    : 'Hidden (Privacy & Confidentiality)';
     
   const appointmentDate = referral.appointment_date
     ? new Date(referral.appointment_date).toLocaleDateString('ms-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -3310,10 +3312,12 @@ app.post("/api/referrals", async (req, res) => {
         .single();
 
       if (staffForNotif) {
-        const isAffiliateMode = staffForNotif.role === 'affiliate' || !staffForNotif.role;
+        // Strict P&C Enforcement: Only admin/manager/receptionist see names in notifications
+        const role = (staffForNotif.role || '').toString().trim().toLowerCase();
+        const isPrivileged = ['admin', 'manager', 'receptionist'].includes(role);
         
         // a) In-app notification
-        const inAppMessage = isAffiliateMode
+        const inAppMessage = !isPrivileged
           ? 'Someone just booked ' + (referral.service_name || 'a service') + ' through your link.'
           : (referral.patient_name || 'A patient') + ' just booked ' + (referral.service_name || 'a service') + ' through your link.';
 
