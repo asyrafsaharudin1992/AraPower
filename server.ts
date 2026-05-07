@@ -3356,13 +3356,15 @@ app.patch("/api/referrals/:id", async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
-  // --- Override Logic Logic ---
-  if (updates.status === 'completed' && data.staff_id) {
+  // --- Override Logic ---
+  // Only fire if status is CHANGING to completed (not already completed before update)
+  const wasAlreadyCompleted = data.status === 'completed';
+  if (updates.status === 'completed' && data.staff_id && !wasAlreadyCompleted) {
     try {
       // 1. Fetch settings
       const { data: setts } = await supabase.from('settings').select('key, value');
       const findSett = (key: string, def: number) => Number(setts?.find(s => s.key === key)?.value || def);
-      const overridePercentage = findSett('override_percentage', 20);
+      const overridePercentage = findSett('override_percentage', 50);
       const overrideCaseLimit = findSett('override_case_limit', 20);
 
       // 2. Fetch affiliate & check upline
@@ -3380,7 +3382,9 @@ app.patch("/api/referrals/:id", async (req, res) => {
           .single();
 
         if (upline) {
-          const originalCommission = Number(data.commission_amount || 0);
+          // Fetch the latest commission_amount after any updates applied in the same request
+          const { data: freshRef } = await supabase.from('referrals').select('commission_amount').eq('id', id).single();
+          const originalCommission = Number(freshRef?.commission_amount || data.commission_amount || 0);
           const overrideAmount = originalCommission * (overridePercentage / 100);
           const downlineAmount = originalCommission - overrideAmount;
 
@@ -3397,8 +3401,9 @@ app.patch("/api/referrals/:id", async (req, res) => {
               upline_id: upline.id,
               downline_id: affiliate.id,
               referral_id: id,
-              amount: overrideAmount,
-              status: 'earned'
+              override_amount: overrideAmount,
+              downline_commission: downlineAmount,
+              case_number: newUplineCasesCount,
             });
 
           // c) Update staff counts
@@ -3828,7 +3833,7 @@ app.get("/api/network/affiliate-dashboard/:id", async (req, res) => {
     const capUnlocked = findSett('downline_cap_unlocked', 50);
     const threshold = findSett('downline_cap_unlock_threshold', 10);
     const overrideCaseLimit = findSett('override_case_limit', 20);
-    const overridePercentage = findSett('override_percentage', 20);
+    const overridePercentage = findSett('override_percentage', 50);
 
     const cap = ownCases >= threshold ? capUnlocked : capBase;
     const current = downlineList.length;
