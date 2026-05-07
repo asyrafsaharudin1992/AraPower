@@ -3441,6 +3441,8 @@ app.patch("/api/referrals/:id", async (req, res) => {
             .update({ commission_amount: downlineAmount })
             .eq('id', id);
 
+          const newUplineCasesCount = (affiliate.upline_cases_count || 0) + 1;
+
           // b) Insert override earning
           const { error: oeErr } = await supabase
             .from('override_earnings')
@@ -3456,7 +3458,6 @@ app.patch("/api/referrals/:id", async (req, res) => {
           else console.log(`[OVERRIDE] Inserted: upline ${upline.id} earned RM${overrideAmount} from downline ${affiliate.id} case #${newUplineCasesCount}`);
 
           // c) Update staff counts
-          const newUplineCasesCount = (affiliate.upline_cases_count || 0) + 1;
           await supabase
             .from('staff')
             .update({ upline_cases_count: newUplineCasesCount })
@@ -3578,6 +3579,67 @@ app.get("/api/network/upline/:affiliateId", async (req, res) => {
       override_percentage: findSett('override_percentage', 50),
       is_active: (affiliate.upline_cases_count || 0) < findSett('override_case_limit', 20),
     });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ── Pending override earnings with names (for PayoutManagement) ──────────────
+app.get("/api/override-earnings/pending", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  try {
+    const { data: overrides, error } = await supabase
+      .from('override_earnings')
+      .select('*')
+      .is('paid_at', null)
+      .order('created_at', { ascending: false });
+
+    if (error) return res.status(500).json({ error: error.message });
+    if (!overrides || overrides.length === 0) return res.json([]);
+
+    // Fetch upline and downline names in one query
+    const allIds = [...new Set([
+      ...overrides.map((o: any) => o.upline_id),
+      ...overrides.map((o: any) => o.downline_id),
+    ].filter(Boolean))];
+
+    const { data: staffData } = await supabase
+      .from('staff')
+      .select('id, name, bank_name, bank_account_number')
+      .in('id', allIds);
+
+    const staffMap = Object.fromEntries((staffData || []).map((s: any) => [s.id, s]));
+
+    const enriched = overrides.map((o: any) => ({
+      ...o,
+      upline_name:         staffMap[o.upline_id]?.name || null,
+      upline_bank_name:    staffMap[o.upline_id]?.bank_name || null,
+      upline_bank_account: staffMap[o.upline_id]?.bank_account_number || null,
+      downline_name:       staffMap[o.downline_id]?.name || null,
+    }));
+
+    res.json(enriched);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/override-earnings/pay", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  const { ids } = req.body;
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'No IDs provided' });
+  }
+
+  try {
+    const { error } = await supabase
+      .from('override_earnings')
+      .update({ paid_at: new Date().toISOString() })
+      .in('id', ids);
+
+    if (error) throw error;
+    res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

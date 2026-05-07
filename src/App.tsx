@@ -3716,6 +3716,8 @@ export default function App() {
     staffList={staffList}
     branches={branches}
     handleBulkStatusUpdate={handleBulkStatusUpdate}
+    apiBaseUrl={apiBaseUrl}
+    safeFetch={safeFetch}
   />
 )}
 

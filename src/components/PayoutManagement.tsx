@@ -10,6 +10,8 @@ interface PayoutManagementProps {
   staffList: any[];
   branches: any[];
   handleBulkStatusUpdate: (ids: string[], newStatus: string) => Promise<void>;
+  apiBaseUrl?: string;
+  safeFetch?: (url: string, options?: RequestInit) => Promise<{ res: Response; data: any }>;
 }
 
 export const PayoutManagement: React.FC<PayoutManagementProps> = ({
@@ -20,6 +22,8 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
   staffList,
   branches,
   handleBulkStatusUpdate,
+  apiBaseUrl,
+  safeFetch,
 }) => {
  const [activeTab, setActiveTab] = useState<'approval' | 'payout' | 'history'>('approval');
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,7 +31,20 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
   
   const [selectedForApproval, setSelectedForApproval] = useState<string[]>([]);
   const [selectedForPayout, setSelectedForPayout] = useState<string[]>([]);
+  const [selectedOverrides, setSelectedOverrides] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [overrideEarnings, setOverrideEarnings] = useState<any[]>([]);
+  const [loadingOverrides, setLoadingOverrides] = useState(false);
+
+  // Fetch override earnings on mount
+  React.useEffect(() => {
+    if (!apiBaseUrl || !safeFetch) return;
+    setLoadingOverrides(true);
+    safeFetch(`${apiBaseUrl}/api/override-earnings/pending`)
+      .then(({ res, data }) => { if (res.ok) setOverrideEarnings(data || []); })
+      .catch(() => {})
+      .finally(() => setLoadingOverrides(false));
+  }, [apiBaseUrl]);
 
   if (!rolesConfig[currentUser.role]?.canViewAnalytics) return null;
 
@@ -129,6 +146,96 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', `M2U_Bulk_Payout_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleMarkOverridesAsPaidSelected = async () => {
+    if (selectedOverrides.length === 0 || !apiBaseUrl || !safeFetch) return;
+    setIsProcessing(true);
+    try {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/override-earnings/pay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedOverrides })
+      });
+      if (res.ok) {
+        setOverrideEarnings(prev => prev.filter(oe => !selectedOverrides.includes(String(oe.id))));
+        setSelectedOverrides([]);
+      } else {
+        alert(data?.error || 'Failed to mark overrides as paid');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error occurred while updating override status');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const generateOverrideBulkCSV = () => {
+    if (selectedOverrides.length === 0) {
+      alert("Please select override earnings to export.");
+      return;
+    }
+
+    const earningsToExport = overrideEarnings.filter(oe => selectedOverrides.includes(String(oe.id)));
+    const aggregatedPayouts: Record<string, { staff: any, amount: number }> = {};
+    
+    earningsToExport.forEach(oe => {
+      const staffId = String(oe.upline_id);
+      if (!aggregatedPayouts[staffId]) {
+        const staff = staffList.find(s => String(s.id) === staffId) || { 
+          name: oe.upline_name, 
+          bank_name: oe.upline_bank_name, 
+          bank_account_number: oe.upline_bank_account 
+        };
+        aggregatedPayouts[staffId] = { staff, amount: 0 };
+      }
+      aggregatedPayouts[staffId].amount += Number(oe.override_amount || 0);
+    });
+
+    const csvRows: string[] = [];
+    csvRows.push(',,,,,,,,');
+    csvRows.push('Employer Info :,,,,,,,,');
+    csvRows.push('Crediting Date (eg. dd/MM/yyyy),,,Please save this template to .csv (comma delimited) file before uploading the file via M2U Biz,,,,,');
+    csvRows.push('Payment Reference,,,,,,,,');
+    csvRows.push('Payment Description,,,,,,,,');
+    csvRows.push('Bulk Payment Type,,,,,,,,');
+    csvRows.push(',,,,,,,,');
+    csvRows.push('Beneficiary Name,Beneficiary Bank,Beneficiary Account No,ID Type,ID Number,Payment Amount,Payment Reference,Payment Description,');
+
+    const escapeCsv = (str: string) => {
+      const stringified = String(str || '');
+      if (stringified.includes(',') || stringified.includes('"')) return `"${stringified.replace(/"/g, '""')}"`;
+      return stringified;
+    };
+
+    Object.values(aggregatedPayouts).forEach(({ staff, amount }) => {
+      const rawAccount = staff.bank_account_number || staff.account_number || '';
+      const cleanAccount = String(rawAccount).replace(/\D/g, '');
+      const rawIdNumber = staff.id_number || '';
+      const cleanIdNumber = String(rawIdNumber).replace(/\D/g, '');
+
+      const row = [
+        escapeCsv(staff.name || 'Unknown'),
+        escapeCsv(staff.bank_name || ''),
+        escapeCsv(cleanAccount),
+        escapeCsv('NRIC'),
+        escapeCsv(cleanIdNumber),
+        amount.toFixed(2),
+        'INCENTIVE',
+        'OVERRIDE EARNINGS',
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `M2U_Override_Payout_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -350,6 +457,103 @@ export const PayoutManagement: React.FC<PayoutManagementProps> = ({
       )}
 
       {/* Tab 3: Payout History */}
+
+
+          {/* ── OVERRIDE EARNINGS — upline commissions ─────── */}
+          {overrideEarnings.length > 0 && (
+            <div className="bg-white rounded-3xl border border-[#1580c2]/20 shadow-sm overflow-hidden mb-8">
+              <div className="p-4 border-b border-[#1580c2]/10 bg-[#1580c2]/5 flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <h3 className="font-black text-sm text-[#1580c2]">Override Earnings — Pending Payout</h3>
+                  <p className="text-[10px] text-[#1580c2]/60 mt-0.5">Network upline commissions awaiting bank transfer</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-[#1580c2]/20">
+                    <input 
+                      type="checkbox"
+                      checked={selectedOverrides.length === overrideEarnings.length && overrideEarnings.length > 0}
+                      onChange={(e) => setSelectedOverrides(e.target.checked ? overrideEarnings.map(oe => String(oe.id)) : [])}
+                      className="w-4 h-4 rounded border-zinc-300 text-[#1580c2] focus:ring-[#1580c2]"
+                    />
+                    <span className="text-[10px] font-black text-[#1580c2] uppercase tracking-widest">Select All</span>
+                  </label>
+                  <button 
+                    onClick={generateOverrideBulkCSV}
+                    disabled={selectedOverrides.length === 0}
+                    className="bg-white border border-[#1580c2]/20 hover:bg-[#1580c2]/5 text-[#1580c2] px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-50 flex items-center gap-2 transition-colors"
+                  >
+                    <Download size={14} />
+                    M2U CSV
+                  </button>
+                  <button 
+                    onClick={handleMarkOverridesAsPaidSelected}
+                    disabled={selectedOverrides.length === 0 || isProcessing}
+                    className="bg-[#1580c2] hover:bg-[#0d5a8a] text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-50 flex items-center gap-2 transition-colors"
+                  >
+                    {isProcessing ? <RefreshCw size={14} className="animate-spin" /> : <DollarSign size={14} />}
+                    Mark Paid
+                  </button>
+                </div>
+              </div>
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-white border-b border-zinc-100 text-[10px] font-black text-zinc-500 uppercase tracking-widest">
+                    <th className="p-4 w-12"></th>
+                    <th className="p-4">Upline Affiliate</th>
+                    <th className="p-4">From Downline</th>
+                    <th className="p-4">Case #</th>
+                    <th className="p-4">Date</th>
+                    <th className="p-4 text-right">Override Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-50">
+                  {overrideEarnings.map((oe: any) => (
+                    <tr key={oe.id} className="hover:bg-[#1580c2]/5 transition-colors cursor-pointer" onClick={() => setSelectedOverrides(prev => prev.includes(String(oe.id)) ? prev.filter(id => id !== String(oe.id)) : [...prev, String(oe.id)])}>
+                      <td className="p-4">
+                        <input 
+                          type="checkbox"
+                          checked={selectedOverrides.includes(String(oe.id))}
+                          readOnly
+                          className="w-5 h-5 rounded border-zinc-300 text-[#1580c2] focus:ring-[#1580c2]"
+                        />
+                      </td>
+                      <td className="p-4">
+                        <p className="font-black text-sm text-zinc-900">{oe.upline_name || `Affiliate #${oe.upline_id}`}</p>
+                        <p className="text-[10px] text-zinc-400">{oe.upline_bank_name} {oe.upline_bank_account}</p>
+                      </td>
+                      <td className="p-4 text-sm text-zinc-600">{oe.downline_name || `Affiliate #${oe.downline_id}`}</td>
+                      <td className="p-4">
+                        <span className="px-2 py-1 bg-[#1580c2]/10 text-[#1580c2] rounded-lg text-[10px] font-black">
+                          Case {oe.case_number}
+                        </span>
+                      </td>
+                      <td className="p-4 text-sm text-zinc-500">
+                        {oe.created_at ? new Date(oe.created_at).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                      </td>
+                      <td className="p-4 text-right">
+                        <span className="font-black text-[#1580c2]">{clinicProfile.currency}{Number(oe.override_amount || 0).toFixed(2)}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-[#1580c2]/5 border-t border-[#1580c2]/10">
+                    <td colSpan={5} className="p-4 text-sm font-black text-[#1580c2] text-right">Selected Override pending payout:</td>
+                    <td className="p-4 text-right font-black text-[#1580c2]">
+                      {clinicProfile.currency}{overrideEarnings.filter(oe => selectedOverrides.includes(String(oe.id))).reduce((s: number, o: any) => s + Number(o.override_amount || 0), 0).toFixed(2)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+          {loadingOverrides && (
+            <div className="flex items-center gap-2 p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
+              <RefreshCw size={14} className="animate-spin text-zinc-400" />
+              <span className="text-xs text-zinc-400">Loading override earnings...</span>
+            </div>
+          )}
+
       {activeTab === 'history' && (
         <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">
