@@ -3494,6 +3494,83 @@ app.delete("/api/referrals/:id", async (req, res) => {
 
 // --- Network Management Routes ---
 
+
+// ── Combined affiliate network dashboard (used by NetworkTab) ───────────────
+app.get("/api/network/affiliate-dashboard/:affiliateId", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  const { affiliateId } = req.params;
+
+  try {
+    // 1. Fetch all network settings at once
+    const settingKeys = ['override_percentage','override_case_limit','downline_cap_base','downline_cap_unlocked','downline_cap_unlock_threshold','network_max_depth'];
+    const { data: setts } = await supabase.from('settings').select('key, value').in('key', settingKeys);
+    const findSett = (key: string, def: number) => Number(setts?.find((s: any) => s.key === key)?.value || def);
+
+    const overrideCaseLimit     = findSett('override_case_limit', 20);
+    const overridePercentage    = findSett('override_percentage', 50);
+    const capBase               = findSett('downline_cap_base', 10);
+    const capUnlocked           = findSett('downline_cap_unlocked', 20);
+    const capUnlockThreshold    = findSett('downline_cap_unlock_threshold', 10);
+
+    // 2. Fetch affiliate's own completed referrals count
+    const { count: ownCases } = await supabase
+      .from('referrals').select('*', { count: 'exact', head: true })
+      .eq('staff_id', affiliateId).eq('status', 'completed');
+
+    // 3. Fetch downlines
+    const { data: downlineList, error: dlErr } = await supabase
+      .from('staff')
+      .select('id, name, email, referral_code, created_at, upline_cases_count')
+      .eq('upline_id', affiliateId);
+    if (dlErr) return res.status(500).json({ error: dlErr.message });
+
+    // 4. Enrich each downline (parallel)
+    const downlines = await Promise.all((downlineList || []).map(async (dl: any) => {
+      const { count: refCount } = await supabase
+        .from('referrals').select('*', { count: 'exact', head: true })
+        .eq('staff_id', dl.id).eq('status', 'completed');
+
+      const { data: earnings } = await supabase
+        .from('override_earnings').select('override_amount')
+        .eq('upline_id', affiliateId).eq('downline_id', dl.id);
+
+      const totalOverride = earnings?.reduce((sum: number, e: any) => sum + Number(e.override_amount || 0), 0) || 0;
+
+      return {
+        ...dl,
+        referral_count: refCount || 0,
+        total_override_earned: totalOverride,
+        is_active: (dl.upline_cases_count || 0) < overrideCaseLimit,
+      };
+    }));
+
+    // 5. Calculate recruit slot cap
+    const cap = (ownCases || 0) >= capUnlockThreshold ? capUnlocked : capBase;
+    const current = downlines.length;
+
+    res.json({
+      downlines,
+      recruitStats: {
+        current,
+        cap,
+        slots_remaining: Math.max(0, cap - current),
+        own_cases: ownCases || 0,
+        settings: {
+          override_percentage: overridePercentage,
+          override_case_limit: overrideCaseLimit,
+          downline_cap_base: capBase,
+          downline_cap_unlocked: capUnlocked,
+          downline_cap_unlock_threshold: capUnlockThreshold,
+        }
+      }
+    });
+
+  } catch (err: any) {
+    console.error('[affiliate-dashboard] Error:', err);
+    res.status(500).json({ error: err.message || 'Internal error' });
+  }
+});
+
 app.get("/api/network/settings", async (req, res) => {
   if (!checkSupabase(res)) return;
   
@@ -3592,11 +3669,11 @@ app.get("/api/network/downlines/:affiliateId", async (req, res) => {
     // Sum override earnings
     const { data: earnings } = await supabase
       .from('override_earnings')
-      .select('amount')
+      .select('override_amount')
       .eq('upline_id', affiliateId)
       .eq('downline_id', dl.id);
 
-    const totalOverride = earnings?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+    const totalOverride = earnings?.reduce((sum, e) => sum + Number(e.override_amount || 0), 0) || 0;
 
     return {
       ...dl,
@@ -3766,7 +3843,7 @@ app.get("/api/network/admin-overview", async (req, res) => {
   const total_relationships = (relationships || []).length;
   const active = (relationships || []).filter(r => (r.upline_cases_count || 0) < limit).length;
   const expired = total_relationships - active;
-  const total_override_paid = (earnings || []).reduce((sum, e) => sum + Number(e.amount), 0);
+  const total_override_paid = (earnings || []).reduce((sum, e) => sum + Number(e.override_amount || 0), 0);
 
   // 5. Group by upline for top recruiters
   const recruiterStats: any = {};
@@ -3779,7 +3856,7 @@ app.get("/api/network/admin-overview", async (req, res) => {
 
   (earnings || []).forEach(e => {
     if (recruiterStats[e.upline_id]) {
-      recruiterStats[e.upline_id].override += Number(e.amount);
+      recruiterStats[e.upline_id].override += Number(e.override_amount || 0);
     }
   });
 
@@ -3854,7 +3931,7 @@ app.get("/api/network/affiliate-dashboard/:id", async (req, res) => {
       });
 
       earningsRes.data?.forEach((e: any) => {
-        overrideEarnings[e.downline_id] = (overrideEarnings[e.downline_id] || 0) + Number(e.amount);
+        overrideEarnings[e.downline_id] = (overrideEarnings[e.downline_id] || 0) + Number(e.override_amount || 0);
       });
     }
 
