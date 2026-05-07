@@ -219,7 +219,7 @@ let serviceColumns: Set<string> = new Set([
   'branches', 'start_date', 'end_date', 'start_time', 'end_time',
   'duration_mins', 'created_at', 'target_url', 'commission_rate'
 ]);
-let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'created_at', 'is_approved', 'upline_id', 'upline_cases_count', 'override_earned', 'referral_code']);
+let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
 let branchColumns: Set<string> = new Set(['id', 'name', 'location', 'whatsapp_number']);
 let settingsColumns: Set<string> = new Set(['key', 'value']);
@@ -1591,6 +1591,10 @@ app.post("/api/auth/register", async (req, res) => {
         const { data: byRef } = await dbClient.from('staff').select('id, name, role').ilike('referral_code', recruiter_code).maybeSingle();
         recruiter = byRef;
       }
+      if (!recruiter) {
+        const { data: byPromo } = await dbClient.from('staff').select('id, name, role').ilike('promo_code', recruiter_code).maybeSingle();
+        recruiter = byPromo;
+      }
 
       if (recruiter && ['affiliate', 'ambassador', 'admin', 'manager'].includes(recruiter.role)) {
         // 2. Check recruiter's cap
@@ -1627,7 +1631,7 @@ app.post("/api/auth/register", async (req, res) => {
     if (staffColumns.has('created_at')) staffData.created_at = new Date().toISOString();
     
     if (final_auth_id) staffData.auth_id = final_auth_id;
-    if (upline_id) staffData.upline_id = upline_id;
+    if (upline_id && staffColumns.has('upline_id')) staffData.upline_id = upline_id;
     if (phone) staffData.phone = phone;
     if (staffColumns.has('referral_code')) staffData.referral_code = referral_code;
     else if (staffColumns.has('promo_code')) staffData.promo_code = referral_code;
@@ -4034,10 +4038,18 @@ async function startServer() {
 
     supabase.from('referrals').select('*').limit(1).then(({ data, error }) => {
       if (!error && data && data.length > 0) {
-        referralColumns = new Set(Object.keys(data[0]));
-        console.log('Detected referral columns:', Array.from(referralColumns));
-      } else if (error) {
-        console.warn('Referral column detection error:', error.message);
+        Object.keys(data[0]).forEach(key => referralColumns.add(key));
+        console.log('Detected referral columns via data:', Array.from(referralColumns));
+      } else {
+        const probes = ['commission_amount', 'referral_code', 'patient_name', 'patient_phone', 'status', 'created_at', 'appointment_date', 'booking_time', 'service_name', 'service_id', 'branch'];
+        probes.forEach(col => {
+          supabase.from('referrals').select(col).limit(1).then(({ error: probeErr }) => {
+            if (!probeErr) {
+              referralColumns.add(col);
+              console.log(`Confirmed referral column: ${col}`);
+            }
+          });
+        });
       }
     }).catch(err => console.warn('Referral column detection failed:', err));
 
@@ -4050,8 +4062,19 @@ async function startServer() {
 
     supabase.from('staff').select().limit(1).then(({ data, error }) => {
       if (!error && data && data.length > 0) {
-        staffColumns = new Set(Object.keys(data[0]));
-        console.log('Detected staff columns:', Array.from(staffColumns));
+        Object.keys(data[0]).forEach(key => staffColumns.add(key));
+        console.log('Detected staff columns via data:', Array.from(staffColumns));
+      } else {
+        // Probe common columns if table is empty or select * failed
+        const probes = ['upline_id', 'referral_code', 'promo_code', 'is_approved', 'date_joined', 'auth_id', 'phone', 'branch', 'created_at', 'upline_cases_count', 'override_earned'];
+        probes.forEach(col => {
+          supabase.from('staff').select(col).limit(1).then(({ error: probeErr }) => {
+            if (!probeErr) {
+              staffColumns.add(col);
+              console.log(`Confirmed staff column: ${col}`);
+            }
+          });
+        });
       }
     }).catch(err => console.warn('Staff column detection failed:', err));
 
