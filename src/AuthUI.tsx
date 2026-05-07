@@ -223,7 +223,14 @@ export default function AuthUI({
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: authName, email: authEmail, branch: authBranch, phone: formatMalaysianPhone(authPhone), password: authPassword })
+        body: JSON.stringify({ 
+          name: authName, 
+          email: authEmail, 
+          branch: authBranch, 
+          phone: formatMalaysianPhone(authPhone), 
+          password: authPassword,
+          recruiter_code: recruiterCode 
+        })
       });
       if (!res.ok) throw new Error(data?.error || 'Registration failed');
       // Auto sign in after registration
@@ -237,27 +244,11 @@ export default function AuthUI({
       const { res: profileRes, data: profileData } = await safeFetch(`${apiBaseUrl}/api/staff/email?email=${signInData.user.email}`);
       if (!profileRes.ok) throw new Error(profileData?.error || 'Failed to load profile');
 
-      // Link recruiter if code exists
-      if (recruiterCode && profileData.id) {
-        try {
-          const { res: linkRes, data: linkData } = await safeFetch(`${apiBaseUrl}/api/staff/${profileData.id}/set-upline`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ recruiter_code: recruiterCode })
-          });
-          
-          if (!linkRes.ok) {
-            console.error('Failed to link recruiter:', linkData?.error);
-            toast.error(`Could not link to recruiter: ${linkData?.error || 'Unknown error'}`);
-          } else {
-            setRecruiterCode('');
-            setRecruiterName('');
-            toast.success(`Account linked to ${recruiterName || 'your recruiter'}`);
-          }
-        } catch (linkErr) {
-          console.error('Failed to link recruiter network error:', linkErr);
-          toast.error('Network error while linking recruiter.');
-        }
+      // Success toast if linked
+      if (recruiterCode && profileData.upline_id) {
+        toast.success(`Account linked to ${recruiterName || 'your recruiter'}`);
+        setRecruiterCode('');
+        setRecruiterName('');
       }
 
       // Block entry if account is pending admin approval
@@ -268,6 +259,7 @@ export default function AuthUI({
       }
 
       onAuthSuccess(profileData);
+
     } catch (error: any) {
       setAuthError(error.message || 'Registration failed');
     } finally {

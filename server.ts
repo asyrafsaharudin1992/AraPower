@@ -1523,161 +1523,131 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.post("/api/auth/register", async (req, res) => {
   if (!checkSupabase(res)) return;
-  const { name, email, branch, phone, password, auth_id } = req.body;
-  console.log(`Registration attempt for: ${email}`, { name, branch, phone, auth_id });
+  const { name, email, branch, phone, password, auth_id, recruiter_code } = req.body;
+  console.log(`Registration attempt for: ${email}`, { name, branch, phone, auth_id, recruiter_code });
   
   try {
     // Initialize admin client to bypass RLS for registration
     const dbClient = serviceRoleSupabase;
     let final_auth_id = auth_id;
 
-      // Auto-create and confirm user in Supabase Auth if not provided
-      if (!final_auth_id) {
-        const { data: usersData } = await dbClient.auth.admin.listUsers();
-        let authUser = usersData?.users?.find((u: any) => u.email === email);
-        
-        if (!authUser) {
-          const { data: newAuthUser, error: createAuthError } = await dbClient.auth.admin.createUser({
-            email,
-            password: password || 'password123',
-            email_confirm: true,
-            user_metadata: { full_name: name, branch }
-          });
-          if (newAuthUser.user) final_auth_id = newAuthUser.user.id;
-        } else {
-          final_auth_id = authUser.id;
+    // Auto-create and confirm user in Supabase Auth if not provided
+    if (!final_auth_id) {
+      const { data: usersData } = await dbClient.auth.admin.listUsers();
+      let authUser = usersData?.users?.find((u: any) => u.email === email);
+      
+      if (!authUser) {
+        const { data: newAuthUser, error: createAuthError } = await dbClient.auth.admin.createUser({
+          email,
+          password: password || 'password123',
+          email_confirm: true,
+          user_metadata: { full_name: name, branch }
+        });
+        if (newAuthUser.user) final_auth_id = newAuthUser.user.id;
+      } else {
+        final_auth_id = authUser.id;
       }
     }
 
     // Check if registration is allowed
-    console.log('Checking registration settings...');
-    const { data: authSetting, error: settingsError } = await dbClient
-      .from('settings')
-      .select('value')
-      .eq('key', 'auth')
-      .single();
-      
-    if (settingsError && settingsError.code !== 'PGRST116' && settingsError.code !== 'PGRST205') {
-      logError('Registration Settings Check', settingsError);
-    }
-    
+    const { data: authSetting } = await dbClient.from('settings').select('value').eq('key', 'auth').single();
     let settings = { allowRegistration: true };
-    if (authSetting && authSetting.value) {
-      try {
-        settings = JSON.parse(authSetting.value);
-      } catch (e) {
-        console.error('Error parsing auth settings:', e);
-      }
+    if (authSetting?.value) {
+      try { settings = JSON.parse(authSetting.value); } catch (e) {}
     }
     
     if (!settings.allowRegistration) {
-      console.log(`Registration blocked: self-registration disabled for ${email}`);
-      return res.status(403).json({ error: "Self-registration is currently disabled. Please contact an administrator." });
+      return res.status(403).json({ error: "Self-registration is currently disabled." });
     }
 
-    // Generate a referral code based on first name and a random 3-digit number
+    // Generate unique referral code
     const generateReferralCode = (fullName: string) => {
       const firstName = fullName.split(' ')[0].toUpperCase().replace(/[^A-Z]/g, '');
-      const randomNum = Math.floor(100 + Math.random() * 900); // 100 to 999
+      const randomNum = Math.floor(100 + Math.random() * 900);
       return `${firstName}${randomNum}`;
     };
 
     let referral_code = generateReferralCode(name);
-    
-    // Try to ensure unique referral code
     let attempts = 0;
-    if (staffColumns.has('referral_code')) {
-      while (attempts < 10) {
-        const { data: existing } = await dbClient
-          .from('staff')
-          .select('id')
-          .eq('referral_code', referral_code)
-          .single();
-        if (!existing) break;
-        referral_code = generateReferralCode(name);
-        attempts++;
-      }
-    } else if (staffColumns.has('promo_code')) {
-      // Fallback to promo_code if referral_code doesn't exist yet
-      while (attempts < 10) {
-        const { data: existing } = await dbClient
-          .from('staff')
-          .select('id')
-          .eq('promo_code', referral_code)
-          .single();
-        if (!existing) break;
-        referral_code = generateReferralCode(name);
-        attempts++;
-      }
+    while (attempts < 10) {
+      const col = staffColumns.has('referral_code') ? 'referral_code' : (staffColumns.has('promo_code') ? 'promo_code' : null);
+      if (!col) break;
+      const { data: existing } = await dbClient.from('staff').select('id').eq(col, referral_code).maybeSingle();
+      if (!existing) break;
+      referral_code = generateReferralCode(name);
+      attempts++;
     }
 
-    console.log(`Checking if staff member already exists: ${email}`);
-    const { data: existingStaff } = await dbClient
-      .from('staff')
-      .select('*')
-      .eq('email', email)
-      .single();
+    // Handle initial upline linkage if recruiter_code provided
+    let upline_id = null;
+    if (recruiter_code) {
+      // 1. Find recruiter
+      let recruiter = null;
+      if (!isNaN(Number(recruiter_code))) {
+        const { data: byId } = await dbClient.from('staff').select('id, name, role').eq('id', recruiter_code).maybeSingle();
+        recruiter = byId;
+      }
+      if (!recruiter) {
+        const { data: byRef } = await dbClient.from('staff').select('id, name, role').ilike('referral_code', recruiter_code).maybeSingle();
+        recruiter = byRef;
+      }
 
-    if (existingStaff) {
-      console.log(`Staff member ${email} already exists. Updating auth_id.`);
-      
-      const updateData: any = {};
-      if (final_auth_id && staffColumns.has('auth_id')) updateData.auth_id = final_auth_id;
-      if (staffColumns.has('password')) updateData.password = password || 'password123';
-      
-      if (Object.keys(updateData).length > 0) {
-        const { error: updateError } = await dbClient
-          .from('staff')
-          .update(updateData)
-          .eq('id', existingStaff.id);
-          
-        if (updateError) {
-          logError('Supabase Registration Update', updateError);
-          throw updateError;
+      if (recruiter && ['affiliate', 'ambassador', 'admin', 'manager'].includes(recruiter.role)) {
+        // 2. Check recruiter's cap
+        const { count: ownCases } = await dbClient.from('referrals').select('*', { count: 'exact', head: true }).eq('staff_id', recruiter.id).eq('status', 'completed');
+        const { count: downlineCount } = await dbClient.from('staff').select('*', { count: 'exact', head: true }).eq('upline_id', recruiter.id);
+        const { data: setts } = await dbClient.from('settings').select('key, value');
+        const findSett = (key: string, def: number) => Number(setts?.find(s => s.key === key)?.value || def);
+        
+        const capBase = findSett('downline_cap_base', 50);
+        const capUnlocked = findSett('downline_cap_unlocked', 500); // Increased default
+        const threshold = findSett('downline_cap_unlock_threshold', 10);
+        const cap = (ownCases || 0) >= threshold ? capUnlocked : capBase;
+
+        if ((downlineCount || 0) < cap) {
+          upline_id = recruiter.id;
+        } else {
+          console.log(`Recruitment cap reached for recruiter ${recruiter.id} (${downlineCount}/${cap})`);
         }
       }
-      
-      return res.json({ ...existingStaff, ...updateData });
     }
 
-    console.log(`Inserting new staff member: ${email} with referral code ${referral_code}`);
-    const insertData: any = {
+    // Insert or Update staff record
+    const { data: existingStaff } = await dbClient.from('staff').select('*').eq('email', email).maybeSingle();
+
+    const staffData: any = {
       name,
       email,
       role: 'affiliate',
+      password: password || 'password123',
+      is_approved: 0,
+      date_joined: new Date().toISOString()
     };
-    if (staffColumns.has('referral_code')) insertData.referral_code = referral_code;
-    else if (staffColumns.has('promo_code')) insertData.promo_code = referral_code;
     
-    if (staffColumns.has('branch')) insertData.branch = branch;
-    if (staffColumns.has('phone')) insertData.phone = phone || null;
-    if (staffColumns.has('date_joined')) insertData.date_joined = new Date().toISOString();
-    if (staffColumns.has('is_approved')) insertData.is_approved = 0;
-    if (staffColumns.has('password')) insertData.password = password || 'password123';
-    if (final_auth_id && staffColumns.has('auth_id')) insertData.auth_id = final_auth_id;
+    if (final_auth_id) staffData.auth_id = final_auth_id;
+    if (upline_id) staffData.upline_id = upline_id;
+    if (phone) staffData.phone = phone;
+    if (staffColumns.has('referral_code')) staffData.referral_code = referral_code;
+    else if (staffColumns.has('promo_code')) staffData.promo_code = referral_code;
+    if (branch) staffData.branch = branch;
 
-    const { data: newStaff, error: insertError } = await dbClient
-      .from('staff')
-      .insert(insertData)
-      .select()
-      .single();
-    
-    if (insertError) {
-      if (insertError.code !== '23505') {
-        logError('Supabase Registration Insert', insertError);
-      }
-      throw insertError;
+    let result;
+    if (existingStaff) {
+      const { data, error } = await dbClient.from('staff').update(staffData).eq('id', existingStaff.id).select().single();
+      if (error) throw error;
+      result = data;
+    } else {
+      const { data, error } = await dbClient.from('staff').insert(staffData).select().single();
+      if (error) throw error;
+      result = data;
     }
 
-    console.log(`Registration successful for: ${email}, ID: ${newStaff.id}`);
+    // Background notifications
+    sendAdminNotification(result).catch(err => console.error('Admin notify err:', err));
+    sendRegistrationConfirmationNotification(result).catch(err => console.error('Confirm notify err:', err));
     
-    // Send notification to admins (don't await to avoid blocking response)
-    sendAdminNotification(newStaff).catch(err => console.error('Background notification error:', err));
-    
-    // Send confirmation email to affiliate (don't await to avoid blocking response)
-    sendRegistrationConfirmationNotification(newStaff).catch(err => console.error('Background confirmation email error:', err));
-    
-    res.json(newStaff);
+    res.json(result);
+
   } catch (error: any) {
     if (error.code === '23505') { // Unique constraint violation in Postgres
       res.status(400).json({ error: `Email or Promo Code already exists. Please try again.` });
@@ -2233,9 +2203,11 @@ app.get("/api/affiliate-lookup/:code", async (req, res) => {
   const { code } = req.params;
   let data = null;
 
-  // 1. Try matching the exact Database ID
-  const { data: idData, error: idError } = await supabase.from('staff').select('id, name').eq('id', code).maybeSingle();
-  if (idData) data = idData;
+  // 1. Try matching the exact Database ID if numeric
+  if (!isNaN(Number(code))) {
+    const { data: idData } = await supabase.from('staff').select('id, name').eq('id', code).maybeSingle();
+    if (idData) data = idData;
+  }
 
   // 2. Try referral_code text
   if (!data) {
@@ -3735,8 +3707,8 @@ app.patch("/api/staff/:id/set-upline", async (req, res) => {
   const { data: setts } = await dbClient.from('settings').select('key, value');
   const findSett = (key: string, def: number) => Number(setts?.find(s => s.key === key)?.value || def);
   
-  const capBase = findSett('downline_cap_base', 5);
-  const capUnlocked = findSett('downline_cap_unlocked', 50);
+  const capBase = findSett('downline_cap_base', 50);
+  const capUnlocked = findSett('downline_cap_unlocked', 500);
   const threshold = findSett('downline_cap_unlock_threshold', 10);
   
   const cap = (ownCases || 0) >= threshold ? capUnlocked : capBase;
