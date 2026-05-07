@@ -2976,7 +2976,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex-1 space-y-2">
+            <div className="flex-1 space-y-2 overflow-y-auto custom-scrollbar pr-1 -mr-1">
               {currentUser.role !== 'receptionist' && (
                 <button 
                   onClick={() => setActiveTab('dashboard')}
