@@ -219,7 +219,7 @@ let serviceColumns: Set<string> = new Set([
   'branches', 'start_date', 'end_date', 'start_time', 'end_time',
   'duration_mins', 'created_at', 'target_url', 'commission_rate'
 ]);
-let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role']);
+let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role', 'upline_id', 'upline_cases_count', 'override_earned', 'phone']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
 let branchColumns: Set<string> = new Set(['id', 'name', 'location', 'whatsapp_number']);
 let settingsColumns: Set<string> = new Set(['key', 'value']);
@@ -1524,7 +1524,8 @@ app.post("/api/auth/login", async (req, res) => {
 app.post("/api/auth/register", async (req, res) => {
   if (!checkSupabase(res)) return;
   const { name, email, branch, phone, password, auth_id, recruiter_code } = req.body;
-  console.log(`Registration attempt for: ${email}`, { name, branch, phone, auth_id, recruiter_code });
+  console.log(`[REGISTER] attempt for: ${email}`, { name, branch, phone, auth_id, recruiter_code });
+  console.log(`[REGISTER] recruiter_code received:`, recruiter_code || 'NONE — upline will NOT be set');
   
   try {
     // Initialize admin client to bypass RLS for registration
@@ -1631,7 +1632,7 @@ app.post("/api/auth/register", async (req, res) => {
     if (staffColumns.has('created_at')) staffData.created_at = new Date().toISOString();
     
     if (final_auth_id) staffData.auth_id = final_auth_id;
-    if (upline_id && staffColumns.has('upline_id')) staffData.upline_id = upline_id;
+    if (upline_id) staffData.upline_id = upline_id; // always save — column added via ALTER TABLE
     if (phone) staffData.phone = phone;
     if (staffColumns.has('referral_code')) staffData.referral_code = referral_code;
     else if (staffColumns.has('promo_code')) staffData.promo_code = referral_code;
@@ -3356,15 +3357,13 @@ app.patch("/api/referrals/:id", async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
-  // --- Override Logic ---
-  // Only fire if status is CHANGING to completed (not already completed before update)
-  const wasAlreadyCompleted = data.status === 'completed';
-  if (updates.status === 'completed' && data.staff_id && !wasAlreadyCompleted) {
+  // --- Override Logic Logic ---
+  if (updates.status === 'completed' && data.staff_id) {
     try {
       // 1. Fetch settings
       const { data: setts } = await supabase.from('settings').select('key, value');
       const findSett = (key: string, def: number) => Number(setts?.find(s => s.key === key)?.value || def);
-      const overridePercentage = findSett('override_percentage', 50);
+      const overridePercentage = findSett('override_percentage', 20);
       const overrideCaseLimit = findSett('override_case_limit', 20);
 
       // 2. Fetch affiliate & check upline
@@ -3382,9 +3381,7 @@ app.patch("/api/referrals/:id", async (req, res) => {
           .single();
 
         if (upline) {
-          // Fetch the latest commission_amount after any updates applied in the same request
-          const { data: freshRef } = await supabase.from('referrals').select('commission_amount').eq('id', id).single();
-          const originalCommission = Number(freshRef?.commission_amount || data.commission_amount || 0);
+          const originalCommission = Number(data.commission_amount || 0);
           const overrideAmount = originalCommission * (overridePercentage / 100);
           const downlineAmount = originalCommission - overrideAmount;
 
@@ -3401,9 +3398,8 @@ app.patch("/api/referrals/:id", async (req, res) => {
               upline_id: upline.id,
               downline_id: affiliate.id,
               referral_id: id,
-              override_amount: overrideAmount,
-              downline_commission: downlineAmount,
-              case_number: newUplineCasesCount,
+              amount: overrideAmount,
+              status: 'earned'
             });
 
           // c) Update staff counts
@@ -3493,83 +3489,6 @@ app.delete("/api/referrals/:id", async (req, res) => {
 });
 
 // --- Network Management Routes ---
-
-
-// ── Combined affiliate network dashboard (used by NetworkTab) ───────────────
-app.get("/api/network/affiliate-dashboard/:affiliateId", async (req, res) => {
-  if (!checkSupabase(res)) return;
-  const { affiliateId } = req.params;
-
-  try {
-    // 1. Fetch all network settings at once
-    const settingKeys = ['override_percentage','override_case_limit','downline_cap_base','downline_cap_unlocked','downline_cap_unlock_threshold','network_max_depth'];
-    const { data: setts } = await supabase.from('settings').select('key, value').in('key', settingKeys);
-    const findSett = (key: string, def: number) => Number(setts?.find((s: any) => s.key === key)?.value || def);
-
-    const overrideCaseLimit     = findSett('override_case_limit', 20);
-    const overridePercentage    = findSett('override_percentage', 50);
-    const capBase               = findSett('downline_cap_base', 10);
-    const capUnlocked           = findSett('downline_cap_unlocked', 20);
-    const capUnlockThreshold    = findSett('downline_cap_unlock_threshold', 10);
-
-    // 2. Fetch affiliate's own completed referrals count
-    const { count: ownCases } = await supabase
-      .from('referrals').select('*', { count: 'exact', head: true })
-      .eq('staff_id', affiliateId).eq('status', 'completed');
-
-    // 3. Fetch downlines
-    const { data: downlineList, error: dlErr } = await supabase
-      .from('staff')
-      .select('id, name, email, referral_code, created_at, upline_cases_count')
-      .eq('upline_id', affiliateId);
-    if (dlErr) return res.status(500).json({ error: dlErr.message });
-
-    // 4. Enrich each downline (parallel)
-    const downlines = await Promise.all((downlineList || []).map(async (dl: any) => {
-      const { count: refCount } = await supabase
-        .from('referrals').select('*', { count: 'exact', head: true })
-        .eq('staff_id', dl.id).eq('status', 'completed');
-
-      const { data: earnings } = await supabase
-        .from('override_earnings').select('override_amount')
-        .eq('upline_id', affiliateId).eq('downline_id', dl.id);
-
-      const totalOverride = earnings?.reduce((sum: number, e: any) => sum + Number(e.override_amount || 0), 0) || 0;
-
-      return {
-        ...dl,
-        referral_count: refCount || 0,
-        total_override_earned: totalOverride,
-        is_active: (dl.upline_cases_count || 0) < overrideCaseLimit,
-      };
-    }));
-
-    // 5. Calculate recruit slot cap
-    const cap = (ownCases || 0) >= capUnlockThreshold ? capUnlocked : capBase;
-    const current = downlines.length;
-
-    res.json({
-      downlines,
-      recruitStats: {
-        current,
-        cap,
-        slots_remaining: Math.max(0, cap - current),
-        own_cases: ownCases || 0,
-        settings: {
-          override_percentage: overridePercentage,
-          override_case_limit: overrideCaseLimit,
-          downline_cap_base: capBase,
-          downline_cap_unlocked: capUnlocked,
-          downline_cap_unlock_threshold: capUnlockThreshold,
-        }
-      }
-    });
-
-  } catch (err: any) {
-    console.error('[affiliate-dashboard] Error:', err);
-    res.status(500).json({ error: err.message || 'Internal error' });
-  }
-});
 
 app.get("/api/network/settings", async (req, res) => {
   if (!checkSupabase(res)) return;
@@ -3669,11 +3588,11 @@ app.get("/api/network/downlines/:affiliateId", async (req, res) => {
     // Sum override earnings
     const { data: earnings } = await supabase
       .from('override_earnings')
-      .select('override_amount')
+      .select('amount')
       .eq('upline_id', affiliateId)
       .eq('downline_id', dl.id);
 
-    const totalOverride = earnings?.reduce((sum, e) => sum + Number(e.override_amount || 0), 0) || 0;
+    const totalOverride = earnings?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
 
     return {
       ...dl,
@@ -3843,7 +3762,7 @@ app.get("/api/network/admin-overview", async (req, res) => {
   const total_relationships = (relationships || []).length;
   const active = (relationships || []).filter(r => (r.upline_cases_count || 0) < limit).length;
   const expired = total_relationships - active;
-  const total_override_paid = (earnings || []).reduce((sum, e) => sum + Number(e.override_amount || 0), 0);
+  const total_override_paid = (earnings || []).reduce((sum, e) => sum + Number(e.amount), 0);
 
   // 5. Group by upline for top recruiters
   const recruiterStats: any = {};
@@ -3856,7 +3775,7 @@ app.get("/api/network/admin-overview", async (req, res) => {
 
   (earnings || []).forEach(e => {
     if (recruiterStats[e.upline_id]) {
-      recruiterStats[e.upline_id].override += Number(e.override_amount || 0);
+      recruiterStats[e.upline_id].override += Number(e.amount);
     }
   });
 
@@ -3910,7 +3829,7 @@ app.get("/api/network/affiliate-dashboard/:id", async (req, res) => {
     const capUnlocked = findSett('downline_cap_unlocked', 50);
     const threshold = findSett('downline_cap_unlock_threshold', 10);
     const overrideCaseLimit = findSett('override_case_limit', 20);
-    const overridePercentage = findSett('override_percentage', 50);
+    const overridePercentage = findSett('override_percentage', 20);
 
     const cap = ownCases >= threshold ? capUnlocked : capBase;
     const current = downlineList.length;
@@ -3923,7 +3842,7 @@ app.get("/api/network/affiliate-dashboard/:id", async (req, res) => {
     if (downlineIds.length > 0) {
       const [refsRes, earningsRes] = await Promise.all([
         supabase.from('referrals').select('staff_id').in('staff_id', downlineIds).eq('status', 'completed'),
-        supabase.from('override_earnings').select('downline_id, amount').eq('upline_id', id).in('downline_id', downlineIds)
+        supabase.from('override_earnings').select('downline_id, override_amount').eq('upline_id', id).in('downline_id', downlineIds)
       ]);
 
       refsRes.data?.forEach((r: any) => {
