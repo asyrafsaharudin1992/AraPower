@@ -29,6 +29,7 @@ const NetworkTab: React.FC<NetworkTabProps> = ({
 }) => {
   const [downlines, setDownlines] = useState<any[]>([]);
   const [recruitStats, setRecruitStats] = useState<any>(null);
+  const [uplineInfo, setUplineInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -42,12 +43,14 @@ const NetworkTab: React.FC<NetworkTabProps> = ({
   const fetchNetworkData = async () => {
     setLoading(true);
     try {
-      // Use the new optimized dashboard endpoint that returns everything in one request
       const response = await safeFetch(`${apiBaseUrl}/api/network/affiliate-dashboard/${currentUser.id}`);
       
       if (response.res.ok && response.data) {
         setRecruitStats(response.data.recruitStats);
         setDownlines(response.data.downlines);
+        if (response.data.upline) {
+          setUplineInfo(response.data.upline);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch network data:', err);
@@ -81,6 +84,40 @@ const NetworkTab: React.FC<NetworkTabProps> = ({
 
   return (
     <div className="space-y-6 pb-24">
+      {/* ── UPLINE INFO SECTION ── */}
+      {uplineInfo && (
+        <section className="bg-white rounded-[2rem] p-6 shadow-sm border border-zinc-100">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
+              <Award size={20} />
+            </div>
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-widest text-amber-600">Your Upline</h3>
+              <p className="text-[10px] font-bold text-zinc-400">The affiliate who referred you.</p>
+            </div>
+          </div>
+          
+          <div className="bg-zinc-50 rounded-2xl p-4 border border-zinc-100">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-500 font-bold">
+                {uplineInfo.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-bold text-zinc-800">{uplineInfo.name}</p>
+                <p className="text-[10px] font-mono text-zinc-500">{uplineInfo.referral_code}</p>
+              </div>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-zinc-200">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-zinc-500">Cases Contributed</span>
+                <span className="text-sm font-black text-amber-600">{uplineInfo.cases_contributed || 0}</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── RECRUIT LINK SECTION ── */}
       <section className="bg-white rounded-[2rem] p-6 shadow-sm border border-zinc-100">
         <div className="flex items-center gap-3 mb-6">
