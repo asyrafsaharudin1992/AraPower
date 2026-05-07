@@ -1618,11 +1618,13 @@ app.post("/api/auth/register", async (req, res) => {
     const staffData: any = {
       name,
       email,
-      role: 'affiliate',
-      password: password || 'password123',
-      is_approved: 0,
-      date_joined: new Date().toISOString()
+      role: 'affiliate'
     };
+    
+    if (staffColumns.has('password')) staffData.password = password || 'password123';
+    if (staffColumns.has('is_approved')) staffData.is_approved = 0;
+    if (staffColumns.has('date_joined')) staffData.date_joined = new Date().toISOString();
+    if (staffColumns.has('created_at')) staffData.created_at = new Date().toISOString();
     
     if (final_auth_id) staffData.auth_id = final_auth_id;
     if (upline_id) staffData.upline_id = upline_id;
