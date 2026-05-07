@@ -3413,7 +3413,7 @@ app.patch("/api/referrals/:id", async (req, res) => {
       // 1. Fetch settings
       const { data: setts } = await supabase.from('settings').select('key, value');
       const findSett = (key: string, def: number) => Number(setts?.find(s => s.key === key)?.value || def);
-      const overridePercentage = findSett('override_percentage', 20);
+      const overridePercentage = findSett('override_percentage', 50);
       const overrideCaseLimit = findSett('override_case_limit', 20);
 
       // 2. Fetch affiliate & check upline
@@ -3442,15 +3442,18 @@ app.patch("/api/referrals/:id", async (req, res) => {
             .eq('id', id);
 
           // b) Insert override earning
-          await supabase
+          const { error: oeErr } = await supabase
             .from('override_earnings')
             .insert({
               upline_id: upline.id,
               downline_id: affiliate.id,
               referral_id: id,
-              amount: overrideAmount,
-              status: 'earned'
+              override_amount: overrideAmount,
+              downline_commission: downlineAmount,
+              case_number: newUplineCasesCount,
             });
+          if (oeErr) console.error('[OVERRIDE] override_earnings insert failed:', oeErr.message);
+          else console.log(`[OVERRIDE] Inserted: upline ${upline.id} earned RM${overrideAmount} from downline ${affiliate.id} case #${newUplineCasesCount}`);
 
           // c) Update staff counts
           const newUplineCasesCount = (affiliate.upline_cases_count || 0) + 1;
