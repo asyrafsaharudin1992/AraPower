@@ -43,14 +43,29 @@ const NetworkTab: React.FC<NetworkTabProps> = ({
   const fetchNetworkData = async () => {
     setLoading(true);
     try {
-      const response = await safeFetch(`${apiBaseUrl}/api/network/affiliate-dashboard/${currentUser.id}`);
+      const [uplineRes, dashRes] = await Promise.all([
+        safeFetch(`${apiBaseUrl}/api/network/upline/${currentUser.id}`),
+        safeFetch(`${apiBaseUrl}/api/network/affiliate-dashboard/${currentUser.id}`)
+      ]);
       
-      if (response.res.ok && response.data) {
-        setRecruitStats(response.data.recruitStats);
-        setDownlines(response.data.downlines);
-        if (response.data.upline) {
-          setUplineInfo(response.data.upline);
+      if (dashRes.res.ok && dashRes.data) {
+        setRecruitStats(dashRes.data.recruitStats);
+        setDownlines(dashRes.data.downlines);
+        if (dashRes.data.upline) {
+          // Fallback if backend injects it
+          setUplineInfo(dashRes.data.upline);
         }
+      }
+
+      if (uplineRes.res.ok && uplineRes.data) {
+        // If active (quota not finished), show it.
+        if (uplineRes.data.is_active) {
+          setUplineInfo(uplineRes.data);
+        } else {
+          setUplineInfo(null); // Quota finished
+        }
+      } else {
+        setUplineInfo(null);
       }
     } catch (err) {
       console.error('Failed to fetch network data:', err);
@@ -111,7 +126,7 @@ const NetworkTab: React.FC<NetworkTabProps> = ({
             <div className="mt-4 pt-4 border-t border-zinc-200">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-zinc-500">Cases Contributed</span>
-                <span className="text-sm font-black text-amber-600">{uplineInfo.cases_contributed || 0}</span>
+                <span className="text-sm font-black text-amber-600">{uplineInfo.cases_shared || 0} / {uplineInfo.override_case_limit || 20}</span>
               </div>
             </div>
           </div>
