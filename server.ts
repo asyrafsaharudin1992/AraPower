@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import path from "path";
 import { fileURLToPath } from "url";
 import { Resend } from 'resend';
+import webpush from 'web-push';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -334,6 +335,50 @@ if (isPlaceholderUrl(supabaseUrl) || isPlaceholderKey(supabaseKey)) {
 }
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+// ── Web Push VAPID setup ─────────────────────────────────────────────────────
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_EMAIL || 'mailto:support@hsohealthcare.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+  console.log('[Push] VAPID configured');
+} else {
+  console.warn('[Push] VAPID keys missing — push notifications disabled');
+}
+
+// ── Send push to all admin + receptionist ────────────────────────────────────
+async function sendPushToStaff(roles: string[], payload: { title: string; body: string; url?: string; tag?: string }) {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+  try {
+    const { data: subs } = await supabase
+      .from('push_subscriptions')
+      .select('subscription, staff:staff_id(role)')
+      .in('staff.role', roles);
+
+    if (!subs || subs.length === 0) return;
+
+    const message = JSON.stringify({
+      title: payload.title,
+      body:  payload.body,
+      icon:  '/icon-192.png',
+      tag:   payload.tag || 'arapower',
+      data:  { url: payload.url || '/' },
+    });
+
+    await Promise.allSettled(
+      subs.map((row: any) => {
+        try {
+          return webpush.sendNotification(row.subscription, message);
+        } catch { return Promise.resolve(); }
+      })
+    );
+    console.log(`[Push] Sent to ${subs.length} subscribers`);
+  } catch (err) {
+    console.error('[Push] sendPushToStaff error:', err);
+  }
+}
 
 async function sendAdminNotification(newUser: any) {
   if (!resend) {
@@ -1651,6 +1696,12 @@ app.post("/api/auth/register", async (req, res) => {
     // Background notifications
     sendAdminNotification(result).catch(err => console.error('Admin notify err:', err));
     sendRegistrationConfirmationNotification(result).catch(err => console.error('Confirm notify err:', err));
+    sendPushToStaff(['admin', 'manager'], {
+      title: '👤 New Affiliate Application',
+      body: `${result.name} has applied to join AraPower`,
+      url: '/?tab=affiliates',
+      tag: 'new-affiliate',
+    }).catch(console.error);
     
     res.json(result);
 
@@ -3363,6 +3414,12 @@ app.post("/api/referrals", async (req, res) => {
           sendReferralNotification(staffForNotif, referral).catch(e =>
             console.error('[referral POST] Email notify failed (non-blocking):', e)
           );
+          sendPushToStaff(['admin', 'receptionist', 'manager'], {
+            title: '🔔 New Booking Referral',
+            body: `${referral.patient_name || 'New patient'} · ${referral.service_name || 'General'}`,
+            url: '/?tab=referrals',
+            tag: 'new-referral',
+          }).catch(console.error);
         }
       }
     } catch (notifErr) {
@@ -3441,6 +3498,7 @@ app.patch("/api/referrals/:id", async (req, res) => {
             .update({ commission_amount: downlineAmount })
             .eq('id', id);
 
+          // c) Update staff counts
           const newUplineCasesCount = (affiliate.upline_cases_count || 0) + 1;
 
           // b) Insert override earning
@@ -3457,7 +3515,6 @@ app.patch("/api/referrals/:id", async (req, res) => {
           if (oeErr) console.error('[OVERRIDE] override_earnings insert failed:', oeErr.message);
           else console.log(`[OVERRIDE] Inserted: upline ${upline.id} earned RM${overrideAmount} from downline ${affiliate.id} case #${newUplineCasesCount}`);
 
-          // c) Update staff counts
           await supabase
             .from('staff')
             .update({ upline_cases_count: newUplineCasesCount })
@@ -3620,26 +3677,6 @@ app.get("/api/override-earnings/pending", async (req, res) => {
     }));
 
     res.json(enriched);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/override-earnings/pay", async (req, res) => {
-  if (!checkSupabase(res)) return;
-  const { ids } = req.body;
-  if (!ids || !Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ error: 'No IDs provided' });
-  }
-
-  try {
-    const { error } = await supabase
-      .from('override_earnings')
-      .update({ paid_at: new Date().toISOString() })
-      .in('id', ids);
-
-    if (error) throw error;
-    res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -3961,6 +3998,27 @@ app.get("/api/network/admin-overview", async (req, res) => {
     total_override_paid,
     top_recruiters
   });
+});
+
+// ── Push subscription endpoints ──────────────────────────────────────────────
+app.post("/api/push/subscribe", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  const { staff_id, subscription } = req.body;
+  if (!staff_id || !subscription) return res.status(400).json({ error: 'staff_id and subscription required' });
+  const { error } = await supabase
+    .from('push_subscriptions')
+    .upsert({ staff_id, subscription }, { onConflict: 'staff_id' });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+app.delete("/api/push/unsubscribe", async (req, res) => {
+  if (!checkSupabase(res)) return;
+  const { staff_id } = req.body;
+  if (!staff_id) return res.status(400).json({ error: 'staff_id required' });
+  const { error } = await supabase.from('push_subscriptions').delete().eq('staff_id', staff_id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
 app.get("/api/network/affiliate-dashboard/:id", async (req, res) => {

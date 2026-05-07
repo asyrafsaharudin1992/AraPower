@@ -103,6 +103,7 @@ import { supabase, isPlaceholder } from './supabase';
 import { CommunicationUI } from './components/CommunicationUI';
 import PublicBookingUI from './components/PublicBookingUI';
 import { formatMyDate, formatMyDateOnly } from './utils';
+import { NotificationBell } from './components/NotificationBell';
 
 // Interfaces moved to types.ts
 
@@ -3223,6 +3224,11 @@ export default function App() {
                 </div>
                 
                 <div className="flex items-center gap-4">
+                  {/* Push Notifications Bell for Admins/Staff */}
+                  {['admin', 'manager', 'receptionist'].includes(currentUser.role) && (
+                    <NotificationBell currentUser={currentUser} apiBaseUrl={apiBaseUrl} safeFetch={safeFetch} />
+                  )}
+
                   {activeTab === 'dashboard' && currentUser.role !== 'admin' && !isMobile && (
                     <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-[#1580c2]/10 shadow-sm">
                       <Clock size={16} className="text-[#1580c2]/60" />
