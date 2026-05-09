@@ -141,6 +141,7 @@ export interface MobileUIProps {
   setStatusFilter: (status: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  onOpenWhatsApp?: (referral: any) => void;
   getWhatsAppUrl: (phone: string) => string;
   safeFetch: (url: string, options?: RequestInit) => Promise<{ res: Response; data: any }>;
   apiBaseUrl: string;
@@ -209,6 +210,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
   markAllAsRead,
   markNotificationAsRead,
   deleteNotification,
+  onOpenWhatsApp,
   // New props
   handleSubmitReferral,
   checkPromoCode,
@@ -519,6 +521,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                   getStatusColor={getStatusColor}
                   getStatusLabel={getStatusLabel}
                   staffList={staffList}
+                  onOpenWhatsApp={onOpenWhatsApp}
                 />
               )}
 
@@ -606,6 +609,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                     staffList={staffList}
                     clinicProfile={clinicProfile}
                     branches={branches}
+                    onOpenWhatsApp={onOpenWhatsApp}
                   />
                 </div>
               )}
@@ -637,6 +641,7 @@ export const MobileUI: React.FC<MobileUIProps> = ({
                   setSearchQuery={setSearchQuery}
                   handleClinicStatusUpdate={handleClinicStatusUpdate}
                   getWhatsAppUrl={getWhatsAppUrl}
+                  onOpenWhatsApp={onOpenWhatsApp}
                 />
               )}
 

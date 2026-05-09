@@ -39,6 +39,7 @@ interface ReceptionistUIProps {
   setSearchQuery: (query: string) => void;
   handleClinicStatusUpdate: (id: string, status: string) => void;
   getWhatsAppUrl: (phone: string, referral?: any) => string;
+  onOpenWhatsApp?: (referral: any) => void;
 }
 
 export const ReceptionistUI: React.FC<ReceptionistUIProps> = ({
@@ -66,7 +67,8 @@ export const ReceptionistUI: React.FC<ReceptionistUIProps> = ({
   searchQuery,
   setSearchQuery,
   handleClinicStatusUpdate,
-  getWhatsAppUrl
+  getWhatsAppUrl,
+  onOpenWhatsApp
 }) => {
   const blue = '#1580c2';
 
@@ -300,15 +302,13 @@ export const ReceptionistUI: React.FC<ReceptionistUIProps> = ({
 
                         <div className="flex items-center gap-3 w-full sm:w-auto">
                           {ref.patient_phone && (
-                            <a 
-                              href={getWhatsAppUrl(ref.patient_phone, ref)}
-                              target="_blank" 
-                              rel="noopener noreferrer"
+                            <button 
+                              onClick={() => onOpenWhatsApp ? onOpenWhatsApp(ref) : window.open(getWhatsAppUrl(ref.patient_phone, ref), '_blank')}
                               className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all active:scale-90"
                               title="WhatsApp Patient"
                             >
                               <Phone size={18} />
-                            </a>
+                            </button>
                           )}
                           
                           <div className="flex-1 sm:flex-initial flex items-center gap-2">

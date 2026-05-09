@@ -143,3 +143,9 @@ export interface ClinicProfile {
   logoUrl?: string;
   customDomain?: string;
 }
+
+export interface WhatsAppTemplate {
+  id: string;
+  name: string;
+  message: string;
+}

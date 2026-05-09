@@ -46,6 +46,7 @@ interface BookingCalendarProps {
   staffList: any[];
   clinicProfile: any;
   branches: any[];
+  onOpenWhatsApp?: (referral: any) => void;
 }
 
 const SERVICE_COLORS = [
@@ -463,7 +464,8 @@ const BookingPopover = ({
   staffList,
   currentUser,
   clinicProfile,
-  formatTimeStr
+  formatTimeStr,
+  onOpenWhatsApp
 }: {
   selectedBooking: any;
   setSelectedBooking: (booking: any) => void;
@@ -471,6 +473,7 @@ const BookingPopover = ({
   currentUser: any;
   clinicProfile: any;
   formatTimeStr: (time: string) => string;
+  onOpenWhatsApp?: (referral: any) => void;
 }) => {
   const staff = staffList.find(s => String(s.id) === String(selectedBooking.staff_id));
   const isAffiliate = currentUser?.role === 'affiliate';
@@ -578,15 +581,13 @@ Terima kasih.`;
                   </div>
                 </div>
                 {isAdminOrReceptionist && (
-                  <a 
-                    href={getWhatsAppUrl(selectedBooking.patient_phone)}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button 
+                    onClick={() => onOpenWhatsApp ? onOpenWhatsApp(selectedBooking) : window.open(getWhatsAppUrl(selectedBooking.patient_phone), '_blank')}
                     className="flex items-center gap-2 px-4 py-2 bg-[#25D366] hover:bg-[#20ba59] text-white rounded-xl text-xs font-black transition-all shadow-md active:scale-95"
                   >
                     <MessageSquare size={14} />
                     WHATSAPP
-                  </a>
+                  </button>
                 )}
               </div>
             )}
@@ -638,7 +639,8 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
   referrals,
   staffList,
   clinicProfile,
-  branches
+  branches,
+  onOpenWhatsApp
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
@@ -874,6 +876,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
             currentUser={currentUser}
             clinicProfile={clinicProfile}
             formatTimeStr={formatTimeStr}
+            onOpenWhatsApp={onOpenWhatsApp}
           />
         )}
       </AnimatePresence>

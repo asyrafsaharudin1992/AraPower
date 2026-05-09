@@ -17,6 +17,7 @@ interface ReferralBoardProps {
   getStatusColor: (status: string) => string;
   getStatusLabel: (status: string) => string;
   staffList: any[];
+  onOpenWhatsApp?: (referral: any) => void;
 }
 
 const getWhatsAppUrl = (phone: string | null | undefined, referral?: any) => {
@@ -84,6 +85,7 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
   getStatusColor,
   getStatusLabel,
   staffList,
+  onOpenWhatsApp
 }) => {
   const [referralSearch, setReferralSearch] = useState('');
 
@@ -336,14 +338,12 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                       {timeStr && <><span className="text-zinc-300">·</span><span className="font-semibold text-zinc-700">{timeStr}</span></>}
                     </div>
                     {!isAffiliate && ref.patient_phone && (
-                      <a 
-                        href={getWhatsAppUrl(ref.patient_phone, ref)}
-                        target="_blank" 
-                        rel="noopener noreferrer"
+                      <button 
+                        onClick={() => onOpenWhatsApp ? onOpenWhatsApp(ref) : window.open(getWhatsAppUrl(ref.patient_phone, ref), '_blank')}
                         className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center -mt-8 shadow-sm border border-emerald-100/50"
                       >
                         <MessageCircle size={18} />
-                      </a>
+                      </button>
                     )}
                   </div>
                   {ref.branch && (
@@ -471,15 +471,13 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                         <div className="flex items-center gap-2">
                           <p style={{ fontSize: '12px', fontWeight: 500, color: '#1580c2', opacity: 0.5, margin: 0 }}>{isAffiliate ? '••••••' : (ref.patient_phone || '—')}</p>
                           {ref.patient_phone && (
-                            <a 
-                              href={getWhatsAppUrl(ref.patient_phone, ref)}
-                              target="_blank" 
-                              rel="noopener noreferrer"
+                            <button 
+                              onClick={() => onOpenWhatsApp ? onOpenWhatsApp(ref) : window.open(getWhatsAppUrl(ref.patient_phone, ref), '_blank')}
                               className="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-[#1580c2]/5 text-[#1580c2] hover:bg-[#1580c2] hover:text-white transition-all transform hover:scale-105"
                               title="WhatsApp Patient"
                             >
                               <MessageCircle size={14} />
-                            </a>
+                            </button>
                           )}
                         </div>
                       </td>

@@ -20,7 +20,8 @@ import { PromotionsUI } from './components/PromotionsUI';
 import { ProfileUI } from './components/ProfileUI';
 import { GuideUI } from './components/GuideUI';
 import AddServiceForm from './components/AddServiceForm';
-import { Service, Promotion, Staff, Referral, AppSettings, ClinicProfile } from './types';
+import { Service, Promotion, Staff, Referral, AppSettings, ClinicProfile, WhatsAppTemplate } from './types';
+import { WhatsAppTemplateModal } from './components/WhatsAppTemplateModal';
 import { 
   Users, 
   PlusCircle, 
@@ -81,7 +82,8 @@ import {
   Send,
   ArrowLeft,
   X,
-  Award
+  Award,
+  Save
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
@@ -904,7 +906,10 @@ export default function App() {
     if (saved !== null) return saved === 'true';
     return false;
   });
-  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash' | 'categories'>('staff');
+  const [setupSubTab, setSetupSubTab] = useState<'services' | 'staff' | 'booking' | 'auth' | 'clinic' | 'roles' | 'referral' | 'branches' | 'trash' | 'categories' | 'whatsapp'>('staff');
+  const [whatsappTemplates, setWhatsappTemplates] = useState<WhatsAppTemplate[]>([]);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [selectedReferralForWhatsApp, setSelectedReferralForWhatsApp] = useState<any>(null);
   const [serviceCategories, setServiceCategories] = useState<string[]>(['Health screening', 'Diagnostic test', 'Vaccination']);
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
   const [editingCategoryValue, setEditingCategoryValue] = useState<string>('');
@@ -967,6 +972,62 @@ export default function App() {
     logoUrl: '' // Resetting broken URL, user can upload or provide a new one
   });
   const [isGeneratingIcon, setIsGeneratingIcon] = useState(false);
+
+  const handleSaveWhatsAppTemplates = async () => {
+    try {
+      setIsSavingSetup(true);
+      const { res } = await safeFetch(`${apiBaseUrl}/api/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'whatsapp_templates', value: whatsappTemplates })
+      });
+      if (res.ok) {
+        toast.success('WhatsApp templates saved successfully!');
+      } else {
+        toast.error('Failed to save WhatsApp templates.');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error saving WhatsApp templates.');
+    } finally {
+      setIsSavingSetup(false);
+    }
+  };
+
+  const fetchWhatsAppTemplates = async () => {
+    try {
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/settings?key=whatsapp_templates`);
+      if (res.ok && data) {
+        setWhatsappTemplates(data.value || []);
+      } else {
+        // Default templates if none exist
+        const defaults: WhatsAppTemplate[] = [
+          {
+            id: '1',
+            name: 'Booking Reminder',
+            message: `[KLINIK ARA 24 JAM]\n\nAssalamualaikum dan Selamat sejahtera. Berikut adalah maklumat temu janji pihak tuan/puan. \n\nTarikh: {{date}}\nWaktu: {{time}}\nCawangan: {{branch}}\nServis: {{service}} \n\nKami doakan semoga segala urusan tuan/puan dimudahkan.\n \nTerima kasih.`
+          },
+          {
+            id: '2',
+            name: 'Thank You Message',
+            message: `[KLINIK ARA 24 JAM]\n\nAssalamualaikum dan Selamat sejahtera {{patient_name}}. \n\nTerima kasih kerana memilih Klinik Ara 24 Jam. Kami harap tuan/puan berpuas hati dengan servis kami.\n\nTerima kasih.`
+          }
+        ];
+        setWhatsappTemplates(defaults);
+      }
+    } catch (err) {
+      console.error('Error fetching WhatsApp templates:', err);
+    }
+  };
+
+  const handleOpenWhatsAppModal = (referral: any) => {
+    setSelectedReferralForWhatsApp(referral);
+    setIsTemplateModalOpen(true);
+  };
+
+  useEffect(() => {
+    fetchWhatsAppTemplates();
+  }, []);
 
   const handleGenerateIcon = async () => {
     const aistudio = (window as any).aistudio;
@@ -2977,6 +3038,7 @@ export default function App() {
               isSendingFeedback={isSendingFeedback}
               handleLogout={handleLogout}
               onDeleteAccount={handleDeleteAccount}
+              onOpenWhatsApp={handleOpenWhatsAppModal}
               markAllAsRead={markAllAsRead}
               markNotificationAsRead={markNotificationAsRead}
               deleteNotification={deleteNotification}
@@ -3269,6 +3331,20 @@ export default function App() {
                     <NotificationBell currentUser={currentUser} apiBaseUrl={apiBaseUrl} safeFetch={safeFetch} />
                   )}
 
+                  <WhatsAppTemplateModal 
+                    isOpen={isTemplateModalOpen}
+                    onClose={() => setIsTemplateModalOpen(false)}
+                    templates={whatsappTemplates}
+                    referral={selectedReferralForWhatsApp}
+                    phone={selectedReferralForWhatsApp?.patient_phone || ''}
+                    onSend={(message) => {
+                      const cleaned = selectedReferralForWhatsApp.patient_phone.replace(/\D/g, '');
+                      const formatted = cleaned.startsWith('0') ? '6' + cleaned : (cleaned.startsWith('60') ? cleaned : '60' + cleaned);
+                      window.open(`https://wa.me/${formatted}?text=${encodeURIComponent(message)}`, '_blank');
+                      setIsTemplateModalOpen(false);
+                    }}
+                  />
+
                   {activeTab === 'dashboard' && currentUser.role !== 'admin' && !isMobile && (
                     <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-[#1580c2]/10 shadow-sm">
                       <Clock size={16} className="text-[#1580c2]/60" />
@@ -3484,6 +3560,7 @@ export default function App() {
               getStatusColor={getStatusColor}
               getStatusLabel={getStatusLabel}
               staffList={staffList}
+              onOpenWhatsApp={handleOpenWhatsAppModal}
             />
           )}
 
@@ -3775,6 +3852,7 @@ export default function App() {
                 staffList={staffList}
                 clinicProfile={clinicProfile}
                 branches={branches}
+                onOpenWhatsApp={handleOpenWhatsAppModal}
               />
             </div>
           )}
@@ -3806,6 +3884,7 @@ export default function App() {
               setSearchQuery={setSearchQuery}
               handleClinicStatusUpdate={handleClinicStatusUpdate}
               getWhatsAppUrl={getWhatsAppUrl}
+              onOpenWhatsApp={handleOpenWhatsAppModal}
             />
           )}
 
@@ -3958,6 +4037,12 @@ export default function App() {
                   Clinic Profile
                 </button>
                 <button 
+                  onClick={() => setSetupSubTab('whatsapp')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'whatsapp' ? 'bg-[#1580c2] text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
+                >
+                  WhatsApp
+                </button>
+                <button 
                   onClick={() => setSetupSubTab('roles')}
                   className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${setupSubTab === 'roles' ? 'bg-[#1580c2] text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
                 >
@@ -3988,6 +4073,73 @@ export default function App() {
                   Categories
                 </button>
               </div>
+
+              {setupSubTab === 'whatsapp' && (
+                <div className="space-y-6">
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h3 className="font-semibold text-zinc-900">WhatsApp Templates</h3>
+                        <p className="text-xs text-zinc-500">Manage templates for notifications. Use placeholders like {"{{patient_name}}"}, {"{{date}}"}, {"{{time}}"}, {"{{branch}}"}, {"{{service}}"}.</p>
+                      </div>
+                      <button 
+                        onClick={() => setWhatsappTemplates(prev => [...prev, { id: Date.now().toString(), name: 'New Template', message: '' }])}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#1580c2]/10 text-[#1580c2] rounded-xl text-sm font-bold hover:bg-[#1580c2]/20 transition-colors"
+                      >
+                        <Plus size={16} />
+                        Add Template
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      {whatsappTemplates.map((template, idx) => (
+                        <div key={template.id} className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <input 
+                              value={template.name}
+                              onChange={(e) => {
+                                const newTemplates = [...whatsappTemplates];
+                                newTemplates[idx].name = e.target.value;
+                                setWhatsappTemplates(newTemplates);
+                              }}
+                              className="bg-transparent font-bold text-sm text-[#1580c2] focus:outline-none focus:ring-1 focus:ring-[#1580c2] px-2 rounded"
+                              placeholder="Template Name"
+                            />
+                            <button 
+                              onClick={() => setWhatsappTemplates(prev => prev.filter(t => t.id !== template.id))}
+                              className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                          <textarea 
+                            value={template.message}
+                            onChange={(e) => {
+                              const newTemplates = [...whatsappTemplates];
+                              newTemplates[idx].message = e.target.value;
+                              setWhatsappTemplates(newTemplates);
+                            }}
+                            rows={4}
+                            className="w-full px-4 py-3 rounded-xl bg-white border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-[#1580c2] text-xs font-medium"
+                            placeholder="Message body..."
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-8 flex justify-end">
+                      <button 
+                        onClick={handleSaveWhatsAppTemplates}
+                        disabled={isSavingSetup}
+                        className="flex items-center gap-2 px-8 py-3 bg-[#1580c2] text-white rounded-xl font-bold shadow-lg shadow-[#1580c2]/20 hover:bg-[#1580c2]/90 transition-colors disabled:opacity-50"
+                      >
+                        <Save size={18} />
+                        {isSavingSetup ? 'Saving...' : 'Save All Templates'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {setupSubTab === 'categories' && (
                 <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
