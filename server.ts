@@ -224,6 +224,7 @@ let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
 let branchColumns: Set<string> = new Set(['id', 'name', 'location', 'whatsapp_number']);
 let settingsColumns: Set<string> = new Set(['key', 'value']);
+let whatsappTemplateColumns: Set<string> = new Set(['id', 'name', 'message', 'created_at']);
 let notificationColumns: Set<string> = new Set(['id', 'user_id', 'title', 'message', 'type', 'is_read', 'created_at']);
 let branchChangeRequestColumns: Set<string> = new Set(['id', 'staff_id', 'status']);
 
@@ -236,6 +237,7 @@ async function discoverColumns() {
     { name: 'tasks', set: taskColumns },
     { name: 'branches', set: branchColumns },
     { name: 'settings', set: settingsColumns },
+    { name: 'whatsapp_templates', set: whatsappTemplateColumns },
     { name: 'notifications', set: notificationColumns },
     { name: 'branch_change_requests', set: branchChangeRequestColumns }
   ];
@@ -1906,6 +1908,60 @@ app.post("/api/settings", async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
   res.json({ success: true });
+});
+
+// WhatsApp Templates API
+app.get("/api/whatsapp-templates", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('whatsapp_templates')
+      .select('*')
+      .order('created_at', { ascending: true });
+    
+    if (error) {
+      if (error.code === '42P01') return res.json([]); // Table doesn't exist yet
+      return res.status(500).json({ error: error.message });
+    }
+    const templates = (data || []).map((t: any) => ({
+      ...t,
+      id: String(t.id)
+    }));
+    res.json(templates);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/whatsapp-templates", async (req, res) => {
+  try {
+    const templates = req.body; // Expecting an array of templates
+    if (!Array.isArray(templates)) {
+      return res.status(400).json({ error: "Expected an array of templates" });
+    }
+
+    // 1. Delete all existing templates
+    await supabase.from('whatsapp_templates').delete().neq('id', 0); // Using 0 for numeric ID if serial
+    
+    // 2. Insert new ones
+    const templatesToInsert = templates.map(({ id, ...t }) => ({
+      ...t,
+      created_at: new Date().toISOString()
+    }));
+
+    if (templatesToInsert.length > 0) {
+      const { data, error } = await supabase
+        .from('whatsapp_templates')
+        .insert(templatesToInsert)
+        .select();
+      
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json(data);
+    }
+    
+    res.json([]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Tasks API

@@ -976,10 +976,10 @@ export default function App() {
   const handleSaveWhatsAppTemplates = async () => {
     try {
       setIsSavingSetup(true);
-      const { res } = await safeFetch(`${apiBaseUrl}/api/settings`, {
+      const { res } = await safeFetch(`${apiBaseUrl}/api/whatsapp-templates`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'whatsapp_templates', value: whatsappTemplates })
+        body: JSON.stringify(whatsappTemplates)
       });
       if (res.ok) {
         toast.success('WhatsApp templates saved successfully!');
@@ -996,24 +996,26 @@ export default function App() {
 
   const fetchWhatsAppTemplates = async () => {
     try {
-      const { res, data } = await safeFetch(`${apiBaseUrl}/api/settings?key=whatsapp_templates`);
-      if (res.ok && data && Array.isArray(data.value)) {
-        setWhatsappTemplates(data.value);
-      } else if (res.ok && (data?.value === null || data?.value === undefined)) {
-        // Default templates if none exist or table empty
-        const defaults: WhatsAppTemplate[] = [
-          {
-            id: '1',
-            name: 'Booking Reminder',
-            message: `[KLINIK ARA 24 JAM]\n\nAssalamualaikum dan Selamat sejahtera. Berikut adalah maklumat temu janji pihak tuan/puan. \n\nTarikh: {{date}}\nWaktu: {{time}}\nCawangan: {{branch}}\nServis: {{service}} \n\nKami doakan semoga segala urusan tuan/puan dimudahkan.\n \nTerima kasih.`
-          },
-          {
-            id: '2',
-            name: 'Thank You Message',
-            message: `[KLINIK ARA 24 JAM]\n\nAssalamualaikum dan Selamat sejahtera {{patient_name}}. \n\nTerima kasih kerana memilih Klinik Ara 24 Jam. Kami harap tuan/puan berpuas hati dengan servis kami.\n\nTerima kasih.`
-          }
-        ];
-        setWhatsappTemplates(defaults);
+      const { res, data } = await safeFetch(`${apiBaseUrl}/api/whatsapp-templates`);
+      if (res.ok && Array.isArray(data)) {
+        if (data.length > 0) {
+          setWhatsappTemplates(data);
+        } else {
+          // Default templates if table empty
+          const defaults: WhatsAppTemplate[] = [
+            {
+              id: '1',
+              name: 'Booking Reminder',
+              message: `[KLINIK ARA 24 JAM]\n\nAssalamualaikum dan Selamat sejahtera. Berikut adalah maklumat temu janji pihak tuan/puan. \n\nTarikh: {{date}}\nWaktu: {{time}}\nCawangan: {{branch}}\nServis: {{service}} \n\nKami doakan semoga segala urusan tuan/puan dimudahkan.\n \nTerima kasih.`
+            },
+            {
+              id: '2',
+              name: 'Thank You Message',
+              message: `[KLINIK ARA 24 JAM]\n\nAssalamualaikum dan Selamat sejahtera {{patient_name}}. \n\nTerima kasih kerana memilih Klinik Ara 24 Jam. Kami harap tuan/puan berpuas hati dengan servis kami.\n\nTerima kasih.`
+            }
+          ];
+          setWhatsappTemplates(defaults);
+        }
       }
     } catch (err) {
       console.error('Error fetching WhatsApp templates:', err);
