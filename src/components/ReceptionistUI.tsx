@@ -38,7 +38,7 @@ interface ReceptionistUIProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   handleClinicStatusUpdate: (id: string, status: string) => void;
-  getWhatsAppUrl: (phone: string) => string;
+  getWhatsAppUrl: (phone: string, referral?: any) => string;
 }
 
 export const ReceptionistUI: React.FC<ReceptionistUIProps> = ({
@@ -301,7 +301,7 @@ export const ReceptionistUI: React.FC<ReceptionistUIProps> = ({
                         <div className="flex items-center gap-3 w-full sm:w-auto">
                           {ref.patient_phone && (
                             <a 
-                              href={getWhatsAppUrl(ref.patient_phone)}
+                              href={getWhatsAppUrl(ref.patient_phone, ref)}
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all active:scale-90"

@@ -19,7 +19,7 @@ interface ReferralBoardProps {
   staffList: any[];
 }
 
-const getWhatsAppUrl = (phone: string | null | undefined) => {
+const getWhatsAppUrl = (phone: string | null | undefined, referral?: any) => {
   if (!phone) return '#';
   // Remove all non-numeric characters
   const cleaned = phone.replace(/\D/g, '');
@@ -27,7 +27,47 @@ const getWhatsAppUrl = (phone: string | null | undefined) => {
   const formatted = cleaned.startsWith('0') 
     ? '6' + cleaned 
     : (cleaned.startsWith('60') ? cleaned : '60' + cleaned);
-  return `https://wa.me/${formatted}`;
+  
+  let url = `https://wa.me/${formatted}`;
+
+  if (referral) {
+    const formatDateHelper = (dateStr: string | null | undefined) => {
+      if (!dateStr) return '—';
+      try {
+        return new Date(dateStr).toLocaleDateString('en-MY', {
+          timeZone: 'Asia/Kuala_Lumpur',
+          day: 'numeric', month: 'short', year: 'numeric',
+        });
+      } catch { return '—'; }
+    };
+
+    const formatTimeHelper = (timeStr: string | null | undefined) => {
+      if (!timeStr) return '—';
+      try {
+        const [h, m] = timeStr.split(':').map(Number);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const hour = h % 12 || 12;
+        return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
+      } catch { return timeStr; }
+    };
+
+    const message = `[KLINIK ARA 24 JAM]
+
+Assalamualaikum dan Selamat sejahtera. Berikut adalah maklumat temu janji pihak tuan/puan. 
+
+Tarikh: ${formatDateHelper(referral.appointment_date || referral.date)}
+Waktu: ${formatTimeHelper(referral.booking_time)}
+Cawangan: ${referral.branch || '—'}
+Servis: ${referral.service_name || '—'}
+
+Kami doakan semoga segala urusan tuan/puan dimudahkan.
+ 
+Terima kasih.`;
+
+    url += `?text=${encodeURIComponent(message)}`;
+  }
+
+  return url;
 };
 
 export const ReferralBoard: React.FC<ReferralBoardProps> = ({
@@ -289,10 +329,22 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
 
                 {/* Date · Time · Branch */}
                 <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center gap-2 text-xs text-zinc-500">
-                    <span>📅</span>
-                    <span className="font-semibold text-zinc-700">{dateStr}</span>
-                    {timeStr && <><span className="text-zinc-300">·</span><span className="font-semibold text-zinc-700">{timeStr}</span></>}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs text-zinc-500">
+                      <span>📅</span>
+                      <span className="font-semibold text-zinc-700">{dateStr}</span>
+                      {timeStr && <><span className="text-zinc-300">·</span><span className="font-semibold text-zinc-700">{timeStr}</span></>}
+                    </div>
+                    {!isAffiliate && ref.patient_phone && (
+                      <a 
+                        href={getWhatsAppUrl(ref.patient_phone, ref)}
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center -mt-8 shadow-sm border border-emerald-100/50"
+                      >
+                        <MessageCircle size={18} />
+                      </a>
+                    )}
                   </div>
                   {ref.branch && (
                     <div className="flex items-center gap-2 text-xs text-zinc-500">
@@ -420,7 +472,7 @@ export const ReferralBoard: React.FC<ReferralBoardProps> = ({
                           <p style={{ fontSize: '12px', fontWeight: 500, color: '#1580c2', opacity: 0.5, margin: 0 }}>{isAffiliate ? '••••••' : (ref.patient_phone || '—')}</p>
                           {ref.patient_phone && (
                             <a 
-                              href={getWhatsAppUrl(ref.patient_phone)}
+                              href={getWhatsAppUrl(ref.patient_phone, ref)}
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-[#1580c2]/5 text-[#1580c2] hover:bg-[#1580c2] hover:text-white transition-all transform hover:scale-105"

@@ -770,7 +770,7 @@ const MobilePullToRefreshWrapper = ({ isMobile, onRefresh, children }: { isMobil
   return <>{children}</>;
 };
 
-const getWhatsAppUrl = (phone: string | null | undefined) => {
+const getWhatsAppUrl = (phone: string | null | undefined, referral?: any) => {
   if (!phone) return '#';
   // Remove all non-numeric characters
   const cleaned = phone.replace(/\D/g, '');
@@ -778,7 +778,47 @@ const getWhatsAppUrl = (phone: string | null | undefined) => {
   const formatted = cleaned.startsWith('0') 
     ? '6' + cleaned 
     : (cleaned.startsWith('60') ? cleaned : '60' + cleaned);
-  return `https://wa.me/${formatted}`;
+  
+  let url = `https://wa.me/${formatted}`;
+
+  if (referral) {
+    const formatDate = (dateStr: string | null | undefined) => {
+      if (!dateStr) return '—';
+      try {
+        return new Date(dateStr).toLocaleDateString('en-MY', {
+          timeZone: 'Asia/Kuala_Lumpur',
+          day: 'numeric', month: 'short', year: 'numeric',
+        });
+      } catch { return '—'; }
+    };
+
+    const formatTime = (timeStr: string | null | undefined) => {
+      if (!timeStr) return '—';
+      try {
+        const [h, m] = timeStr.split(':').map(Number);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const hour = h % 12 || 12;
+        return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
+      } catch { return timeStr; }
+    };
+
+    const message = `[KLINIK ARA 24 JAM]
+
+Assalamualaikum dan Selamat sejahtera. Berikut adalah maklumat temu janji pihak tuan/puan. 
+
+Tarikh: ${formatDate(referral.appointment_date || referral.date)}
+Waktu: ${formatTime(referral.booking_time)}
+Cawangan: ${referral.branch || '—'}
+Servis: ${referral.service_name || '—'}
+
+Kami doakan semoga segala urusan tuan/puan dimudahkan.
+ 
+Terima kasih.`;
+
+    url += `?text=${encodeURIComponent(message)}`;
+  }
+
+  return url;
 };
 
 export default function App() {

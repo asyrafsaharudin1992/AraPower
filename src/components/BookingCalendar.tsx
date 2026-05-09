@@ -476,17 +476,38 @@ const BookingPopover = ({
   const isAffiliate = currentUser?.role === 'affiliate';
   const isAdminOrReceptionist = currentUser?.role === 'admin' || currentUser?.role === 'receptionist';
 
-  const getWhatsAppUrl = (phone: string) => {
+    const getWhatsAppUrl = (phone: string) => {
     if (!phone) return '';
     const cleanPhone = phone.replace(/\D/g, '');
     const formattedPhone = cleanPhone.startsWith('60') ? cleanPhone : `60${cleanPhone.startsWith('0') ? cleanPhone.substring(1) : cleanPhone}`;
     
-    const dateStr = format(parseISO(selectedBooking.appointment_date), 'd MMM yyyy');
-    const timeStr = selectedBooking.booking_time ? formatTimeStr(selectedBooking.booking_time) : 'TBD';
-    const branchStr = selectedBooking.branch || 'Main Clinic';
-    const serviceStr = selectedBooking.service_name || 'General Service';
+    // Date formatter - human readable
+    const formatDateStr = (dateStr: string) => {
+      if (!dateStr) return '—';
+      try {
+        return new Date(dateStr).toLocaleDateString('en-MY', {
+          day: 'numeric', month: 'short', year: 'numeric',
+        });
+      } catch { return '—'; }
+    };
 
-    const message = `Assalamualaikum dan selamat sejahtera, kami ingin memaklumkan temu janji anda di KLINIK ARA 24 JAM\n\ncawangan: ${branchStr}\nmasa: ${timeStr}\ntarikh: ${dateStr}\nservis: ${serviceStr}`;
+    const dateStr = formatDateStr(selectedBooking.appointment_date);
+    const timeStr = selectedBooking.booking_time ? formatTimeStr(selectedBooking.booking_time) : 'TBD';
+    const branchStr = selectedBooking.branch || '—';
+    const serviceStr = selectedBooking.service_name || '—';
+
+    const message = `[KLINIK ARA 24 JAM]
+
+Assalamualaikum dan Selamat sejahtera. Berikut adalah maklumat temu janji pihak tuan/puan. 
+
+Tarikh: ${dateStr}
+Waktu: ${timeStr}
+Cawangan: ${branchStr}
+Servis: ${serviceStr}
+
+Kami doakan semoga segala urusan tuan/puan dimudahkan.
+ 
+Terima kasih.`;
     
     return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
   };
