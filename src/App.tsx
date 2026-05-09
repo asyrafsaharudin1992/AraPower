@@ -997,10 +997,10 @@ export default function App() {
   const fetchWhatsAppTemplates = async () => {
     try {
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/settings?key=whatsapp_templates`);
-      if (res.ok && data) {
-        setWhatsappTemplates(data.value || []);
-      } else {
-        // Default templates if none exist
+      if (res.ok && data && Array.isArray(data.value)) {
+        setWhatsappTemplates(data.value);
+      } else if (res.ok && (data?.value === null || data?.value === undefined)) {
+        // Default templates if none exist or table empty
         const defaults: WhatsAppTemplate[] = [
           {
             id: '1',

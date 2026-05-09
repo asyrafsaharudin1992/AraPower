@@ -1719,7 +1719,25 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 app.get("/api/settings", async (req, res) => {
+  const { key } = req.query;
   const selectColumns = Array.from(settingsColumns).length > 0 ? Array.from(settingsColumns).join(',') : '*';
+  
+  let query = supabase.from('settings').select(selectColumns).neq('key', 'promotions');
+  
+  if (key) {
+    query = query.eq('key', key as string);
+    const { data: setting, error } = await query.single();
+    if (error) {
+      if (error.code === 'PGRST116') return res.json({ value: null });
+      return res.status(500).json({ error: error.message });
+    }
+    try {
+      return res.json({ value: setting.value ? JSON.parse(setting.value) : null });
+    } catch (e) {
+      return res.json({ value: setting.value });
+    }
+  }
+
   const { data: settings, error } = await supabase.from('settings').select(selectColumns).neq('key', 'promotions');
   if (error) {
     if (error.code === 'PGRST205') return res.json({});
