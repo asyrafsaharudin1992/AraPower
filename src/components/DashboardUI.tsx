@@ -99,7 +99,7 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
   getStatusColor,
   getStatusLabel,
   setSelectedStaffDetail,
-  setShowStaffModal
+  setShowStaffModal,
 }) => {
   const P = "'Poppins', sans-serif";
   const blue = '#1580c2';
@@ -476,6 +476,41 @@ export const DashboardUI: React.FC<DashboardUIProps> = ({
 
       {/* ── Awareness Campaigns Carousel ── */}
       <AwarenessCarousel currentUser={currentUser} />
+
+      {/* ── B40 Eligibility Link — affiliate only ── */}
+      {currentUser?.role === 'affiliate' && (
+        <a 
+          href="https://kelayakan.pekab40.com.my/semakan-kelayakan"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'linear-gradient(135deg, #1580c2, #0d5a8a)',
+            borderRadius: '20px',
+            padding: '16px 20px',
+            textDecoration: 'none',
+            boxShadow: '0 4px 16px rgba(21,128,194,0.25)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: 40, height: 40, borderRadius: '12px', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
+              🏥
+            </div>
+            <div>
+              <p style={{ fontSize: '14px', fontWeight: 700, color: '#fff', margin: 0 }}>Semak Kelayakan PEKA B40</p>
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.65)', margin: '2px 0 0' }}>Semak sama ada pesakit layak mendapat rawatan subsidi</p>
+            </div>
+          </div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, flexShrink: 0 }}>
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </a>
+      )}
+
 
       <div className="space-y-4">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

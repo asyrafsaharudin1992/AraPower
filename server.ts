@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 import path from "path";
 import { fileURLToPath } from "url";
 import { Resend } from 'resend';
-import webpush from 'web-push';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -224,7 +223,6 @@ let staffColumns: Set<string> = new Set(['id', 'name', 'email', 'role']);
 let taskColumns: Set<string> = new Set(['id', 'title', 'status']);
 let branchColumns: Set<string> = new Set(['id', 'name', 'location', 'whatsapp_number']);
 let settingsColumns: Set<string> = new Set(['key', 'value']);
-let whatsappTemplateColumns: Set<string> = new Set(['id', 'name', 'message', 'created_at']);
 let notificationColumns: Set<string> = new Set(['id', 'user_id', 'title', 'message', 'type', 'is_read', 'created_at']);
 let branchChangeRequestColumns: Set<string> = new Set(['id', 'staff_id', 'status']);
 
@@ -237,7 +235,6 @@ async function discoverColumns() {
     { name: 'tasks', set: taskColumns },
     { name: 'branches', set: branchColumns },
     { name: 'settings', set: settingsColumns },
-    { name: 'whatsapp_templates', set: whatsappTemplateColumns },
     { name: 'notifications', set: notificationColumns },
     { name: 'branch_change_requests', set: branchChangeRequestColumns }
   ];
@@ -337,50 +334,6 @@ if (isPlaceholderUrl(supabaseUrl) || isPlaceholderKey(supabaseKey)) {
 }
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-
-// ── Web Push VAPID setup ─────────────────────────────────────────────────────
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    process.env.VAPID_EMAIL || 'mailto:support@hsohealthcare.com',
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
-  console.log('[Push] VAPID configured');
-} else {
-  console.warn('[Push] VAPID keys missing — push notifications disabled');
-}
-
-// ── Send push to all admin + receptionist ────────────────────────────────────
-async function sendPushToStaff(roles: string[], payload: { title: string; body: string; url?: string; tag?: string }) {
-  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
-  try {
-    const { data: subs } = await supabase
-      .from('push_subscriptions')
-      .select('subscription, staff:staff_id(role)')
-      .in('staff.role', roles);
-
-    if (!subs || subs.length === 0) return;
-
-    const message = JSON.stringify({
-      title: payload.title,
-      body:  payload.body,
-      icon:  '/icon-192.png',
-      tag:   payload.tag || 'arapower',
-      data:  { url: payload.url || '/' },
-    });
-
-    await Promise.allSettled(
-      subs.map((row: any) => {
-        try {
-          return webpush.sendNotification(row.subscription, message);
-        } catch { return Promise.resolve(); }
-      })
-    );
-    console.log(`[Push] Sent to ${subs.length} subscribers`);
-  } catch (err) {
-    console.error('[Push] sendPushToStaff error:', err);
-  }
-}
 
 async function sendAdminNotification(newUser: any) {
   if (!resend) {
@@ -1698,12 +1651,6 @@ app.post("/api/auth/register", async (req, res) => {
     // Background notifications
     sendAdminNotification(result).catch(err => console.error('Admin notify err:', err));
     sendRegistrationConfirmationNotification(result).catch(err => console.error('Confirm notify err:', err));
-    sendPushToStaff(['admin', 'manager'], {
-      title: '👤 New Affiliate Application',
-      body: `${result.name} has applied to join AraPower`,
-      url: '/?tab=affiliates',
-      tag: 'new-affiliate',
-    }).catch(console.error);
     
     res.json(result);
 
@@ -1721,25 +1668,7 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 app.get("/api/settings", async (req, res) => {
-  const { key } = req.query;
   const selectColumns = Array.from(settingsColumns).length > 0 ? Array.from(settingsColumns).join(',') : '*';
-  
-  let query = supabase.from('settings').select(selectColumns).neq('key', 'promotions');
-  
-  if (key) {
-    query = query.eq('key', key as string);
-    const { data: setting, error } = await query.single();
-    if (error) {
-      if (error.code === 'PGRST116') return res.json({ value: null });
-      return res.status(500).json({ error: error.message });
-    }
-    try {
-      return res.json({ value: setting.value ? JSON.parse(setting.value) : null });
-    } catch (e) {
-      return res.json({ value: setting.value });
-    }
-  }
-
   const { data: settings, error } = await supabase.from('settings').select(selectColumns).neq('key', 'promotions');
   if (error) {
     if (error.code === 'PGRST205') return res.json({});
@@ -1908,60 +1837,6 @@ app.post("/api/settings", async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
   res.json({ success: true });
-});
-
-// WhatsApp Templates API
-app.get("/api/whatsapp-templates", async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('whatsapp_templates')
-      .select('*')
-      .order('created_at', { ascending: true });
-    
-    if (error) {
-      if (error.code === '42P01') return res.json([]); // Table doesn't exist yet
-      return res.status(500).json({ error: error.message });
-    }
-    const templates = (data || []).map((t: any) => ({
-      ...t,
-      id: String(t.id)
-    }));
-    res.json(templates);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/whatsapp-templates", async (req, res) => {
-  try {
-    const templates = req.body; // Expecting an array of templates
-    if (!Array.isArray(templates)) {
-      return res.status(400).json({ error: "Expected an array of templates" });
-    }
-
-    // 1. Delete all existing templates
-    await supabase.from('whatsapp_templates').delete().neq('id', 0); // Using 0 for numeric ID if serial
-    
-    // 2. Insert new ones
-    const templatesToInsert = templates.map(({ id, ...t }) => ({
-      ...t,
-      created_at: new Date().toISOString()
-    }));
-
-    if (templatesToInsert.length > 0) {
-      const { data, error } = await supabase
-        .from('whatsapp_templates')
-        .insert(templatesToInsert)
-        .select();
-      
-      if (error) return res.status(500).json({ error: error.message });
-      return res.json(data);
-    }
-    
-    res.json([]);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
 });
 
 // Tasks API
@@ -2865,6 +2740,57 @@ app.post("/api/analytics/track", async (req, res) => {
   }
 });
 
+
+// ── B40 Eligibility Check (proxy to avoid CORS) ──────────────────────────────
+app.post("/api/b40/check", async (req, res) => {
+  const { nric } = req.body;
+
+  if (!nric) {
+    return res.status(400).json({ error: 'NRIC is required' });
+  }
+
+  // Basic NRIC format validation (12 digits)
+  const cleaned = nric.replace(/[-\s]/g, '');
+  if (!/^\d{12}$/.test(cleaned)) {
+    return res.status(400).json({ error: 'NRIC must be 12 digits' });
+  }
+
+  try {
+    const response = await fetch(
+      'https://kelayakan.pekab40.com.my/semakan-kelayakan/confirmation',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Origin': 'https://kelayakan.pekab40.com.my',
+          'Referer': 'https://kelayakan.pekab40.com.my/semakan-kelayakan',
+          'User-Agent': 'Mozilla/5.0 (compatible; AraPower/1.0)',
+        },
+        body: `nric=${cleaned}`,
+      }
+    );
+
+    if (!response.ok) {
+      return res.status(502).json({ error: 'Eligibility service unavailable' });
+    }
+
+    const data = await response.json();
+
+    // Log the check for audit purposes
+    console.log(`[B40 Check] NRIC: ${cleaned.slice(0,6)}****** → eligible: ${data.eligible}`);
+
+    return res.json({
+      eligible: data.eligible === true,
+      status:   data.status   === true,
+      nric:     cleaned.slice(0, 6) + '******', // mask for privacy in response
+    });
+
+  } catch (err: any) {
+    console.error('[B40 Check] Error:', err.message);
+    return res.status(500).json({ error: 'Failed to check eligibility' });
+  }
+});
+
 app.get("/api/services", async (req, res) => {
   const baseColumns = Array.from(serviceColumns).length > 0 
     ? Array.from(serviceColumns) 
@@ -3228,69 +3154,18 @@ app.get("/api/payouts/summary", async (req, res) => {
       payoutSummary[affiliateId].patient_ids.push(ref.id);
     });
 
-    // 4. Fetch unpaid override earnings for uplines
-    // Override earnings are owed to uplines but stored separately from referrals
-    const { data: pendingOverrides } = await supabase
-      .from('override_earnings')
-      .select('id, upline_id, downline_id, override_amount, case_number, created_at')
-      .is('paid_at', null); // only unpaid overrides
-
-    // Group override earnings by upline
-    const overrideSummary: Record<string, any> = {};
-    const uplineIds = [...new Set((pendingOverrides || []).map((o: any) => o.upline_id).filter(Boolean))];
-
-    if (uplineIds.length > 0) {
-      const { data: uplineStaff } = await supabase
-        .from('staff')
-        .select('id, name, bank_name, bank_account_number, id_type, id_number')
-        .in('id', uplineIds);
-
-      const uplineMap = Object.fromEntries((uplineStaff || []).map((s: any) => [s.id, s]));
-
-      (pendingOverrides || []).forEach((o: any) => {
-        const uid = o.upline_id;
-        if (!uid) return;
-        if (!overrideSummary[uid]) {
-          overrideSummary[uid] = {
-            affiliate_id: uid,
-            affiliate_name: uplineMap[uid]?.name || 'Unknown Upline',
-            bank_details: `${uplineMap[uid]?.bank_name || 'No Bank'} - ${uplineMap[uid]?.bank_account_number || 'No Account'}`,
-            total_patients: 0,
-            total_commission_owed: 0,
-            patient_ids: [],
-            is_override_payout: true, // flag so admin can distinguish
-            override_ids: [],
-          };
-        }
-        overrideSummary[uid].total_commission_owed += Number(o.override_amount || 0);
-        overrideSummary[uid].total_patients += 1;
-        overrideSummary[uid].patient_ids.push(o.id);
-        overrideSummary[uid].override_ids.push(o.id);
-      });
-    }
-
-    // 5. Merge referral payouts + override payouts
-    const allPayouts = [
-      ...Object.values(payoutSummary),
-      ...Object.values(overrideSummary),
-    ];
-
     // Flag affiliates with incomplete profiles — admin warned before processing
-    const result = allPayouts.map((p: any) => {
-      const staff = p.is_override_payout
-        ? (uplineIds.length > 0 ? null : null) // upline already fetched above
-        : staffMap[p.affiliate_id];
-      const profileIncomplete = p.is_override_payout
-        ? false // upline profile check handled separately
-        : (!staffMap[p.affiliate_id]?.bank_account_number || !staffMap[p.affiliate_id]?.id_number);
+    const result = Object.values(payoutSummary).map((p: any) => {
+      const staff = staffMap[p.affiliate_id];
+      const profileIncomplete = !staff?.bank_account_number || !staff?.id_number;
       return {
         ...p,
         profile_incomplete: profileIncomplete,
-        missing_fields: profileIncomplete ? [
-          !staffMap[p.affiliate_id]?.bank_name ? 'bank_name' : null,
-          !staffMap[p.affiliate_id]?.bank_account_number ? 'bank_account_number' : null,
-          !staffMap[p.affiliate_id]?.id_number ? 'id_number' : null,
-        ].filter(Boolean) : []
+        missing_fields: [
+          !staff?.bank_name ? 'bank_name' : null,
+          !staff?.bank_account_number ? 'bank_account_number' : null,
+          !staff?.id_number ? 'id_number' : null,
+        ].filter(Boolean)
       };
     });
 
@@ -3488,12 +3363,6 @@ app.post("/api/referrals", async (req, res) => {
           sendReferralNotification(staffForNotif, referral).catch(e =>
             console.error('[referral POST] Email notify failed (non-blocking):', e)
           );
-          sendPushToStaff(['admin', 'receptionist', 'manager'], {
-            title: '🔔 New Booking Referral',
-            body: `${referral.patient_name || 'New patient'} · ${referral.service_name || 'General'}`,
-            url: '/?tab=referrals',
-            tag: 'new-referral',
-          }).catch(console.error);
         }
       }
     } catch (notifErr) {
@@ -3544,7 +3413,7 @@ app.patch("/api/referrals/:id", async (req, res) => {
       // 1. Fetch settings
       const { data: setts } = await supabase.from('settings').select('key, value');
       const findSett = (key: string, def: number) => Number(setts?.find(s => s.key === key)?.value || def);
-      const overridePercentage = findSett('override_percentage', 50);
+      const overridePercentage = findSett('override_percentage', 20);
       const overrideCaseLimit = findSett('override_case_limit', 20);
 
       // 2. Fetch affiliate & check upline
@@ -3572,23 +3441,19 @@ app.patch("/api/referrals/:id", async (req, res) => {
             .update({ commission_amount: downlineAmount })
             .eq('id', id);
 
-          // c) Update staff counts
-          const newUplineCasesCount = (affiliate.upline_cases_count || 0) + 1;
-
           // b) Insert override earning
-          const { error: oeErr } = await supabase
+          await supabase
             .from('override_earnings')
             .insert({
               upline_id: upline.id,
               downline_id: affiliate.id,
               referral_id: id,
-              override_amount: overrideAmount,
-              downline_commission: downlineAmount,
-              case_number: newUplineCasesCount,
+              amount: overrideAmount,
+              status: 'earned'
             });
-          if (oeErr) console.error('[OVERRIDE] override_earnings insert failed:', oeErr.message);
-          else console.log(`[OVERRIDE] Inserted: upline ${upline.id} earned RM${overrideAmount} from downline ${affiliate.id} case #${newUplineCasesCount}`);
 
+          // c) Update staff counts
+          const newUplineCasesCount = (affiliate.upline_cases_count || 0) + 1;
           await supabase
             .from('staff')
             .update({ upline_cases_count: newUplineCasesCount })
@@ -3674,87 +3539,6 @@ app.delete("/api/referrals/:id", async (req, res) => {
 });
 
 // --- Network Management Routes ---
-
-
-// ── Get upline info for a downline affiliate ────────────────────────────────
-app.get("/api/network/upline/:affiliateId", async (req, res) => {
-  if (!checkSupabase(res)) return;
-  const { affiliateId } = req.params;
-  try {
-    const { data: affiliate } = await supabase
-      .from('staff')
-      .select('upline_id, upline_cases_count')
-      .eq('id', affiliateId)
-      .single();
-
-    if (!affiliate?.upline_id) return res.json(null);
-
-    const { data: upline } = await supabase
-      .from('staff')
-      .select('id, name, referral_code, override_earned')
-      .eq('id', affiliate.upline_id)
-      .single();
-
-    if (!upline) return res.json(null);
-
-    // Get override settings for display
-    const { data: setts } = await supabase
-      .from('settings').select('key, value')
-      .in('key', ['override_percentage', 'override_case_limit']);
-    const findSett = (key: string, def: number) => Number(setts?.find((s: any) => s.key === key)?.value || def);
-
-    res.json({
-      ...upline,
-      cases_shared: affiliate.upline_cases_count || 0,
-      override_case_limit: findSett('override_case_limit', 20),
-      override_percentage: findSett('override_percentage', 50),
-      is_active: (affiliate.upline_cases_count || 0) < findSett('override_case_limit', 20),
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
-// ── Pending override earnings with names (for PayoutManagement) ──────────────
-app.get("/api/override-earnings/pending", async (req, res) => {
-  if (!checkSupabase(res)) return;
-  try {
-    const { data: overrides, error } = await supabase
-      .from('override_earnings')
-      .select('*')
-      .is('paid_at', null)
-      .order('created_at', { ascending: false });
-
-    if (error) return res.status(500).json({ error: error.message });
-    if (!overrides || overrides.length === 0) return res.json([]);
-
-    // Fetch upline and downline names in one query
-    const allIds = [...new Set([
-      ...overrides.map((o: any) => o.upline_id),
-      ...overrides.map((o: any) => o.downline_id),
-    ].filter(Boolean))];
-
-    const { data: staffData } = await supabase
-      .from('staff')
-      .select('id, name, bank_name, bank_account_number')
-      .in('id', allIds);
-
-    const staffMap = Object.fromEntries((staffData || []).map((s: any) => [s.id, s]));
-
-    const enriched = overrides.map((o: any) => ({
-      ...o,
-      upline_name:         staffMap[o.upline_id]?.name || null,
-      upline_bank_name:    staffMap[o.upline_id]?.bank_name || null,
-      upline_bank_account: staffMap[o.upline_id]?.bank_account_number || null,
-      downline_name:       staffMap[o.downline_id]?.name || null,
-    }));
-
-    res.json(enriched);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 app.get("/api/network/settings", async (req, res) => {
   if (!checkSupabase(res)) return;
@@ -4072,27 +3856,6 @@ app.get("/api/network/admin-overview", async (req, res) => {
     total_override_paid,
     top_recruiters
   });
-});
-
-// ── Push subscription endpoints ──────────────────────────────────────────────
-app.post("/api/push/subscribe", async (req, res) => {
-  if (!checkSupabase(res)) return;
-  const { staff_id, subscription } = req.body;
-  if (!staff_id || !subscription) return res.status(400).json({ error: 'staff_id and subscription required' });
-  const { error } = await supabase
-    .from('push_subscriptions')
-    .upsert({ staff_id, subscription }, { onConflict: 'staff_id' });
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true });
-});
-
-app.delete("/api/push/unsubscribe", async (req, res) => {
-  if (!checkSupabase(res)) return;
-  const { staff_id } = req.body;
-  if (!staff_id) return res.status(400).json({ error: 'staff_id required' });
-  const { error } = await supabase.from('push_subscriptions').delete().eq('staff_id', staff_id);
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true });
 });
 
 app.get("/api/network/affiliate-dashboard/:id", async (req, res) => {

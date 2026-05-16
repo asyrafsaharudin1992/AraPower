@@ -132,7 +132,15 @@ CREATE TABLE IF NOT EXISTS communications_log (
   recipients JSONB DEFAULT '[]'::jsonb
 );
 
--- 11. Enable Row Level Security (RLS) for all tables
+-- 11. Create WhatsApp Templates table
+CREATE TABLE IF NOT EXISTS whatsapp_templates (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 12. Enable Row Level Security (RLS) for all tables
 ALTER TABLE IF EXISTS services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS referrals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS staff ENABLE ROW LEVEL SECURITY;
@@ -143,8 +151,9 @@ ALTER TABLE IF EXISTS branch_change_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS communications_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS whatsapp_templates ENABLE ROW LEVEL SECURITY;
 
--- 12. Create permissive policies for the backend app
+-- 13. Create permissive policies for the backend app
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'services' AND policyname = 'Enable all for app') THEN
@@ -176,5 +185,8 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'communications_log' AND policyname = 'Enable all for app') THEN
         CREATE POLICY "Enable all for app" ON communications_log FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'whatsapp_templates' AND policyname = 'Enable all for app') THEN
+        CREATE POLICY "Enable all for app" ON whatsapp_templates FOR ALL USING (true) WITH CHECK (true);
     END IF;
 END $$;

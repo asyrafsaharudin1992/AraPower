@@ -995,6 +995,19 @@ export default function App() {
   };
 
   const fetchWhatsAppTemplates = async () => {
+    const defaults: WhatsAppTemplate[] = [
+      {
+        id: '1',
+        name: 'Booking Reminder',
+        message: `[KLINIK ARA 24 JAM]\n\nAssalamualaikum dan Selamat sejahtera. Berikut adalah maklumat temu janji pihak tuan/puan. \n\nTarikh: {{date}}\nWaktu: {{time}}\nCawangan: {{branch}}\nServis: {{service}} \n\nKami doakan semoga segala urusan tuan/puan dimudahkan.\n \nTerima kasih.`
+      },
+      {
+        id: '2',
+        name: 'Thank You Message',
+        message: `[KLINIK ARA 24 JAM]\n\nAssalamualaikum dan Selamat sejahtera {{patient_name}}. \n\nTerima kasih kerana memilih Klinik Ara 24 Jam. Kami harap tuan/puan berpuas hati dengan servis kami.\n\nTerima kasih.`
+      }
+    ];
+
     try {
       const { res, data } = await safeFetch(`${apiBaseUrl}/api/whatsapp-templates`);
       if (res.ok && Array.isArray(data)) {
@@ -1002,23 +1015,17 @@ export default function App() {
           setWhatsappTemplates(data);
         } else {
           // Default templates if table empty
-          const defaults: WhatsAppTemplate[] = [
-            {
-              id: '1',
-              name: 'Booking Reminder',
-              message: `[KLINIK ARA 24 JAM]\n\nAssalamualaikum dan Selamat sejahtera. Berikut adalah maklumat temu janji pihak tuan/puan. \n\nTarikh: {{date}}\nWaktu: {{time}}\nCawangan: {{branch}}\nServis: {{service}} \n\nKami doakan semoga segala urusan tuan/puan dimudahkan.\n \nTerima kasih.`
-            },
-            {
-              id: '2',
-              name: 'Thank You Message',
-              message: `[KLINIK ARA 24 JAM]\n\nAssalamualaikum dan Selamat sejahtera {{patient_name}}. \n\nTerima kasih kerana memilih Klinik Ara 24 Jam. Kami harap tuan/puan berpuas hati dengan servis kami.\n\nTerima kasih.`
-            }
-          ];
           setWhatsappTemplates(defaults);
         }
+      } else {
+        // Use defaults if fetch failed
+        console.warn('Failed to fetch WhatsApp templates or invalid data format, using defaults');
+        setWhatsappTemplates(defaults);
       }
     } catch (err) {
       console.error('Error fetching WhatsApp templates:', err);
+      // Fallback to defaults on error
+      setWhatsappTemplates(defaults);
     }
   };
 
